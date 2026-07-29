@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Approved for planning
+**Status:** Phase 1 complete; Phase 2 in progress
 **Author:** brainstormed with operator
 
 ---
@@ -140,6 +140,8 @@ The switch the operator originally asked for. Delivers the "feel" immediately wi
   (run vitest with `--exclude '**/.worktrees/**'`).
 
 ## 5. Phase 2 — Splits & pop-out windows (OUTLINE)
+
+**Detailed implementation plan:** `docs/superpowers/plans/2026-07-28-zed-mode-phase-2.md`
 
 - **Splits:** extend the existing editor tab/registry (`EditorTab`,
   `EditorTerminalPanel`) to support horizontal/vertical split panes sharing the
