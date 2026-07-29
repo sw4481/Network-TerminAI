@@ -17,6 +17,11 @@ import {
   createEditorDisposalOwnership,
   type EditorDisposalOwnership,
 } from "./monacoEditorOwnership";
+import {
+  getMonacoModelRegistry,
+  MonacoPaneModelController,
+  type MonacoModelLease,
+} from "./monacoModelRegistry";
 import "./MonacoEditor.css";
 
 export type EditorSettings = {
@@ -38,10 +43,13 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
 };
 
 type MonacoEditorProps = {
+  /** Logical buffer identity. Equal IDs share one model in this webview. */
+  bufferId?: string;
   value: string;
   language: string;
   onChange: (value: string) => void;
   onCursorChange?: (position: { line: number; column: number }) => void;
+  onScrollChange?: (scrollTop: number) => void;
   onSave?: () => void;
   readOnly?: boolean;
   enableLsp?: boolean;
@@ -77,10 +85,12 @@ async function loadMonaco(): Promise<typeof Monaco> {
 }
 
 export function MonacoEditor({
+  bufferId,
   value,
   language,
   onChange,
   onCursorChange,
+  onScrollChange,
   onSave,
   readOnly = false,
   enableLsp = true,
@@ -93,6 +103,8 @@ export function MonacoEditor({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorOwnershipRef = useRef<EditorDisposalOwnership | null>(null);
+  const modelLeaseRef = useRef<MonacoModelLease | null>(null);
+  const paneModelControllerRef = useRef<MonacoPaneModelController | null>(null);
   const [monaco, setMonaco] = useState<typeof Monaco | null>(null);
   const [editorInstance, setEditorInstance] =
     useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -100,15 +112,33 @@ export function MonacoEditor({
   const activeVimStatusRef = vimStatusRef ?? fallbackVimStatusRef;
   const [error, setError] = useState<string | null>(null);
   const { mode, vimEnabled } = useZedMode();
+  const fallbackBufferIdRef = useRef(
+    `standalone:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+  );
+  const activeBufferId = bufferId ?? fallbackBufferIdRef.current;
 
   // Refs keep the latest values accessible from Monaco action callbacks,
   // which are registered once and persist for the editor lifetime.
   const tabIdRef = useRef<string | undefined>(tabId);
   const languageRef = useRef<string>(language);
   const filePathRef = useRef<string | null>(filePath);
-  useEffect(() => { tabIdRef.current = tabId; }, [tabId]);
-  useEffect(() => { languageRef.current = language; }, [language]);
-  useEffect(() => { filePathRef.current = filePath; }, [filePath]);
+  const bufferIdRef = useRef(activeBufferId);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
+  const onScrollChangeRef = useRef(onScrollChange);
+  const onSaveRef = useRef(onSave);
+  const onEditorReadyRef = useRef(onEditorReady);
+  tabIdRef.current = tabId;
+  languageRef.current = language;
+  filePathRef.current = filePath;
+  bufferIdRef.current = activeBufferId;
+  valueRef.current = value;
+  onChangeRef.current = onChange;
+  onCursorChangeRef.current = onCursorChange;
+  onScrollChangeRef.current = onScrollChange;
+  onSaveRef.current = onSave;
+  onEditorReadyRef.current = onEditorReady;
 
   const { sendRequest, ready: lspReady } = useLspClient(language, enableLsp);
 
@@ -133,9 +163,17 @@ export function MonacoEditor({
     }
 
     const editorDisposables: Monaco.IDisposable[] = [];
-    const editor = monaco.editor.create(containerRef.current, {
-      value,
-      language,
+    const registry = getMonacoModelRegistry(monaco);
+    const modelLease = registry.acquire(
+      bufferIdRef.current,
+      valueRef.current,
+      languageRef.current,
+    );
+    modelLeaseRef.current = modelLease;
+    let editor: Monaco.editor.IStandaloneCodeEditor;
+    try {
+      editor = monaco.editor.create(containerRef.current, {
+      model: modelLease.model,
       theme: themeForEditorMode(mode),
       fontSize: settings.fontSize,
       fontFamily: fontFamilyForEditorMode(mode),
@@ -155,15 +193,30 @@ export function MonacoEditor({
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
       readOnly,
       scrollbar: { vertical: "auto", horizontal: "auto" },
-    });
+      });
+    } catch (error) {
+      modelLeaseRef.current = null;
+      modelLease.release();
+      throw error;
+    }
+    paneModelControllerRef.current = new MonacoPaneModelController(
+      editor,
+      bufferIdRef.current,
+    );
 
     let ownership: EditorDisposalOwnership;
     ownership = createEditorDisposalOwnership(
       editor,
       () => editorDisposables.forEach((disposable) => disposable.dispose()),
       () => {
-        if (editorRef.current === editor) {
+        const ownsCurrentEditor = editorRef.current === editor;
+        if (ownsCurrentEditor) {
           editorRef.current = null;
+          paneModelControllerRef.current?.clear();
+          paneModelControllerRef.current = null;
+          const currentLease = modelLeaseRef.current;
+          modelLeaseRef.current = null;
+          currentLease?.release();
         }
         if (editorOwnershipRef.current === ownership) {
           editorOwnershipRef.current = null;
@@ -172,7 +225,7 @@ export function MonacoEditor({
     );
     editorRef.current = editor;
     editorOwnershipRef.current = ownership;
-    onEditorReady?.(editor, monaco);
+    onEditorReadyRef.current?.(editor, monaco);
 
     // "Ask AI" editor actions — appear in Monaco's native context menu and
     // via Cmd+L (for the custom Ask…). Each reads live values through refs
@@ -218,26 +271,35 @@ export function MonacoEditor({
     ]);
 
     const changeDisposable = editor.onDidChangeModelContent(() => {
-      onChange(editor.getValue());
+      const lease = modelLeaseRef.current;
+      if (
+        lease &&
+        !registry.isApplyingContent(lease.bufferId)
+      ) {
+        onChangeRef.current(editor.getValue());
+      }
     });
     editorDisposables.push(changeDisposable);
 
-    if (onCursorChange) {
-      editorDisposables.push(
-        editor.onDidChangeCursorPosition((e) => {
-          onCursorChange({
-            line: e.position.lineNumber,
-            column: e.position.column,
-          });
-        }),
-      );
-    }
+    editorDisposables.push(
+      editor.onDidChangeCursorPosition((e) => {
+        onCursorChangeRef.current?.({
+          line: e.position.lineNumber,
+          column: e.position.column,
+        });
+      }),
+    );
+    editorDisposables.push(
+      editor.onDidScrollChange((event) => {
+        if (event.scrollTopChanged) {
+          onScrollChangeRef.current?.(event.scrollTop);
+        }
+      }),
+    );
 
-    if (onSave) {
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-        onSave();
-      });
-    }
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      onSaveRef.current?.();
+    });
 
     editor.focus();
     setEditorInstance(editor);
@@ -281,16 +343,29 @@ export function MonacoEditor({
   }, [monaco, mode]);
 
   useEffect(() => {
-    if (editorRef.current && editorRef.current.getValue() !== value) {
-      editorRef.current.setValue(value);
-    }
-  }, [value]);
+    if (!monaco || !editorInstance) return;
+    const currentLease = modelLeaseRef.current;
+    if (currentLease?.bufferId === activeBufferId) return;
+
+    const registry = getMonacoModelRegistry(monaco);
+    const nextLease = registry.acquire(activeBufferId, value, language);
+    paneModelControllerRef.current?.switchTo(activeBufferId, nextLease.model);
+    modelLeaseRef.current = nextLease;
+    currentLease?.release();
+  }, [monaco, editorInstance, activeBufferId, value, language]);
 
   useEffect(() => {
-    if (!monaco || !editorRef.current) return;
-    const model = editorRef.current.getModel();
-    if (model) monaco.editor.setModelLanguage(model, language);
-  }, [monaco, language]);
+    if (!monaco || !editorInstance) return;
+    getMonacoModelRegistry(monaco).applyContent(activeBufferId, value);
+  }, [monaco, editorInstance, activeBufferId, value]);
+
+  useEffect(() => {
+    if (!monaco) return;
+    const lease = modelLeaseRef.current;
+    if (lease?.bufferId === activeBufferId) {
+      monaco.editor.setModelLanguage(lease.model, language);
+    }
+  }, [monaco, activeBufferId, language]);
 
   useEffect(() => {
     if (editorRef.current) editorRef.current.updateOptions({ readOnly });

@@ -53,4 +53,19 @@ describe("Monaco editor disposal ownership", () => {
     expect(disposeEditor).toHaveBeenCalledOnce();
     expect(clearEditor).toHaveBeenCalledOnce();
   });
+
+  it("releases model ownership only after registrations and editor disposal", () => {
+    const events: string[] = [];
+    const ownership = createEditorDisposalOwnership(
+      mockEditor(() => events.push("editor")),
+      () => events.push("registrations"),
+      () => events.push("model"),
+    );
+
+    ownership.claimFinalOwner();
+    ownership.disposeRegistrations();
+    ownership.disposeEditor();
+
+    expect(events).toEqual(["registrations", "editor", "model"]);
+  });
 });

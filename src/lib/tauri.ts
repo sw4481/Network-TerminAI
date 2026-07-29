@@ -2309,6 +2309,36 @@ export const editorSaveFile = (
   content: string
 ) => invoke<void>("editor_save_file", { tabId, filePath, content });
 
+export type DetachedEditorWindowInfo = {
+  windowId: string;
+  tabId: string;
+  paneId: string;
+  bufferId: string;
+  title: string;
+};
+
+export const editorDetachPane = (
+  tabId: string,
+  paneId: string,
+  bufferId: string,
+  title: string,
+) =>
+  invoke<DetachedEditorWindowInfo>("editor_detach_pane", {
+    tabId,
+    paneId,
+    bufferId,
+    title,
+  });
+
+export const editorDetachedWindowList = () =>
+  invoke<DetachedEditorWindowInfo[]>("editor_detached_window_list");
+
+export const editorDetachedWindowFocus = (windowId: string) =>
+  invoke<void>("editor_detached_window_focus", { windowId });
+
+export const editorDetachedWindowClose = (windowId: string) =>
+  invoke<void>("editor_detached_window_close", { windowId });
+
 /** IaC Studio file (DB-free; no tab_id / FK coupling). */
 export type IacStudioFile = {
   file_path: string;
