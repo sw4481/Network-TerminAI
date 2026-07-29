@@ -1,7 +1,4 @@
-import {
-  listen,
-  type UnlistenFn,
-} from "@tauri-apps/api/event";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   editorBufferMarkSaved,
   editorBufferRegister,
@@ -35,9 +32,8 @@ export const tauriEditorBufferSyncTransport: EditorBufferSyncTransport = {
   update: editorBufferUpdate,
   markSaved: editorBufferMarkSaved,
   listen: (handler) =>
-    listen<EditorBufferSnapshot>(
-      EDITOR_BUFFER_CHANGED_EVENT,
-      (event) => handler(event.payload),
+    listen<EditorBufferSnapshot>(EDITOR_BUFFER_CHANGED_EVENT, (event) =>
+      handler(event.payload),
     ),
 };
 
@@ -81,14 +77,13 @@ export class EditorBufferSyncClient {
   private startPromise: Promise<void> | null = null;
   private inFlight: Promise<boolean> | null = null;
   private lastSentAt = Number.NEGATIVE_INFINITY;
+  private latestAuthoritative: EditorBufferSnapshot | null = null;
 
   constructor(options: EditorBufferSyncClientOptions) {
     this.bufferId = options.bufferId;
     this.sourceId = options.sourceId;
-    this.transport =
-      options.transport ?? tauriEditorBufferSyncTransport;
-    this.coalesceMs =
-      options.coalesceMs ?? EDITOR_BUFFER_COALESCE_MS;
+    this.transport = options.transport ?? tauriEditorBufferSyncTransport;
+    this.coalesceMs = options.coalesceMs ?? EDITOR_BUFFER_COALESCE_MS;
     this.onSnapshot = options.onSnapshot;
     this.onRevision = options.onRevision;
     this.onStatus = options.onStatus;
@@ -150,24 +145,33 @@ export class EditorBufferSyncClient {
     this.schedulePublish(this.coalesceMs, true);
   }
 
-  async flushNow(): Promise<number> {
+  async flushNow(): Promise<EditorBufferSnapshot> {
     await this.startPromise;
     this.clearTimer();
     while (!this.disposed && this.hasPendingLocal()) {
       if (this.inFlight) {
         const succeeded = await this.inFlight;
-        if (!succeeded) break;
+        if (!succeeded) {
+          throw new Error(
+            "failed to synchronize editor buffer before continuing",
+          );
+        }
       } else {
         const succeeded = await this.publishLatest();
-        if (!succeeded) break;
+        if (!succeeded) {
+          throw new Error(
+            "failed to synchronize editor buffer before continuing",
+          );
+        }
       }
     }
-    return this.revision;
+    if (!this.latestAuthoritative) {
+      throw new Error("editor buffer has no authoritative snapshot");
+    }
+    return this.latestAuthoritative;
   }
 
-  async markSaved(
-    revision = this.revision,
-  ): Promise<EditorBufferSnapshot> {
+  async markSaved(revision = this.revision): Promise<EditorBufferSnapshot> {
     await this.startPromise;
     if (this.disposed) {
       throw new Error("editor buffer sync client is disposed");
@@ -179,12 +183,14 @@ export class EditorBufferSyncClient {
     });
     if (this.disposed) return result.snapshot;
 
-    const isNewer = result.snapshot.revision > this.baseRevision;
-    if (isNewer) this.baseRevision = result.snapshot.revision;
+    const previousRevision = this.baseRevision;
+    const authoritative = this.rememberAuthoritative(result.snapshot);
     if (this.hasPendingLocal()) {
-      if (isNewer) this.onRevision(result.snapshot);
-    } else if (isNewer) {
-      this.onSnapshot(result.snapshot);
+      if (authoritative.revision > previousRevision) {
+        this.onRevision(authoritative);
+      }
+    } else {
+      this.onSnapshot(authoritative);
     }
     this.onStatus(result.status === "applied" ? "synced" : "conflict");
     return result.snapshot;
@@ -206,12 +212,12 @@ export class EditorBufferSyncClient {
     ) {
       return;
     }
-    this.baseRevision = snapshot.revision;
+    const authoritative = this.rememberAuthoritative(snapshot);
     if (this.hasPendingLocal()) {
-      this.onRevision(snapshot);
+      this.onRevision(authoritative);
       this.onStatus("local");
     } else {
-      this.onSnapshot(snapshot);
+      this.onSnapshot(authoritative);
       this.onStatus("synced");
     }
   }
@@ -223,10 +229,24 @@ export class EditorBufferSyncClient {
     ) {
       return;
     }
-    this.baseRevision = snapshot.revision;
-    if (this.hasPendingLocal()) this.onRevision(snapshot);
-    else this.onSnapshot(snapshot);
+    const authoritative = this.rememberAuthoritative(snapshot);
+    if (this.hasPendingLocal()) this.onRevision(authoritative);
+    else this.onSnapshot(authoritative);
     this.onStatus(this.hasPendingLocal() ? "local" : "synced");
+  }
+
+  private rememberAuthoritative(
+    snapshot: EditorBufferSnapshot,
+  ): EditorBufferSnapshot {
+    if (
+      snapshot.bufferId === this.bufferId &&
+      (!this.latestAuthoritative ||
+        snapshot.revision > this.latestAuthoritative.revision)
+    ) {
+      this.latestAuthoritative = snapshot;
+    }
+    this.baseRevision = Math.max(this.baseRevision, snapshot.revision);
+    return this.latestAuthoritative ?? snapshot;
   }
 
   private hasPendingLocal(): boolean {
@@ -240,20 +260,18 @@ export class EditorBufferSyncClient {
     if (this.disposed) return;
     if (reset) this.clearTimer();
     if (this.timer !== null) return;
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      if (!this.started || this.inFlight || !this.hasPendingLocal()) return;
-      void this.publishLatest();
-    }, Math.max(0, delay));
+    this.timer = setTimeout(
+      () => {
+        this.timer = null;
+        if (!this.started || this.inFlight || !this.hasPendingLocal()) return;
+        void this.publishLatest();
+      },
+      Math.max(0, delay),
+    );
   }
 
   private publishLatest(): Promise<boolean> {
-    if (
-      this.disposed ||
-      !this.started ||
-      this.inFlight ||
-      !this.latestLocal
-    ) {
+    if (this.disposed || !this.started || this.inFlight || !this.latestLocal) {
       return this.inFlight ?? Promise.resolve(true);
     }
 
@@ -295,8 +313,7 @@ export class EditorBufferSyncClient {
     result: EditorBufferUpdateResult,
     sentSequence: number,
   ): void {
-    const isNewer = result.snapshot.revision > this.baseRevision;
-    if (isNewer) this.baseRevision = result.snapshot.revision;
+    const authoritative = this.rememberAuthoritative(result.snapshot);
 
     if (result.status === "applied") {
       this.acknowledgedSequence = Math.max(
@@ -304,17 +321,17 @@ export class EditorBufferSyncClient {
         sentSequence,
       );
       if (this.localSequence > sentSequence) {
-        if (isNewer) this.onRevision(result.snapshot);
+        this.onRevision(authoritative);
         this.onStatus("local");
       } else {
-        if (isNewer) this.onSnapshot(result.snapshot);
+        this.onSnapshot(authoritative);
         this.onStatus("synced");
       }
       return;
     }
 
     if (this.localSequence > sentSequence) {
-      if (isNewer) this.onRevision(result.snapshot);
+      this.onRevision(authoritative);
       this.acknowledgedSequence = Math.max(
         this.acknowledgedSequence,
         sentSequence,
@@ -324,7 +341,7 @@ export class EditorBufferSyncClient {
     }
 
     this.acknowledgedSequence = this.localSequence;
-    if (isNewer) this.onSnapshot(result.snapshot);
+    this.onSnapshot(authoritative);
     this.onStatus("conflict");
   }
 

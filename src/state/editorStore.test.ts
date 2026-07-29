@@ -11,7 +11,10 @@ import {
   createEditorBuffer,
   useEditorStore,
 } from "./editorStore";
-import { findEditorPane, getEditorPaneLeaves } from "../components/editor/editorPaneLayout";
+import {
+  findEditorPane,
+  getEditorPaneLeaves,
+} from "../components/editor/editorPaneLayout";
 
 describe("editorStore normalized editor state", () => {
   beforeEach(() => {
@@ -64,12 +67,10 @@ describe("editorStore normalized editor state", () => {
       bufferId: "untitled:seed",
       paneId: "pane-left",
     });
-    store.splitPane(
-      "editor-tab-1",
-      workspace.focusedPaneId,
-      "horizontal",
-      { paneId: "pane-right", splitId: "split-root" },
-    );
+    store.splitPane("editor-tab-1", workspace.focusedPaneId, "horizontal", {
+      paneId: "pane-right",
+      splitId: "split-root",
+    });
     store.focusPane("editor-tab-1", "pane-right");
     const bufferId = store.openFileInPane("editor-tab-1", "pane-right", {
       file_path: "/repo/a.ts",
@@ -116,22 +117,16 @@ describe("editorStore normalized editor state", () => {
       bufferId: "untitled:seed",
       paneId: "pane-left",
     });
-    store.splitPane(
-      "editor-tab-1",
-      workspace.focusedPaneId,
-      "vertical",
-      { paneId: "pane-right", splitId: "split-root" },
-    );
+    store.splitPane("editor-tab-1", workspace.focusedPaneId, "vertical", {
+      paneId: "pane-right",
+      splitId: "split-root",
+    });
     store.resizePane("editor-tab-1", "split-root", [40, 60]);
     store.updatePaneView("editor-tab-1", "pane-right", {
       cursor_position: { line: 7, column: 2 },
       scroll_position: 50,
     });
-    store.markPaneDetached(
-      "editor-tab-1",
-      "pane-right",
-      "editor-window-1",
-    );
+    store.markPaneDetached("editor-tab-1", "pane-right", "editor-window-1");
     store.reconcileDetachedPanes("editor-tab-1", new Set());
 
     let current = useEditorStore.getState().workspaces["editor-tab-1"];
@@ -147,9 +142,9 @@ describe("editorStore normalized editor state", () => {
     current = useEditorStore.getState().workspaces["editor-tab-1"];
     expect(current.layout).toMatchObject({ type: "leaf", id: "pane-right" });
     store.closePane("editor-tab-1", "pane-right");
-    expect(
-      useEditorStore.getState().workspaces["editor-tab-1"].layout,
-    ).toEqual(current.layout);
+    expect(useEditorStore.getState().workspaces["editor-tab-1"].layout).toEqual(
+      current.layout,
+    );
   });
 
   it("persists versioned editor JSON through the generic pane commands", async () => {
@@ -205,5 +200,29 @@ describe("editorStore normalized editor state", () => {
       .getState()
       .loadWorkspaceLayout("editor-tab-2", new Set());
     expect(getEditorPaneLeaves(fallback.layout)).toHaveLength(1);
+  });
+
+  it("preserves detached markers when the live-window registry is unavailable", async () => {
+    invokeMock.mockResolvedValueOnce(
+      JSON.stringify({
+        version: 1,
+        focusedPaneId: "pane-file",
+        root: {
+          type: "leaf",
+          id: "pane-file",
+          size: 100,
+          buffer: { kind: "file", path: "/repo/a.ts" },
+          detachedWindowId: "window-status-unknown",
+        },
+      }),
+    );
+
+    const hydrated = await useEditorStore
+      .getState()
+      .loadWorkspaceLayout("editor-tab-1");
+
+    expect(hydrated.layout).toMatchObject({
+      detachedWindowId: "window-status-unknown",
+    });
   });
 });

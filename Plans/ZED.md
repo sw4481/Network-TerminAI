@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phase 1 complete; Phase 2 in progress
+**Status:** Phase 1 complete; Phase 2 implemented, native validation pending
 **Author:** brainstormed with operator
 
 ---
@@ -142,6 +142,13 @@ The switch the operator originally asked for. Delivers the "feel" immediately wi
 ## 5. Phase 2 — Splits & pop-out windows (OUTLINE)
 
 **Detailed implementation plan:** `docs/superpowers/plans/2026-07-28-zed-mode-phase-2.md`
+
+**Implementation status (2026-07-28):** Tasks 1–9 and the automated
+acceptance gates are complete on `feature/zed-mode-phase-2`. The Tauri app and
+detached-editor route start cleanly. The final interactive native-window matrix
+remains pending because the repository's current Playwright Tauri driver
+returns a mock page rather than attaching to the WKWebView, and the active
+Codex session cannot use macOS screen capture or Accessibility UI control.
 
 - **Splits:** extend the existing editor tab/registry (`EditorTab`,
   `EditorTerminalPanel`) to support horizontal/vertical split panes sharing the

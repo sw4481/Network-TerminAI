@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EditorBufferSyncClient,
+  type EditorBufferSyncClientOptions,
   type EditorBufferSyncTransport,
 } from "./editorBufferSync";
 import type {
@@ -68,11 +69,12 @@ function transport(initial = snapshot(0, "initial")) {
 
 function client(
   syncTransport: EditorBufferSyncTransport,
-  handlers?: {
-    onSnapshot?: ReturnType<typeof vi.fn>;
-    onRevision?: ReturnType<typeof vi.fn>;
-    onStatus?: ReturnType<typeof vi.fn>;
-  },
+  handlers?: Partial<
+    Pick<
+      EditorBufferSyncClientOptions,
+      "onSnapshot" | "onRevision" | "onStatus"
+    >
+  >,
 ) {
   return new EditorBufferSyncClient({
     bufferId: "file:/repo/a.ts",
@@ -125,9 +127,7 @@ describe("EditorBufferSyncClient", () => {
   });
 
   it("allows only one request in flight and publishes a newer pending write later", async () => {
-    let resolveFirst:
-      | ((result: EditorBufferUpdateResult) => void)
-      | undefined;
+    let resolveFirst: ((result: EditorBufferUpdateResult) => void) | undefined;
     const fake = transport();
     fake.update.mockImplementationOnce(
       () =>
@@ -187,10 +187,31 @@ describe("EditorBufferSyncClient", () => {
     expect(fake.update.mock.calls[1][0].baseRevision).toBe(1);
   });
 
+  it("flushes to and returns the exact authoritative snapshot", async () => {
+    const fake = transport();
+    const sync = client(fake.value);
+    await sync.start(seed);
+    sync.queueLocal("save this", "typescript", true);
+
+    const flushed = await sync.flushNow();
+
+    expect(flushed).toEqual(snapshot(1, "save this", "main-window"));
+  });
+
+  it("rejects a flush when pending local text cannot be synchronized", async () => {
+    const fake = transport();
+    fake.update.mockRejectedValueOnce(new Error("transport down"));
+    const sync = client(fake.value);
+    await sync.start(seed);
+    sync.queueLocal("must not be lost", "typescript", true);
+
+    await expect(sync.flushNow()).rejects.toThrow(
+      "failed to synchronize editor buffer",
+    );
+  });
+
   it("retries a conflict only when newer local content is still pending", async () => {
-    let resolveFirst:
-      | ((result: EditorBufferUpdateResult) => void)
-      | undefined;
+    let resolveFirst: ((result: EditorBufferUpdateResult) => void) | undefined;
     const fake = transport();
     fake.update.mockImplementationOnce(
       () =>
@@ -245,6 +266,59 @@ describe("EditorBufferSyncClient", () => {
     expect(onSnapshot).toHaveBeenCalledWith(snapshot(4, "remote"));
   });
 
+  it("adopts an event-first conflict after its command response arrives", async () => {
+    let resolveUpdate: ((result: EditorBufferUpdateResult) => void) | undefined;
+    const fake = transport();
+    fake.update.mockImplementationOnce(
+      () =>
+        new Promise<EditorBufferUpdateResult>((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+    const onSnapshot = vi.fn();
+    const sync = client(fake.value, { onSnapshot });
+    await sync.start(seed);
+    onSnapshot.mockClear();
+
+    sync.queueLocal("loses", "typescript", true);
+    await vi.advanceTimersByTimeAsync(120);
+    const remote = snapshot(4, "remote");
+    fake.emit(remote);
+    resolveUpdate?.({ status: "conflict", snapshot: remote });
+    await Promise.resolve();
+
+    expect(fake.update).toHaveBeenCalledOnce();
+    expect(onSnapshot).toHaveBeenCalledWith(remote);
+  });
+
+  it("converges on a newer event that arrives before an applied response", async () => {
+    let resolveUpdate: ((result: EditorBufferUpdateResult) => void) | undefined;
+    const fake = transport();
+    fake.update.mockImplementationOnce(
+      () =>
+        new Promise<EditorBufferUpdateResult>((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+    const onSnapshot = vi.fn();
+    const sync = client(fake.value, { onSnapshot });
+    await sync.start(seed);
+    onSnapshot.mockClear();
+
+    sync.queueLocal("accepted-first", "typescript", true);
+    await vi.advanceTimersByTimeAsync(120);
+    const newerRemote = snapshot(2, "newer-remote");
+    fake.emit(newerRemote);
+    resolveUpdate?.({
+      status: "applied",
+      snapshot: snapshot(1, "accepted-first", "main-window"),
+    });
+    await Promise.resolve();
+
+    expect(onSnapshot).toHaveBeenCalledWith(newerRemote);
+    expect(sync.revision).toBe(2);
+  });
+
   it("marks only the current revision saved and applies the result", async () => {
     const fake = transport(snapshot(5, "current"));
     const onSnapshot = vi.fn();
@@ -265,9 +339,7 @@ describe("EditorBufferSyncClient", () => {
   });
 
   it("cancels timers and listeners and ignores late responses on teardown", async () => {
-    let resolveUpdate:
-      | ((result: EditorBufferUpdateResult) => void)
-      | undefined;
+    let resolveUpdate: ((result: EditorBufferUpdateResult) => void) | undefined;
     const fake = transport();
     fake.update.mockImplementationOnce(
       () =>

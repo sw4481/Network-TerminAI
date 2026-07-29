@@ -1,0 +1,284 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  getCurrent: vi.fn(),
+  saveFile: vi.fn(),
+  close: vi.fn(),
+  focusSource: vi.fn(),
+  start: vi.fn(),
+  queueLocal: vi.fn(),
+  flushNow: vi.fn(),
+  markSaved: vi.fn(),
+  dispose: vi.fn(),
+  onCloseRequested: vi.fn(),
+  unlistenClose: vi.fn(),
+  closeRequestHandler: undefined as
+    | ((event: { preventDefault: () => void }) => Promise<void>)
+    | undefined,
+  syncOptions: undefined as
+    | {
+        onSnapshot: (snapshot: unknown) => void;
+        onRevision: (snapshot: unknown) => void;
+        onStatus: (status: string, error?: string) => void;
+      }
+    | undefined,
+  mode: "zed" as "zed" | "monaco",
+  hydrated: true,
+}));
+
+vi.mock("../../lib/tauri", () => ({
+  editorDetachedWindowGetCurrent: mocks.getCurrent,
+  editorSaveFile: mocks.saveFile,
+  editorDetachedWindowClose: mocks.close,
+  editorSourceWindowFocus: mocks.focusSource,
+}));
+
+vi.mock("./editorBufferSync", () => ({
+  EditorBufferSyncClient: class {
+    constructor(options: typeof mocks.syncOptions) {
+      mocks.syncOptions = options;
+    }
+    start = mocks.start;
+    queueLocal = mocks.queueLocal;
+    flushNow = mocks.flushNow;
+    markSaved = mocks.markSaved;
+    dispose = mocks.dispose;
+  },
+}));
+
+vi.mock("./ZedModeProvider", () => ({
+  useZedMode: () => ({
+    mode: mocks.mode,
+    hydrated: mocks.hydrated,
+    vimEnabled: false,
+    setMode: vi.fn(),
+    setVimEnabled: vi.fn(),
+  }),
+}));
+
+vi.mock("./EditorPane", () => ({
+  EditorPane: ({
+    buffer,
+    onChange,
+  }: {
+    buffer: { content: string };
+    onChange: (content: string) => void;
+  }) => (
+    <div data-testid="detached-editor-pane">
+      <span data-testid="detached-content">{buffer.content}</span>
+      <button onClick={() => onChange("changed locally")}>type</button>
+    </div>
+  ),
+}));
+
+vi.mock("../../hooks/useEditorSettings", () => ({
+  useEditorSettings: () => ({
+    settings: {
+      fontSize: 14,
+      tabSize: 2,
+      wordWrap: "on",
+      minimap: true,
+      lineNumbers: true,
+      renderWhitespace: false,
+    },
+  }),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    close: mocks.close,
+    onCloseRequested: mocks.onCloseRequested,
+  }),
+}));
+
+import { DetachedEditorWindow } from "./DetachedEditorWindow";
+
+const metadata = {
+  windowId: "editor-window-1",
+  tabId: "editor-tab-1",
+  paneId: "pane-1",
+  bufferId: "file:/repo/a.ts",
+  title: "a.ts",
+};
+
+const authoritative = {
+  bufferId: metadata.bufferId,
+  filePath: "/repo/a.ts",
+  content: "authoritative",
+  language: "typescript",
+  dirty: true,
+  revision: 4,
+  sourceId: "main",
+};
+
+describe("DetachedEditorWindow", () => {
+  beforeEach(() => {
+    mocks.getCurrent.mockReset().mockResolvedValue(metadata);
+    mocks.saveFile.mockReset().mockResolvedValue(undefined);
+    mocks.close.mockReset().mockResolvedValue(undefined);
+    mocks.focusSource.mockReset().mockResolvedValue(undefined);
+    mocks.start.mockReset().mockImplementation(async () => {
+      mocks.syncOptions?.onSnapshot(authoritative);
+    });
+    mocks.queueLocal.mockReset();
+    mocks.flushNow.mockReset().mockResolvedValue(authoritative);
+    mocks.markSaved.mockReset().mockImplementation(async () => {
+      const saved = { ...authoritative, dirty: false, revision: 5 };
+      mocks.syncOptions?.onSnapshot(saved);
+      return saved;
+    });
+    mocks.dispose.mockReset();
+    mocks.unlistenClose.mockReset();
+    mocks.closeRequestHandler = undefined;
+    mocks.onCloseRequested
+      .mockReset()
+      .mockImplementation(
+        async (
+          handler: (event: { preventDefault: () => void }) => Promise<void>,
+        ) => {
+          mocks.closeRequestHandler = handler;
+          return mocks.unlistenClose;
+        },
+      );
+    mocks.syncOptions = undefined;
+    mocks.mode = "zed";
+    mocks.hydrated = true;
+  });
+
+  it("hydrates metadata and one authoritative editor pane", async () => {
+    render(<DetachedEditorWindow />);
+
+    expect(
+      await screen.findByTestId("detached-editor-pane"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("detached-content")).toHaveTextContent(
+      "authoritative",
+    );
+    expect(screen.queryByText("Explorer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Terminal")).not.toBeInTheDocument();
+    expect(mocks.start).toHaveBeenCalledWith({
+      bufferId: metadata.bufferId,
+      filePath: null,
+      content: "",
+      language: "plaintext",
+      dirty: false,
+      sourceId: expect.stringMatching(/^editor-detached:/),
+    });
+  });
+
+  it("publishes local edits and saves the exact synchronized revision", async () => {
+    mocks.flushNow.mockResolvedValueOnce({
+      ...authoritative,
+      content: "changed locally",
+      revision: 5,
+    });
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+
+    fireEvent.click(screen.getByRole("button", { name: "type" }));
+    expect(mocks.queueLocal).toHaveBeenCalledWith(
+      "changed locally",
+      "typescript",
+      true,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mocks.saveFile).toHaveBeenCalledWith(
+        metadata.tabId,
+        "/repo/a.ts",
+        "changed locally",
+      ),
+    );
+    expect(mocks.markSaved).toHaveBeenCalledWith(5);
+  });
+
+  it("writes the exact authoritative snapshot returned by the flush", async () => {
+    mocks.flushNow.mockResolvedValueOnce({
+      ...authoritative,
+      content: "newer synchronized text",
+      revision: 6,
+    });
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+    fireEvent.click(screen.getByRole("button", { name: "type" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(mocks.saveFile).toHaveBeenCalledWith(
+        metadata.tabId,
+        "/repo/a.ts",
+        "newer synchronized text",
+      ),
+    );
+    expect(mocks.markSaved).toHaveBeenCalledWith(6);
+  });
+
+  it("focuses the source and brings the pane back", async () => {
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+
+    fireEvent.click(screen.getByRole("button", { name: "Focus Source" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bring Back" }));
+
+    expect(mocks.focusSource).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(mocks.flushNow).toHaveBeenCalled();
+      expect(mocks.close).toHaveBeenCalledWith(metadata.windowId);
+    });
+  });
+
+  it("prevents native close until pending edits are flushed", async () => {
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+    fireEvent.click(screen.getByRole("button", { name: "type" }));
+    const preventDefault = vi.fn();
+
+    await mocks.closeRequestHandler?.({ preventDefault });
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.flushNow).toHaveBeenCalled();
+    expect(mocks.close).toHaveBeenCalledWith(metadata.windowId);
+  });
+
+  it("keeps the native window open when its pending edit cannot flush", async () => {
+    mocks.flushNow.mockRejectedValueOnce(new Error("sync unavailable"));
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+    fireEvent.click(screen.getByRole("button", { name: "type" }));
+    const preventDefault = vi.fn();
+
+    await mocks.closeRequestHandler?.({ preventDefault });
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(mocks.close).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "sync unavailable",
+    );
+  });
+
+  it("renders a recoverable metadata error", async () => {
+    mocks.getCurrent.mockRejectedValueOnce(new Error("metadata missing"));
+
+    render(<DetachedEditorWindow />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "metadata missing",
+    );
+    expect(
+      screen.getByRole("button", { name: "Close Window" }),
+    ).toBeInTheDocument();
+  });
+
+  it("closes after hydrated mode switches to classic", async () => {
+    const view = render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+    mocks.mode = "monaco";
+    view.rerender(<DetachedEditorWindow />);
+
+    await waitFor(() =>
+      expect(mocks.close).toHaveBeenCalledWith(metadata.windowId),
+    );
+  });
+});

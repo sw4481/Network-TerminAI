@@ -102,7 +102,9 @@ type EditorStore = {
   openFileInPane: (
     tabId: string,
     paneId: string,
-    seed: Required<Pick<EditorBufferSeed, "file_path" | "content" | "language">>,
+    seed: Required<
+      Pick<EditorBufferSeed, "file_path" | "content" | "language">
+    >,
   ) => string;
   setBufferContent: (bufferId: string, content: string) => void;
   patchBuffer: (
@@ -124,11 +126,7 @@ type EditorStore = {
     paneId: string,
     view: Partial<EditorPaneViewState>,
   ) => void;
-  markPaneDetached: (
-    tabId: string,
-    paneId: string,
-    windowId: string,
-  ) => void;
+  markPaneDetached: (tabId: string, paneId: string, windowId: string) => void;
   reattachPane: (tabId: string, paneId: string) => void;
   reconcileDetachedPanes: (
     tabId: string,
@@ -172,7 +170,7 @@ export function createEditorBuffer(
   const id =
     filePath !== null
       ? editorBufferIdForFile(filePath)
-      : seed.id ?? `untitled:${generateId("buffer")}`;
+      : (seed.id ?? `untitled:${generateId("buffer")}`);
   return {
     id,
     file_path: filePath,
@@ -329,8 +327,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         const next = { ...buffer, ...partial, id: bufferId };
         if (
           Object.entries(partial).every(
-            ([key, value]) =>
-              buffer[key as keyof EditorBufferState] === value,
+            ([key, value]) => buffer[key as keyof EditorBufferState] === value,
           )
         ) {
           return state;
@@ -463,11 +460,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     markPaneDetached: (tabId, paneId, windowId) => {
       const workspace = get().workspaces[tabId];
       if (!workspace) return;
-      const layout = markEditorPaneDetached(
-        workspace.layout,
-        paneId,
-        windowId,
-      );
+      const layout = markEditorPaneDetached(workspace.layout, paneId, windowId);
       if (layout === workspace.layout) return;
       set((state) => ({
         workspaces: {
@@ -536,28 +529,25 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setGitStatus: (tabId, git_status, is_git_repo) =>
       get().patchWorkspace(tabId, { git_status, is_git_repo }),
 
-    loadWorkspaceLayout: async (tabId, liveWindowIds = new Set()) => {
+    loadWorkspaceLayout: async (tabId, liveWindowIds) => {
       try {
         const layoutJson = await invoke<string | null>("panes_get_layout", {
           tabId,
         });
         if (layoutJson) {
-          const hydrated = deserializeEditorLayout(
-            layoutJson,
-            (kind) =>
-              generateId(
-                kind === "buffer"
-                  ? "buffer"
-                  : kind === "split"
-                    ? "split"
-                    : "pane",
-              ),
+          const hydrated = deserializeEditorLayout(layoutJson, (kind) =>
+            generateId(
+              kind === "buffer"
+                ? "buffer"
+                : kind === "split"
+                  ? "split"
+                  : "pane",
+            ),
           );
           if (hydrated) {
-            const layout = reconcileDetachedEditorPanes(
-              hydrated.layout,
-              liveWindowIds,
-            );
+            const layout = liveWindowIds
+              ? reconcileDetachedEditorPanes(hydrated.layout, liveWindowIds)
+              : hydrated.layout;
             const existing =
               get().workspaces[tabId] ??
               createWorkspace(
@@ -584,7 +574,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                 },
               };
             });
-            if (layout !== hydrated.layout) persistLater(tabId);
+            if (liveWindowIds && layout !== hydrated.layout) {
+              persistLater(tabId);
+            }
             return get().workspaces[tabId];
           }
         }

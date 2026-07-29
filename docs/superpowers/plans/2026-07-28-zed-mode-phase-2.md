@@ -1,15 +1,34 @@
 # Zed Mode Phase 2: Splits and Detached Editor Windows
 
 **Date:** 2026-07-28
-**Status:** In progress on `feature/zed-mode-phase-2`
+**Status:** Implemented on `feature/zed-mode-phase-2`; native interaction matrix pending
 **Source design:** `Plans/ZED.md` §5
 **Prerequisite:** Zed Mode Phase 1 on `main`
 
 ## Current Progress
 
 - [x] Task 1: ordered cross-window Zed snapshots.
-- [ ] Tasks 2–10: normalized buffers/layout, shared Monaco models, split UI,
-  revisioned Rust synchronization, detached windows, integration, and acceptance.
+- [x] Tasks 2–9: normalized buffers/layout, shared Monaco models, split UI,
+  revisioned Rust synchronization, detached windows, and lifecycle integration.
+- [x] Task 10 automated acceptance: full suites, production build, Rust check,
+  acceptance-spec discovery, and Tauri startup/route smoke.
+- [ ] Task 10 native interaction matrix: real split/edit/save/detach/reattach/
+  restart clicks in the macOS app.
+
+### Verification snapshot
+
+- Frontend: 217 files and 1,664 tests passed.
+- Rust: 379 passed and 5 explicitly ignored library tests; `cargo check` passed.
+- `bun run build:relaxed` passed.
+- Scoped Phase 2 Rust formatting and `git diff --check` passed.
+- `bun run tauri dev` built and launched `target/debug/TerminAI` without a
+  runtime error; `?view=editor-detached` was served successfully.
+- The strict all-source `tsc --noEmit` command retains unrelated pre-existing
+  diagnostics outside Phase 2; the production TypeScript configuration passes.
+- `e2e/tauri-driver.ts` currently returns a mock Playwright `Page` and does not
+  connect to the Tauri WKWebView or secondary windows. macOS screen capture
+  failed and Accessibility inspection was unavailable in this session, so the
+  native matrix below is deliberately not marked complete.
 
 ## Goal
 

@@ -10,6 +10,7 @@ pub mod rag_seed;
 pub mod topology;
 pub mod ssh;
 pub mod editor;
+pub mod editor_windows;
 pub mod lsp;
 pub mod git;
 pub mod palette;
@@ -276,6 +277,8 @@ pub struct AppState {
     pub browser_manager: Arc<crate::browser::BrowserManager>,
     /// Zed Mode Phase 2 — authoritative cross-webview editor buffers.
     pub editor_buffer_manager: Arc<crate::editor::EditorBufferManager>,
+    /// Zed Mode Phase 2 — detached internal editor window metadata.
+    pub editor_window_manager: Arc<crate::editor::EditorWindowManager>,
     /// Heartbeat Monitoring System — Lazily initialized scheduler for automated
     /// network health checks. Optional so unit tests can construct AppState without
     /// a Tauri AppHandle.
@@ -374,6 +377,7 @@ impl AppState {
         let pane_manager = Arc::new(crate::pane_context::PaneContextManager::new());
         let browser_manager = Arc::new(crate::browser::BrowserManager::new());
         let editor_buffer_manager = Arc::new(crate::editor::EditorBufferManager::new());
+        let editor_window_manager = Arc::new(crate::editor::EditorWindowManager::new());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
             db: db_arc,
@@ -410,6 +414,7 @@ impl AppState {
             pane_manager,
             browser_manager,
             editor_buffer_manager,
+            editor_window_manager,
             heartbeat_scheduler: Arc::new(parking_lot::Mutex::new(None)),
         }
     }
@@ -848,11 +853,17 @@ pub fn tab_new_editor(
 /// Close an Editor tab (no PTY, just a DB close). Safe to call repeatedly.
 #[tauri::command]
 pub fn tab_close_editor(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     tab_id: String,
 ) -> Result<(), String> {
     let validated = validation::validate_tab_id(&tab_id)
         .map_err(|e| e.to_string())?;
+    crate::commands::editor_windows::close_detached_editor_windows_for_tab(
+        &app,
+        &state.editor_window_manager,
+        &validated,
+    )?;
     let db = state.db.lock();
     session::close_tab(&db, &validated)
         .map_err(|e| e.to_string())

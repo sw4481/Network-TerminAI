@@ -3,8 +3,14 @@ import { useTabs } from "../state/tabsStore";
 import { usePanesStore, getAllLeafPanes } from "../state/panesStore";
 import { useRecordings } from "../state/recordingStore";
 import { usePaneActivityStore } from "../state/paneActivityStore";
+import { useEditorStore } from "../state/editorStore";
 import { tabActivityState } from "../lib/tabActivity";
-import { ptyKill, tabCloseApi, tabCloseNetconf, tabCloseEditor } from "../lib/tauri";
+import {
+  ptyKill,
+  tabCloseApi,
+  tabCloseNetconf,
+  tabCloseEditor,
+} from "../lib/tauri";
 import { ENABLE_TERMINAL_REGISTRY } from "../hooks/usePty";
 import * as terminalRegistry from "../lib/terminalRegistry";
 import NotificationCenter from "./NotificationCenter";
@@ -45,7 +51,8 @@ export function TabBar({
   useEffect(() => {
     if (!chooserOpen) return;
     const handleClick = (e: MouseEvent) => {
-      if (!chooserRef.current?.contains(e.target as Node)) setChooserOpen(false);
+      if (!chooserRef.current?.contains(e.target as Node))
+        setChooserOpen(false);
     };
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setChooserOpen(false);
@@ -76,14 +83,14 @@ export function TabBar({
   const handleSplitVertical = () => {
     if (focusedPaneId) {
       const placeholderId = `pending-${crypto.randomUUID()}`;
-      splitPane(focusedPaneId, 'vertical', placeholderId);
+      splitPane(focusedPaneId, "vertical", placeholderId);
     }
   };
 
   const handleSplitHorizontal = () => {
     if (focusedPaneId) {
       const placeholderId = `pending-${crypto.randomUUID()}`;
-      splitPane(focusedPaneId, 'horizontal', placeholderId);
+      splitPane(focusedPaneId, "horizontal", placeholderId);
     }
   };
 
@@ -103,9 +110,16 @@ export function TabBar({
         const isHeartbeat = t.tab_type === "heartbeat";
         const isRecording = !!activeRecordings[t.id];
         const isTerminalTab =
-          !isApi && !isNetconf && !isEditor && !isTopology &&
-          !isVault && !isRecordings && !isRecordingPlayer &&
-          !isTroubleshoot && !isTroubleshootEditor && !isHeartbeat;
+          !isApi &&
+          !isNetconf &&
+          !isEditor &&
+          !isTopology &&
+          !isVault &&
+          !isRecordings &&
+          !isRecordingPlayer &&
+          !isTroubleshoot &&
+          !isTroubleshootEditor &&
+          !isHeartbeat;
         // Backend pane-activity is keyed by each pane's spawned PTY id, not the
         // frontend tab/terminal id. Resolve this tab's pane terminalIds → their
         // PTY ids (registry), then match activities by those. Fall back to the
@@ -117,7 +131,9 @@ export function TabBar({
             ? getAllLeafPanes(layout).map((leaf) => leaf.terminalId)
             : [t.id];
           const ptyIds = new Set(
-            leafTerminalIds.map((tid) => terminalRegistry.ptyTabIdFor(tid) ?? tid),
+            leafTerminalIds.map(
+              (tid) => terminalRegistry.ptyTabIdFor(tid) ?? tid,
+            ),
           );
           tabActivity = tabActivityState(
             Array.from(activities.values()).filter(
@@ -198,9 +214,17 @@ export function TabBar({
             )}
             {tabActivity && (
               <span
-                className={`tab-activity-dot tab-activity-dot--${tabActivity === 'needs_attention' ? 'needs-attention' : 'running'}`}
-                title={tabActivity === 'needs_attention' ? 'Needs attention' : 'Running'}
-                aria-label={tabActivity === 'needs_attention' ? 'Needs attention' : 'Running'}
+                className={`tab-activity-dot tab-activity-dot--${tabActivity === "needs_attention" ? "needs-attention" : "running"}`}
+                title={
+                  tabActivity === "needs_attention"
+                    ? "Needs attention"
+                    : "Running"
+                }
+                aria-label={
+                  tabActivity === "needs_attention"
+                    ? "Needs attention"
+                    : "Running"
+                }
                 data-testid={`tab-activity-dot-${t.id}`}
               />
             )}
@@ -215,8 +239,23 @@ export function TabBar({
                   } else if (isNetconf) {
                     await tabCloseNetconf(t.id).catch(() => {});
                   } else if (isEditor) {
-                    await tabCloseEditor(t.id).catch(() => {});
-                  } else if (isTopology || isVault || isRecordings || isRecordingPlayer || isTroubleshoot || isTroubleshootEditor) {
+                    try {
+                      await tabCloseEditor(t.id);
+                    } catch (error) {
+                      useEditorStore
+                        .getState()
+                        .patchWorkspace(t.id, { error: String(error) });
+                      return;
+                    }
+                    useEditorStore.getState().resetWorkspace(t.id);
+                  } else if (
+                    isTopology ||
+                    isVault ||
+                    isRecordings ||
+                    isRecordingPlayer ||
+                    isTroubleshoot ||
+                    isTroubleshootEditor
+                  ) {
                     // Pure-frontend tabs; no Rust-side close.
                   } else {
                     if (ENABLE_TERMINAL_REGISTRY) {
@@ -268,7 +307,9 @@ export function TabBar({
                   data-testid="tab-new-api"
                   role="menuitem"
                 >
-                  <span className="tab-chooser-badge tab-chooser-badge-api">API</span>
+                  <span className="tab-chooser-badge tab-chooser-badge-api">
+                    API
+                  </span>
                   API Runner
                 </button>
               )}
@@ -279,7 +320,9 @@ export function TabBar({
                   data-testid="tab-new-netconf"
                   role="menuitem"
                 >
-                  <span className="tab-chooser-badge tab-chooser-badge-nc">NC</span>
+                  <span className="tab-chooser-badge tab-chooser-badge-nc">
+                    NC
+                  </span>
                   NETCONF
                 </button>
               )}
@@ -290,7 +333,9 @@ export function TabBar({
                   data-testid="tab-new-editor"
                   role="menuitem"
                 >
-                  <span className="tab-chooser-badge tab-chooser-badge-ed">ED</span>
+                  <span className="tab-chooser-badge tab-chooser-badge-ed">
+                    ED
+                  </span>
                   Editor
                 </button>
               )}
@@ -305,7 +350,9 @@ export function TabBar({
                     data-testid="tab-new-topology"
                     role="menuitem"
                   >
-                    <span className="tab-chooser-badge tab-chooser-badge-top">TOP</span>
+                    <span className="tab-chooser-badge tab-chooser-badge-top">
+                      TOP
+                    </span>
                     Topology
                   </button>
                 )}
@@ -316,7 +363,9 @@ export function TabBar({
                     data-testid="tab-new-recordings"
                     role="menuitem"
                   >
-                    <span className="tab-chooser-badge tab-chooser-badge-rec">REC</span>
+                    <span className="tab-chooser-badge tab-chooser-badge-rec">
+                      REC
+                    </span>
                     Recordings
                   </button>
                 )}
@@ -331,7 +380,9 @@ export function TabBar({
                   data-testid="tab-new-troubleshoot"
                   role="menuitem"
                 >
-                  <span className="tab-chooser-badge tab-chooser-badge-ts">TS</span>
+                  <span className="tab-chooser-badge tab-chooser-badge-ts">
+                    TS
+                  </span>
                   Troubleshoot
                 </button>
               </div>
@@ -345,7 +396,9 @@ export function TabBar({
                   data-testid="tab-new-vault"
                   role="menuitem"
                 >
-                  <span className="tab-chooser-badge tab-chooser-badge-vault">VAULT</span>
+                  <span className="tab-chooser-badge tab-chooser-badge-vault">
+                    VAULT
+                  </span>
                   Vault
                 </button>
               </div>

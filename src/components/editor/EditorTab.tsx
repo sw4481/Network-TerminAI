@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Tab } from "../../lib/types";
 import {
   editorDetachedWindowClose,
@@ -12,11 +13,9 @@ import {
   editorSaveFile,
   gitGetStatus,
   gitIsRepo,
+  type DetachedEditorWindowClosed,
 } from "../../lib/tauri";
-import {
-  bufferIdForFile,
-  useEditorStore,
-} from "../../state/editorStore";
+import { bufferIdForFile, useEditorStore } from "../../state/editorStore";
 import {
   findEditorPane,
   getAttachedEditorPanes,
@@ -35,10 +34,16 @@ import {
 import { useEditorSettings } from "../../hooks/useEditorSettings";
 import { useZedMode } from "./ZedModeProvider";
 import { EditorBufferSyncClient } from "./editorBufferSync";
+import {
+  applyDetachedEditorWindowClosed,
+  EDITOR_DETACHED_WINDOW_CLOSED_EVENT,
+} from "./editorWindowLifecycle";
 import "./EditorTab.css";
 
 function leafById(
-  layout: ReturnType<typeof useEditorStore.getState>["workspaces"][string]["layout"],
+  layout: ReturnType<
+    typeof useEditorStore.getState
+  >["workspaces"][string]["layout"],
   paneId: string,
 ): EditorPaneLeaf | null {
   const pane = findEditorPane(layout, paneId);
@@ -48,11 +53,9 @@ function leafById(
 export function EditorTab({ tab }: { tab: Tab }) {
   const initializeWorkspace = useEditorStore((s) => s.initializeWorkspace);
   const existingWorkspace = useEditorStore((s) => s.workspaces[tab.id]);
-  const workspace =
-    existingWorkspace ?? initializeWorkspace(tab.id);
+  const workspace = existingWorkspace ?? initializeWorkspace(tab.id);
   const buffers = useEditorStore((s) => s.buffers);
   const patchWorkspace = useEditorStore((s) => s.patchWorkspace);
-  const patchBuffer = useEditorStore((s) => s.patchBuffer);
   const openFileInPane = useEditorStore((s) => s.openFileInPane);
   const setBufferContent = useEditorStore((s) => s.setBufferContent);
   const markBufferSaved = useEditorStore((s) => s.markBufferSaved);
@@ -70,7 +73,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const setGitStatus = useEditorStore((s) => s.setGitStatus);
 
   const { settings, setSettings } = useEditorSettings();
-  const { mode } = useZedMode();
+  const { mode, hydrated: modeHydrated } = useZedMode();
   const editorRefs = useRef(
     new Map<string, Monaco.editor.IStandaloneCodeEditor>(),
   );
@@ -88,75 +91,70 @@ export function EditorTab({ tab }: { tab: Tab }) {
     leafById(workspace.layout, workspace.focusedPaneId) ??
     getAttachedEditorPanes(workspace.layout)[0] ??
     getEditorPaneLeaves(workspace.layout)[0];
-  const focusedBuffer = focusedPane
-    ? buffers[focusedPane.bufferId]
-    : undefined;
+  const focusedBuffer = focusedPane ? buffers[focusedPane.bufferId] : undefined;
 
-  const ensureBufferSync = useCallback(
-    async (bufferId: string) => {
-      const state = useEditorStore.getState();
-      const buffer = state.buffers[bufferId];
-      if (!buffer) {
-        throw new Error(`Unknown editor buffer: ${bufferId}`);
-      }
-      const existing = syncClients.current.get(bufferId);
-      if (existing) {
-        await existing.start({
-          bufferId,
-          filePath: buffer.file_path,
-          content: buffer.content,
-          language: buffer.language,
-          dirty: buffer.is_dirty,
-          sourceId: syncSourceId.current,
-        });
-        return existing;
-      }
-
-      const client = new EditorBufferSyncClient({
+  const ensureBufferSync = useCallback(async (bufferId: string) => {
+    const state = useEditorStore.getState();
+    const buffer = state.buffers[bufferId];
+    if (!buffer) {
+      throw new Error(`Unknown editor buffer: ${bufferId}`);
+    }
+    const existing = syncClients.current.get(bufferId);
+    if (existing) {
+      await existing.start({
         bufferId,
+        filePath: buffer.file_path,
+        content: buffer.content,
+        language: buffer.language,
+        dirty: buffer.is_dirty,
         sourceId: syncSourceId.current,
-        onSnapshot: (snapshot) => {
-          useEditorStore.getState().patchBuffer(bufferId, {
-            file_path: snapshot.filePath,
-            content: snapshot.content,
-            language: snapshot.language,
-            is_dirty: snapshot.dirty,
-            revision: snapshot.revision,
-            sync_status: "synced",
-            error: null,
-          });
-        },
-        onRevision: (snapshot) => {
-          useEditorStore.getState().patchBuffer(bufferId, {
-            revision: snapshot.revision,
-          });
-        },
-        onStatus: (sync_status, error) => {
-          useEditorStore.getState().patchBuffer(bufferId, {
-            sync_status,
-            error: error ?? null,
-          });
-        },
       });
-      syncClients.current.set(bufferId, client);
-      try {
-        await client.start({
-          bufferId,
-          filePath: buffer.file_path,
-          content: buffer.content,
-          language: buffer.language,
-          dirty: buffer.is_dirty,
-          sourceId: syncSourceId.current,
+      return existing;
+    }
+
+    const client = new EditorBufferSyncClient({
+      bufferId,
+      sourceId: syncSourceId.current,
+      onSnapshot: (snapshot) => {
+        useEditorStore.getState().patchBuffer(bufferId, {
+          file_path: snapshot.filePath,
+          content: snapshot.content,
+          language: snapshot.language,
+          is_dirty: snapshot.dirty,
+          revision: snapshot.revision,
+          sync_status: "synced",
+          error: null,
         });
-      } catch (error) {
-        client.dispose();
-        syncClients.current.delete(bufferId);
-        throw error;
-      }
-      return client;
-    },
-    [],
-  );
+      },
+      onRevision: (snapshot) => {
+        useEditorStore.getState().patchBuffer(bufferId, {
+          revision: snapshot.revision,
+        });
+      },
+      onStatus: (sync_status, error) => {
+        useEditorStore.getState().patchBuffer(bufferId, {
+          sync_status,
+          error: error ?? null,
+        });
+      },
+    });
+    syncClients.current.set(bufferId, client);
+    try {
+      await client.start({
+        bufferId,
+        filePath: buffer.file_path,
+        content: buffer.content,
+        language: buffer.language,
+        dirty: buffer.is_dirty,
+        sourceId: syncSourceId.current,
+      });
+    } catch (error) {
+      client.dispose();
+      syncClients.current.delete(bufferId);
+      throw error;
+    }
+    return client;
+  }, []);
 
   useEffect(
     () => () => {
@@ -179,17 +177,74 @@ export function EditorTab({ tab }: { tab: Tab }) {
     }
   }, [workspace.layout, tab.id, ensureBufferSync, patchWorkspace]);
 
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: UnlistenFn | null = null;
+    void listen<DetachedEditorWindowClosed>(
+      EDITOR_DETACHED_WINDOW_CLOSED_EVENT,
+      (event) => {
+        if (!disposed && event.payload.tabId === tab.id) {
+          applyDetachedEditorWindowClosed(event.payload);
+        }
+      },
+    )
+      .then((stopListening) => {
+        if (disposed) stopListening();
+        else unlisten = stopListening;
+      })
+      .catch((listenError) => {
+        if (!disposed) {
+          patchWorkspace(tab.id, { error: String(listenError) });
+        }
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [tab.id, patchWorkspace]);
+
+  useEffect(() => {
+    if (!modeHydrated || mode !== "monaco") return;
+    let disposed = false;
+    // Detached webviews flush and close themselves on the same mode snapshot.
+    // This delayed source-side pass is a fallback for a crashed/unresponsive
+    // detached frontend, without racing its normal data-preserving close path.
+    const fallback = setTimeout(() => {
+      void editorDetachedWindowList()
+        .then(async (windows) => {
+          const owned = windows.filter((window) => window.tabId === tab.id);
+          for (const window of owned) {
+            if (disposed) return;
+            await editorDetachedWindowClose(window.windowId);
+          }
+        })
+        .catch((closeError) => {
+          if (!disposed) {
+            patchWorkspace(tab.id, { error: String(closeError) });
+          }
+        });
+    }, 500);
+    return () => {
+      disposed = true;
+      clearTimeout(fallback);
+    };
+  }, [modeHydrated, mode, tab.id, patchWorkspace]);
+
   // Rehydrate layout first, then populate every file-backed buffer from disk.
   // Unsaved text is deliberately not part of Phase 2 layout persistence.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const detachedWindows = await editorDetachedWindowList().catch(() => []);
-      const liveWindowIds = new Set(
-        detachedWindows
-          .filter((window) => window.tabId === tab.id)
-          .map((window) => window.windowId),
+      const detachedWindows = await editorDetachedWindowList().catch(
+        () => null,
       );
+      const liveWindowIds = detachedWindows
+        ? new Set(
+            detachedWindows
+              .filter((window) => window.tabId === tab.id)
+              .map((window) => window.windowId),
+          )
+        : undefined;
       const hydrated = await loadWorkspaceLayout(tab.id, liveWindowIds);
       if (cancelled) return;
 
@@ -257,16 +312,9 @@ export function EditorTab({ tab }: { tab: Tab }) {
     if (!workspace.root_path) {
       editorGetHomeDirectory()
         .then((homePath) => setFileTree(tab.id, [], homePath))
-        .catch((error) =>
-          patchWorkspace(tab.id, { error: String(error) })
-        );
+        .catch((error) => patchWorkspace(tab.id, { error: String(error) }));
     }
-  }, [
-    tab.id,
-    workspace.root_path,
-    setFileTree,
-    patchWorkspace,
-  ]);
+  }, [tab.id, workspace.root_path, setFileTree, patchWorkspace]);
 
   useEffect(() => {
     const rootPath = workspace.root_path;
@@ -279,9 +327,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
         .then((status) => {
           if (!cancelled) setGitStatus(tab.id, status, true);
         })
-        .catch((error) =>
-          console.error("Failed to load git status:", error)
-        );
+        .catch((error) => console.error("Failed to load git status:", error));
 
     gitIsRepo(rootPath)
       .then((isRepo) => {
@@ -311,12 +357,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
       patchWorkspace(tab.id, { loading: true, error: null });
       try {
         const sync = syncClients.current.get(bufferId);
-        const savedRevision = sync
-          ? await sync.flushNow()
-          : current.revision;
-        await editorSaveFile(tab.id, current.file_path, current.content);
+        const synchronized = sync ? await sync.flushNow() : null;
+        await editorSaveFile(
+          tab.id,
+          current.file_path,
+          synchronized?.content ?? current.content,
+        );
         if (sync) {
-          await sync.markSaved(savedRevision);
+          await sync.markSaved(synchronized!.revision);
         } else {
           markBufferSaved(bufferId, current.revision);
         }
@@ -372,13 +420,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
         patchWorkspace(tab.id, { loading: false });
       }
     },
-    [
-      mode,
-      tab.id,
-      ensureBufferSync,
-      markPaneDetached,
-      patchWorkspace,
-    ],
+    [mode, tab.id, ensureBufferSync, markPaneDetached, patchWorkspace],
   );
 
   const bringPaneBack = useCallback(
@@ -400,11 +442,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const meta = event.metaKey || event.ctrlKey;
-      if (
-        meta &&
-        event.shiftKey &&
-        (event.key === "f" || event.key === "F")
-      ) {
+      if (meta && event.shiftKey && (event.key === "f" || event.key === "F")) {
         event.preventDefault();
         setShowFind((value) => !value);
       } else if (meta && event.key === ",") {
@@ -425,14 +463,12 @@ export function EditorTab({ tab }: { tab: Tab }) {
         event.preventDefault();
         setTerminalMode("opencode");
         setShowTerminal((value) =>
-          terminalMode === "opencode" ? !value : true
+          terminalMode === "opencode" ? !value : true,
         );
       } else if (meta && !event.shiftKey && event.key === "`") {
         event.preventDefault();
         setTerminalMode("shell");
-        setShowTerminal((value) =>
-          terminalMode === "shell" ? !value : true
-        );
+        setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
       } else if (event.key === "Escape" && (showFind || showSettings)) {
         event.preventDefault();
         setShowFind(false);
@@ -441,13 +477,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [
-    tab.id,
-    toggleExplorer,
-    showFind,
-    showSettings,
-    terminalMode,
-  ]);
+  }, [tab.id, toggleExplorer, showFind, showSettings, terminalMode]);
 
   const classicPane = useMemo(
     () =>
@@ -456,14 +486,11 @@ export function EditorTab({ tab }: { tab: Tab }) {
       getEditorPaneLeaves(workspace.layout)[0],
     [workspace.layout, workspace.focusedPaneId],
   );
-  const focusedEditor =
-    editorRefs.current.get(workspace.focusedPaneId) ?? null;
+  const focusedEditor = editorRefs.current.get(workspace.focusedPaneId) ?? null;
   const paneCallbacks = {
     onFocus: (paneId: string) => focusPane(tab.id, paneId),
-    onSplit: (
-      paneId: string,
-      direction: "horizontal" | "vertical",
-    ) => splitPane(tab.id, paneId, direction),
+    onSplit: (paneId: string, direction: "horizontal" | "vertical") =>
+      splitPane(tab.id, paneId, direction),
     onDetach: (paneId: string) => void detachPane(paneId),
     onClose: (paneId: string) => {
       editorRefs.current.delete(paneId);
@@ -474,7 +501,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     onReattach: (paneId: string) => void bringPaneBack(paneId),
     onFocusWindow: (_paneId: string, windowId: string) =>
       void editorDetachedWindowFocus(windowId).catch((error) =>
-        patchWorkspace(tab.id, { error: String(error) })
+        patchWorkspace(tab.id, { error: String(error) }),
       ),
     onChange: (bufferId: string, content: string) => {
       setBufferContent(bufferId, content);
@@ -512,9 +539,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
           {focusedBuffer?.file_path && (
             <span className="file-path">{focusedBuffer.file_path}</span>
           )}
-          {focusedBuffer?.is_dirty && (
-            <span className="dirty-marker">●</span>
-          )}
+          {focusedBuffer?.is_dirty && <span className="dirty-marker">●</span>}
         </div>
         <div className="editor-actions">
           <button
@@ -542,7 +567,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
             onClick={() => {
               setTerminalMode("opencode");
               setShowTerminal((value) =>
-                terminalMode === "opencode" ? !value : true
+                terminalMode === "opencode" ? !value : true,
               );
             }}
             title="opencode (Cmd+Shift+O)"
@@ -554,7 +579,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
             onClick={() => {
               setTerminalMode("shell");
               setShowTerminal((value) =>
-                terminalMode === "shell" ? !value : true
+                terminalMode === "shell" ? !value : true,
               );
             }}
             title="Terminal — run claude / codex (Cmd+`)"
@@ -586,9 +611,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
             expandedDirs={workspace.expanded_dirs}
             onSelectFile={openFile}
             onToggleDir={(dirPath) => toggleDirectory(tab.id, dirPath)}
-            gitStatus={
-              workspace.is_git_repo ? workspace.git_status : undefined
-            }
+            gitStatus={workspace.is_git_repo ? workspace.git_status : undefined}
           />
         )}
         <div className="editor-content">
@@ -623,10 +646,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   onReattach={() => {}}
                   onFocusWindow={() => {}}
                   onChange={(content) =>
-                    paneCallbacks.onChange(
-                      classicPane.bufferId,
-                      content,
-                    )
+                    paneCallbacks.onChange(classicPane.bufferId, content)
                   }
                   onCursorChange={(position) =>
                     updatePaneView(tab.id, classicPane.id, {

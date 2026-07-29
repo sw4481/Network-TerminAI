@@ -8,16 +8,8 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import {
-  emit,
-  listen,
-  type UnlistenFn,
-} from "@tauri-apps/api/event";
-import {
-  editorModeGet,
-  editorModeSet,
-  type EditorMode,
-} from "../../lib/tauri";
+import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { editorModeGet, editorModeSet, type EditorMode } from "../../lib/tauri";
 import {
   INITIAL_ZED_SNAPSHOT_REVISION,
   isNewerZedSnapshotRevision,
@@ -38,11 +30,14 @@ export type ZedModeContextValue = Pick<
   ZedModeChangedPayload,
   "mode" | "vimEnabled"
 > & {
+  hydrated: boolean;
   setMode: (mode: EditorMode) => Promise<void>;
   setVimEnabled: (enabled: boolean) => Promise<void>;
 };
 
-const ZedModeContext = createContext<ZedModeContextValue | undefined>(undefined);
+const ZedModeContext = createContext<ZedModeContextValue | undefined>(
+  undefined,
+);
 
 function readVimPreference(): boolean {
   try {
@@ -63,6 +58,7 @@ function writeVimPreference(enabled: boolean): void {
 export function ZedModeProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<EditorMode>("monaco");
   const [vimEnabled, setVimEnabledState] = useState(readVimPreference);
+  const [hydrated, setHydrated] = useState(false);
   const [sourceId] = useState(() => crypto.randomUUID());
   const latestSnapshotRef = useRef<ZedModeChangedPayload>({
     mode,
@@ -99,6 +95,7 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
               const applied = applySnapshot(event.payload);
               if (applied) {
                 receivedLiveEvent = true;
+                setHydrated(true);
                 writeVimPreference(event.payload.vimEnabled);
               }
             }
@@ -126,6 +123,8 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
         }
       } catch (error) {
         console.error("Failed to load editor mode:", error);
+      } finally {
+        if (!disposed) setHydrated(true);
       }
     })();
 
@@ -183,14 +182,12 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo<ZedModeContextValue>(
-    () => ({ mode, vimEnabled, setMode, setVimEnabled }),
-    [mode, vimEnabled, setMode, setVimEnabled],
+    () => ({ mode, vimEnabled, hydrated, setMode, setVimEnabled }),
+    [mode, vimEnabled, hydrated, setMode, setVimEnabled],
   );
 
   return (
-    <ZedModeContext.Provider value={value}>
-      {children}
-    </ZedModeContext.Provider>
+    <ZedModeContext.Provider value={value}>{children}</ZedModeContext.Provider>
   );
 }
 

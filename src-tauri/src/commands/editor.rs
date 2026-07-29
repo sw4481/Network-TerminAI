@@ -155,7 +155,7 @@ fn ensure_app_flags_table(conn: &Connection) -> Result<(), String> {
     .map_err(|error| format!("Failed to ensure app_flags: {error}"))
 }
 
-fn load_editor_mode(conn: &Connection) -> Result<String, String> {
+pub(crate) fn load_editor_mode(conn: &Connection) -> Result<String, String> {
     ensure_app_flags_table(conn)?;
     let stored = conn
         .query_row(

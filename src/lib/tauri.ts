@@ -124,8 +124,7 @@ export const ptyResize = (tabId: string, cols: number, rows: number) =>
  * @param tabId - Tab ID to kill
  * @returns Promise resolving when kill completes
  */
-export const ptyKill = (tabId: string) =>
-  invoke<void>("pty_kill", { tabId });
+export const ptyKill = (tabId: string) => invoke<void>("pty_kill", { tabId });
 
 /**
  * List all open terminal tabs.
@@ -280,8 +279,16 @@ export type NetconfHistoryDetail = {
 };
 
 /** List NETCONF history for a tab. */
-export const netconfHistoryList = (tabId: string, limit: number, offset: number) =>
-  invoke<NetconfHistoryItem[]>("netconf_history_list", { tabId, limit, offset });
+export const netconfHistoryList = (
+  tabId: string,
+  limit: number,
+  offset: number,
+) =>
+  invoke<NetconfHistoryItem[]>("netconf_history_list", {
+    tabId,
+    limit,
+    offset,
+  });
 
 /** Get full NETCONF history detail by ID. */
 export const netconfHistoryDetail = (id: string) =>
@@ -300,16 +307,21 @@ export const netconfSavedRpcList = () =>
   invoke<SavedNetconfRpc[]>("netconf_saved_rpc_list");
 
 /** Create or update a saved NETCONF RPC. */
-export const netconfSavedRpcUpsert = (id: number | null, name: string, rpcXml: string) =>
-  invoke<SavedNetconfRpc>("netconf_saved_rpc_upsert", { id, name, rpcXml });
+export const netconfSavedRpcUpsert = (
+  id: number | null,
+  name: string,
+  rpcXml: string,
+) => invoke<SavedNetconfRpc>("netconf_saved_rpc_upsert", { id, name, rpcXml });
 
 /** Delete a saved NETCONF RPC. */
 export const netconfSavedRpcDelete = (id: number) =>
   invoke<void>("netconf_saved_rpc_delete", { id });
 
 /** Get AI explanation of a NETCONF response. */
-export const netconfExplainResponse = (operation: string, responseXml: string) =>
-  invoke<string>("netconf_explain_response", { operation, responseXml });
+export const netconfExplainResponse = (
+  operation: string,
+  responseXml: string,
+) => invoke<string>("netconf_explain_response", { operation, responseXml });
 
 export type YangRelease = {
   id: number;
@@ -332,12 +344,14 @@ export type YangModule = {
 };
 
 /** List all downloaded YANG releases. */
-export const yangReleaseList = () =>
-  invoke<YangRelease[]>("yang_release_list");
+export const yangReleaseList = () => invoke<YangRelease[]>("yang_release_list");
 
 /** Download a YANG release from YangModels/yang. Returns the release ID. */
-export const yangReleaseDownload = (vendor: string, os: string, release: string) =>
-  invoke<number>("yang_release_download", { vendor, os, release });
+export const yangReleaseDownload = (
+  vendor: string,
+  os: string,
+  release: string,
+) => invoke<number>("yang_release_download", { vendor, os, release });
 
 /** Delete a YANG release and its cache directory. */
 export const yangReleaseDelete = (releaseId: number) =>
@@ -360,9 +374,7 @@ export type TokenLoginCredentials =
   | { type: "json_body"; body: string }
   | { type: "form_body"; body: string };
 
-export type TokenApply =
-  | { mode: "header"; name: string }
-  | { mode: "bearer" };
+export type TokenApply = { mode: "header"; name: string } | { mode: "bearer" };
 
 export type TokenLoginEndpoint = {
   method: HttpMethod;
@@ -624,7 +636,11 @@ export type ApiTargetManifest = {
   schema_version: number;
   base_url: string;
   auth: ApiManifestAuth;
-  tls: { verify: boolean; ca_bundle: string | null; client_cert: string | null };
+  tls: {
+    verify: boolean;
+    ca_bundle: string | null;
+    client_cert: string | null;
+  };
   defaults: { headers: Record<string, string> };
   openapi_url: string | null;
   endpoints: Array<{
@@ -1188,7 +1204,7 @@ export async function agentCodeExecRun(
   agentId: string,
   message: string,
   onEvent: (event: CodeExecEvent) => void,
-  history?: ChatTurn[]
+  history?: ChatTurn[],
 ): Promise<void> {
   const channel = new Channel<CodeExecEvent>();
   channel.onmessage = onEvent;
@@ -1290,9 +1306,8 @@ export const mcpListPolicies = (serverName: string) =>
 export const mcpSetPolicy = (
   serverName: string,
   toolName: string,
-  policy: string
-) =>
-  invoke<void>("mcp_set_policy", { serverName, toolName, policy });
+  policy: string,
+) => invoke<void>("mcp_set_policy", { serverName, toolName, policy });
 
 // Phase 4 MCP Tool Approval API.
 export const approveToolCall = (opts: {
@@ -1320,11 +1335,9 @@ export type Skill = {
 
 export const skillsList = () => invoke<Skill[]>("skills_list");
 
-export const skillsGet = (id: string) =>
-  invoke<Skill>("skills_get", { id });
+export const skillsGet = (id: string) => invoke<Skill>("skills_get", { id });
 
-export const skillsReload = () =>
-  invoke<void>("skills_reload");
+export const skillsReload = () => invoke<void>("skills_reload");
 
 export type SkillScript = {
   name: string;
@@ -1398,7 +1411,7 @@ export async function agentInvokeSkill(opts: {
  */
 export async function searchAll(
   query: string,
-  limit?: number
+  limit?: number,
 ): Promise<SearchResults> {
   return invoke<SearchResults>("search_all", { query, limit });
 }
@@ -1577,8 +1590,7 @@ export const aiTestConnection = (config: AIProviderConfig) =>
 
 export type EditorMode = "monaco" | "zed";
 
-export const editorModeGet = () =>
-  invoke<EditorMode>("editor_mode_get");
+export const editorModeGet = () => invoke<EditorMode>("editor_mode_get");
 
 export const editorModeSet = (mode: EditorMode) =>
   invoke<void>("editor_mode_set", { mode });
@@ -1626,14 +1638,12 @@ export type SavedDiagram = {
 export const diagramSave = (diagram: SavedDiagram) =>
   invoke<void>("diagram_save", { diagram });
 
-export const diagramList = () =>
-  invoke<SavedDiagram[]>("diagram_list");
+export const diagramList = () => invoke<SavedDiagram[]>("diagram_list");
 
 export const diagramDelete = (id: string) =>
   invoke<void>("diagram_delete", { id });
 
-export const vendorKeywordsGet = () =>
-  invoke<string>("vendor_keywords_get");
+export const vendorKeywordsGet = () => invoke<string>("vendor_keywords_get");
 
 export const vendorKeywordsSet = (keywords: string) =>
   invoke<void>("vendor_keywords_set", { keywords });
@@ -1667,7 +1677,11 @@ export type GhWorkflowRun = {
 
 /** List recent GitHub Actions runs for the workspace's origin remote. */
 export const githubListRuns = (cwd: string, token: string, limit?: number) =>
-  invoke<GhWorkflowRun[]>("github_list_runs", { cwd, token, limit: limit ?? null });
+  invoke<GhWorkflowRun[]>("github_list_runs", {
+    cwd,
+    token,
+    limit: limit ?? null,
+  });
 
 export const gitConfigGet = async (): Promise<GitConfig> => {
   const raw = await invoke<string>("git_config_get");
@@ -1735,8 +1749,7 @@ export type IseTestResult = {
   message: string;
 };
 
-export const iseGetConfig = () =>
-  invoke<IseConfig | null>("ise_get_config");
+export const iseGetConfig = () => invoke<IseConfig | null>("ise_get_config");
 
 export const iseSaveConfig = (config: IseConfig) =>
   invoke<void>("ise_save_config", { config });
@@ -1809,8 +1822,7 @@ export type CmlTestResult = {
   message: string;
 };
 
-export const cmlGetConfig = () =>
-  invoke<CmlConfig | null>("cml_get_config");
+export const cmlGetConfig = () => invoke<CmlConfig | null>("cml_get_config");
 
 export const cmlSaveConfig = (config: CmlConfig) =>
   invoke<void>("cml_save_config", { config });
@@ -1837,7 +1849,9 @@ export const catalystCenterSaveConfig = (config: CatalystCenterConfig) =>
   invoke<void>("catalyst_center_save_config", { config });
 
 export const catalystCenterTestConnection = (config: CatalystCenterConfig) =>
-  invoke<CatalystCenterTestResult>("catalyst_center_test_connection", { config });
+  invoke<CatalystCenterTestResult>("catalyst_center_test_connection", {
+    config,
+  });
 
 export type SplunkConfig = {
   host: string;
@@ -1874,8 +1888,7 @@ export type AciTestResult = {
   message: string;
 };
 
-export const aciGetConfig = () =>
-  invoke<AciConfig | null>("aci_get_config");
+export const aciGetConfig = () => invoke<AciConfig | null>("aci_get_config");
 
 export const aciSaveConfig = (config: AciConfig) =>
   invoke<void>("aci_save_config", { config });
@@ -1902,8 +1915,7 @@ export type GnmiTestResult = {
   message: string;
 };
 
-export const gnmiGetConfig = () =>
-  invoke<GnmiConfig>("gnmi_get_config");
+export const gnmiGetConfig = () => invoke<GnmiConfig>("gnmi_get_config");
 
 export const gnmiSaveConfig = (config: GnmiConfig) =>
   invoke<void>("gnmi_save_config", { config });
@@ -1924,8 +1936,7 @@ export type FmcTestResult = {
   message: string;
 };
 
-export const fmcGetConfig = () =>
-  invoke<FmcConfig | null>("fmc_get_config");
+export const fmcGetConfig = () => invoke<FmcConfig | null>("fmc_get_config");
 
 export const fmcSaveConfig = (config: FmcConfig) =>
   invoke<void>("fmc_save_config", { config });
@@ -1991,7 +2002,9 @@ export const secureEndpointSaveConfig = (config: SecureEndpointConfig) =>
   invoke<void>("secure_endpoint_save_config", { config });
 
 export const secureEndpointTestConnection = (config: SecureEndpointConfig) =>
-  invoke<SecureEndpointTestResult>("secure_endpoint_test_connection", { config });
+  invoke<SecureEndpointTestResult>("secure_endpoint_test_connection", {
+    config,
+  });
 
 export type CiscoXdrConfig = {
   region: string;
@@ -2025,8 +2038,7 @@ export type MistTestResult = {
   message: string;
 };
 
-export const mistGetConfig = () =>
-  invoke<MistConfig | null>("mist_get_config");
+export const mistGetConfig = () => invoke<MistConfig | null>("mist_get_config");
 
 export const mistSaveConfig = (config: MistConfig) =>
   invoke<void>("mist_save_config", { config });
@@ -2238,7 +2250,9 @@ export const ftpUsersDelete = (id: string) =>
 export const ftpEventsTail = (limit?: number) =>
   invoke<FtpEvent[]>("ftp_events_tail", { limit: limit ?? null });
 
-export async function ftpEventsStream(onEvent: (e: FtpEvent) => void): Promise<void> {
+export async function ftpEventsStream(
+  onEvent: (e: FtpEvent) => void,
+): Promise<void> {
   const channel = new Channel<FtpEvent>();
   channel.onmessage = onEvent;
   return invoke<void>("ftp_events_stream", { onEvent: channel });
@@ -2306,7 +2320,7 @@ export const editorOpenFile = (tabId: string, filePath: string) =>
 export const editorSaveFile = (
   tabId: string,
   filePath: string,
-  content: string
+  content: string,
 ) => invoke<void>("editor_save_file", { tabId, filePath, content });
 
 export type EditorBufferSeed = {
@@ -2350,9 +2364,7 @@ export const editorBufferGet = (bufferId: string) =>
 export const editorBufferUpdate = (request: EditorBufferUpdateRequest) =>
   invoke<EditorBufferUpdateResult>("editor_buffer_update", request);
 
-export const editorBufferMarkSaved = (
-  request: EditorBufferMarkSavedRequest,
-) =>
+export const editorBufferMarkSaved = (request: EditorBufferMarkSavedRequest) =>
   invoke<EditorBufferUpdateResult>("editor_buffer_mark_saved", request);
 
 export type DetachedEditorWindowInfo = {
@@ -2362,6 +2374,11 @@ export type DetachedEditorWindowInfo = {
   bufferId: string;
   title: string;
 };
+
+export type DetachedEditorWindowClosed = Pick<
+  DetachedEditorWindowInfo,
+  "windowId" | "tabId" | "paneId"
+>;
 
 export const editorDetachPane = (
   tabId: string,
@@ -2379,11 +2396,17 @@ export const editorDetachPane = (
 export const editorDetachedWindowList = () =>
   invoke<DetachedEditorWindowInfo[]>("editor_detached_window_list");
 
+export const editorDetachedWindowGetCurrent = () =>
+  invoke<DetachedEditorWindowInfo>("editor_detached_window_get_current");
+
 export const editorDetachedWindowFocus = (windowId: string) =>
   invoke<void>("editor_detached_window_focus", { windowId });
 
 export const editorDetachedWindowClose = (windowId: string) =>
   invoke<void>("editor_detached_window_close", { windowId });
+
+export const editorSourceWindowFocus = () =>
+  invoke<void>("editor_source_window_focus");
 
 /** IaC Studio file (DB-free; no tab_id / FK coupling). */
 export type IacStudioFile = {
@@ -2393,15 +2416,18 @@ export type IacStudioFile = {
 };
 
 /** Read a file for the IaC Studio, scoped to the workspace root. */
-export const iacStudioReadFile = (filePath: string, workspaceRoot: string | null) =>
-  invoke<IacStudioFile>("iac_studio_read_file", { filePath, workspaceRoot });
+export const iacStudioReadFile = (
+  filePath: string,
+  workspaceRoot: string | null,
+) => invoke<IacStudioFile>("iac_studio_read_file", { filePath, workspaceRoot });
 
 /** Write a file for the IaC Studio, scoped to the workspace root. */
 export const iacStudioWriteFile = (
   filePath: string,
   content: string,
-  workspaceRoot: string | null
-) => invoke<void>("iac_studio_write_file", { filePath, content, workspaceRoot });
+  workspaceRoot: string | null,
+) =>
+  invoke<void>("iac_studio_write_file", { filePath, content, workspaceRoot });
 
 /** One lint finding from the IaC Studio linter (mirrors sidecar iac_lint schema). */
 export type LintDiagnostic = {
@@ -2426,8 +2452,11 @@ export type LintResult = {
 };
 
 /** Lint a buffer (terraform/ansible) via the sidecar. Throws if sidecar down. */
-export const iacLintFile = (filePath: string, content: string, language: string) =>
-  invoke<LintResult>("iac_lint_file", { filePath, content, language });
+export const iacLintFile = (
+  filePath: string,
+  content: string,
+  language: string,
+) => invoke<LintResult>("iac_lint_file", { filePath, content, language });
 
 /** Result of an IaC Studio codegen RPC (mirrors sidecar iac_codegen schema). */
 export type CodegenResult = {
@@ -2516,10 +2545,16 @@ export const editorGetHomeDirectory = () =>
 // canonicalize outside it are rejected. When omitted, the backend falls
 // back to the user's home directory.
 export const editorCreateFile = (path: string, workspaceRoot?: string | null) =>
-  invoke<void>("editor_create_file", { path, workspaceRoot: workspaceRoot ?? null });
+  invoke<void>("editor_create_file", {
+    path,
+    workspaceRoot: workspaceRoot ?? null,
+  });
 
 export const editorDeleteFile = (path: string, workspaceRoot?: string | null) =>
-  invoke<void>("editor_delete_file", { path, workspaceRoot: workspaceRoot ?? null });
+  invoke<void>("editor_delete_file", {
+    path,
+    workspaceRoot: workspaceRoot ?? null,
+  });
 
 export const editorRenameFile = (
   oldPath: string,
@@ -2539,7 +2574,10 @@ export const editorCreateDirectory = (
   path: string,
   workspaceRoot?: string | null,
 ) =>
-  invoke<void>("editor_create_directory", { path, workspaceRoot: workspaceRoot ?? null });
+  invoke<void>("editor_create_directory", {
+    path,
+    workspaceRoot: workspaceRoot ?? null,
+  });
 
 // ---------------------------------------------------------------------------
 // Language Server Protocol (LSP)
@@ -2559,8 +2597,7 @@ export const lspRequest = <T = unknown>(
 export const lspIsRunning = (language: string) =>
   invoke<boolean>("lsp_is_running", { language });
 
-export const lspCheckAvailable = () =>
-  invoke<string[]>("lsp_check_available");
+export const lspCheckAvailable = () => invoke<string[]>("lsp_check_available");
 
 // ---------------------------------------------------------------------------
 // Git integration
@@ -2650,7 +2687,7 @@ export type HeartbeatPlan = {
 };
 
 export type HeartbeatPlanResult = {
-  status: 'success' | 'error';
+  status: "success" | "error";
   plan: HeartbeatPlan | null;
   error: string | null;
 };
@@ -2665,11 +2702,11 @@ export type HeartbeatPlanResult = {
  */
 export async function planHeartbeat(
   nlInput: string,
-  context?: Record<string, any>
+  context?: Record<string, any>,
 ): Promise<HeartbeatPlanResult> {
-  return invoke('heartbeat_plan', {
+  return invoke("heartbeat_plan", {
     nlInput,
-    context: context || {}
+    context: context || {},
   });
 }
 
@@ -2678,9 +2715,9 @@ export async function createHeartbeat(
   description: string,
   interval_minutes: number,
   retention_days: number,
-  checks: CheckInput[]
-): Promise<import('../state/heartbeatStore').Heartbeat> {
-  return invoke('heartbeat_create', {
+  checks: CheckInput[],
+): Promise<import("../state/heartbeatStore").Heartbeat> {
+  return invoke("heartbeat_create", {
     name,
     description,
     intervalMinutes: interval_minutes,
@@ -2690,7 +2727,7 @@ export async function createHeartbeat(
 }
 
 export interface HeartbeatDetail {
-  heartbeat: import('../state/heartbeatStore').Heartbeat;
+  heartbeat: import("../state/heartbeatStore").Heartbeat;
   checks: Array<{
     id: string;
     heartbeatId: string;
@@ -2704,7 +2741,7 @@ export interface HeartbeatDetail {
 
 /** Fetch a heartbeat with its checks (for editing). */
 export async function getHeartbeat(id: string): Promise<HeartbeatDetail> {
-  return invoke('heartbeat_get', { id });
+  return invoke("heartbeat_get", { id });
 }
 
 /** Update a heartbeat's metadata (name, description, interval, retention). */
@@ -2714,8 +2751,8 @@ export async function updateHeartbeat(
   description: string,
   interval_minutes: number,
   retention_days: number,
-): Promise<import('../state/heartbeatStore').Heartbeat> {
-  return invoke('heartbeat_update', {
+): Promise<import("../state/heartbeatStore").Heartbeat> {
+  return invoke("heartbeat_update", {
     id,
     name,
     description,
@@ -2729,29 +2766,31 @@ export async function updateHeartbeatChecks(
   id: string,
   checks: CheckInput[],
 ): Promise<void> {
-  return invoke('heartbeat_update_checks', { id, checks });
+  return invoke("heartbeat_update_checks", { id, checks });
 }
 
 export async function pauseHeartbeat(id: string): Promise<void> {
-  return invoke('heartbeat_pause', { id });
+  return invoke("heartbeat_pause", { id });
 }
 
 export async function resumeHeartbeat(id: string): Promise<void> {
-  return invoke('heartbeat_resume', { id });
+  return invoke("heartbeat_resume", { id });
 }
 
 export async function deleteHeartbeat(id: string): Promise<void> {
-  return invoke('heartbeat_delete', { id });
+  return invoke("heartbeat_delete", { id });
 }
 
 export async function triggerHeartbeatNow(id: string): Promise<string> {
-  return invoke('heartbeat_trigger_now', { id });
+  return invoke("heartbeat_trigger_now", { id });
 }
 
 export async function exportHeartbeat(id: string): Promise<string> {
-  return invoke('heartbeat_export', { id });
+  return invoke("heartbeat_export", { id });
 }
 
-export async function importHeartbeat(json: string): Promise<import('../state/heartbeatStore').Heartbeat> {
-  return invoke('heartbeat_import', { json });
+export async function importHeartbeat(
+  json: string,
+): Promise<import("../state/heartbeatStore").Heartbeat> {
+  return invoke("heartbeat_import", { json });
 }

@@ -14,13 +14,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TabBar } from "./TabBar";
 import { useTabs } from "../state/tabsStore";
+import { useEditorStore } from "../state/editorStore";
 
 // Mock the Tauri IPC wrappers so we can assert on them.
 vi.mock("../lib/tauri", () => ({
   ptyKill: vi.fn().mockResolvedValue(undefined),
   tabCloseApi: vi.fn().mockResolvedValue(undefined),
+  tabCloseNetconf: vi.fn().mockResolvedValue(undefined),
+  tabCloseEditor: vi.fn().mockResolvedValue(undefined),
 }));
-import { ptyKill, tabCloseApi } from "../lib/tauri";
+import { ptyKill, tabCloseApi, tabCloseEditor } from "../lib/tauri";
 
 // With ENABLE_TERMINAL_REGISTRY on, closing a terminal tab routes through
 // terminalRegistry.dispose() (which kills the PTY + xterm) instead of the
@@ -40,6 +43,7 @@ function resetStore() {
       activeTabId: null,
       blocks: {},
     });
+    useEditorStore.getState().resetAll();
   });
 }
 
@@ -127,6 +131,76 @@ describe("TabBar — regression + tab types", () => {
     });
     expect(tabCloseApi).toHaveBeenCalledWith("api-1");
     expect(ptyKill).not.toHaveBeenCalled();
+  });
+
+  it("closes native editor windows before dropping the editor workspace", async () => {
+    act(() => {
+      useTabs.setState({
+        tabs: [
+          {
+            id: "editor-1",
+            title: "Editor",
+            shell_cmd: "",
+            cwd: "",
+            created_at: 0,
+            tab_type: "editor",
+          },
+        ],
+        activeTabId: "editor-1",
+        blocks: {},
+      });
+      useEditorStore.getState().initializeWorkspace("editor-1");
+    });
+    render(<TabBar onNew={() => {}} />);
+
+    const close = screen
+      .getByTestId("tab-editor-1")
+      .querySelector(".tab-close") as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(close);
+      await Promise.resolve();
+    });
+
+    expect(tabCloseEditor).toHaveBeenCalledWith("editor-1");
+    expect(useTabs.getState().tabs).toHaveLength(0);
+    expect(useEditorStore.getState().workspaces["editor-1"]).toBeUndefined();
+  });
+
+  it("keeps an editor tab and workspace when native-window cleanup fails", async () => {
+    vi.mocked(tabCloseEditor).mockRejectedValueOnce(
+      new Error("window close failed"),
+    );
+    act(() => {
+      useTabs.setState({
+        tabs: [
+          {
+            id: "editor-1",
+            title: "Editor",
+            shell_cmd: "",
+            cwd: "",
+            created_at: 0,
+            tab_type: "editor",
+          },
+        ],
+        activeTabId: "editor-1",
+        blocks: {},
+      });
+      useEditorStore.getState().initializeWorkspace("editor-1");
+    });
+    render(<TabBar onNew={() => {}} />);
+
+    const close = screen
+      .getByTestId("tab-editor-1")
+      .querySelector(".tab-close") as HTMLButtonElement;
+    await act(async () => {
+      fireEvent.click(close);
+      await Promise.resolve();
+    });
+
+    expect(useTabs.getState().tabs).toHaveLength(1);
+    expect(useEditorStore.getState().workspaces["editor-1"].error).toContain(
+      "window close failed",
+    );
   });
 
   it("API tabs render with an 'API' badge; terminal tabs do not", () => {
