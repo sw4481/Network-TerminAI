@@ -1,0 +1,38 @@
+.block-tab-strip {
+  display: flex;
+  background: #252525;
+  border-bottom: 1px solid #3a3a3a;
+  padding: 0 12px;
+  height: 32px;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.block-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #9aa0a6;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  padding: 0 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.block-tab:hover:not(:disabled) {
+  color: #e6e1cf;
+}
+
+.block-tab.active {
+  color: #fff;
+  border-bottom-color: #5c8eda;
+  background: #1e1e1e;
+}
+
+.block-tab:disabled {
+  color: #555;
+  cursor: not-allowed;
+}

@@ -1,0 +1,105 @@
+.tag-chip-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0 0;
+  font: 500 11px/1 'SF Mono', 'Menlo', 'Monaco', monospace;
+  letter-spacing: 0.02em;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid #3a3a3a;
+  border-radius: 2px;
+  background: #1a1d23;
+  color: #8a8d94;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  position: relative;
+  font: inherit;
+}
+.tag-chip:hover {
+  border-color: #5ccfe6;
+  color: #e6e1cf;
+}
+.tag-chip[data-active="true"] {
+  border-color: #5ccfe6;
+  background: rgba(92, 207, 230, 0.12);
+  color: #5ccfe6;
+}
+
+.tag-chip-text {
+  display: inline-block;
+}
+
+.tag-chip-remove {
+  display: inline-block;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: #e07b7b;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  transition: max-width 0.12s ease, opacity 0.12s ease;
+}
+.tag-chip:hover .tag-chip-remove,
+.tag-chip:focus-visible .tag-chip-remove {
+  max-width: 12px;
+  opacity: 1;
+}
+
+.tag-chip-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border: 1px dashed #3a3a3a;
+  border-radius: 2px;
+  background: transparent;
+  color: #5a5d62;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  font: inherit;
+}
+.tag-chip-add:hover {
+  color: #5ccfe6;
+  border-color: #5ccfe6;
+}
+
+/* Reveal the "+" affordance when the parent block is hovered or focused,
+ * or when the strip is forced via alwaysShowAdd. */
+.command-block:hover .tag-chip-add,
+.command-block:focus-within .tag-chip-add,
+.tag-chip-strip[data-always-show-add="true"] .tag-chip-add {
+  opacity: 1;
+}
+
+.tag-chip-input {
+  width: 120px;
+  padding: 2px 6px;
+  border: 1px solid #5ccfe6;
+  border-radius: 2px;
+  background: #0f1114;
+  color: #e6e1cf;
+  font: inherit;
+  outline: none;
+}
+
+.tag-chip:focus-visible,
+.tag-chip-add:focus-visible {
+  outline: 2px solid #5ccfe6;
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-chip,
+  .tag-chip-remove,
+  .tag-chip-add {
+    transition: none;
+  }
+}

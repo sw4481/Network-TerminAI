@@ -1,0 +1,21 @@
+[
+  {
+    "name": "cml_api_call",
+    "description": "Call the Cisco Modeling Labs (CML) REST API. ONE base URL: https://<host>/api/v0 (all paths relative). Auth (Bearer JWT) is handled for you; do NOT call /authenticate. Returns {status_code, data, error, blast_radius}. Key endpoints: GET /labs (list lab IDs), GET /labs/{id} (detail), GET /labs/{id}/state, GET /labs/{id}/topology, GET /labs/{id}/nodes, POST /labs (create), PUT /labs/{id}/start|stop|wipe (lifecycle), DELETE /labs/{id}, GET /nodes (all running nodes), GET /node_definitions, GET /image_definitions, GET /system_information, GET /system_health, GET /users, GET /groups. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "cml_api_call",
+      "description": "Call the Cisco Modeling Labs (CML) REST API under /api/v0. Auth is handled internally.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "description": "HTTP method" },
+          "path": { "type": "string", "description": "API path under /api/v0 (e.g., '/labs')" },
+          "body": { "type": "object", "description": "Request body for POST/PUT/PATCH (optional)" },
+          "query_params": { "type": "object", "description": "URL query parameters (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

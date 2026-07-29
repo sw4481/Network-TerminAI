@@ -1,0 +1,38 @@
+.agent-activity-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: auto;
+  cursor: help;
+}
+
+.agent-activity-badge.agent-active {
+  background-color: rgba(59, 130, 246, 0.9); /* blue */
+  animation: pulse-blue 2s ease-in-out infinite;
+}
+
+.agent-activity-badge.agent-waiting {
+  background-color: rgba(249, 115, 22, 0.9); /* orange */
+  animation: pulse-orange 1.5s ease-in-out infinite;
+}
+
+.agent-activity-badge svg {
+  color: white;
+}
+
+@keyframes pulse-blue {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes pulse-orange {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}

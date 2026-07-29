@@ -1,0 +1,59 @@
+.pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #1e1e1e;
+  border: 2px solid #3e4451;
+  border-radius: 4px;
+  transition: border-color 0.15s ease;
+}
+
+.pane-focused {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 1px #4a90e2;
+}
+
+.pane:hover {
+  border-color: #5a6471;
+}
+
+.pane-focused:hover {
+  border-color: #5aa8ff;
+}
+
+.pane-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 10;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #6c7380;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.pane:hover .pane-close,
+.pane-focused .pane-close {
+  opacity: 1;
+}
+
+.pane-close:hover {
+  background: #4a1f1f;
+  border-color: #f08080;
+  color: #f08080;
+}

@@ -1,0 +1,49 @@
+.metadata-card {
+  position: fixed;
+  z-index: 9000;
+  width: 280px;
+  background: #1a1d24;
+  border: 1px solid #2d3139;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color: #e6e1cf;
+  font-size: 12px;
+  user-select: none;
+}
+.metadata-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: move;
+  border-bottom: 1px solid #2d3139;
+}
+.metadata-card__title { flex: 1; font-weight: 600; }
+.metadata-card__btn {
+  background: none; border: none; color: #9aa0aa; cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 2px 4px;
+}
+.metadata-card__btn:hover { color: #e6e1cf; }
+.metadata-card__body { padding: 8px 10px; }
+.metadata-card__section { margin-bottom: 10px; }
+.metadata-card__section h4 {
+  margin: 0 0 4px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.05em; color: #6b7280;
+}
+.metadata-card__git { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.metadata-card__git .branch { font-weight: 600; }
+.metadata-card__git .dirty-dot { color: #f59e0b; }
+.metadata-card__ports { list-style: none; margin: 0; padding: 0; }
+.metadata-card__ports li { padding: 1px 0; }
+.metadata-card__ssh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.metadata-card .muted { color: #6b7280; }
+.metadata-card code { background: #0f1115; padding: 1px 4px; border-radius: 3px; }
+.metadata-card .badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 10px; border: 1px solid #2d3139;
+}
+.metadata-card .badge--chain { color: #4ade80; border-color: #234d33; }
+.metadata-card .badge--process { color: #facc15; border-color: #4d4423; }
+.metadata-card__error { color: #f87171; margin-bottom: 8px; }
+.metadata-card__footer { padding: 6px 10px; border-top: 1px solid #2d3139; }
+.spin { display: inline-block; animation: metadata-spin 0.7s linear infinite; }
+@keyframes metadata-spin { to { transform: rotate(360deg); } }

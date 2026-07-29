@@ -1,0 +1,180 @@
+/*
+ * Plan 13 Phase 4 Task 4.2 — Topology inspector styles.
+ */
+
+.topology-inspector {
+  flex: 0 0 280px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-left: 1px solid var(--cb-border, #2a2f3a);
+  background: rgba(255, 255, 255, 0.03);
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.topology-inspector__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--cb-border, #2a2f3a);
+}
+
+.topology-inspector__vendor-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  border-radius: 3px;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
+}
+
+.topology-inspector__title {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topology-inspector__close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.topology-inspector__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.topology-inspector__details dl {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 4px 8px;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.topology-inspector__details dt {
+  font-size: 11px;
+  opacity: 0.6;
+  text-transform: lowercase;
+}
+
+.topology-inspector__details dd {
+  margin: 0;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.topology-inspector__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.topology-inspector__copy:hover {
+  border-color: var(--cb-border, #2a2f3a);
+}
+
+.topology-inspector__copy-state {
+  font-family: inherit;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.topology-inspector__placeholder {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.topology-inspector__section-title {
+  margin: 8px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.topology-inspector__protocol-group {
+  margin-bottom: 6px;
+}
+
+.topology-inspector__protocol-title {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.65;
+}
+
+.topology-inspector__edges {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.topology-inspector__edge {
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  padding: 2px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.topology-inspector__edge:last-child {
+  border-bottom: none;
+}
+
+.topology-inspector__actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cb-border, #2a2f3a);
+}
+
+.topology-inspector__action {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: #1a3550;
+  color: #e6e1cf;
+  border: 1px solid #2d5e8a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.topology-inspector__action:hover {
+  background: #234566;
+}
+
+.topology-inspector__hint {
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.7;
+  font-style: italic;
+}

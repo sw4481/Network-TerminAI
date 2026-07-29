@@ -1,0 +1,364 @@
+.heartbeat-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #0f1114;
+  color: #e6e1cf;
+  font-family: Menlo, monospace;
+}
+
+.heartbeat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #262a33;
+  background: #14171c;
+}
+
+.heartbeat-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.heartbeat-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: #e6e1cf;
+}
+
+.heartbeat-count {
+  font-size: 12px;
+  color: #8a8d94;
+}
+
+.heartbeat-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.heartbeat-filter,
+.heartbeat-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.heartbeat-filter label,
+.heartbeat-sort label {
+  color: #8a8d94;
+}
+
+.heartbeat-filter select,
+.heartbeat-sort select {
+  background: #1a1d22;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.heartbeat-filter select:hover,
+.heartbeat-sort select:hover {
+  background: #232830;
+}
+
+.heartbeat-new-btn {
+  background: #2d5a8c;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-new-btn:hover {
+  background: #3a6ba0;
+}
+
+.heartbeat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.heartbeat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: #8a8d94;
+}
+
+.heartbeat-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.heartbeat-empty-btn {
+  background: #2d5a8c;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-empty-btn:hover {
+  background: #3a6ba0;
+}
+
+/* Card styles */
+.heartbeat-card {
+  background: #14171c;
+  border: 1px solid #262a33;
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.heartbeat-card:hover {
+  border-color: #3a3f4a;
+}
+
+.heartbeat-card.expanded {
+  grid-column: 1 / -1;
+}
+
+.heartbeat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.heartbeat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.heartbeat-card-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: #e6e1cf;
+}
+
+.heartbeat-disabled-badge {
+  background: #4a3320;
+  color: #ffcc70;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.heartbeat-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.heartbeat-action-btn {
+  background: #1a1d22;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-action-btn:hover:not(:disabled) {
+  background: #232830;
+}
+
+.heartbeat-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.heartbeat-action-btn.danger {
+  color: #e06c75;
+  border-color: #553030;
+}
+
+.heartbeat-action-btn.danger:hover:not(:disabled) {
+  background: #2a1a1a;
+}
+
+.heartbeat-card-description {
+  font-size: 12px;
+  color: #8a8d94;
+  line-height: 1.5;
+}
+
+.heartbeat-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.heartbeat-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heartbeat-meta-label {
+  color: #8a8d94;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.heartbeat-meta-value {
+  color: #e6e1cf;
+}
+
+.heartbeat-card-footer {
+  border-top: 1px solid #1a1d22;
+  padding-top: 8px;
+}
+
+.heartbeat-expand-btn {
+  background: transparent;
+  color: #56b6c2;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  width: 100%;
+  text-align: left;
+}
+
+.heartbeat-expand-btn:hover {
+  color: #6fc9d4;
+}
+
+/* Timeline styles */
+.heartbeat-timeline {
+  margin-top: 8px;
+  border-top: 1px solid #262a33;
+  padding-top: 12px;
+}
+
+.heartbeat-timeline-empty {
+  text-align: center;
+  padding: 12px;
+  color: #8a8d94;
+  font-size: 12px;
+}
+
+.heartbeat-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.heartbeat-timeline-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #0f1114;
+  border: 1px solid #1a1d22;
+  border-radius: 4px;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.heartbeat-timeline-item:hover {
+  background: #16181c;
+  border-color: #2a2d31;
+  transform: translateX(2px);
+}
+
+.heartbeat-timeline-time {
+  color: #8a8d94;
+}
+
+.heartbeat-timeline-duration {
+  color: #e6e1cf;
+}
+
+/* Badge styles */
+.severity-badge,
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Severity badges */
+.severity-badge.severity-ok {
+  background: #1d4a2a;
+  color: #98c379;
+}
+
+.severity-badge.severity-info {
+  background: #1d3a5a;
+  color: #a3c9ff;
+}
+
+.severity-badge.severity-warning {
+  background: #4a3320;
+  color: #ffcc70;
+}
+
+.severity-badge.severity-critical {
+  background: #4a2020;
+  color: #ff7a7a;
+}
+
+.severity-badge.severity-error {
+  background: #4a2020;
+  color: #e06c75;
+}
+
+/* Status badges */
+.status-badge.status-running {
+  background: #3a2a5a;
+  color: #c9a3ff;
+}
+
+.status-badge.status-completed {
+  background: #1d4a2a;
+  color: #98c379;
+}
+
+.status-badge.status-completed_with_errors {
+  background: #4a3320;
+  color: #ffcc70;
+}
+
+.status-badge.status-failed {
+  background: #4a2020;
+  color: #e06c75;
+}

@@ -1,0 +1,220 @@
+.intent-editor {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  height: 100%;
+  min-height: 480px;
+  font-family: Menlo, monospace;
+  color: #e6e1cf;
+  background: #0f1114;
+}
+
+.intent-list {
+  border-right: 1px solid #262a33;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.intent-list-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #262a33;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #8a8d94;
+}
+
+.intent-list-header button {
+  background: #2d5a8c;
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.intent-new-form,
+.intent-rename-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.intent-new-form {
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a1d22;
+}
+.intent-rename-form {
+  flex: 1;
+}
+.intent-new-form input,
+.intent-rename-form input {
+  flex: 1;
+  min-width: 0;
+  background: #14171c;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.intent-new-form input:focus,
+.intent-rename-form input:focus { border-color: #2d5a8c; }
+.intent-new-form button,
+.intent-rename-form button {
+  background: #2d5a8c;
+  color: #fff;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.intent-new-form button[type="button"],
+.intent-rename-form button[type="button"] {
+  background: transparent;
+  color: #8a8d94;
+  border: 1px solid #262a33;
+}
+
+.intent-immutable-note {
+  grid-column: 1 / -1;
+  color: #8a8d94;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.intent-row {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #1a1d22;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.intent-row:hover { background: #14171c; }
+.intent-row.selected { background: #1d2530; border-left: 3px solid #56b6c2; padding-left: 9px; }
+
+.intent-name { font-size: 13px; font-weight: 500; }
+.intent-meta {
+  font-size: 11px;
+  color: #8a8d94;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.intent-kind-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.intent-kind-badge.golden { background: #4a3a1f; color: #ffd070; }
+.intent-kind-badge.jinja  { background: #1f3a4a; color: #70c0ff; }
+
+.intent-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #8a8d94;
+  font-size: 12px;
+}
+
+.intent-detail {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.intent-detail-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #262a33;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intent-detail-header input.name {
+  background: #14171c;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 13px;
+  flex: 1;
+}
+
+.intent-detail-actions { display: flex; gap: 6px; }
+.intent-detail-actions button {
+  background: #1a1d22;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.intent-detail-actions button:hover { background: #232830; }
+.intent-detail-actions button.primary { background: #2d5a8c; border-color: #2d5a8c; color: #fff; }
+.intent-detail-actions button.danger { color: #e06c75; border-color: #553030; }
+
+.intent-tab-bar {
+  display: flex;
+  border-bottom: 1px solid #262a33;
+  background: #0c0e11;
+}
+.intent-tab {
+  padding: 6px 14px;
+  cursor: pointer;
+  border-right: 1px solid #1a1d22;
+  font-size: 11px;
+  color: #8a8d94;
+}
+.intent-tab.active {
+  background: #14171c;
+  color: #56b6c2;
+  border-bottom: 2px solid #56b6c2;
+}
+
+.intent-meta-grid {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 12px;
+  border-bottom: 1px solid #262a33;
+}
+.intent-meta-grid label { color: #8a8d94; font-size: 11px; }
+.intent-meta-grid select,
+.intent-meta-grid input {
+  background: #14171c;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.intent-editor-area {
+  flex: 1;
+  position: relative;
+  min-height: 200px;
+}
+
+.intent-error {
+  background: #4a1f1f;
+  color: #ff8a8a;
+  padding: 6px 12px;
+  font-size: 11px;
+}

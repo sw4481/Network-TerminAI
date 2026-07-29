@@ -1,0 +1,28 @@
+---
+- name: Remove VLAN 78 from switches (rollback)
+  hosts: switches
+  gather_facts: no
+  
+  tasks:
+    - name: Remove VLAN 78
+      cisco.ios.ios_vlans:
+        config:
+          - vlan_id: 78
+        state: deleted
+      register: vlan_result
+
+    - name: Save configuration
+      cisco.ios.ios_config:
+        save_when: always
+      when: vlan_result.changed
+
+    - name: Verify VLAN removal
+      cisco.ios.ios_command:
+        commands:
+          - show vlan brief | include 78
+      register: vlan_check
+      failed_when: false
+
+    - name: Display result
+      ansible.builtin.debug:
+        msg: "VLAN 78 {{ 'removed' if vlan_result.changed else 'was not present' }} on {{ inventory_hostname }}"

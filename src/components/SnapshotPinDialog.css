@@ -1,0 +1,63 @@
+.snapshot-pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.snapshot-pin-dialog {
+  background: #252525;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 18px 20px;
+  width: 380px;
+  color: #e6e1cf;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.snapshot-pin-dialog h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.snapshot-pin-dialog p {
+  margin: 0;
+  color: #9aa0a6;
+  font-size: 12px;
+}
+
+.snapshot-pin-dialog input {
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #e6e1cf;
+}
+
+.snapshot-pin-dialog input:focus {
+  border-color: #5c8eda;
+  outline: none;
+}
+
+.snapshot-pin-error {
+  color: #f88;
+  font-size: 12px;
+}
+
+.snapshot-pin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

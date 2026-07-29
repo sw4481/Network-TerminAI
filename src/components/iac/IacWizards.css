@@ -1,0 +1,28 @@
+.iac-wizard-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+.iac-wizard-modal {
+  width: 480px; max-width: 90%;
+  background: #1e1e1e; color: #ddd;
+  border: 1px solid #444; border-radius: 6px;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.iac-wizard-title { font-weight: 600; font-size: 14px; }
+.iac-wizard-field { display: flex; flex-direction: column; gap: 4px; }
+.iac-wizard-field label { font-size: 12px; color: #aaa; }
+.iac-wizard-field input,
+.iac-wizard-field select,
+.iac-wizard-field textarea {
+  background: #2a2a2a; color: #eee; border: 1px solid #555;
+  border-radius: 4px; padding: 6px; font-size: 13px;
+}
+.iac-wizard-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.iac-wizard-actions button { padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+.iac-wizard-generate { background: #0e639c; color: #fff; border: none; }
+.iac-wizard-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+.iac-wizard-cancel { background: transparent; color: #ccc; border: 1px solid #555; }
+.iac-wizard-error { color: #f48771; font-size: 12px; }
+.iac-wizard-checks { display: flex; gap: 14px; }
+.iac-wizard-checks label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #ddd; }

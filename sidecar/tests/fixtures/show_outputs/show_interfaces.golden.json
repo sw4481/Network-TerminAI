@@ -1,0 +1,4 @@
+[
+  { "interface": "GigabitEthernet1", "link_status": "up", "protocol_status": "up", "mtu": 1500, "duplex_mode": "Full", "input_packets": 12345, "output_packets": 12300 },
+  { "interface": "GigabitEthernet2", "link_status": "administratively down", "protocol_status": "down", "mtu": 1500, "duplex_mode": "Auto", "input_packets": 0, "output_packets": 0 }
+]

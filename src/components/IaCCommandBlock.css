@@ -1,0 +1,210 @@
+/* src/components/IaCCommandBlock.css */
+
+.iac-command-block {
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.iac-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #2d2d2d;
+  border-bottom: 2px solid #3a3a3a;
+}
+
+.iac-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.iac-command {
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.iac-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.iac-badge.exit-code.success {
+  background: #50c878;
+  color: white;
+}
+
+.iac-badge.exit-code.error {
+  background: #e94b3c;
+  color: white;
+}
+
+.iac-badge.resources-changed {
+  background: #4a90e2;
+  color: white;
+}
+
+.iac-badge.resources-failed {
+  background: #f5a623;
+  color: white;
+}
+
+.iac-badge.duration {
+  background: #6c757d;
+  color: white;
+}
+
+.iac-header-right {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.iac-action-btn {
+  background: transparent;
+  border: 1px solid #555;
+  color: #d4d4d4;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.iac-action-btn:hover {
+  background: #3a3a3a;
+}
+
+.iac-block-metadata {
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: #888;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.iac-metadata-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.iac-block-body {
+  padding: 1rem;
+}
+
+.iac-resource-section {
+  margin-bottom: 0.75rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+}
+
+.iac-resource-section.color-green .iac-section-header {
+  background: #1e3a1e;
+  color: #50c878;
+}
+
+.iac-resource-section.color-blue .iac-section-header {
+  background: #1e2a3a;
+  color: #4a90e2;
+}
+
+.iac-resource-section.color-red .iac-section-header {
+  background: #3a1e1e;
+  color: #e94b3c;
+}
+
+.iac-resource-section.color-gray .iac-section-header {
+  background: #2a2a2a;
+  color: #9a9a9a;
+}
+
+.iac-section-header {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 13px;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iac-section-toggle {
+  font-size: 10px;
+}
+
+.iac-section-body {
+  padding: 0.75rem;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.iac-resource-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.iac-resource-icon {
+  min-width: 1rem;
+  text-align: center;
+}
+
+.iac-resource-name {
+  flex: 1;
+}
+
+.iac-resource-id {
+  color: #888;
+  font-size: 11px;
+}
+
+.iac-resource-error {
+  color: #e94b3c;
+  font-size: 11px;
+}
+
+.iac-command-block.loading {
+  padding: 2rem;
+  text-align: center;
+  color: #888;
+}
+
+.iac-output-section {
+  margin-top: 8px;
+}
+
+.iac-output-pre {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono, 'SF Mono', Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #cfd3dc;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* Output section uses a <button> for the toggle (controlled, always visible). */
+.iac-output-section .iac-section-header {
+  width: 100%;
+  border: none;
+  background: #20242c;
+  color: #cfd3dc;
+  text-align: left;
+  font-family: inherit;
+}
+
+.iac-output-section .iac-section-header:hover {
+  background: #262b34;
+}

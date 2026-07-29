@@ -1,0 +1,16 @@
+Router#show running-config
+enable secret 5 $1$k4mB$abcdefghijklmnopqrstuv
+username admin password 0 P@ssw0rd123
+username backup password 7 02050D480809
+snmp-server community public RO
+snmp-server community SuperSecret42 RW
+community secretcommunity RW
+interface GigabitEthernet0/0
+ ip address 10.1.1.1 255.255.255.0
+!
+$ curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def" https://api.example.com
+$ export API_KEY="sk_live_abcdef1234567890XYZ"
+$ aws configure
+AWS Access Key ID: AKIAIOSFODNN7EXAMPLE
+<rpc><edit-config><config><users><user><password>netconfpw123</password></user></users></config></edit-config></rpc>
+Password: hunter2

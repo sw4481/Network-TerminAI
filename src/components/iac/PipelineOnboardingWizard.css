@@ -1,0 +1,204 @@
+/* Onboarding wizard — teaching-forward variant of the .iac-wizard modal.
+   Reuses .iac-wizard-overlay / .iac-wizard-modal base from IacWizards.css. */
+
+.onboarding-modal {
+  width: 560px;
+}
+
+.onboarding-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.onboarding-progress {
+  display: flex;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #444;
+}
+.onboarding-dot.done {
+  background: #0e9c6c;
+}
+.onboarding-dot.active {
+  background: #0e639c;
+  box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.35);
+}
+
+.onboarding-step-label {
+  margin-left: auto;
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.onboarding-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #ddd;
+}
+
+.onboarding-body p {
+  margin: 0;
+}
+
+.onboarding-muted {
+  color: #999;
+  font-size: 12px;
+}
+
+.onboarding-ok {
+  color: #0e9c6c;
+  font-weight: 500;
+}
+
+.onboarding-flow {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.onboarding-empty {
+  background: #262626;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px 12px;
+}
+
+.onboarding-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #ddd;
+}
+.onboarding-radio-card input {
+  margin-top: 3px;
+}
+.onboarding-radio-card em {
+  color: #0e9c6c;
+  font-style: normal;
+  font-size: 11px;
+}
+
+.onboarding-nav {
+  display: flex;
+  gap: 8px;
+}
+
+/* Self-hosted runner setup guide (collapsible). */
+.onboarding-guide {
+  margin-top: 6px;
+  background: #232323;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.onboarding-guide summary {
+  cursor: pointer;
+  color: #4ea1d3;
+  font-size: 12px;
+  user-select: none;
+}
+.onboarding-guide summary:hover {
+  color: #6cb8e6;
+}
+.onboarding-guide ol {
+  margin: 8px 0 2px;
+}
+.onboarding-guide code {
+  background: #1a1a1a;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Keep the modal from overflowing when a target list + guide is long. */
+.onboarding-modal {
+  max-height: 82vh;
+  overflow-y: auto;
+}
+
+/* "Three pieces have to connect" explainer + Ansible local-vs-pipeline note. */
+.onboarding-model,
+.onboarding-note {
+  background: #202531;
+  border: 1px solid #34405a;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+.onboarding-note {
+  background: #2a2620;
+  border-color: #5a4a34;
+}
+.onboarding-note ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.onboarding-model code,
+.onboarding-note code {
+  background: #1a1a1a;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* Step 6 next-steps checklist. */
+.onboarding-checklist {
+  margin: 4px 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.onboarding-cmd {
+  background: #0d0d0d;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #b5cea8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* "Run it directly" (direct-SSH) callout for the network target in step 6. */
+.onboarding-runnow {
+  background: #12261d;
+  border: 1px solid #1f5138;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
+}
+.onboarding-runnow > strong {
+  color: #6ee7a8;
+}
+.onboarding-runnow-btns {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}

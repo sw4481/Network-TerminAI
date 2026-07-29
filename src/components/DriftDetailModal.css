@@ -1,0 +1,6 @@
+.iac-drift-modal { padding: 12px; border-top: 1px solid var(--border, #333); overflow-y: auto; }
+.iac-drift-modal__resource { margin: 12px 0; padding: 8px; border: 1px solid var(--border, #333); border-radius: 6px; }
+.iac-drift-modal__analysis { background: rgba(80,120,255,0.08); padding: 8px; border-radius: 4px; }
+.iac-drift-modal__actions { display: flex; gap: 8px; margin-top: 8px; }
+.iac-drift-modal__unavailable, .iac-drift-modal__nodetail { color: #888; }
+.iac-drift-modal__suppressed { margin-top: 12px; color: #888; }

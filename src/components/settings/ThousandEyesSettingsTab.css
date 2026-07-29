@@ -1,0 +1,142 @@
+.thousandeyes-tab {
+  padding: 1.5rem;
+  max-width: 700px;
+}
+
+.thousandeyes-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: #d4a857;
+}
+
+.thousandeyes-subtitle {
+  margin: 0 0 2rem 0;
+  color: #8a8d94;
+  font-size: 0.95rem;
+}
+
+.thousandeyes-section {
+  margin-bottom: 2rem;
+}
+
+.thousandeyes-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #e0e0e0;
+}
+
+.thousandeyes-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.thousandeyes-grid label {
+  color: #8a8d94;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.thousandeyes-grid input[type='text'],
+.thousandeyes-grid input[type='password'] {
+  padding: 0.5rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  background: #1e1e1e;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+}
+
+.thousandeyes-grid input:focus {
+  outline: none;
+  border-color: #d4a857;
+}
+
+.thousandeyes-checkbox-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.thousandeyes-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.thousandeyes-field--full {
+  grid-column: 1 / -1;
+}
+
+.thousandeyes-field-desc {
+  color: #8a8d94;
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.thousandeyes-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.thousandeyes-btn-primary,
+.thousandeyes-btn-secondary {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.thousandeyes-btn-primary {
+  background: #d4a857;
+  color: #1e1e1e;
+}
+
+.thousandeyes-btn-primary:hover:not(:disabled) {
+  background: #e0b865;
+}
+
+.thousandeyes-btn-secondary {
+  background: #3a3a3a;
+  color: #e0e0e0;
+}
+
+.thousandeyes-btn-secondary:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.thousandeyes-btn-primary:disabled,
+.thousandeyes-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thousandeyes-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.thousandeyes-status--ok {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid #4caf50;
+  color: #4caf50;
+}
+
+.thousandeyes-status--err {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid #f44336;
+  color: #f44336;
+}
+
+.thousandeyes-status--info {
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid #2196f3;
+  color: #2196f3;
+}

@@ -1,0 +1,58 @@
+.tb-control-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #0a0c0f;
+  border-bottom: 1px solid #262a33;
+  align-items: center;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  color: #e6e1cf;
+  flex-wrap: wrap;
+}
+
+.tb-control-spacer { flex: 1 1 auto; }
+
+.tb-control-status {
+  font-size: 11px;
+  color: #8a8d94;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tb-control-btn {
+  background: #1a1d23;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tb-control-btn:hover:not(:disabled) {
+  border-color: #5a8fd6;
+  color: #fff;
+}
+
+.tb-control-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tb-control-btn[data-variant="danger"] {
+  border-color: rgba(210,103,90,0.5);
+  color: #d2675a;
+}
+.tb-control-btn[data-variant="danger"]:hover:not(:disabled) {
+  background: rgba(210,103,90,0.15);
+}
+
+.tb-control-btn[data-variant="primary"] {
+  border-color: rgba(58,163,112,0.6);
+  color: #3aa370;
+}
+.tb-control-btn[data-variant="primary"]:hover:not(:disabled) {
+  background: rgba(58,163,112,0.12);
+}

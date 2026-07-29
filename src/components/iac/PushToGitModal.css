@@ -1,0 +1,127 @@
+.push-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.push-modal {
+  background: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  color: #e0e0e0;
+}
+
+.push-modal-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.push-modal-sub {
+  color: #8a8d94;
+  font-size: 0.9rem;
+  margin: 0 0 16px 0;
+}
+
+.push-modal-field {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.push-modal-field label {
+  font-size: 0.85rem;
+  color: #b0b3b8;
+}
+
+.push-modal-field input {
+  padding: 0.5rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  background: #141414;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+}
+
+.push-modal-field input:focus {
+  outline: none;
+  border-color: #0e639c;
+}
+
+.push-modal-field input:disabled {
+  opacity: 0.6;
+}
+
+.push-modal-hint {
+  font-size: 0.78rem;
+  color: #6c7380;
+}
+
+.push-modal-ok,
+.push-modal-err {
+  padding: 0.6rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.push-modal-ok {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid #4caf50;
+  color: #6cc070;
+}
+
+.push-modal-err {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid #f44336;
+  color: #f4746a;
+}
+
+.push-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.push-modal-cancel,
+.push-modal-confirm {
+  padding: 0.5rem 1.1rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.push-modal-cancel {
+  background: #3a3a3a;
+  color: #e0e0e0;
+}
+
+.push-modal-cancel:hover:not(:disabled) {
+  background: #4a4a4a;
+}
+
+.push-modal-confirm {
+  background: #0e639c;
+  color: #fff;
+}
+
+.push-modal-confirm:hover:not(:disabled) {
+  background: #1177bb;
+}
+
+.push-modal-cancel:disabled,
+.push-modal-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

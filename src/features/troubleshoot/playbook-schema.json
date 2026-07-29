@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CCIE Terminal Troubleshooting Playbook",
+  "description": "JSON Schema for an authored Plan 15 troubleshooting playbook. This is a copy of sidecar/src/ccie_sidecar/troubleshoot/schema.json — keep the two in sync. The Monaco YAML editor in PlaybookEditor.tsx feeds this to monaco-yaml for inline validation.",
+  "type": "object",
+  "required": ["id", "name", "symptom_keywords", "vendor", "platform", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "minLength": 1,
+      "description": "Slug; lowercase letters, digits, dashes only. e.g. 'bgp-wont-peer'."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title shown in the picker."
+    },
+    "symptom_keywords": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1,
+      "description": "Free-text keywords used by the BM25 matcher."
+    },
+    "vendor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Vendor name or '*' for any. Common: cisco, juniper, arista."
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Platform name or '*' for any. Common: iosxe, nxos, junos, eos."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional long-form description rendered in the picker tooltip and the matcher's 'reasons' chip."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of steps. The engine starts at index 0 and follows next/on_pass/on_fail/cases.next references.",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique step id within this playbook."
+          },
+          "type": {
+            "enum": [
+              "command",
+              "assertion",
+              "branch",
+              "narration",
+              "user_prompt"
+            ],
+            "description": "command: run a Tier-0 show command. assertion: evaluate a JMESPath against parsed output. branch: switch on the last assertion value. narration: AI 1-2 sentence explanation. user_prompt: pause and ask the user."
+          },
+          "command": {
+            "type": "string",
+            "description": "For type=command: the show command. May reference {{vars}}. Re-classified post-substitution; anything above Tier-0 pauses the run."
+          },
+          "expression": {
+            "type": "string",
+            "description": "For type=assertion: a JMESPath expression evaluated against the previous parsed output."
+          },
+          "expects": {
+            "description": "For type=assertion: the expected value. Any JSON type."
+          },
+          "cases": {
+            "type": "array",
+            "minItems": 1,
+            "description": "For type=branch: ordered match cases over the previous assertion result.",
+            "items": {
+              "type": "object",
+              "required": ["when", "next"],
+              "additionalProperties": false,
+              "properties": {
+                "when": {
+                  "type": ["string", "boolean", "number", "null"],
+                  "description": "The exact value to match. First match wins."
+                },
+                "next": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Step id to jump to when 'when' matches."
+                }
+              }
+            }
+          },
+          "text": {
+            "type": "string",
+            "description": "For type=narration: the literal text. The narrator may rewrite it with RAG context if a sidecar is available."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "For type=user_prompt: question to ask the user. Pauses the run until answer_prompt is invoked."
+          },
+          "on_pass": {
+            "type": "string",
+            "minLength": 1,
+            "description": "For type=assertion: step id to jump to when expression == expects."
+          },
+          "on_fail": {
+            "type": "string",
+            "minLength": 1,
+            "description": "For type=assertion: step id to jump to when expression != expects."
+          }
+        }
+      }
+    }
+  }
+}

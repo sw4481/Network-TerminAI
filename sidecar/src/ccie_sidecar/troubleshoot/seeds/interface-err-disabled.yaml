@@ -1,0 +1,68 @@
+id: interface-err-disabled
+name: Interface stuck err-disabled
+symptom_keywords:
+  - err-disabled
+  - errdisable
+  - interface down
+  - port down
+  - bpduguard
+  - psecure-violation
+  - link-flap
+vendor: cisco
+platform: iosxe
+description: >-
+  Identifies the err-disable reason on a switchport and recommends the
+  vendor-correct remediation. Recovery timer state from
+  'show errdisable recovery' tells the operator whether auto-recovery is
+  enabled for the trigger reason.
+steps:
+  - id: check_status
+    type: command
+    command: show interface {{intf}} status
+  - id: check_recovery
+    type: command
+    command: show errdisable recovery
+  - id: check_logs
+    type: command
+    command: show logging | include {{intf}}
+  - id: route_on_reason
+    type: branch
+    expression: "errdisable.reason"
+    cases:
+      - when: "bpduguard"
+        next: narrate_bpduguard
+      - when: "psecure-violation"
+        next: narrate_psecure
+      - when: "link-flap"
+        next: narrate_linkflap
+      - when: "udld"
+        next: narrate_udld
+      - when: "none"
+        next: narrate_unknown
+  - id: narrate_bpduguard
+    type: narration
+    text: >-
+      Port {{intf}} was disabled by BPDU Guard — a BPDU was received on a
+      portfast-enabled access port. Fix the source (no rogue switch) then
+      'shutdown / no shutdown' to recover, or enable errdisable autorecovery.
+  - id: narrate_psecure
+    type: narration
+    text: >-
+      Port {{intf}} hit a port-security violation. Inspect the violating MAC
+      with 'show port-security interface {{intf}}', then either widen
+      maximum, change violation mode, or remove the offending host.
+  - id: narrate_linkflap
+    type: narration
+    text: >-
+      Port {{intf}} flapped repeatedly within the link-flap window. Common
+      causes: cable, SFP, duplex/speed mismatch, or upstream LACP churn.
+  - id: narrate_udld
+    type: narration
+    text: >-
+      UDLD detected a unidirectional link on {{intf}}. Replace optic / fiber
+      and re-test before bringing the port back up.
+  - id: narrate_unknown
+    type: narration
+    text: >-
+      Could not classify the err-disable reason from output. Inspect
+      'show interface {{intf}}' and recent logs manually.

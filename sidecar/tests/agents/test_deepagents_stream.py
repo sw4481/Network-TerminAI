@@ -1,0 +1,513 @@
+"""Unit tests for deepagents_stream.py — event mapping (Seam 2)."""
+import pytest
+from unittest.mock import MagicMock, AsyncMock
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
+
+
+@pytest.mark.asyncio
+async def test_code_exec_stream_basic_flow():
+    """Test basic code execution flow: code_start → code_executing → code_result → final."""
+    # Mock graph that simulates:
+    # 1. AIMessage with execute_python_code tool call
+    # 2. ToolMessage with success result
+    # 3. AIMessage with final text
+
+    async def mock_astream(input_data, config, stream_mode):
+        # Simulate LangGraph astream events
+        # Event 1: AIMessage with tool call
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="",
+                    tool_calls=[{
+                        "name": "execute_python_code",
+                        "args": {"code": "print('hello world')"},
+                        "id": "call_123",
+                    }],
+                )]
+            }
+        })
+
+        # Event 2: ToolMessage with result
+        yield ("updates", {
+            "tools": {
+                "messages": [ToolMessage(
+                    content="hello world\n",
+                    tool_call_id="call_123",
+                )]
+            }
+        })
+
+        # Event 3: Final AIMessage
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="I printed 'hello world' to the console.",
+                )]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    def on_event(event):
+        events.append(event)
+
+    await run_and_stream_code_exec(
+        graph=mock_graph,
+        input_data={},
+        config={},
+        on_event=on_event,
+    )
+
+    # Verify event sequence matches CodeExecEvent contract
+    assert len(events) == 4
+
+    # code_start
+    assert events[0]["type"] == "code_start"
+    assert events[0]["code"] == "print('hello world')"
+
+    # code_executing
+    assert events[1]["type"] == "code_executing"
+
+    # code_result
+    assert events[2]["type"] == "code_result"
+    assert events[2]["success"] is True
+    assert events[2]["output"] == "hello world\n"
+
+    # final
+    assert events[3]["type"] == "final"
+    assert "hello world" in events[3]["response"]
+
+
+@pytest.mark.asyncio
+async def test_code_exec_stream_error_retry():
+    """Test code execution with error and retry."""
+    async def mock_astream(input_data, config, stream_mode):
+        # Attempt 1: Tool call + error result
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="",
+                    tool_calls=[{
+                        "name": "execute_python_code",
+                        "args": {"code": "print(undefined_var)"},
+                        "id": "call_1",
+                    }],
+                )]
+            }
+        })
+
+        yield ("updates", {
+            "tools": {
+                "messages": [ToolMessage(
+                    content="Error: NameError: name 'undefined_var' is not defined",
+                    tool_call_id="call_1",
+                )]
+            }
+        })
+
+        # Attempt 2: Fixed code
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="",
+                    tool_calls=[{
+                        "name": "execute_python_code",
+                        "args": {"code": "x = 42\nprint(x)"},
+                        "id": "call_2",
+                    }],
+                )]
+            }
+        })
+
+        yield ("updates", {
+            "tools": {
+                "messages": [ToolMessage(
+                    content="42\n",
+                    tool_call_id="call_2",
+                )]
+            }
+        })
+
+        # Final
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(content="Fixed the error, x is 42.")]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream_code_exec(mock_graph, {}, {}, events.append)
+
+    # Should have: start1, exec1, error1, start2, exec2, result2, final
+    assert len(events) == 7
+
+    assert events[0]["type"] == "code_start"
+    assert events[1]["type"] == "code_executing"
+    assert events[2]["type"] == "code_error"
+    assert events[2]["attempt"] == 1
+    assert "NameError" in events[2]["error"]
+
+    assert events[3]["type"] == "code_start"
+    assert events[4]["type"] == "code_executing"
+    assert events[5]["type"] == "code_result"
+    assert events[5]["success"] is True
+
+    assert events[6]["type"] == "final"
+
+
+@pytest.mark.asyncio
+async def test_diagram_event_passthrough():
+    """Test that diagram custom events are passed through unchanged."""
+    async def mock_astream(input_data, config, stream_mode):
+        # Custom diagram event
+        yield ("custom", {
+            "type": "diagram",
+            "title": "Network Topology",
+            "format": "xml",
+            "xml": "<mxGraphModel>...</mxGraphModel>",
+            "source": None,
+            "url": "https://app.diagrams.net/...",
+        })
+
+        # Then code result
+        yield ("updates", {
+            "tools": {
+                "messages": [ToolMessage(
+                    content="Diagram rendered",
+                    tool_call_id="call_1",
+                )]
+            }
+        })
+
+        # Final
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(content="Here's your topology diagram.")]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream_code_exec(mock_graph, {}, {}, events.append)
+
+    # Find diagram event
+    diagram_events = [e for e in events if e["type"] == "diagram"]
+    assert len(diagram_events) == 1
+
+    diagram = diagram_events[0]
+    assert diagram["title"] == "Network Topology"
+    assert diagram["format"] == "xml"
+    assert diagram["xml"] == "<mxGraphModel>...</mxGraphModel>"
+    assert diagram["url"].startswith("https://app.diagrams.net/")
+
+
+@pytest.mark.asyncio
+async def test_react_stream_thought_and_tool_call():
+    """Test React agent stream with thought_start and tool_call events."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        # AIMessage with reasoning text + tool call
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="I need to check the organizations first.",
+                    tool_calls=[{
+                        "name": "meraki_organizations_list",
+                        "args": {},
+                        "id": "call_1",
+                    }],
+                )]
+            }
+        })
+
+        # ToolMessage result
+        yield ("updates", {
+            "tools": {
+                "messages": [ToolMessage(
+                    content='[{"id": "123", "name": "MyOrg"}]',
+                    tool_call_id="call_1",
+                )]
+            }
+        })
+
+        # Final
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="You have 1 organization: MyOrg (ID: 123)."
+                )]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream(mock_graph, {}, {}, events.append)
+
+    # Should have: thought_start, tool_call, tool_result, final
+    assert len(events) == 4
+
+    # thought_start
+    assert events[0]["type"] == "thought_start"
+    assert "organizations" in events[0]["thought"].lower()
+    assert events[0]["step"] == 1
+
+    # tool_call
+    assert events[1]["type"] == "tool_call"
+    assert events[1]["name"] == "meraki_organizations_list"
+    assert events[1]["blast_radius"] == "medium"  # Default
+
+    # tool_result
+    assert events[2]["type"] == "tool_result"
+    assert events[2]["success"] is True
+    assert "MyOrg" in events[2]["result"]
+
+    # final
+    assert events[3]["type"] == "final"
+    assert "MyOrg" in events[3]["response"]
+
+
+@pytest.mark.asyncio
+async def test_graph_recursion_error_surfaces_clean_message():
+    """A GraphRecursionError (agent looped past the step cap) must surface as a
+    clean, actionable error event — NOT the raw stack trace that reads as a crash."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+    from langgraph.errors import GraphRecursionError
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        # Emit one tool call, then blow the recursion limit like a real loop.
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="Looking for terraform...",
+                    tool_calls=[{"name": "execute_python_code", "args": {"code": "ls"}, "id": "c1"}],
+                )]
+            }
+        })
+        raise GraphRecursionError("Recursion limit of 60 reached without hitting a stop condition.")
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    result = await run_and_stream(mock_graph, {}, {}, events.append)
+
+    # Not flagged as an interrupt (it's a genuine failure, not a HITL pause).
+    assert result["interrupted"] is False
+
+    error_events = [e for e in events if e["type"] == "error"]
+    assert len(error_events) == 1
+    msg = error_events[0]["message"]
+    # Clean, user-facing language — no raw exception class name leaking through.
+    assert "GraphRecursionError" not in msg
+    assert "stuck" in msg.lower()
+
+
+def test_describe_tool_calls_summarizes_code():
+    """Empty-reasoning fallback should describe the action, not render blank."""
+    from ccie_sidecar.agents.deepagents_stream import _describe_tool_calls
+
+    assert _describe_tool_calls([
+        {"name": "execute_python_code", "args": {"code": "# Find the network\nnet = meraki.x()"}}
+    ]) == "Running code: Find the network"
+
+    assert _describe_tool_calls([
+        {"name": "execute_python_code", "args": {"code": "orgs = meraki.organizations.getOrganizations()"}}
+    ]) == "Running code: orgs = meraki.organizations.getOrganizations()"
+
+    assert _describe_tool_calls([{"name": "write_todos", "args": {}}]) == "Planning next steps"
+    assert _describe_tool_calls([{"name": "execute_python_code", "args": {"code": ""}}]) == "Running code"
+    assert _describe_tool_calls([]) == "Working..."
+
+
+@pytest.mark.asyncio
+async def test_whitespace_only_thought_falls_back_to_description():
+    """A model that emits whitespace-only content must not render a blank step."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        # AIMessage with whitespace-only content (the bug: renders as blank step)
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(
+                    content="\n\n",
+                    tool_calls=[{
+                        "name": "execute_python_code",
+                        "args": {"code": "policies = meraki.switch.getNetworkSwitchAccessPolicies(net_id)"},
+                        "id": "call_1",
+                    }],
+                )]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream(mock_graph, {}, {}, events.append)
+
+    thought = next(e for e in events if e["type"] == "thought_start")
+    assert thought["thought"].strip()  # never blank
+    assert "getNetworkSwitchAccessPolicies" in thought["thought"]
+
+
+@pytest.mark.asyncio
+async def test_no_double_final():
+    """Test that final event only fires once, even if multiple AIMessages appear."""
+    async def mock_astream(input_data, config, stream_mode):
+        # First final-like message
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(content="Processing...")]
+            }
+        })
+
+        # Second final-like message (should be ignored)
+        yield ("updates", {
+            "agent": {
+                "messages": [AIMessage(content="Still processing...")]
+            }
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream_code_exec(mock_graph, {}, {}, events.append)
+
+    # Only the first final should fire
+    final_events = [e for e in events if e["type"] == "final"]
+    assert len(final_events) == 1
+    assert final_events[0]["response"] == "Processing..."
+
+
+# --- Grader status parsing (RubricMiddleware GraderResponse) ---------------
+
+from ccie_sidecar.agents.deepagents_stream import (
+    _parse_grader_result,
+    _format_grader_status,
+)
+
+
+def test_parse_grader_satisfied():
+    content = (
+        "Returning structured response: result='satisfied' "
+        "explanation='All good.' "
+        "criteria=[{'name': 'List real data', 'passed': True}, "
+        "{'name': 'Single answer', 'passed': True}]"
+    )
+    g = _parse_grader_result(content)
+    assert g["verdict"] == "satisfied"
+    assert g["passed"] == 2 and g["total"] == 2
+    status = _format_grader_status(g)
+    assert "Grading passed" in status
+    assert "2/2 criteria" in status
+
+
+def test_parse_grader_needs_revision_with_gap():
+    content = (
+        "Returning structured response: result='needs_revision' "
+        "explanation='Missing verify step.' "
+        "criteria=[{'name': 'CHANGE verification', 'passed': False, "
+        "'gap': 'never verified with a fresh GET'}, "
+        "{'name': 'List real data', 'passed': True}]"
+    )
+    g = _parse_grader_result(content)
+    assert g["verdict"] == "needs_revision"
+    assert g["passed"] == 1 and g["total"] == 2
+    status = _format_grader_status(g)
+    assert "needs revision" in status
+    assert "never verified" in status  # the gap surfaces
+
+
+def test_parse_grader_ignores_non_grader_content():
+    assert _parse_grader_result("just some tool output") is None
+    assert _parse_grader_result("") is None
+
+
+@pytest.mark.asyncio
+async def test_code_exec_stream_surfaces_grader_status():
+    """The code-exec stream (Meraki path) must turn a GraderResponse ToolMessage
+    into a clean grader status event, not a raw 'Returning structured response'."""
+    grader_content = (
+        "Returning structured response: result='satisfied' "
+        "explanation='All good.' "
+        "criteria=[{'name': 'List real data', 'passed': True}, "
+        "{'name': 'Single answer', 'passed': True}]"
+    )
+
+    async def mock_astream(input_data, config, stream_mode):
+        yield ("updates", {"tools": {"messages": [
+            ToolMessage(content=grader_content, tool_call_id="g1", name="GraderResponse")
+        ]}})
+        yield ("updates", {"agent": {"messages": [
+            AIMessage(content="Here are your devices.")
+        ]}})
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream_code_exec(mock_graph, {}, {}, events.append)
+
+    # The grader ToolMessage must become a code_result carrying structured metrics,
+    # not the raw blob.
+    grader_events = [e for e in events if e.get("grader")]
+    assert len(grader_events) == 1
+    g = grader_events[0]["grader"]
+    assert g["verdict"] == "satisfied" and g["passed"] == 2
+    assert "Grading passed" in grader_events[0]["output"]
+    assert "Returning structured response" not in grader_events[0]["output"]
+    # The final device answer still comes through.
+    assert any(e["type"] == "final" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_run_and_stream_grader_from_toolcall_args():
+    """run_and_stream must surface the grader verdict that rides in the
+    GraderResponse tool_call ARGS (response_format tool), with metrics."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        yield ("updates", {"agent": {"messages": [AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "GraderResponse",
+                "args": {
+                    "result": "satisfied",
+                    "explanation": "All criteria pass.",
+                    "criteria": [
+                        {"name": "List real data", "passed": True},
+                        {"name": "Single answer", "passed": True},
+                    ],
+                },
+                "id": "grade_1",
+            }],
+        )]}})
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    events = []
+    await run_and_stream(mock_graph, {}, {}, events.append)
+
+    grader_events = [e for e in events if e.get("grader")]
+    assert len(grader_events) == 1
+    assert grader_events[0]["grader"]["verdict"] == "satisfied"
+    assert grader_events[0]["grader"]["passed"] == 2
+    assert "Grading passed" in grader_events[0]["result"]
+    # It must NOT also emit a bare tool_call named GraderResponse.
+    assert not any(e.get("type") == "tool_call" and e.get("name") == "GraderResponse"
+                   for e in events)

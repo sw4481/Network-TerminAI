@@ -1,0 +1,224 @@
+/* Plan 09 — Blast-Radius confirmation modals.
+   Dark Warp-style palette consistent with Plans 06 (ChangeWindow), 07
+   (FanoutPanel), and 08 (DriftSidebar). */
+
+.br-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Menlo, "JetBrains Mono", monospace;
+  color: #e6e1cf;
+}
+
+.br-modal {
+  background: #14171c;
+  border: 1px solid #262a33;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  min-width: 420px;
+  max-width: 720px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.br-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #262a33;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.br-header .br-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.br-header .br-tier-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.br-tier-badge.tier-1 { background: #3a3812; color: #e6c75c; }
+.br-tier-badge.tier-2 { background: #4a2912; color: #e69f4c; }
+.br-tier-badge.tier-3 { background: #5c1818; color: #ff7777; }
+.br-tier-badge.tier-amb { background: #2c2c4a; color: #b3b3ff; }
+
+.br-body {
+  padding: 14px 16px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.br-body .br-cmd {
+  display: block;
+  background: #0a0c10;
+  border: 1px solid #1f232b;
+  border-radius: 4px;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 8px 0 12px 0;
+  color: #d0c8aa;
+  font-size: 12.5px;
+}
+
+.br-reasoning {
+  color: #b8b29c;
+  margin-bottom: 8px;
+}
+
+.br-footer {
+  padding: 10px 16px;
+  border-top: 1px solid #262a33;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  background: #11141a;
+}
+
+.br-btn {
+  background: #1d222a;
+  color: #e6e1cf;
+  border: 1px solid #2a2f38;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.br-btn:hover { background: #232831; }
+.br-btn.primary {
+  background: #2d5a8c;
+  color: #fff;
+  border-color: #2d5a8c;
+}
+.br-btn.primary:hover { background: #356cab; }
+.br-btn.danger {
+  background: #6b1f1f;
+  color: #fff;
+  border-color: #6b1f1f;
+}
+.br-btn.danger:hover { background: #832525; }
+.br-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Typed confirm — invalid pulses red. */
+.br-typed-input {
+  width: 100%;
+  background: #0a0c10;
+  color: #e6e1cf;
+  border: 1px solid #2a2f38;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  box-sizing: border-box;
+}
+.br-typed-input.invalid {
+  border-color: #c45353;
+  animation: br-pulse-red 1.2s ease-in-out infinite;
+}
+@keyframes br-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196, 83, 83, 0.0); }
+  50%      { box-shadow: 0 0 0 4px rgba(196, 83, 83, 0.25); }
+}
+
+.br-typed-hint {
+  font-size: 11.5px;
+  color: #8a8d94;
+  margin: 6px 0 4px 0;
+}
+
+/* Impact preview pane — Plan 13 topology consumer. */
+.br-impact {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #1f232b;
+  background: #11141a;
+  border-radius: 4px;
+}
+.br-impact h4 {
+  margin: 0 0 6px 0;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8a8d94;
+}
+.br-impact ul { margin: 4px 0 0 18px; padding: 0; }
+.br-impact .br-impact-fallback {
+  color: #b8b29c;
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Tier-0 auto-approved toast. */
+.br-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #14241a;
+  border: 1px solid #2a4a36;
+  color: #b3e8c0;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  z-index: 9998;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: br-toast-in 200ms ease-out;
+}
+@keyframes br-toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* Maintenance window radio list. */
+.br-mw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #1f232b;
+  border-radius: 4px;
+}
+.br-mw-list li {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1f232b;
+  cursor: pointer;
+}
+.br-mw-list li:last-child { border-bottom: none; }
+.br-mw-list li.selected { background: #1c2230; }
+.br-mw-list .br-mw-empty { color: #8a8d94; padding: 12px; text-align: center; }
+
+.br-override {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #262a33;
+}
+.br-override label { font-size: 12px; }
+.br-override textarea {
+  width: 100%;
+  background: #0a0c10;
+  color: #e6e1cf;
+  border: 1px solid #2a2f38;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  resize: vertical;
+  min-height: 60px;
+}

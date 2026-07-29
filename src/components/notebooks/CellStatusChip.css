@@ -1,0 +1,56 @@
+.cell-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  border: 1px solid transparent;
+  font-family: Menlo, monospace;
+}
+
+.cell-status-chip.status-pending {
+  background: #2a2a2a;
+  color: #888;
+  border-color: #3a3a3a;
+}
+
+.cell-status-chip.status-running {
+  background: #1d2d4a;
+  color: #8ba4f5;
+  border-color: #4a90e2;
+  animation: cell-chip-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cell-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.cell-status-chip.status-passed {
+  background: #1d3a25;
+  color: #6bd968;
+  border-color: #2f7a3a;
+}
+
+.cell-status-chip.status-failed {
+  background: #3a1d1d;
+  color: #ff6b6b;
+  border-color: #7a2f2f;
+}
+
+.cell-status-chip.status-skipped {
+  background: #232323;
+  color: #6a6a6a;
+  border-color: #333;
+  text-decoration: line-through;
+}
+
+.cell-status-chip.status-awaiting_approval {
+  background: #3a2e1d;
+  color: #f5c34c;
+  border-color: #7a5f2f;
+}

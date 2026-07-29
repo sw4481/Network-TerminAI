@@ -1,0 +1,10 @@
+{
+  "vrf": {
+    "default": {
+      "neighbor": {
+        "10.0.0.2": { "address_family": { "ipv4 unicast": { "session_state": "Established", "as": 65001, "msg_rcvd": 1234, "msg_sent": 1240, "tbl_ver": 5, "input_queue": 0, "output_queue": 0, "up_down": "01:23:45" } } },
+        "10.0.0.3": { "address_family": { "ipv4 unicast": { "session_state": "Idle",        "as": 65002, "msg_rcvd": 0,    "msg_sent": 0,    "tbl_ver": 1, "input_queue": 0, "output_queue": 0, "up_down": "never" } } }
+      }
+    }
+  }
+}

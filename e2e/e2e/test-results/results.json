@@ -1,0 +1,212 @@
+{
+  "config": {
+    "configFile": "/Users/shaunwhi/CCIE Terminal/e2e/playwright.config.ts",
+    "rootDir": "/Users/shaunwhi/CCIE Terminal/e2e/tests",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/shaunwhi/CCIE Terminal/e2e/global-setup.ts",
+    "globalTeardown": "/Users/shaunwhi/CCIE Terminal/e2e/global-teardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/shaunwhi/CCIE Terminal/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "tauri-app",
+        "name": "tauri-app",
+        "testDir": "/Users/shaunwhi/CCIE Terminal/e2e/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e/test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.59.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "change-window.spec.ts",
+      "file": "change-window.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Change Window Panel @smoke",
+          "file": "change-window.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "opens via menu shortcut and shows bundle picker",
+              "ok": true,
+              "tags": [
+                "smoke"
+              ],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "tauri-app",
+                  "projectName": "tauri-app",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c1d5a102dde88bfe5a09-7702a16e57ec6b18a83c",
+              "file": "change-window.spec.ts",
+              "line": 17,
+              "column": 3
+            },
+            {
+              "title": "closes via X button",
+              "ok": true,
+              "tags": [
+                "smoke"
+              ],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "tauri-app",
+                  "projectName": "tauri-app",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c1d5a102dde88bfe5a09-971ecc05d97be6677c3f",
+              "file": "change-window.spec.ts",
+              "line": 35,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "drift.spec.ts",
+      "file": "drift.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Drift Sidebar @smoke",
+          "file": "drift.spec.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "opens via Cmd+Shift+D and renders the empty state",
+              "ok": true,
+              "tags": [
+                "smoke"
+              ],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "tauri-app",
+                  "projectName": "tauri-app",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d58c1038099d3f6cbf42-197b0cfc1580a49d48dd",
+              "file": "drift.spec.ts",
+              "line": 10,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "fanout.spec.ts",
+      "file": "fanout.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Multi-device Fan-Out Panel @smoke",
+          "file": "fanout.spec.ts",
+          "line": 11,
+          "column": 6,
+          "specs": [
+            {
+              "title": "opens via Cmd+Shift+F and renders command bar",
+              "ok": true,
+              "tags": [
+                "smoke"
+              ],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "tauri-app",
+                  "projectName": "tauri-app",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f1a259b923fbe34f9460-59f87998aa89505dfba4",
+              "file": "fanout.spec.ts",
+              "line": 12,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-05-19T02:10:46.779Z",
+    "duration": 144.317,
+    "expected": 0,
+    "skipped": 4,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

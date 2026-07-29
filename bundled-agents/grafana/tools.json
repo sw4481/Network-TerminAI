@@ -1,0 +1,34 @@
+[
+  {
+    "name": "grafana_api_call",
+    "description": "Call the Grafana HTTP API. Reads (GET, /api/ds/query)=low; create/update dashboard or folder=medium; delete=high. Rooted at the configured instance URL; pass paths under /api/...",
+    "type": "function",
+    "function": {
+      "name": "grafana_api_call",
+      "description": "Call the Grafana HTTP API (rooted at the configured instance URL).\n\nAuth (a service-account/API token) is already configured — do NOT log in or use requests. The token needs Editor/Admin scope to create dashboards.\n\nRETURN VALUE: a JSON string; json.loads it -> {\"status_code\", \"data\", \"error\", \"blast_radius\"}. Check status_code < 400 before trusting data.\n\nREAD ENDPOINTS:\n  GET  /api/health                     Instance health (no auth) (low)\n  GET  /api/search?type=dash-db        Search dashboards; data is a list of {uid,title,tags} (low)\n  GET  /api/search?query=<q>&tag=<t>   Filter dashboards by title/tag (low)\n  GET  /api/dashboards/uid/{uid}       Full dashboard model (low)\n  GET  /api/datasources                List data sources; each {uid,name,type} (low)\n  GET  /api/datasources/uid/{uid}      Data source detail (low)\n  POST /api/ds/query                   Query through a datasource proxy (READ, low)\n    Body: {\"queries\": [{\"refId\": \"A\", \"expr\": \"<promql>\", \"datasource\": {\"uid\": \"<ds_uid>\"}, \"instant\": true}]}\n  GET  /api/org                        Current org (low)\n  GET  /api/user                       Current user (validates the token) (low)\n\nWRITE ENDPOINTS (blast radius medium/high — pause for approval; state the change first):\n  POST   /api/dashboards/db            Create or update a dashboard (medium)\n    Body: {\"dashboard\": <model>, \"folderUid\": <opt>, \"overwrite\": false, \"message\": <opt>}\n    <model> = {\"title\": ..., \"time\": {\"from\":\"now-6h\",\"to\":\"now\"}, \"templating\": {\"list\": []}, \"panels\": [<panel>...]}. Omit id/uid to create; set an existing uid + overwrite=true to update.\n    <panel> = {\"type\": \"timeseries\"|\"stat\"|\"gauge\"|\"piechart\"|\"table\", \"title\": ..., \"datasource\": {\"uid\": <ds_uid>}, \"targets\": [{\"refId\":\"A\",\"expr\":\"<promql>\"}], \"gridPos\": {\"h\":8,\"w\":12,\"x\":0,\"y\":0}}. Get ds_uid from GET /api/datasources.\n  POST   /api/folders                  Create a folder (medium). Body: {\"title\": ..., \"uid\": <opt>}\n  DELETE /api/dashboards/uid/{uid}     Delete a dashboard (high)\n\nBUILD FLOW: (1) GET /api/datasources -> pick a prometheus uid; (2) assemble the dashboard model with panels wired to that uid; (3) POST /api/dashboards/db. Response data = {uid, url, status:\"success\"}.\n\nNOTES: self-signed certs are controlled by the Verify SSL toggle in Settings -> Grafana. On 401, the token is wrong or lacks scope; on 403 the token lacks write permission.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            "description": "HTTP method"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path (e.g., '/api/search')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Request body for POST/PUT/PATCH (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters as key-value pairs (optional, e.g. {\"type\": \"dash-db\", \"query\": \"wan\"})"
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

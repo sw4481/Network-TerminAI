@@ -1,0 +1,38 @@
+## Last commit: 2026-05-18 09:14:23 UTC by admin
+## Last changed: 2026-05-18 03:02:11 UTC
+version 22.4R1.10;
+system {
+    host-name edge-mx-01;
+    root-authentication {
+        encrypted-password "$6$abcd1234efgh5678";
+    }
+    login {
+        user admin {
+            uid 2000;
+            class super-user;
+            authentication {
+                ssh-rsa "AAAAB3NzaC1yc2EAAA==";
+            }
+        }
+    }
+}
+interfaces {
+    ge-0/0/0 {
+        description "WAN UPLINK";
+        unit 0 {
+            family inet {
+                address 192.168.1.1/24;
+            }
+        }
+    }
+}
+protocols {
+    bgp {
+        group ext {
+            type external;
+            peer-as 65002;
+            authentication-key "$9$encrypted";
+            neighbor 192.168.1.2;
+        }
+    }
+}

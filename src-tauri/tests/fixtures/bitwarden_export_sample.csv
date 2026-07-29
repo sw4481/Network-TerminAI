@@ -1,0 +1,5 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+prod,1,login,gateway-admin,Edge gateway,,,https://10.0.0.1,admin,gw-pw-99,
+prod,0,login,nms-svc,,,,https://nms.example.com,svc,nms-pw,otpauth://totp/nms
+ssh,0,login,bastion-key,-----BEGIN OPENSSH PRIVATE KEY-----,,,,bastion,UNUSED,
+empty,0,login,nopassword,,,,,user,,

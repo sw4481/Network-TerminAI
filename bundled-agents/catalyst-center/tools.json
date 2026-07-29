@@ -1,0 +1,21 @@
+[
+  {
+    "name": "catalyst_center_api_call",
+    "description": "Call the Cisco Catalyst Center (DNA Center) REST API. Pass the FULL path from the host root. Auth (Basic -> token -> X-Auth-Token header) is handled for you; do NOT call the auth/token endpoint. Returns {status_code, data, error, blast_radius}; list rows are under data['response']. Bases: /dna/intent/api/v1 (most resources), /dna/intent/api/v2, /dna/system/api/v1. Key endpoints: GET /dna/intent/api/v1/network-device (devices), /network-device/count, /network-device/{id} (detail), /site (sites), /topology/physical-topology, /network-health, /client-health, /template-programmer/template, POST /network-device-poller/cli/read-request (read-only CLI, async -> taskId), GET /task/{taskId} (poll). Page with query_params {'offset':1,'limit':500}. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "catalyst_center_api_call",
+      "description": "Call the Cisco Catalyst Center REST API. Auth is handled internally; pass the full path from the host root.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "description": "HTTP method" },
+          "path": { "type": "string", "description": "Full API path from host root (e.g., '/dna/intent/api/v1/network-device')" },
+          "body": { "type": "object", "description": "Request body for POST/PUT/PATCH (optional)" },
+          "query_params": { "type": "object", "description": "URL query parameters (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

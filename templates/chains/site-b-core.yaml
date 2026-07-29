@@ -1,0 +1,19 @@
+apiVersion: ccie-terminal/v1
+kind: SessionChain
+metadata:
+  name: site-b-core
+  description: Site B — laptop → jump → core router (separate jump)
+hops:
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-site-b-jump
+    postConnect:
+      - terminal length 0
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-site-b-core-01
+    postConnect:
+      - terminal length 0
+      - terminal width 0

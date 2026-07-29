@@ -1,0 +1,59 @@
+.command-block {
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 12px;
+  transition: box-shadow 0.15s ease;
+}
+
+.command-block:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.command-block.active {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.ai-analysis {
+  background: #2a2a3a;
+  border-top: 1px solid #3a3a4a;
+  padding: 12px;
+}
+
+.ai-analysis-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8ba4f5;
+  margin-bottom: 8px;
+}
+
+.ai-analysis-content {
+  font-size: 13px;
+  color: #d0d0d0;
+  line-height: 1.5;
+}
+
+/* Plan 13 Phase 2.4 — inline topology panel sits beside BlockOutput on
+   wide screens. On narrow screens (<=900px) it stacks below the output.
+   The panel itself owns its own internal sizing/chip behaviour. */
+.cb-output-with-topology {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cb-output-with-topology > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cb-output-with-topology > .cb-side-panel {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .cb-output-with-topology {
+    display: block;
+  }
+}

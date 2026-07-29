@@ -1,0 +1,71 @@
+.file-context-menu {
+  position: fixed;
+  background: #2d2d30;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  min-width: 180px;
+  z-index: 1000;
+  font-size: 13px;
+}
+
+.file-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  color: #d4d4d4;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 2px;
+}
+
+.file-context-menu button:hover {
+  background: #094771;
+}
+
+.file-context-menu button.danger {
+  color: #f48771;
+}
+
+.file-context-menu button.danger:hover {
+  background: #5a1d1d;
+}
+
+.menu-separator {
+  height: 1px;
+  background: #3e3e42;
+  margin: 4px 0;
+}
+
+.rename-input-container {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  align-items: center;
+}
+
+.rename-input-container input {
+  flex: 1;
+  padding: 4px 8px;
+  background: #3c3c3c;
+  color: #d4d4d4;
+  border: 1px solid #007acc;
+  border-radius: 2px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.rename-input-container input:focus {
+  outline: none;
+  border-color: #1177bb;
+}
+
+.rename-input-container button {
+  width: auto;
+  padding: 4px 8px;
+  min-width: 28px;
+}

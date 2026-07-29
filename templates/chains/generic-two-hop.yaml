@@ -1,0 +1,16 @@
+apiVersion: ccie-terminal/v1
+kind: SessionChain
+metadata:
+  name: generic-two-hop
+  description: Generic two-hop chain (jump host → device)
+hops:
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-jump
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-device
+    postConnect:
+      - terminal length 0

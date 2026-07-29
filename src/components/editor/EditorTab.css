@@ -1,0 +1,177 @@
+.editor-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #252526;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.editor-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.file-name {
+  font-weight: 600;
+}
+
+.file-path {
+  color: #858585;
+  font-size: 12px;
+}
+
+.dirty-marker {
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.editor-actions button {
+  padding: 4px 12px;
+  background: #0e639c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.editor-actions button:hover:not(:disabled) {
+  background: #1177bb;
+}
+
+.editor-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.editor-canvas {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-terminal-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-top: 1px solid #3e3e42;
+  background: #1e1e1e;
+  position: relative;
+}
+
+.editor-terminal-resize-handle {
+  height: 5px;
+  margin-top: -3px;
+  cursor: ns-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.editor-terminal-resize-handle:hover {
+  background: #007acc;
+}
+
+.editor-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: #252526;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.editor-terminal-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.editor-terminal-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #999999;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.editor-terminal-tabs button:hover {
+  color: #ffffff;
+}
+
+.editor-terminal-tabs button.active {
+  color: #ffffff;
+  border-bottom-color: #007acc;
+}
+
+.editor-terminal-close-btn {
+  background: none;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.editor-terminal-close-btn:hover {
+  color: #ffffff;
+}
+
+.editor-terminal-slot-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.error-banner {
+  padding: 8px 12px;
+  background: #5a1d1d;
+  color: #f48771;
+  border-top: 1px solid #be1100;
+  font-size: 13px;
+}
+
+.editor-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: #007acc;
+  color: white;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.zed-vim-status:empty {
+  display: none;
+}

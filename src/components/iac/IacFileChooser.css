@@ -1,0 +1,92 @@
+.iac-chooser-sub {
+  color: #8a8d94;
+  font-size: 0.88rem;
+  margin: 0 0 14px 0;
+}
+
+.iac-chooser-create {
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed #4a7fb5;
+  border-radius: 5px;
+  background: rgba(14, 99, 156, 0.12);
+  color: #7fb0e0;
+  font-size: 0.92rem;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+
+.iac-chooser-create:hover {
+  background: rgba(14, 99, 156, 0.22);
+}
+
+.iac-chooser-listwrap {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #2a2d33;
+  border-radius: 5px;
+}
+
+.iac-chooser-empty {
+  padding: 16px;
+  color: #8a8d94;
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.iac-chooser-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #202329;
+}
+
+.iac-chooser-row:last-child {
+  border-bottom: none;
+}
+
+.iac-chooser-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 0.85rem;
+  color: #e6e1cf;
+}
+
+.iac-chooser-rowactions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.iac-chooser-edit,
+.iac-chooser-delete {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.iac-chooser-edit {
+  background: #0e639c;
+  color: #fff;
+}
+
+.iac-chooser-edit:hover {
+  background: #1177bb;
+}
+
+.iac-chooser-delete {
+  background: #3a3a3a;
+  color: #e0a0a0;
+}
+
+.iac-chooser-delete:hover {
+  background: #5a2a2a;
+  color: #f4746a;
+}

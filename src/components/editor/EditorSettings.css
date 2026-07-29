@@ -1,0 +1,129 @@
+.editor-settings-panel {
+  position: absolute;
+  top: 40px;
+  right: 12px;
+  width: 320px;
+  background: #252526;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  color: #d4d4d4;
+  font-size: 12px;
+}
+
+.editor-settings-panel .settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.editor-settings-panel .settings-header h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.editor-settings-panel .close-button {
+  background: transparent;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.editor-settings-panel .close-button:hover {
+  color: #ffffff;
+}
+
+.editor-settings-panel .settings-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.setting-row label {
+  color: #cccccc;
+}
+
+.setting-row input[type="number"],
+.setting-row select {
+  width: 96px;
+  padding: 4px 6px;
+  background: #3c3c3c;
+  color: #d4d4d4;
+  border: 1px solid #3e3e42;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.setting-row input[type="number"]:focus,
+.setting-row select:focus {
+  outline: none;
+  border-color: #007acc;
+}
+
+.setting-row.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.editor-settings-panel .settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid #3e3e42;
+  background: #2a2a2d;
+}
+
+.editor-settings-panel .footer-spacer {
+  flex: 1;
+}
+
+.editor-settings-panel .settings-footer button {
+  padding: 5px 12px;
+  background: #3c3c3c;
+  color: #d4d4d4;
+  border: 1px solid #3e3e42;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editor-settings-panel .settings-footer button:hover {
+  background: #4a4a4a;
+}
+
+.editor-settings-panel .settings-footer button.primary {
+  background: #0e639c;
+  color: white;
+  border-color: #0e639c;
+}
+
+.editor-settings-panel .settings-footer button.primary:hover {
+  background: #1177bb;
+}
+
+.editor-settings-panel .settings-footer button.secondary {
+  color: #f48771;
+}

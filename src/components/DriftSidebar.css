@@ -1,0 +1,252 @@
+.drift-sidebar {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 12px;
+  height: 100%;
+  min-height: 480px;
+  font-family: Menlo, monospace;
+  color: #e6e1cf;
+  background: #0f1114;
+}
+
+.drift-tree {
+  border-right: 1px solid #262a33;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.drift-tree-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #262a33;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.drift-tree-header h3 {
+  margin: 0;
+  font-size: 12px;
+  color: #8a8d94;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.drift-tree-header select {
+  background: #14171c;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.drift-tree-header .actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.drift-tree-header button {
+  background: #2d5a8c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.drift-tree-header button:disabled {
+  background: #262a33;
+  cursor: not-allowed;
+}
+.drift-tree-header button.secondary {
+  background: #1a1d22;
+  border: 1px solid #262a33;
+  color: #e6e1cf;
+}
+
+.drift-report-row {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #1a1d22;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drift-report-row:hover { background: #14171c; }
+.drift-report-row.selected {
+  background: #1d2530;
+  border-left: 3px solid #56b6c2;
+  padding-left: 9px;
+}
+
+.drift-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.drift-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.drift-status-dot.in_sync { background: #80d090; }
+.drift-status-dot.drift   { background: #ffcc70; }
+.drift-status-dot.error   { background: #ff8a8a; }
+
+.drift-status-dot.severity-destructive { background: #ff8a8a; }
+.drift-status-dot.severity-additive    { background: #ffcc70; }
+.drift-status-dot.severity-error       { background: #ff8a8a; }
+.drift-status-dot.severity-none        { background: #80d090; }
+
+.drift-row-meta {
+  font-size: 11px;
+  color: #8a8d94;
+  display: flex;
+  gap: 6px;
+}
+
+.drift-detail {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drift-detail-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid #262a33;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.drift-detail-header .name { font-weight: 500; flex: 1; }
+.drift-detail-header button {
+  background: #1a1d22;
+  color: #e6e1cf;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.drift-detail-header button.primary {
+  background: #2d5a8c;
+  border-color: #2d5a8c;
+  color: #fff;
+}
+
+.drift-blocks {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-family: Menlo, monospace;
+}
+
+.drift-block {
+  margin-bottom: 14px;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.drift-block-header {
+  background: #14171c;
+  padding: 6px 10px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #262a33;
+}
+.drift-block-header .severity {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+.drift-block-header .severity.destructive { background: #4a1f1f; color: #ff8a8a; }
+.drift-block-header .severity.additive    { background: #4a3320; color: #ffcc70; }
+.drift-block-header .severity.none        { background: #1d4a2a; color: #80d090; }
+.drift-block-header .severity.error       { background: #4a1f1f; color: #ff8a8a; }
+
+.drift-changes {
+  padding: 4px 10px;
+  background: #0c0e11;
+}
+.drift-line {
+  white-space: pre;
+  padding: 1px 0;
+  font-family: Menlo, monospace;
+}
+.drift-line.equal  { color: #6a7080; }
+.drift-line.insert { color: #80d090; background: #0d1f12; }
+.drift-line.delete { color: #ff8a8a; background: #1f0d0d; }
+.drift-line .marker { display: inline-block; width: 12px; }
+
+.drift-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: #8a8d94;
+  font-size: 12px;
+}
+
+.drift-stats {
+  font-size: 11px;
+  color: #8a8d94;
+  display: flex;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #262a33;
+}
+.drift-stats .add { color: #80d090; }
+.drift-stats .del { color: #ff8a8a; }
+
+.drift-schedule-section {
+  border-top: 1px solid #262a33;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+.drift-schedule-section h4 {
+  margin: 0 0 6px 0;
+  font-size: 11px;
+  color: #8a8d94;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.drift-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid #1a1d22;
+}
+.drift-schedule-cron {
+  font-family: Menlo, monospace;
+  font-size: 10px;
+  color: #56b6c2;
+}
+.drift-schedule-row .actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.drift-schedule-row button {
+  background: transparent;
+  border: 1px solid #262a33;
+  color: #8a8d94;
+  padding: 1px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.drift-legend { font-size: 12px; color: #8a8570; margin: 6px 0; }
+.drift-badge { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+.drift-badge.drift-insert { background: #3a2626; color: #f0b0b0; }  /* Missing = serious */
+.drift-badge.drift-delete { background: #3a3326; color: #f0d8a0; }  /* Changed */
+.drift-line.drift-equal { color: #6c7380; }

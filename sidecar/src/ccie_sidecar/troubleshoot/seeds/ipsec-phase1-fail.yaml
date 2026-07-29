@@ -1,0 +1,64 @@
+id: ipsec-phase1-fail
+name: IPsec Phase-1 (IKE/ISAKMP) fails to establish
+symptom_keywords:
+  - ipsec
+  - phase 1
+  - phase1
+  - isakmp
+  - ike
+  - mm_no_state
+  - mm_key_exch
+  - vpn down
+vendor: cisco
+platform: iosxe
+description: >-
+  Branches on the observed IKE Phase-1 SA state. MM_NO_STATE almost always
+  means our peer is unreachable or the IKE policy is missing on one side;
+  MM_KEY_EXCH points at PSK / cert mismatch; QM_IDLE means Phase-1 is up
+  and the operator should look at Phase-2 (transform-set / proxy IDs).
+steps:
+  - id: check_isakmp
+    type: command
+    command: show crypto isakmp sa
+  - id: route_on_state
+    type: branch
+    expression: "isakmp_sa[0].state"
+    cases:
+      - when: "MM_NO_STATE"
+        next: check_reachability
+      - when: "MM_SA_SETUP"
+        next: check_policy
+      - when: "MM_KEY_EXCH"
+        next: check_psk
+      - when: "MM_KEY_AUTH"
+        next: check_psk
+      - when: "QM_IDLE"
+        next: narrate_phase2
+  - id: check_reachability
+    type: command
+    command: show ip route {{peer-ip}}
+  - id: narrate_no_state
+    type: narration
+    text: >-
+      MM_NO_STATE means we never finished Main Mode. Verify {{peer-ip}} is
+      reachable, that UDP/500 is permitted both ways, and that
+      'crypto isakmp policy' on both peers shares at least one matching
+      transform.
+  - id: check_policy
+    type: command
+    command: show crypto isakmp policy
+  - id: check_psk
+    type: command
+    command: show running-config | include crypto isakmp key
+  - id: narrate_psk
+    type: narration
+    text: >-
+      Stuck in MM_KEY_EXCH / MM_KEY_AUTH almost always means the pre-shared
+      key or the peer identity (address vs hostname) does not match. Confirm
+      both ends with 'crypto isakmp key' and 'crypto isakmp identity'.
+  - id: narrate_phase2
+    type: narration
+    text: >-
+      Phase-1 is up (QM_IDLE). The fault is in Phase-2: inspect
+      'show crypto ipsec sa' for the proxy-ID mismatch or transform-set
+      misalignment.

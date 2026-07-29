@@ -1,0 +1,110 @@
+.block-output {
+  background: #1e1e1e;
+  min-height: 100px;
+}
+
+.block-output.collapsed {
+  min-height: 0;
+  padding: 8px 12px;
+  background: #252525;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+
+.block-output.active {
+  min-height: 200px;
+  height: auto;
+}
+
+.output-text {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 13px;
+  color: #e6e1cf;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}
+
+.output-text::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.output-text::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+.output-text::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.output-text::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Truncation styles */
+.block-output.truncated {
+  position: relative;
+}
+
+.truncate-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  margin: 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.show-more-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #e6e1cf;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.show-more-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.truncate-hint {
+  font-size: 12px;
+  color: #6c7380;
+}
+
+.collapse-hint {
+  display: inline-block;
+  padding: 12px 16px;
+  color: #6c7380;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.collapse-hint:hover {
+  color: #e6e1cf;
+}
+
+/* Search match highlighting */
+.search-match {
+  background: rgba(255, 235, 59, 0.3);
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.search-match.current {
+  background: rgba(255, 235, 59, 0.6);
+  outline: 2px solid #ffeb3b;
+}

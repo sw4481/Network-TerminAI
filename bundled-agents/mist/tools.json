@@ -1,0 +1,34 @@
+[
+  {
+    "name": "mist_api_call",
+    "description": "Call the Juniper Mist REST API. Host is selected from the saved region; a static API token is attached automatically; all paths are under /api/v1. Blast radius: GET=low, POST/PUT/PATCH=medium, DELETE=destructive (metadata only, never blocks).",
+    "type": "function",
+    "function": {
+      "name": "mist_api_call",
+      "description": "Call the Juniper Mist REST API. ONE tool; host + auth resolved automatically. Supply only method + path (+ body/query). Returns {status_code,data,error,blast_radius}; check status_code < 400.\n\nJuniper Mist is a CLOUD-MANAGED network platform (Wireless / Wired / WAN Assurance + Marvis). Everything is scoped under an ORG and its SITES; all endpoints share the /api/v1 prefix.\n\nURL SHAPE: /api/v1/<scope>/<scope_id>/<object>[/<object_id>]  (scope ∈ self|orgs|sites|msp)\n\nSTART HERE (always resolve real ids first — never guess org_id/site_id):\n  GET /api/v1/self                          Who am I: privileges + org_ids this token can see\n  GET /api/v1/orgs/{org_id}                 Org detail\n  GET /api/v1/orgs/{org_id}/sites           List sites (site_id lives here)\n  GET /api/v1/sites/{site_id}               Site detail\n\nINVENTORY & DEVICES (device TYPE enum is EXACTLY ap|gateway|switch — there is NO \"all\"; OMIT type to get every type):\n  GET /api/v1/orgs/{org_id}/inventory       Org device inventory (claimed serials + MACs). To see switches pass query_params {\"type\":\"switch\"} (comma-sep OK, e.g. \"switch,gateway\"); OMIT type for ALL types. Do NOT pass \"all\" — invalid enum. Inventory lists CLAIMED devices REGARDLESS of connection state — a DISCONNECTED switch STILL appears here.\n  GET /api/v1/orgs/{org_id}/inventory/search  query_params {\"type\":\"switch\",\"status\":\"disconnected\"} — status enum connected|disconnected; the way to answer \"which switches are down\".\n  GET /api/v1/orgs/{org_id}/inventory/count   query_params {\"distinct\":\"status\"} for an up/down rollup.\n  GET /api/v1/sites/{site_id}/devices       Config of devices assigned to a site (type-filterable {\"type\":\"switch\"}; NO \"all\").\n  GET /api/v1/sites/{site_id}/stats/devices LIVE device status/uptime/version. DEFAULTS to type=ap — for switches pass {\"type\":\"switch\"}. status enum all|connected|disconnected (default all). Rows carry live \"status\"/\"uptime\"/\"last_seen\".\n  GET /api/v1/sites/{site_id}/stats/devices/{device_id}  One device's live stats\n\nCLIENTS & INSIGHTS:\n  GET /api/v1/sites/{site_id}/stats/clients Connected wireless clients\n  GET /api/v1/sites/{site_id}/insights/...  Assurance insights / SLE metrics\n\nCONFIG (writes hit the live cloud):\n  GET  /api/v1/sites/{site_id}/wlans        List WLANs\n  GET  /api/v1/sites/{site_id}/wlans/{wlan_id}  One WLAN\n  POST /api/v1/sites/{site_id}/wlans        Create a WLAN (medium)\n  GET  /api/v1/orgs/{org_id}/wlans          Org-level WLAN templates\n\nPAGINATION (SILENT — #1 cause of \"missing\" devices/clients): list/search endpoints DEFAULT to limit=100, page=1 and do NOT announce more. If a result has exactly your limit of rows, ASSUME there is more — raise {\"limit\":1000} or page through ({\"page\":2}...) until a page returns fewer than the limit. Never conclude \"there are only N\" off one default page.\n\nNOTES: ALWAYS GET /api/v1/self first for org_id, then /orgs/{org_id}/sites for site_id — never invent ids. To answer \"show me the switches / are any down\" query INVENTORY with {\"type\":\"switch\"} (includes disconnected) — do NOT rely on site stats/devices alone (APs by default). Rate limit 5,000/hour per token. A 401 = wrong/expired token (Settings -> Juniper Mist). A 404 = wrong path or bad id — re-resolve ids, do not brute-force names. An empty [] with status 200 is a valid empty result, not a failure.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            "description": "HTTP method"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path under /api/v1 (e.g., '/api/v1/self' or '/api/v1/orgs/{org_id}/sites')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Request body for POST/PUT/PATCH (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters as key-value pairs (optional, e.g. {\"limit\": 100})"
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

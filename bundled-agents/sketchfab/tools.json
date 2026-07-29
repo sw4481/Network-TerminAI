@@ -1,0 +1,34 @@
+[
+  {
+    "name": "sketchfab_api_call",
+    "description": "Call the Sketchfab Data API v3. Read-only (everything=low). Rooted at https://api.sketchfab.com/v3. Search works anonymously; downloads need a configured key.",
+    "type": "function",
+    "function": {
+      "name": "sketchfab_api_call",
+      "description": "Call the Sketchfab Data API v3 (rooted at https://api.sketchfab.com/v3). An API key may be configured (optional) — do NOT use requests.\n\nRETURN VALUE: a JSON string; json.loads it -> {\"status_code\", \"data\", \"error\", \"blast_radius\"}.\n\nKEY ENDPOINTS (all GET, all low):\n  GET /search?type=models&q=<query>&downloadable=true   Search models; data.results = [{uid,name,user}] (NO license slug in search results)\n  GET /models/{uid}                    Model detail incl. REAL license at data.license.slug (low)\n  GET /models/{uid}/download           Time-limited download URLs (REQUIRES a key) (low)\n  GET /me                              Current account (validates the key) (low)\n  GET /licenses                        License catalog (low)\n\nDO NOT add license=cc0 to search: that filter is extremely sparse and returns ZERO for most specific queries (e.g. \"network router\"). Instead search WITHOUT a license filter, then GET /models/{uid} for each candidate to read data.license.slug, and only recommend/download models whose license is CC0 (\"cc0\") or otherwise clearly reusable.\n\nBLAST RADIUS: everything is low (read-only). On 401 the key is invalid; without a key, downloads fail but search still works (rate-limited).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET"],
+            "description": "HTTP method (GET)"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path (e.g., '/search' or '/models/{uid}')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Unused for reads (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters (e.g. {\"type\": \"models\", \"q\": \"router\", \"downloadable\": \"true\"})"
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

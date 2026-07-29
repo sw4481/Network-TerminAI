@@ -1,0 +1,563 @@
+.pcap-block {
+  background: #1e1e1e;
+  border: 1px solid #2d2d2d;
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  color: #e6e1cf;
+}
+
+.pcap-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #252525;
+  border-bottom: 1px solid #2d2d2d;
+  align-items: center;
+}
+
+.pcap-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #303030;
+  color: #d0c8b6;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.pcap-chip-device {
+  background: #1f3a5a;
+  color: #a8d4ff;
+}
+
+.pcap-chip.status-ready {
+  background: #243f25;
+  color: #b3eab3;
+}
+.pcap-chip.status-failed {
+  background: #4a2424;
+  color: #ffb3b3;
+}
+.pcap-chip.status-pulling,
+.pcap-chip.status-capturing {
+  background: #3a3520;
+  color: #f0d984;
+}
+
+.pcap-error-banner {
+  background: #4a2424;
+  color: #ffd0d0;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.pcap-size-warning {
+  background: #3a3520;
+  color: #f0d984;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.pcap-tabs {
+  display: flex;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2d2d2d;
+}
+.pcap-tabs button {
+  background: transparent;
+  border: 0;
+  color: #8a8a8a;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 2px solid transparent;
+}
+.pcap-tabs button.active {
+  color: #f4ecd1;
+  border-bottom-color: #c4a85a;
+}
+
+.pcap-tab-body {
+  min-height: 0;
+  /* flex:1 (basis 0, not auto): the basis must be 0 so this child sizes to the
+     AVAILABLE space, not to its tall virtualized content (a 4200px tbody). With
+     basis:auto the child wanted full content height and the rows spilled out. */
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pcap-loading {
+  padding: 20px;
+  color: #8a8a8a;
+  text-align: center;
+}
+
+/* Packet list */
+.pcap-packet-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.pcap-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2d2d2d;
+  position: sticky;
+  top: 0;
+}
+.pcap-filter-input {
+  flex: 1;
+  background: #0e0e0e;
+  border: 1px solid #2d2d2d;
+  color: #e6e1cf;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.pcap-filter-input.invalid {
+  border-color: #c45454;
+  outline: 1px solid #c45454;
+}
+.pcap-filter-summary {
+  color: #8a8a8a;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pcap-filter-loading {
+  color: #c4a85a;
+}
+
+.pcap-table-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.pcap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.pcap-table thead th {
+  position: sticky;
+  top: 0;
+  background: #252525;
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid #2d2d2d;
+  color: #c4a85a;
+  font-weight: 500;
+}
+.pcap-table tbody tr {
+  cursor: pointer;
+  height: 28px;
+}
+.pcap-table tbody tr:hover {
+  background: #292929;
+}
+.pcap-table tbody tr.selected {
+  background: #1f3a5a;
+  color: #f4ecd1;
+}
+.pcap-table td {
+  padding: 4px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Protocol hierarchy */
+.pcap-hierarchy {
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-hierarchy.empty {
+  color: #8a8a8a;
+}
+.pcap-hierarchy table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pcap-hierarchy th,
+.pcap-hierarchy td {
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid #232323;
+}
+.pcap-hierarchy-note {
+  margin-top: 8px;
+  color: #8a8a8a;
+  font-size: 11px;
+}
+
+/* Hex view */
+.pcap-hex {
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-hex.empty {
+  color: #8a8a8a;
+}
+.pcap-hex.error {
+  color: #ffb3b3;
+}
+.pcap-hex-meta {
+  color: #8a8a8a;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.pcap-hex-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+.pcap-hex-col {
+  margin: 0;
+  background: #0e0e0e;
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 11px;
+}
+.pcap-hex-col.ascii {
+  color: #c4a85a;
+}
+
+/* Follow stream modal */
+.pcap-follow-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.pcap-follow-modal {
+  background: #1e1e1e;
+  border: 1px solid #2d2d2d;
+  border-radius: 6px;
+  width: min(900px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.pcap-follow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2d2d2d;
+  font-size: 12px;
+  color: #f4ecd1;
+}
+.pcap-follow-close {
+  background: transparent;
+  border: 0;
+  color: #8a8a8a;
+  font-size: 18px;
+  cursor: pointer;
+}
+.pcap-follow-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-follow-pane pre {
+  background: #0e0e0e;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 60vh;
+  overflow: auto;
+  font-size: 11px;
+}
+.pcap-follow-label {
+  color: #c4a85a;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.pcap-follow-error {
+  color: #ffb3b3;
+  padding: 12px;
+}
+.pcap-follow-loading {
+  color: #8a8a8a;
+  padding: 12px;
+}
+
+/* Export button */
+.pcap-export-btn {
+  margin-left: auto;
+  background: #2a3a52;
+  border: 1px solid #3a4a62;
+  color: #c8e3ff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pcap-export-btn:hover {
+  background: #3a4a62;
+}
+
+/* Template library */
+.pcap-template-library {
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border-right: 1px solid #2d2d2d;
+  width: 320px;
+  min-width: 240px;
+}
+.pcap-template-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid #2d2d2d;
+}
+.pcap-template-toolbar input[type='search'] {
+  background: #0e0e0e;
+  border: 1px solid #2d2d2d;
+  color: #e6e1cf;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pcap-template-chips {
+  display: flex;
+  gap: 4px;
+}
+.pcap-template-chips .chip {
+  background: #252525;
+  border: 0;
+  color: #8a8a8a;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.pcap-template-chips .chip.active {
+  background: #c4a85a;
+  color: #1a1a1a;
+}
+.pcap-template-searchrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.pcap-template-searchrow input[type='search'] {
+  flex: 1;
+}
+.pcap-template-new {
+  background: #1f3a5a;
+  border: 1px solid #2d4a6a;
+  color: #c8e3ff;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pcap-template-new:hover {
+  background: #284a72;
+}
+
+.pcap-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid #2d2d2d;
+  background: #15171b;
+}
+.pcap-template-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #c4a85a;
+  font-size: 11px;
+}
+.pcap-template-form input,
+.pcap-template-form select {
+  background: #0e0e0e;
+  border: 1px solid #2d2d2d;
+  color: #e6e1cf;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.pcap-template-form input[type='range'] {
+  padding: 0;
+}
+.pcap-template-save {
+  background: #2f5e34;
+  border: 0;
+  color: #e6f5e6;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pcap-template-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pcap-template-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+}
+.pcap-template-list li {
+  position: relative;
+  padding: 8px 10px;
+  border-bottom: 1px solid #232323;
+  cursor: pointer;
+  color: #e6e1cf;
+}
+.pcap-template-list li:hover {
+  background: #232323;
+}
+.pcap-template-list li.selected {
+  background: #1f3a5a;
+}
+.pcap-template-name {
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.pcap-template-builtin {
+  background: #303030;
+  color: #c4a85a;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+.pcap-template-meta {
+  color: #8a8a8a;
+  font-size: 11px;
+  margin-top: 2px;
+}
+.pcap-template-empty {
+  padding: 14px;
+  color: #8a8a8a;
+  font-size: 12px;
+  text-align: center;
+}
+.pcap-template-error {
+  color: #ffb3b3;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+.pcap-template-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  color: #8a8a8a;
+  border: 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pcap-template-delete:hover {
+  color: #ffb3b3;
+}
+
+/* Quick capture wizard */
+.pcap-quick-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.pcap-quick-wizard label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #c4a85a;
+}
+.pcap-quick-wizard input[type='text'],
+.pcap-quick-wizard input:not([type]),
+.pcap-quick-wizard input[type='number'] {
+  background: #0e0e0e;
+  border: 1px solid #2d2d2d;
+  color: #e6e1cf;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pcap-wizard-warn {
+  color: #f0d984;
+  font-size: 11px;
+}
+.pcap-wizard-error {
+  color: #ffb3b3;
+  font-size: 11px;
+}
+.pcap-wizard-run {
+  background: #2a4a2a;
+  border: 1px solid #3a5a3a;
+  color: #b3eab3;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pcap-wizard-run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Advanced raw form */
+.pcap-advanced-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.pcap-advanced-form textarea {
+  background: #0e0e0e;
+  border: 1px solid #2d2d2d;
+  color: #e6e1cf;
+  border-radius: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.pcap-advanced-form button {
+  align-self: flex-start;
+  background: #2a3a52;
+  border: 1px solid #3a4a62;
+  color: #c8e3ff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}

@@ -1,0 +1,132 @@
+.tb-narration {
+  width: 360px;
+  flex: 0 0 360px;
+  box-sizing: border-box;
+  background: #0a0c0f;
+  border-left: 1px solid #262a33;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: #e6e1cf;
+  overflow: hidden;
+}
+
+.tb-narration[data-collapsed="true"] {
+  width: 32px;
+  flex-basis: 32px;
+}
+
+.tb-narration-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #262a33;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  color: #8a8d94;
+}
+
+.tb-narration-toggle {
+  background: transparent;
+  border: 1px solid #262a33;
+  color: #8a8d94;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tb-narration-toggle:hover { border-color: #5a8fd6; color: #e6e1cf; }
+
+.tb-narration-collapsed-rail {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8a8d94;
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.06em;
+}
+
+.tb-narration-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tb-narration-empty {
+  color: #8a8d94;
+  font-size: 12px;
+  font-family: Menlo, monospace;
+  opacity: 0.7;
+  text-align: center;
+  padding-top: 30px;
+}
+
+.tb-narration-entry {
+  background: #1a1d23;
+  border: 1px solid #262a33;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tb-narration-entry-header {
+  display: flex;
+  justify-content: space-between;
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  color: #8a8d94;
+}
+
+.tb-narration-entry-body {
+  color: #e6e1cf;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tb-narration-entry-body p { margin: 0 0 6px; }
+.tb-narration-entry-body code {
+  background: rgba(255,255,255,0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+}
+.tb-narration-entry-body pre {
+  background: #0a0c0f;
+  border: 1px solid #262a33;
+  border-radius: 4px;
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.tb-narration-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.tb-narration-citation {
+  background: #0a0c0f;
+  color: #5a8fd6;
+  border: 1px solid rgba(90,143,214,0.4);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-family: Menlo, monospace;
+  cursor: pointer;
+}
+.tb-narration-citation:hover {
+  background: rgba(90,143,214,0.15);
+}
