@@ -18,16 +18,26 @@ import {
   editorModeSet,
   type EditorMode,
 } from "../../lib/tauri";
+import {
+  INITIAL_ZED_SNAPSHOT_REVISION,
+  isNewerZedSnapshotRevision,
+  nextZedSnapshotRevision,
+  type ZedSnapshotRevision,
+} from "./zedSnapshotRevision";
 
 export const ZED_MODE_CHANGED_EVENT = "zed-mode-changed";
 export const ZED_VIM_STORAGE_KEY = "ccie.zed.vimEnabled";
 
-type ZedModeChangedPayload = {
+export type ZedModeChangedPayload = {
   mode: EditorMode;
   vimEnabled: boolean;
+  revision: ZedSnapshotRevision;
 };
 
-export type ZedModeContextValue = ZedModeChangedPayload & {
+export type ZedModeContextValue = Pick<
+  ZedModeChangedPayload,
+  "mode" | "vimEnabled"
+> & {
   setMode: (mode: EditorMode) => Promise<void>;
   setVimEnabled: (enabled: boolean) => Promise<void>;
 };
@@ -53,15 +63,26 @@ function writeVimPreference(enabled: boolean): void {
 export function ZedModeProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<EditorMode>("monaco");
   const [vimEnabled, setVimEnabledState] = useState(readVimPreference);
+  const [sourceId] = useState(() => crypto.randomUUID());
   const latestSnapshotRef = useRef<ZedModeChangedPayload>({
     mode,
     vimEnabled,
+    revision: INITIAL_ZED_SNAPSHOT_REVISION,
   });
 
   const applySnapshot = useCallback((payload: ZedModeChangedPayload) => {
+    if (
+      !isNewerZedSnapshotRevision(
+        payload.revision,
+        latestSnapshotRef.current.revision,
+      )
+    ) {
+      return false;
+    }
     latestSnapshotRef.current = payload;
     setModeState(payload.mode);
     setVimEnabledState(payload.vimEnabled);
+    return true;
   }, []);
 
   useEffect(() => {
@@ -74,10 +95,12 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
         const stopListening = await listen<ZedModeChangedPayload>(
           ZED_MODE_CHANGED_EVENT,
           (event) => {
-            receivedLiveEvent = true;
             if (!disposed) {
-              applySnapshot(event.payload);
-              writeVimPreference(event.payload.vimEnabled);
+              const applied = applySnapshot(event.payload);
+              if (applied) {
+                receivedLiveEvent = true;
+                writeVimPreference(event.payload.vimEnabled);
+              }
             }
           },
         );
@@ -93,10 +116,13 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
       try {
         const storedMode = await editorModeGet();
         if (!disposed && !receivedLiveEvent) {
-          applySnapshot({
+          const hydratedSnapshot = {
             ...latestSnapshotRef.current,
             mode: storedMode,
-          });
+          };
+          latestSnapshotRef.current = hydratedSnapshot;
+          setModeState(hydratedSnapshot.mode);
+          setVimEnabledState(hydratedSnapshot.vimEnabled);
         }
       } catch (error) {
         console.error("Failed to load editor mode:", error);
@@ -128,11 +154,15 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
       const nextSnapshot = {
         ...latestSnapshotRef.current,
         mode: nextMode,
+        revision: nextZedSnapshotRevision(
+          latestSnapshotRef.current.revision,
+          sourceId,
+        ),
       } satisfies ZedModeChangedPayload;
       applySnapshot(nextSnapshot);
       await broadcast(nextSnapshot);
     },
-    [applySnapshot, broadcast],
+    [applySnapshot, broadcast, sourceId],
   );
 
   const setVimEnabled = useCallback(
@@ -140,12 +170,16 @@ export function ZedModeProvider({ children }: PropsWithChildren) {
       const nextSnapshot = {
         ...latestSnapshotRef.current,
         vimEnabled: enabled,
+        revision: nextZedSnapshotRevision(
+          latestSnapshotRef.current.revision,
+          sourceId,
+        ),
       } satisfies ZedModeChangedPayload;
       writeVimPreference(enabled);
       applySnapshot(nextSnapshot);
       await broadcast(nextSnapshot);
     },
-    [applySnapshot, broadcast],
+    [applySnapshot, broadcast, sourceId],
   );
 
   const value = useMemo<ZedModeContextValue>(

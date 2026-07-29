@@ -26,8 +26,13 @@ import {
   ZedModeProvider,
   useZedMode,
 } from "./ZedModeProvider";
+import type { ZedSnapshotRevision } from "./zedSnapshotRevision";
 
-type Payload = { mode: EditorMode; vimEnabled: boolean };
+type Payload = {
+  mode: EditorMode;
+  vimEnabled: boolean;
+  revision: ZedSnapshotRevision;
+};
 let deliverEvent: ((event: { payload: Payload }) => void) | undefined;
 let chainedUpdate: Promise<void> | undefined;
 
@@ -88,6 +93,10 @@ describe("ZedModeProvider", () => {
     expect(mocks.emit).toHaveBeenCalledWith(ZED_MODE_CHANGED_EVENT, {
       mode: "zed",
       vimEnabled: false,
+      revision: {
+        counter: 1,
+        sourceId: expect.any(String),
+      },
     });
   });
 
@@ -104,10 +113,18 @@ describe("ZedModeProvider", () => {
     expect(mocks.emit).toHaveBeenNthCalledWith(1, ZED_MODE_CHANGED_EVENT, {
       mode: "monaco",
       vimEnabled: true,
+      revision: {
+        counter: 1,
+        sourceId: expect.any(String),
+      },
     });
     expect(mocks.emit).toHaveBeenNthCalledWith(2, ZED_MODE_CHANGED_EVENT, {
       mode: "zed",
       vimEnabled: true,
+      revision: {
+        counter: 2,
+        sourceId: expect.any(String),
+      },
     });
   });
 
@@ -115,7 +132,11 @@ describe("ZedModeProvider", () => {
     render(<ZedModeProvider><Probe /></ZedModeProvider>);
     await waitFor(() => expect(deliverEvent).toBeDefined());
     act(() => deliverEvent?.({
-      payload: { mode: "zed", vimEnabled: true },
+      payload: {
+        mode: "zed",
+        vimEnabled: true,
+        revision: { counter: 4, sourceId: "remote-b" },
+      },
     }));
     expect(screen.getByTestId("vim")).toHaveTextContent("true");
     expect(localStorage.getItem(ZED_VIM_STORAGE_KEY)).toBe("true");
@@ -132,9 +153,59 @@ describe("ZedModeProvider", () => {
     await waitFor(() => expect(deliverEvent).toBeDefined());
 
     act(() => deliverEvent?.({
-      payload: { mode: "zed", vimEnabled: true },
+      payload: {
+        mode: "zed",
+        vimEnabled: true,
+        revision: { counter: 3, sourceId: "remote-b" },
+      },
     }));
     await act(async () => resolveHydration?.("monaco"));
+
+    expect(screen.getByTestId("mode")).toHaveTextContent("zed");
+    expect(screen.getByTestId("vim")).toHaveTextContent("true");
+  });
+
+  it("ignores delayed snapshots with an older revision", async () => {
+    render(<ZedModeProvider><Probe /></ZedModeProvider>);
+    await waitFor(() => expect(deliverEvent).toBeDefined());
+
+    act(() => deliverEvent?.({
+      payload: {
+        mode: "zed",
+        vimEnabled: true,
+        revision: { counter: 8, sourceId: "remote-b" },
+      },
+    }));
+    act(() => deliverEvent?.({
+      payload: {
+        mode: "monaco",
+        vimEnabled: false,
+        revision: { counter: 7, sourceId: "remote-z" },
+      },
+    }));
+
+    expect(screen.getByTestId("mode")).toHaveTextContent("zed");
+    expect(screen.getByTestId("vim")).toHaveTextContent("true");
+  });
+
+  it("converges equal counters with a deterministic source tie-break", async () => {
+    render(<ZedModeProvider><Probe /></ZedModeProvider>);
+    await waitFor(() => expect(deliverEvent).toBeDefined());
+
+    act(() => deliverEvent?.({
+      payload: {
+        mode: "zed",
+        vimEnabled: true,
+        revision: { counter: 5, sourceId: "window-b" },
+      },
+    }));
+    act(() => deliverEvent?.({
+      payload: {
+        mode: "monaco",
+        vimEnabled: false,
+        revision: { counter: 5, sourceId: "window-a" },
+      },
+    }));
 
     expect(screen.getByTestId("mode")).toHaveTextContent("zed");
     expect(screen.getByTestId("vim")).toHaveTextContent("true");
