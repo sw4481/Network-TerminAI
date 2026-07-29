@@ -93,6 +93,7 @@ export function buildGitBlameDecoration(
     options: {
       stickiness:
         monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+      showIfCollapsed: true,
       after: {
         content: `   ${formatGitBlame(blame, now)}`,
         inlineClassName: "git-blame-inline",

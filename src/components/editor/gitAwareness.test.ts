@@ -96,6 +96,7 @@ describe("Git decoration mapping", () => {
     expect(decoration.options.after?.content).toContain(
       "Alice, 1m ago • Explain the line • abcdef0",
     );
+    expect(decoration.options.showIfCollapsed).toBe(true);
     expect(decoration.options.after?.inlineClassName).toBe("git-blame-inline");
   });
 });
