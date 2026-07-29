@@ -15,6 +15,8 @@ import { EditorBufferSyncClient } from "./editorBufferSync";
 import { EditorPane } from "./EditorPane";
 import { useZedMode } from "./ZedModeProvider";
 import type { EditorPaneLeaf } from "./editorPaneLayout";
+import { GitStatusIndicator } from "./GitStatusIndicator";
+import { useGitRepositorySummary } from "./useGitRepositorySummary";
 import "./DetachedEditorWindow.css";
 
 function bufferFromSnapshot(
@@ -53,6 +55,10 @@ export function DetachedEditorWindow() {
     `editor-detached:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   bufferRef.current = buffer;
+  const {
+    summary: gitSummary,
+    refresh: refreshGitSummary,
+  } = useGitRepositorySummary(buffer?.file_path ?? null, mode === "zed");
 
   useEffect(() => {
     let disposed = false;
@@ -173,12 +179,13 @@ export function DetachedEditorWindow() {
         synchronized.content,
       );
       await client.markSaved(synchronized.revision);
+      await refreshGitSummary();
     } catch (saveError) {
       setError(String(saveError));
     } finally {
       setSaving(false);
     }
-  }, [metadata, saving]);
+  }, [metadata, saving, refreshGitSummary]);
 
   if (!metadata || !buffer) {
     return (
@@ -297,6 +304,12 @@ export function DetachedEditorWindow() {
         </div>
       )}
       <footer className="detached-editor-status">
+        {mode === "zed" && (
+          <GitStatusIndicator
+            summary={gitSummary}
+            bufferDirty={buffer.is_dirty}
+          />
+        )}
         <span>{buffer.sync_status}</span>
         <span>
           Ln {view.cursor_position.line}, Col {view.cursor_position.column}

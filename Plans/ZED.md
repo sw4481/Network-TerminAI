@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phase 1 complete; Phase 2 implemented, native validation pending
+**Status:** Phase 1 complete; Phases 2–3 implemented with native validation pending
 **Author:** brainstormed with operator
 
 ---
@@ -161,10 +161,15 @@ Codex session cannot use macOS screen capture or Accessibility UI control.
 
 ## 6. Phase 3 — GitHub integration (OUTLINE)
 
+**Detailed implementation plan:** `docs/superpowers/plans/2026-07-29-zed-mode-phase-3.md`
+
+- **Implementation status (2026-07-29):** implemented on
+  `feature/zed-mode-phase-3`; automated verification and native startup smoke
+  pass, with the interactive macOS matrix still pending.
 - Extend the existing Git/CI plumbing (`gitConfigGet/Set`, PushToGit modal,
   GitCiSettingsTab, `github_list_runs`).
-- **Backend:** Rust wrappers around `git` (`git diff`, `git blame`, `git status`)
-  exposed as Tauri commands.
+- **Backend:** read-only `git2` commands for structured in-memory diff, blame,
+  and repository summary data exposed through Tauri.
 - **Frontend:** Monaco decorations for the diff gutter (added/modified/deleted
   lines), an inline blame lens, and a status-bar branch/dirty indicator.
 - Deliverable: Zed-style git awareness in the editor, built on existing GitHub push.

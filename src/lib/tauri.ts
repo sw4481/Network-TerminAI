@@ -2622,6 +2622,68 @@ export const gitGetStatus = (repoPath: string) =>
 export const gitGetDiff = (repoPath: string, filePath: string) =>
   invoke<string>("git_get_diff", { repoPath, filePath });
 
+export type GitLineChangeKind = "added" | "modified" | "deleted";
+
+export type GitLineChange = {
+  /** One-based line number in the current editor buffer. */
+  lineNumber: number;
+  kind: GitLineChangeKind;
+  /** Non-zero for deletion markers anchored to a surviving line. */
+  deletedLines: number;
+};
+
+export type GitFileChanges = {
+  repoRoot: string;
+  relativePath: string;
+  binary: boolean;
+  changes: GitLineChange[];
+};
+
+export type GitLineBlame = {
+  lineNumber: number;
+  commit: string | null;
+  author: string;
+  authorEmail: string | null;
+  /** Unix seconds from the commit author's signature. */
+  timestamp: number | null;
+  summary: string | null;
+  uncommitted: boolean;
+};
+
+export type GitRepositorySummary = {
+  repoRoot: string;
+  branch: string | null;
+  headOid: string | null;
+  dirty: boolean;
+  changedFiles: number;
+  stagedFiles: number;
+  unstagedFiles: number;
+  untrackedFiles: number;
+};
+
+/** Structured HEAD-to-current-buffer changes, including unsaved Monaco edits. */
+export const gitGetFileChanges = (filePath: string, contents: string) =>
+  invoke<GitFileChanges | null>("git_get_file_changes", {
+    filePath,
+    contents,
+  });
+
+/** Blame one current-buffer line, including honest uncommitted-line handling. */
+export const gitGetLineBlame = (
+  filePath: string,
+  contents: string,
+  lineNumber: number,
+) =>
+  invoke<GitLineBlame | null>("git_get_line_blame", {
+    filePath,
+    contents,
+    lineNumber,
+  });
+
+/** Lightweight branch and dirty summary from either a directory or file path. */
+export const gitGetRepositorySummary = (path: string) =>
+  invoke<GitRepositorySummary | null>("git_get_repository_summary", { path });
+
 export const gitIsRepo = (path: string) =>
   invoke<boolean>("git_is_repo", { path });
 

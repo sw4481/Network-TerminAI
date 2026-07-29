@@ -7,9 +7,11 @@
 //! libgit2 credential callbacks are fragile and would re-implement auth badly.
 //! Anyone doing IaC pipelines already has `git` installed.
 
-use git2::{DiffOptions, Repository, Status, StatusOptions};
+use git2::{DiffOptions, ErrorCode, Repository, Status, StatusOptions};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use similar::{DiffTag, TextDiff};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Result of a shelled-out git invocation.
@@ -164,8 +166,8 @@ pub struct GitFileStatus {
 
 #[tauri::command]
 pub async fn git_get_status(repo_path: String) -> Result<Vec<GitFileStatus>, String> {
-    let repo = Repository::discover(&repo_path)
-        .map_err(|e| format!("Not a git repository: {}", e))?;
+    let repo =
+        Repository::discover(&repo_path).map_err(|e| format!("Not a git repository: {}", e))?;
 
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
@@ -195,17 +197,14 @@ pub async fn git_get_status(repo_path: String) -> Result<Vec<GitFileStatus>, Str
 
 #[tauri::command]
 pub async fn git_get_diff(repo_path: String, file_path: String) -> Result<String, String> {
-    let repo = Repository::discover(&repo_path)
-        .map_err(|e| format!("Not a git repository: {}", e))?;
+    let repo =
+        Repository::discover(&repo_path).map_err(|e| format!("Not a git repository: {}", e))?;
 
     // Limit the diff to the requested file to keep payloads small.
     let mut opts = DiffOptions::new();
     opts.pathspec(&file_path).context_lines(3);
 
-    let tree = repo
-        .head()
-        .ok()
-        .and_then(|h| h.peel_to_tree().ok());
+    let tree = repo.head().ok().and_then(|h| h.peel_to_tree().ok());
 
     let diff = repo
         .diff_tree_to_workdir_with_index(tree.as_ref(), Some(&mut opts))
@@ -243,6 +242,588 @@ fn classify(flags: Status) -> &'static str {
         "modified"
     } else {
         "modified"
+    }
+}
+
+// ── Zed Mode Phase 3: editor Git awareness ─────────────────────────────────
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum GitLineChangeKind {
+    Added,
+    Modified,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLineChange {
+    /// One-based line number in the current Monaco buffer.
+    pub line_number: u32,
+    pub kind: GitLineChangeKind,
+    /// Non-zero only for a deletion marker anchored to a surviving line.
+    pub deleted_lines: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitFileChanges {
+    pub repo_root: String,
+    pub relative_path: String,
+    pub binary: bool,
+    pub changes: Vec<GitLineChange>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitLineBlame {
+    pub line_number: u32,
+    pub commit: Option<String>,
+    pub author: String,
+    pub author_email: Option<String>,
+    /// Unix seconds from the commit author's signature.
+    pub timestamp: Option<i64>,
+    pub summary: Option<String>,
+    pub uncommitted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GitRepositorySummary {
+    pub repo_root: String,
+    pub branch: Option<String>,
+    pub head_oid: Option<String>,
+    pub dirty: bool,
+    pub changed_files: usize,
+    pub staged_files: usize,
+    pub unstaged_files: usize,
+    pub untracked_files: usize,
+}
+
+fn discovery_start(path: &Path) -> &Path {
+    if path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(path)
+    }
+}
+
+/// Discover the nearest non-bare worktree from a directory or file path.
+///
+/// A path outside Git is a normal editor state and returns `Ok(None)`. Other
+/// libgit2 failures are surfaced because silently converting permissions or
+/// repository corruption into "not a repo" would make Phase 3 misleading.
+fn discover_worktree(path: &str) -> Result<Option<(Repository, PathBuf)>, String> {
+    if path.trim().is_empty() {
+        return Ok(None);
+    }
+    let raw = PathBuf::from(path);
+    let repo = match Repository::discover(discovery_start(&raw)) {
+        Ok(repo) => repo,
+        Err(error) if error.code() == ErrorCode::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Failed to discover Git repository: {error}")),
+    };
+    let Some(workdir) = repo.workdir() else {
+        return Ok(None);
+    };
+    let workdir = fs::canonicalize(workdir)
+        .map_err(|error| format!("Failed to resolve Git worktree: {error}"))?;
+    Ok(Some((repo, workdir)))
+}
+
+fn repo_relative_file(file_path: &str, workdir: &Path) -> Result<PathBuf, String> {
+    let resolved = fs::canonicalize(file_path)
+        .map_err(|error| format!("Failed to resolve editor file {file_path:?}: {error}"))?;
+    resolved
+        .strip_prefix(workdir)
+        .map(Path::to_path_buf)
+        .map_err(|_| {
+            format!(
+                "Editor file {:?} is outside Git worktree {:?}",
+                resolved, workdir
+            )
+        })
+}
+
+fn display_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn head_file_contents(
+    repo: &Repository,
+    relative_path: &Path,
+) -> Result<Option<(Vec<u8>, bool)>, String> {
+    let tree = match repo.head().and_then(|head| head.peel_to_tree()) {
+        Ok(tree) => tree,
+        Err(error) if matches!(error.code(), ErrorCode::NotFound | ErrorCode::UnbornBranch) => {
+            return Ok(None);
+        }
+        Err(error) => return Err(format!("Failed to read Git HEAD: {error}")),
+    };
+    let entry = match tree.get_path(relative_path) {
+        Ok(entry) => entry,
+        Err(error) if error.code() == ErrorCode::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "Failed to read {:?} from Git HEAD: {error}",
+                relative_path
+            ))
+        }
+    };
+    let blob = repo
+        .find_blob(entry.id())
+        .map_err(|error| format!("Git HEAD entry is not a readable blob: {error}"))?;
+    Ok(Some((blob.content().to_vec(), blob.is_binary())))
+}
+
+fn deletion_anchor(new_index: usize, current_line_count: usize) -> u32 {
+    (new_index + 1).clamp(1, current_line_count.max(1)) as u32
+}
+
+fn structured_line_changes(base: &str, current: &str) -> Vec<GitLineChange> {
+    // Monaco and Git may choose different EOL sequences for the same logical
+    // text. Gutter semantics are line-based, so EOL-only differences must not
+    // paint every line as modified.
+    let base = base.replace("\r\n", "\n").replace('\r', "\n");
+    let current = current.replace("\r\n", "\n").replace('\r', "\n");
+    let diff = TextDiff::from_lines(&base, &current);
+    let current_line_count = current.split('\n').count().max(1);
+    let mut changes = Vec::new();
+
+    for op in diff.ops() {
+        let old = op.old_range();
+        let new = op.new_range();
+        match op.tag() {
+            DiffTag::Equal => {}
+            DiffTag::Insert => {
+                changes.extend(new.map(|index| GitLineChange {
+                    line_number: (index + 1) as u32,
+                    kind: GitLineChangeKind::Added,
+                    deleted_lines: 0,
+                }));
+            }
+            DiffTag::Delete => {
+                changes.push(GitLineChange {
+                    line_number: deletion_anchor(new.start, current_line_count),
+                    kind: GitLineChangeKind::Deleted,
+                    deleted_lines: old.len() as u32,
+                });
+            }
+            DiffTag::Replace => {
+                let shared = old.len().min(new.len());
+                changes.extend((new.start..new.start + shared).map(|index| GitLineChange {
+                    line_number: (index + 1) as u32,
+                    kind: GitLineChangeKind::Modified,
+                    deleted_lines: 0,
+                }));
+                changes.extend((new.start + shared..new.end).map(|index| GitLineChange {
+                    line_number: (index + 1) as u32,
+                    kind: GitLineChangeKind::Added,
+                    deleted_lines: 0,
+                }));
+                if old.len() > shared {
+                    changes.push(GitLineChange {
+                        line_number: deletion_anchor(new.end, current_line_count),
+                        kind: GitLineChangeKind::Deleted,
+                        deleted_lines: (old.len() - shared) as u32,
+                    });
+                }
+            }
+        }
+    }
+
+    changes
+}
+
+fn git_file_changes_impl(
+    file_path: &str,
+    contents: &str,
+) -> Result<Option<GitFileChanges>, String> {
+    let Some((repo, workdir)) = discover_worktree(file_path)? else {
+        return Ok(None);
+    };
+    let relative_path = repo_relative_file(file_path, &workdir)?;
+    let base = head_file_contents(&repo, &relative_path)?;
+    let binary = base.as_ref().is_some_and(|(_, binary)| *binary);
+    let changes = if binary {
+        Vec::new()
+    } else {
+        let base_text = base
+            .as_ref()
+            .map(|(bytes, _)| String::from_utf8_lossy(bytes))
+            .unwrap_or_default();
+        structured_line_changes(&base_text, contents)
+    };
+
+    Ok(Some(GitFileChanges {
+        repo_root: display_path(&workdir),
+        relative_path: display_path(&relative_path),
+        binary,
+        changes,
+    }))
+}
+
+/// Structured line changes between `HEAD` and the current in-memory editor
+/// contents. This intentionally includes unsaved Monaco edits.
+#[tauri::command]
+pub async fn git_get_file_changes(
+    file_path: String,
+    contents: String,
+) -> Result<Option<GitFileChanges>, String> {
+    git_file_changes_impl(&file_path, &contents)
+}
+
+fn uncommitted_blame(line_number: u32) -> GitLineBlame {
+    GitLineBlame {
+        line_number,
+        commit: None,
+        author: "You".to_string(),
+        author_email: None,
+        timestamp: None,
+        summary: None,
+        uncommitted: true,
+    }
+}
+
+fn git_line_blame_impl(
+    file_path: &str,
+    contents: &str,
+    line_number: u32,
+) -> Result<Option<GitLineBlame>, String> {
+    if line_number == 0 {
+        return Err("Git blame line number must be one or greater".to_string());
+    }
+    let current_line_count = contents.split('\n').count().max(1);
+    if line_number as usize > current_line_count {
+        return Ok(None);
+    }
+    let Some((repo, workdir)) = discover_worktree(file_path)? else {
+        return Ok(None);
+    };
+    let relative_path = repo_relative_file(file_path, &workdir)?;
+    match repo.head() {
+        Ok(_) => {}
+        Err(error) if matches!(error.code(), ErrorCode::NotFound | ErrorCode::UnbornBranch) => {
+            return Ok(Some(uncommitted_blame(line_number)));
+        }
+        Err(error) => return Err(format!("Failed to read Git HEAD for blame: {error}")),
+    }
+    let base_blame = match repo.blame_file(&relative_path, None) {
+        Ok(blame) => blame,
+        Err(error) if matches!(error.code(), ErrorCode::NotFound | ErrorCode::UnbornBranch) => {
+            return Ok(Some(uncommitted_blame(line_number)));
+        }
+        Err(error) => return Err(format!("Failed to blame Git file: {error}")),
+    };
+    let blame = base_blame
+        .blame_buffer(contents.as_bytes())
+        .map_err(|error| format!("Failed to blame current editor buffer: {error}"))?;
+    let Some(hunk) = blame.get_line(line_number as usize) else {
+        return Ok(None);
+    };
+    let commit_id = hunk.final_commit_id();
+    if commit_id.is_zero() {
+        return Ok(Some(uncommitted_blame(line_number)));
+    }
+
+    let signature = hunk.final_signature();
+    let commit = repo.find_commit(commit_id).ok();
+    Ok(Some(GitLineBlame {
+        line_number,
+        commit: Some(commit_id.to_string()),
+        author: signature.name().unwrap_or("Unknown").to_string(),
+        author_email: signature.email().map(str::to_string),
+        timestamp: Some(signature.when().seconds()),
+        summary: commit
+            .as_ref()
+            .and_then(|commit| commit.summary())
+            .map(str::to_string),
+        uncommitted: false,
+    }))
+}
+
+/// Blame one current-buffer line. `blame_buffer` keeps unsaved line numbering
+/// honest and identifies edited lines with libgit2's zero OID.
+#[tauri::command]
+pub async fn git_get_line_blame(
+    file_path: String,
+    contents: String,
+    line_number: u32,
+) -> Result<Option<GitLineBlame>, String> {
+    git_line_blame_impl(&file_path, &contents, line_number)
+}
+
+fn symbolic_head_branch(repo: &Repository) -> Option<String> {
+    repo.find_reference("HEAD")
+        .ok()
+        .and_then(|reference| reference.symbolic_target().map(str::to_string))
+        .and_then(|target| target.strip_prefix("refs/heads/").map(str::to_string))
+}
+
+fn repository_summary_impl(path: &str) -> Result<Option<GitRepositorySummary>, String> {
+    let Some((repo, workdir)) = discover_worktree(path)? else {
+        return Ok(None);
+    };
+    let head = repo.head().ok();
+    let branch = head
+        .as_ref()
+        .filter(|head| head.is_branch())
+        .and_then(|head| head.shorthand().map(str::to_string))
+        .or_else(|| symbolic_head_branch(&repo));
+    let head_oid = head
+        .as_ref()
+        .and_then(|head| head.target())
+        .map(|oid| oid.to_string());
+
+    let mut options = StatusOptions::new();
+    options
+        .include_untracked(true)
+        .include_ignored(false)
+        .recurse_untracked_dirs(true);
+    let statuses = repo
+        .statuses(Some(&mut options))
+        .map_err(|error| format!("Failed to summarize Git status: {error}"))?;
+
+    let mut changed_files = 0;
+    let mut staged_files = 0;
+    let mut unstaged_files = 0;
+    let mut untracked_files = 0;
+    for entry in statuses.iter() {
+        let flags = entry.status();
+        if flags.is_empty() {
+            continue;
+        }
+        changed_files += 1;
+        if flags.intersects(
+            Status::INDEX_NEW
+                | Status::INDEX_MODIFIED
+                | Status::INDEX_DELETED
+                | Status::INDEX_RENAMED
+                | Status::INDEX_TYPECHANGE,
+        ) {
+            staged_files += 1;
+        }
+        if flags.intersects(
+            Status::WT_MODIFIED | Status::WT_DELETED | Status::WT_RENAMED | Status::WT_TYPECHANGE,
+        ) {
+            unstaged_files += 1;
+        }
+        if flags.contains(Status::WT_NEW) {
+            untracked_files += 1;
+        }
+    }
+
+    Ok(Some(GitRepositorySummary {
+        repo_root: display_path(&workdir),
+        branch,
+        head_oid,
+        dirty: changed_files > 0,
+        changed_files,
+        staged_files,
+        unstaged_files,
+        untracked_files,
+    }))
+}
+
+/// Lightweight branch/dirty summary for an attached workspace or a detached
+/// editor file path.
+#[tauri::command]
+pub async fn git_get_repository_summary(
+    path: String,
+) -> Result<Option<GitRepositorySummary>, String> {
+    repository_summary_impl(&path)
+}
+
+#[cfg(test)]
+mod phase3_git_awareness_tests {
+    use super::*;
+    use git2::{RepositoryInitOptions, Signature};
+    use tempfile::TempDir;
+
+    fn repository() -> (TempDir, Repository) {
+        let temp = TempDir::new().expect("temp repo");
+        let mut options = RepositoryInitOptions::new();
+        options.initial_head("main");
+        let repo = Repository::init_opts(temp.path(), &options).expect("init repo");
+        (temp, repo)
+    }
+
+    fn commit_file(repo: &Repository, root: &Path, path: &str, contents: &str) {
+        fs::write(root.join(path), contents).expect("write fixture");
+        let mut index = repo.index().expect("index");
+        index.add_path(Path::new(path)).expect("stage fixture");
+        index.write().expect("write index");
+        let tree_id = index.write_tree().expect("write tree");
+        let tree = repo.find_tree(tree_id).expect("find tree");
+        let signature = Signature::now("Alice Example", "alice@example.com").expect("signature");
+        repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "initial fixture",
+            &tree,
+            &[],
+        )
+        .expect("commit fixture");
+    }
+
+    #[test]
+    fn non_repository_paths_return_none() {
+        let temp = TempDir::new().expect("temp");
+        let file = temp.path().join("plain.txt");
+        fs::write(&file, "plain\n").expect("write");
+        assert_eq!(
+            git_file_changes_impl(file.to_str().unwrap(), "plain\n").unwrap(),
+            None
+        );
+        assert_eq!(
+            repository_summary_impl(temp.path().to_str().unwrap()).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn maps_clean_modified_added_and_deleted_current_lines() {
+        let (temp, repo) = repository();
+        commit_file(&repo, temp.path(), "file.txt", "one\ntwo\nthree\n");
+        let file = temp.path().join("file.txt");
+
+        let clean = git_file_changes_impl(file.to_str().unwrap(), "one\ntwo\nthree\n")
+            .unwrap()
+            .unwrap();
+        assert!(clean.changes.is_empty());
+
+        let changed = git_file_changes_impl(file.to_str().unwrap(), "one\nTWO\nthree\nfour\n")
+            .unwrap()
+            .unwrap();
+        assert!(changed.changes.contains(&GitLineChange {
+            line_number: 2,
+            kind: GitLineChangeKind::Modified,
+            deleted_lines: 0,
+        }));
+        assert!(changed.changes.contains(&GitLineChange {
+            line_number: 4,
+            kind: GitLineChangeKind::Added,
+            deleted_lines: 0,
+        }));
+
+        let deleted = git_file_changes_impl(file.to_str().unwrap(), "one\nthree\n")
+            .unwrap()
+            .unwrap();
+        assert!(deleted.changes.contains(&GitLineChange {
+            line_number: 2,
+            kind: GitLineChangeKind::Deleted,
+            deleted_lines: 1,
+        }));
+    }
+
+    #[test]
+    fn ignores_line_ending_only_differences() {
+        let (temp, repo) = repository();
+        commit_file(&repo, temp.path(), "file.txt", "one\r\ntwo\r\n");
+        let file = temp.path().join("file.txt");
+        let changes = git_file_changes_impl(file.to_str().unwrap(), "one\ntwo\n")
+            .unwrap()
+            .unwrap();
+        assert!(changes.changes.is_empty());
+    }
+
+    #[test]
+    fn treats_every_untracked_buffer_line_as_added() {
+        let (temp, _repo) = repository();
+        let file = temp.path().join("new.txt");
+        fs::write(&file, "first\nsecond\n").expect("write untracked");
+        let changes = git_file_changes_impl(file.to_str().unwrap(), "first\nsecond\n")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            changes
+                .changes
+                .iter()
+                .filter(|change| change.kind == GitLineChangeKind::Added)
+                .map(|change| change.line_number)
+                .collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+    }
+
+    #[test]
+    fn blame_distinguishes_committed_and_in_memory_lines() {
+        let (temp, repo) = repository();
+        commit_file(&repo, temp.path(), "file.txt", "one\ntwo\nthree\n");
+        let file = temp.path().join("file.txt");
+
+        let committed = git_line_blame_impl(file.to_str().unwrap(), "one\ntwo\nthree\n", 2)
+            .unwrap()
+            .unwrap();
+        assert!(!committed.uncommitted);
+        assert_eq!(committed.author, "Alice Example");
+        assert_eq!(committed.summary.as_deref(), Some("initial fixture"));
+        assert!(committed.commit.is_some());
+        assert!(committed.timestamp.is_some());
+
+        let edited = git_line_blame_impl(file.to_str().unwrap(), "one\nTWO\nthree\n", 2)
+            .unwrap()
+            .unwrap();
+        assert!(edited.uncommitted);
+        assert_eq!(edited.author, "You");
+        assert_eq!(edited.commit, None);
+    }
+
+    #[test]
+    fn untracked_blame_is_honestly_uncommitted() {
+        let (temp, repo) = repository();
+        commit_file(&repo, temp.path(), "tracked.txt", "tracked\n");
+        let file = temp.path().join("new.txt");
+        fs::write(&file, "new\n").expect("write untracked");
+        let blame = git_line_blame_impl(file.to_str().unwrap(), "new\n", 1)
+            .unwrap()
+            .unwrap();
+        assert!(blame.uncommitted);
+        assert_eq!(blame.author, "You");
+    }
+
+    #[test]
+    fn unborn_repository_blame_is_honestly_uncommitted() {
+        let (temp, _repo) = repository();
+        let file = temp.path().join("new.txt");
+        fs::write(&file, "new\n").expect("write untracked");
+        let blame = git_line_blame_impl(file.to_str().unwrap(), "new\n", 1)
+            .unwrap()
+            .unwrap();
+        assert!(blame.uncommitted);
+        assert_eq!(blame.author, "You");
+    }
+
+    #[test]
+    fn repository_summary_counts_each_status_class() {
+        let (temp, repo) = repository();
+        commit_file(&repo, temp.path(), "tracked.txt", "base\n");
+
+        fs::write(temp.path().join("tracked.txt"), "changed\n").expect("modify tracked");
+        fs::write(temp.path().join("staged.txt"), "staged\n").expect("write staged");
+        let mut index = repo.index().expect("index");
+        index
+            .add_path(Path::new("staged.txt"))
+            .expect("stage new file");
+        index.write().expect("write index");
+        fs::write(temp.path().join("untracked.txt"), "untracked\n").expect("write untracked");
+
+        let summary = repository_summary_impl(temp.path().to_str().unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(summary.branch.as_deref(), Some("main"));
+        assert!(summary.dirty);
+        assert_eq!(summary.changed_files, 3);
+        assert_eq!(summary.staged_files, 1);
+        assert_eq!(summary.unstaged_files, 1);
+        assert_eq!(summary.untracked_files, 1);
+
+        let from_file = repository_summary_impl(temp.path().join("tracked.txt").to_str().unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(from_file.repo_root, summary.repo_root);
+        assert_eq!(from_file.branch, summary.branch);
     }
 }
 
@@ -340,9 +921,8 @@ pub async fn github_list_runs(
         .ok_or_else(|| format!("Could not parse a GitHub owner/repo from remote: {remote}"))?;
 
     let per_page = limit.unwrap_or(20).clamp(1, 100);
-    let url = format!(
-        "https://api.github.com/repos/{owner}/{repo}/actions/runs?per_page={per_page}"
-    );
+    let url =
+        format!("https://api.github.com/repos/{owner}/{repo}/actions/runs?per_page={per_page}");
 
     let client = reqwest::Client::new();
     let resp = client

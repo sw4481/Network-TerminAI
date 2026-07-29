@@ -22,7 +22,9 @@ import {
   MonacoPaneModelController,
   type MonacoModelLease,
 } from "./monacoModelRegistry";
+import { installGitAwareness } from "./gitAwareness";
 import "./MonacoEditor.css";
+import "./git-awareness.css";
 
 export type EditorSettings = {
   fontSize: number;
@@ -189,6 +191,7 @@ export function MonacoEditor({
       quickSuggestions: true,
       parameterHints: { enabled: true },
       folding: true,
+      glyphMargin: mode === "zed",
       lineNumbers: settings.lineNumbers ? "on" : "off",
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
       readOnly,
@@ -368,8 +371,29 @@ export function MonacoEditor({
   }, [monaco, activeBufferId, language]);
 
   useEffect(() => {
-    if (editorRef.current) editorRef.current.updateOptions({ readOnly });
-  }, [readOnly]);
+    if (
+      !monaco ||
+      !editorInstance ||
+      mode !== "zed" ||
+      !filePath
+    ) {
+      return;
+    }
+    const awareness = installGitAwareness({
+      editor: editorInstance,
+      monaco,
+      filePath,
+    });
+    return () => awareness.dispose();
+  }, [monaco, editorInstance, mode, activeBufferId, filePath]);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.updateOptions({
+      readOnly,
+      glyphMargin: mode === "zed",
+    });
+  }, [readOnly, mode]);
 
   useEffect(() => {
     if (!editorRef.current) return;

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   saveFile: vi.fn(),
   close: vi.fn(),
   focusSource: vi.fn(),
+  gitSummary: vi.fn(),
   start: vi.fn(),
   queueLocal: vi.fn(),
   flushNow: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock("../../lib/tauri", () => ({
   editorSaveFile: mocks.saveFile,
   editorDetachedWindowClose: mocks.close,
   editorSourceWindowFocus: mocks.focusSource,
+  gitGetRepositorySummary: mocks.gitSummary,
 }));
 
 vi.mock("./editorBufferSync", () => ({
@@ -118,6 +120,7 @@ describe("DetachedEditorWindow", () => {
     mocks.saveFile.mockReset().mockResolvedValue(undefined);
     mocks.close.mockReset().mockResolvedValue(undefined);
     mocks.focusSource.mockReset().mockResolvedValue(undefined);
+    mocks.gitSummary.mockReset().mockResolvedValue(null);
     mocks.start.mockReset().mockImplementation(async () => {
       mocks.syncOptions?.onSnapshot(authoritative);
     });
@@ -165,6 +168,9 @@ describe("DetachedEditorWindow", () => {
       dirty: false,
       sourceId: expect.stringMatching(/^editor-detached:/),
     });
+    await waitFor(() =>
+      expect(mocks.gitSummary).toHaveBeenCalledWith("/repo/a.ts"),
+    );
   });
 
   it("publishes local edits and saves the exact synchronized revision", async () => {
@@ -192,6 +198,9 @@ describe("DetachedEditorWindow", () => {
       ),
     );
     expect(mocks.markSaved).toHaveBeenCalledWith(5);
+    await waitFor(() =>
+      expect(mocks.gitSummary.mock.calls.length).toBeGreaterThan(1),
+    );
   });
 
   it("writes the exact authoritative snapshot returned by the flush", async () => {

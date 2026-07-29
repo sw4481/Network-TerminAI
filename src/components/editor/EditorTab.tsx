@@ -38,6 +38,8 @@ import {
   applyDetachedEditorWindowClosed,
   EDITOR_DETACHED_WINDOW_CLOSED_EVENT,
 } from "./editorWindowLifecycle";
+import { GitStatusIndicator } from "./GitStatusIndicator";
+import { useGitRepositorySummary } from "./useGitRepositorySummary";
 import "./EditorTab.css";
 
 function leafById(
@@ -92,6 +94,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
     getAttachedEditorPanes(workspace.layout)[0] ??
     getEditorPaneLeaves(workspace.layout)[0];
   const focusedBuffer = focusedPane ? buffers[focusedPane.bufferId] : undefined;
+  const {
+    summary: gitSummary,
+    refresh: refreshGitSummary,
+  } = useGitRepositorySummary(
+    focusedBuffer?.file_path ?? workspace.root_path,
+    mode === "zed",
+  );
 
   const ensureBufferSync = useCallback(async (bufferId: string) => {
     const state = useEditorStore.getState();
@@ -368,13 +377,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
         } else {
           markBufferSaved(bufferId, current.revision);
         }
+        await refreshGitSummary();
       } catch (error) {
         patchWorkspace(tab.id, { error: String(error) });
       } finally {
         patchWorkspace(tab.id, { loading: false });
       }
     },
-    [tab.id, markBufferSaved, patchWorkspace],
+    [tab.id, markBufferSaved, patchWorkspace, refreshGitSummary],
   );
 
   const openFile = useCallback(
@@ -699,6 +709,12 @@ export function EditorTab({ tab }: { tab: Tab }) {
       )}
 
       <div className="editor-status-bar">
+        {mode === "zed" && (
+          <GitStatusIndicator
+            summary={gitSummary}
+            bufferDirty={focusedBuffer?.is_dirty}
+          />
+        )}
         <span>{focusedBuffer?.sync_status ?? "local"}</span>
         <span>
           Ln {focusedPane?.cursor_position.line ?? 1}, Col{" "}

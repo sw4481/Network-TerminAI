@@ -1,0 +1,27 @@
+.editor-git-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-right: auto;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.editor-git-branch {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-git-state {
+  color: #98c379;
+}
+
+.editor-git-state--dirty {
+  color: #e5c07b;
+}
+
+.detached-editor-status .editor-git-status {
+  margin-right: 12px;
+}
