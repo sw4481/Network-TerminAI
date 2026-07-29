@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phase 1 complete; Phases 2–4 implemented with native interaction validation pending
+**Status:** Phase 1 complete; Phases 2–4 implemented; Phase 4 native validation complete
 **Author:** brainstormed with operator
 
 ---
@@ -181,9 +181,10 @@ Codex session cannot use macOS screen capture or Accessibility UI control.
 **Implementation status (2026-07-29):** implemented on
 `feature/zed-mode-phase-4`. The full frontend and Rust library suites,
 production frontend build, real two-file Pyright integration/restart test, and
-live Tauri/sidecar release invariant pass. The final native editor interaction
-matrix remains a manual follow-up because the repository's Playwright driver
-does not attach to the Tauri WKWebView.
+live Tauri/sidecar release invariant pass. The operator completed the native
+editor interaction matrix on 2026-07-29. The repository's Playwright driver
+still cannot automate that matrix because it does not attach to the Tauri
+WKWebView.
 
 - **Backend:** one persistent, supervised server per canonical
   `(workspace root, language)` session, with reference-counted client/document

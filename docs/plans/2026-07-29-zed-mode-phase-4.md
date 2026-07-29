@@ -1,7 +1,7 @@
 # Zed Mode Phase 4: Project-wide LSP Navigation
 
 **Date:** 2026-07-29
-**Status:** Implemented on `feature/zed-mode-phase-4`; native interaction matrix pending
+**Status:** Implemented, native-verified, and merged to `main`
 **Source design:** `Plans/ZED.md` §7
 **Prerequisites:** Zed Mode Phases 1–3 on `main`
 
@@ -242,8 +242,9 @@ Completed on 2026-07-29:
   `sidecar_status.last_seen` remains fresh, and the footer exposes sidecar
   version `0.0.1`.
 
-Still manual:
+Completed manually by the operator on 2026-07-29:
 
-- The 10 editor interactions in the Live acceptance matrix above. The current
-  Playwright Tauri driver serves a mock page instead of attaching to the native
-  WKWebView, so automation cannot honestly claim those pointer/keyboard flows.
+- All 10 editor interactions in the Live acceptance matrix above passed. The
+  current Playwright Tauri driver serves a mock page instead of attaching to
+  the native WKWebView, so these pointer/keyboard flows remain a manual
+  regression check.
