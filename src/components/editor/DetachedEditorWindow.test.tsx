@@ -94,6 +94,10 @@ vi.mock("@tauri-apps/api/window", () => ({
   }),
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  emit: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { DetachedEditorWindow } from "./DetachedEditorWindow";
 
 const metadata = {
@@ -102,6 +106,7 @@ const metadata = {
   paneId: "pane-1",
   bufferId: "file:/repo/a.ts",
   title: "a.ts",
+  workspaceRoot: "/repo",
 };
 
 const authoritative = {

@@ -32,6 +32,10 @@ export type EditorPaneProps = {
     editor: Monaco.editor.IStandaloneCodeEditor,
     monaco: typeof Monaco,
   ) => void;
+  onOpenResource?: (
+    uri: string,
+    position: { line: number; column: number },
+  ) => boolean | Promise<boolean>;
 };
 
 export function EditorPane({
@@ -55,6 +59,7 @@ export function EditorPane({
   onScrollChange,
   onSave,
   onEditorReady,
+  onOpenResource,
 }: EditorPaneProps) {
   const detached = pane.detachedWindowId !== null && !forceAttached;
   const fileName = buffer.file_path?.split("/").pop() ?? "Untitled";
@@ -167,6 +172,8 @@ export function EditorPane({
             settings={settings}
             tabId={tabId}
             filePath={buffer.file_path}
+            workspaceRoot={rootPath}
+            onOpenResource={onOpenResource}
             onEditorReady={(editor, monaco) => {
               editor.setPosition({
                 lineNumber: Math.max(1, pane.cursor_position.line),

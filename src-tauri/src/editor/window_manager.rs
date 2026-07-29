@@ -11,6 +11,7 @@ pub struct DetachedEditorWindowInfo {
     pub pane_id: String,
     pub buffer_id: String,
     pub title: String,
+    pub workspace_root: Option<String>,
 }
 
 #[derive(Clone, Default)]
@@ -82,6 +83,7 @@ mod tests {
             pane_id: pane_id.to_string(),
             buffer_id: format!("buffer-{pane_id}"),
             title: format!("Pane {pane_id}"),
+            workspace_root: Some("/repo".to_string()),
         }
     }
 

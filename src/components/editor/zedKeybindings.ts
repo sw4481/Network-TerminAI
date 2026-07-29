@@ -1,5 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import type * as Monaco from "monaco-editor";
+import { EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT } from "./lsp/locationRouting";
 
 function runEditorAction(
   editor: Monaco.editor.IStandaloneCodeEditor,
@@ -15,6 +16,7 @@ function isOwnedZedChord(event: KeyboardEvent): boolean {
   const secondary = isMac ? event.ctrlKey : event.metaKey;
   const keyP = event.code === "KeyP" || event.key.toLowerCase() === "p";
   const keyD = event.code === "KeyD" || event.key.toLowerCase() === "d";
+  const keyT = event.code === "KeyT" || event.key.toLowerCase() === "t";
   const upArrow = event.code === "ArrowUp" || event.key === "ArrowUp";
   const downArrow = event.code === "ArrowDown" || event.key === "ArrowDown";
   const verticalArrow = upArrow || downArrow;
@@ -24,6 +26,7 @@ function isOwnedZedChord(event: KeyboardEvent): boolean {
   return (
     (primary && event.shiftKey && !event.altKey && keyP) ||
     (primary && !event.shiftKey && !event.altKey && keyD) ||
+    (primary && !event.shiftKey && !event.altKey && keyT) ||
     (primary && event.altKey && !event.shiftKey && verticalArrow) ||
     (!primary && event.altKey && verticalArrow)
   );
@@ -41,6 +44,18 @@ export function installZedKeybindings(
         monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyP,
       ],
       run: () => emit("menu:open_palette"),
+    }),
+    editor.addAction({
+      id: "ccie.zed.workspaceSymbols",
+      label: "Zed: Go to Symbol in Project",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyT],
+      run: () => {
+        window.dispatchEvent(
+          new CustomEvent(EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT, {
+            detail: { source: editor.getContainerDomNode() },
+          }),
+        );
+      },
     }),
     editor.addAction({
       id: "ccie.zed.addSelectionNext",

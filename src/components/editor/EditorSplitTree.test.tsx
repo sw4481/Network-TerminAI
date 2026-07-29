@@ -64,6 +64,7 @@ function treeProps() {
     onScrollChange: vi.fn(),
     onSave: vi.fn(),
     onEditorReady: vi.fn(),
+    onOpenResource: vi.fn(),
   };
 }
 

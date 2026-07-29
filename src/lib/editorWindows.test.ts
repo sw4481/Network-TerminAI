@@ -22,13 +22,20 @@ describe("detached editor Tauri commands", () => {
   });
 
   it("sends identity metadata without raw content or a separate file path", async () => {
-    await editorDetachPane("editor-tab-1", "pane-1", "file:/repo/a.ts", "a.ts");
+    await editorDetachPane(
+      "editor-tab-1",
+      "pane-1",
+      "file:/repo/a.ts",
+      "a.ts",
+      "/repo",
+    );
 
     const expected = {
       tabId: "editor-tab-1",
       paneId: "pane-1",
       bufferId: "file:/repo/a.ts",
       title: "a.ts",
+      workspaceRoot: "/repo",
     };
     expect(invokeMock).toHaveBeenCalledWith("editor_detach_pane", expected);
     expect(expected).not.toHaveProperty("content");

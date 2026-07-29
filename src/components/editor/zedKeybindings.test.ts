@@ -9,8 +9,9 @@ const key = {
   KeyP: 1,
   KeyD: 2,
   KeyL: 3,
-  UpArrow: 4,
-  DownArrow: 5,
+  KeyT: 4,
+  UpArrow: 5,
+  DownArrow: 6,
 };
 const mod = { CtrlCmd: 1 << 8, Shift: 1 << 9, Alt: 1 << 10 };
 const containers: HTMLElement[] = [];
@@ -106,6 +107,7 @@ describe("installZedKeybindings", () => {
       ),
     ).toEqual({
       "ccie.zed.commandPalette": [mod.CtrlCmd | mod.Shift | key.KeyP],
+      "ccie.zed.workspaceSymbols": [mod.CtrlCmd | key.KeyT],
       "ccie.zed.addSelectionNext": [mod.CtrlCmd | key.KeyD],
       "ccie.zed.cursorAbove": [mod.CtrlCmd | mod.Alt | key.UpArrow],
       "ccie.zed.cursorBelow": [mod.CtrlCmd | mod.Alt | key.DownArrow],
@@ -136,6 +138,18 @@ describe("installZedKeybindings", () => {
     const failure = new Error("palette unavailable");
     vi.mocked(emit).mockRejectedValueOnce(failure);
     await expect(palette.run(h.editor)).rejects.toBe(failure);
+  });
+
+  it("bridges the project-symbol shortcut to the editor workspace", async () => {
+    const h = harness();
+    const listener = vi.fn();
+    window.addEventListener("ccie:open-workspace-symbol-search", listener);
+    installZedKeybindings(h.editor, h.monaco);
+
+    await actionById(h.actions, "ccie.zed.workspaceSymbols").run(h.editor);
+    expect(listener).toHaveBeenCalledOnce();
+
+    window.removeEventListener("ccie:open-workspace-symbol-search", listener);
   });
 
   it.each([
@@ -204,6 +218,7 @@ describe("installZedKeybindings", () => {
       { key: "Unidentified", code: "KeyD", metaKey: true },
     ],
     ["D key fallback", { key: "d", code: "", metaKey: true }],
+    ["T key fallback", { key: "t", code: "", metaKey: true }],
     [
       "physical ArrowUp code",
       { key: "Unidentified", code: "ArrowUp", altKey: true },
@@ -222,6 +237,7 @@ describe("installZedKeybindings", () => {
   it.each([
     ["Cmd+Shift+P", { key: "P", code: "KeyP", metaKey: true, shiftKey: true }],
     ["Cmd+D", { key: "d", code: "KeyD", metaKey: true }],
+    ["Cmd+T", { key: "t", code: "KeyT", metaKey: true }],
     [
       "Cmd+Alt+Up",
       { key: "ArrowUp", code: "ArrowUp", metaKey: true, altKey: true },
@@ -253,6 +269,7 @@ describe("installZedKeybindings", () => {
   it.each([
     ["Ctrl+Shift+P", { key: "P", code: "KeyP", ctrlKey: true, shiftKey: true }],
     ["Ctrl+D", { key: "d", code: "KeyD", ctrlKey: true }],
+    ["Ctrl+T", { key: "t", code: "KeyT", ctrlKey: true }],
     [
       "Ctrl+Alt+Up",
       { key: "ArrowUp", code: "ArrowUp", ctrlKey: true, altKey: true },
@@ -338,7 +355,7 @@ describe("installZedKeybindings", () => {
     });
     h.container.dispatchEvent(event);
 
-    expect(h.actions).toHaveLength(8);
+    expect(h.actions).toHaveLength(9);
     expect(event.defaultPrevented).toBe(false);
     expect(onWindowKeyDown).toHaveBeenCalledOnce();
     for (const dispose of h.actionDisposers) {

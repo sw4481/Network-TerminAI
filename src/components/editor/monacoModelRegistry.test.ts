@@ -37,6 +37,15 @@ function fakeMonaco() {
 
   const monaco = {
     Uri: {
+      file(value: string) {
+        const normalized = value.replace(/\\/g, "/");
+        return {
+          toString: () =>
+            normalized.startsWith("/")
+              ? `file://${normalized}`
+              : `file:///${normalized}`,
+        };
+      },
       parse(value: string) {
         return { toString: () => value };
       },
@@ -82,7 +91,7 @@ describe("MonacoModelRegistry", () => {
     expect(first.model.dispose).toHaveBeenCalledOnce();
   });
 
-  it("uses stable distinct Monaco URIs for distinct buffer IDs", () => {
+  it("uses real file URIs for file buffers and stable distinct models", () => {
     const fake = fakeMonaco();
     const registry = new MonacoModelRegistry(fake.monaco);
 
@@ -90,12 +99,8 @@ describe("MonacoModelRegistry", () => {
     const second = registry.acquire("file:/repo/b.ts", "b", "typescript");
 
     expect(first.model).not.toBe(second.model);
-    expect(first.model.uri.toString()).toContain(
-      encodeURIComponent("file:/repo/a.ts"),
-    );
-    expect(second.model.uri.toString()).toContain(
-      encodeURIComponent("file:/repo/b.ts"),
-    );
+    expect(first.model.uri.toString()).toBe("file:///repo/a.ts");
+    expect(second.model.uri.toString()).toBe("file:///repo/b.ts");
   });
 
   it("updates language on reuse without replacing the shared model", () => {

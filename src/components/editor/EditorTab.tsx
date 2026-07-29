@@ -32,6 +32,7 @@ import {
   type EditorTerminalMode,
 } from "./EditorTerminalPanel";
 import { useEditorSettings } from "../../hooks/useEditorSettings";
+import { normalizeLspLanguage } from "../../hooks/useLspClient";
 import { useZedMode } from "./ZedModeProvider";
 import { EditorBufferSyncClient } from "./editorBufferSync";
 import {
@@ -40,6 +41,17 @@ import {
 } from "./editorWindowLifecycle";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
+import {
+  WorkspaceSymbolSearch,
+  type WorkspaceSymbolResult,
+} from "./lsp/WorkspaceSymbolSearch";
+import {
+  EDITOR_LSP_OPEN_LOCATION_EVENT,
+  EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT,
+  fileUriToPath,
+  pathIsWithinWorkspace,
+  type EditorLspOpenLocation,
+} from "./lsp/locationRouting";
 import "./EditorTab.css";
 
 function leafById(
@@ -79,12 +91,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const editorRefs = useRef(
     new Map<string, Monaco.editor.IStandaloneCodeEditor>(),
   );
+  const editorTabRef = useRef<HTMLDivElement | null>(null);
   const syncClients = useRef(new Map<string, EditorBufferSyncClient>());
   const syncSourceId = useRef(
     `editor-main:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   const [showFind, setShowFind] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [terminalMode, setTerminalMode] =
     useState<EditorTerminalMode>("opencode");
@@ -387,24 +401,102 @@ export function EditorTab({ tab }: { tab: Tab }) {
     [tab.id, markBufferSaved, patchWorkspace, refreshGitSummary],
   );
 
-  const openFile = useCallback(
-    async (filePath: string) => {
+  const revealEditorLocation = useCallback(
+    (
+      paneId: string,
+      filePath: string,
+      position: { line: number; column: number },
+    ): Promise<boolean> =>
+      new Promise((resolve) => {
+        let attempts = 0;
+        const reveal = () => {
+          const editor = editorRefs.current.get(paneId);
+          const currentPath = editor?.getModel()
+            ? fileUriToPath(editor.getModel()!.uri.toString())
+            : null;
+          if (editor && currentPath === filePath) {
+            editor.setPosition({
+              lineNumber: Math.max(1, position.line),
+              column: Math.max(1, position.column),
+            });
+            editor.revealPositionInCenter({
+              lineNumber: Math.max(1, position.line),
+              column: Math.max(1, position.column),
+            });
+            editor.focus();
+            resolve(true);
+            return;
+          }
+          attempts += 1;
+          if (attempts >= 20) {
+            resolve(false);
+            return;
+          }
+          globalThis.setTimeout(reveal, 16);
+        };
+        reveal();
+      }),
+    [],
+  );
+
+  const openFileAtPane = useCallback(
+    async (
+      paneId: string,
+      filePath: string,
+      position?: { line: number; column: number },
+    ): Promise<boolean> => {
+      const state = useEditorStore.getState();
+      const currentWorkspace = state.workspaces[tab.id];
+      if (!currentWorkspace) return false;
+      if (
+        position &&
+        (!currentWorkspace.root_path ||
+          !pathIsWithinWorkspace(filePath, currentWorkspace.root_path))
+      ) {
+        patchWorkspace(tab.id, {
+          error: "Language-server target is outside the open workspace",
+        });
+        return false;
+      }
+      const requestedPane = leafById(currentWorkspace.layout, paneId);
+      const targetPane =
+        requestedPane?.detachedWindowId === null
+          ? requestedPane
+          : getAttachedEditorPanes(currentWorkspace.layout)[0];
+      if (!targetPane) return false;
+
       patchWorkspace(tab.id, { loading: true, error: null });
       try {
         const file = await editorOpenFile(tab.id, filePath);
-        const current = useEditorStore.getState().workspaces[tab.id];
-        openFileInPane(tab.id, current.focusedPaneId, {
+        openFileInPane(tab.id, targetPane.id, {
           file_path: file.file_path,
           content: file.content,
           language: file.language,
         });
+        if (position) {
+          return await revealEditorLocation(
+            targetPane.id,
+            file.file_path,
+            position,
+          );
+        }
+        return true;
       } catch (error) {
         patchWorkspace(tab.id, { error: String(error) });
+        return false;
       } finally {
         patchWorkspace(tab.id, { loading: false });
       }
     },
-    [tab.id, openFileInPane, patchWorkspace],
+    [tab.id, openFileInPane, patchWorkspace, revealEditorLocation],
+  );
+
+  const openFile = useCallback(
+    async (filePath: string) => {
+      const current = useEditorStore.getState().workspaces[tab.id];
+      await openFileAtPane(current.focusedPaneId, filePath);
+    },
+    [tab.id, openFileAtPane],
   );
 
   const detachPane = useCallback(
@@ -422,6 +514,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
           pane.id,
           buffer.id,
           buffer.file_path?.split("/").pop() ?? "Untitled",
+          state.workspaces[tab.id].root_path,
         );
         markPaneDetached(tab.id, pane.id, info.windowId);
       } catch (error) {
@@ -450,9 +543,80 @@ export function EditorTab({ tab }: { tab: Tab }) {
   );
 
   useEffect(() => {
+    let disposed = false;
+    let unlisten: UnlistenFn | null = null;
+    void listen<EditorLspOpenLocation>(
+      EDITOR_LSP_OPEN_LOCATION_EVENT,
+      (event) => {
+        if (disposed || event.payload.tabId !== tab.id) return;
+        const filePath = fileUriToPath(event.payload.uri);
+        if (!filePath) return;
+        const current = useEditorStore.getState().workspaces[tab.id];
+        const focused = leafById(current.layout, current.focusedPaneId);
+        const target =
+          focused?.detachedWindowId === null
+            ? focused
+            : getAttachedEditorPanes(current.layout)[0];
+        if (target) {
+          void openFileAtPane(target.id, filePath, event.payload.position);
+        }
+      },
+    )
+      .then((stopListening) => {
+        if (disposed) stopListening();
+        else unlisten = stopListening;
+      })
+      .catch((listenError) => {
+        if (!disposed) patchWorkspace(tab.id, { error: String(listenError) });
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [tab.id, openFileAtPane, patchWorkspace]);
+
+  useEffect(() => {
+    const openSymbols = (event: Event) => {
+      const source = (
+        event as CustomEvent<{ source?: Node }>
+      ).detail?.source;
+      if (source && editorTabRef.current?.contains(source)) {
+        setShowSymbolSearch(true);
+      }
+    };
+    window.addEventListener(
+      EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT,
+      openSymbols,
+    );
+    return () =>
+      window.removeEventListener(
+        EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT,
+        openSymbols,
+      );
+  }, []);
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof Node &&
+        !editorTabRef.current?.contains(event.target)
+      ) {
+        return;
+      }
       const meta = event.metaKey || event.ctrlKey;
-      if (meta && event.shiftKey && (event.key === "f" || event.key === "F")) {
+      if (
+        mode === "zed" &&
+        meta &&
+        !event.shiftKey &&
+        (event.key === "t" || event.key === "T")
+      ) {
+        event.preventDefault();
+        setShowSymbolSearch((value) => !value);
+      } else if (
+        meta &&
+        event.shiftKey &&
+        (event.key === "f" || event.key === "F")
+      ) {
         event.preventDefault();
         setShowFind((value) => !value);
       } else if (meta && event.key === ",") {
@@ -479,15 +643,27 @@ export function EditorTab({ tab }: { tab: Tab }) {
         event.preventDefault();
         setTerminalMode("shell");
         setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
-      } else if (event.key === "Escape" && (showFind || showSettings)) {
+      } else if (
+        event.key === "Escape" &&
+        (showFind || showSettings || showSymbolSearch)
+      ) {
         event.preventDefault();
         setShowFind(false);
         setShowSettings(false);
+        setShowSymbolSearch(false);
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [tab.id, toggleExplorer, showFind, showSettings, terminalMode]);
+  }, [
+    tab.id,
+    toggleExplorer,
+    showFind,
+    showSettings,
+    showSymbolSearch,
+    terminalMode,
+    mode,
+  ]);
 
   const classicPane = useMemo(
     () =>
@@ -533,10 +709,21 @@ export function EditorTab({ tab }: { tab: Tab }) {
     ) => {
       editorRefs.current.set(paneId, editor);
     },
+    onOpenResource: (
+      paneId: string,
+      uri: string,
+      position: { line: number; column: number },
+    ) => {
+      const filePath = fileUriToPath(uri);
+      return filePath
+        ? openFileAtPane(paneId, filePath, position)
+        : Promise.resolve(false);
+    },
   };
 
   return (
     <div
+      ref={editorTabRef}
       className="editor-tab"
       data-testid="editor-tab"
       data-editor-mode={mode}
@@ -566,6 +753,20 @@ export function EditorTab({ tab }: { tab: Tab }) {
           >
             🔍
           </button>
+          {mode === "zed" && (
+            <button
+              onClick={() => setShowSymbolSearch((value) => !value)}
+              title="Go to Symbol in Project (Cmd+T)"
+              data-testid="editor-symbol-search-button"
+              disabled={
+                !workspace.root_path ||
+                !focusedBuffer ||
+                !normalizeLspLanguage(focusedBuffer.language)
+              }
+            >
+              ◇
+            </button>
+          )}
           <button
             onClick={() => setShowSettings((value) => !value)}
             title="Editor Settings (Cmd+,)"
@@ -672,6 +873,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   onEditorReady={(editor) => {
                     editorRefs.current.set(classicPane.id, editor);
                   }}
+                  onOpenResource={(uri, position) =>
+                    paneCallbacks.onOpenResource(
+                      classicPane.id,
+                      uri,
+                      position,
+                    )
+                  }
                 />
               )
             )}
@@ -688,6 +896,28 @@ export function EditorTab({ tab }: { tab: Tab }) {
                 onClose={() => setShowSettings(false)}
               />
             )}
+            <WorkspaceSymbolSearch
+              open={mode === "zed" && showSymbolSearch}
+              language={focusedBuffer?.language ?? "plaintext"}
+              workspaceRoot={workspace.root_path}
+              onClose={() => setShowSymbolSearch(false)}
+              onSelect={async (symbol: WorkspaceSymbolResult) => {
+                const current = useEditorStore.getState().workspaces[tab.id];
+                const focused = leafById(
+                  current.layout,
+                  current.focusedPaneId,
+                );
+                const target =
+                  focused?.detachedWindowId === null
+                    ? focused
+                    : getAttachedEditorPanes(current.layout)[0];
+                if (!target) return;
+                await openFileAtPane(target.id, symbol.filePath, {
+                  line: symbol.range.start.line + 1,
+                  column: symbol.range.start.character + 1,
+                });
+              }}
+            />
           </div>
         </div>
       </div>

@@ -87,6 +87,7 @@ pub fn editor_detach_pane(
     pane_id: String,
     buffer_id: String,
     title: String,
+    workspace_root: Option<String>,
 ) -> Result<DetachedEditorWindowInfo, String> {
     let tab_id = crate::validation::validate_tab_id(&tab_id).map_err(|error| error.to_string())?;
     let editor_mode = {
@@ -99,9 +100,28 @@ pub fn editor_detach_pane(
     if pane_id.trim().is_empty() {
         return Err("pane_id must not be empty".to_string());
     }
-    if state.editor_buffer_manager.get(&buffer_id).is_none() {
+    let buffer = state.editor_buffer_manager.get(&buffer_id);
+    if buffer.is_none() {
         return Err(format!("editor buffer not registered: {buffer_id}"));
     }
+    let workspace_root = match workspace_root {
+        Some(root) if !root.trim().is_empty() => {
+            let canonical = std::fs::canonicalize(&root)
+                .map_err(|error| format!("invalid editor workspace root: {error}"))?;
+            if !canonical.is_dir() {
+                return Err("editor workspace root is not a directory".to_string());
+            }
+            if let Some(file_path) = buffer.and_then(|snapshot| snapshot.file_path) {
+                let canonical_file = std::fs::canonicalize(&file_path)
+                    .map_err(|error| format!("invalid detached editor file: {error}"))?;
+                if !canonical_file.starts_with(&canonical) {
+                    return Err("detached editor file is outside workspace root".to_string());
+                }
+            }
+            Some(canonical.to_string_lossy().into_owned())
+        }
+        _ => None,
+    };
 
     let window_id = format!("editor-{}", uuid::Uuid::new_v4());
     let info = DetachedEditorWindowInfo {
@@ -110,6 +130,7 @@ pub fn editor_detach_pane(
         pane_id,
         buffer_id,
         title: clean_title(&title),
+        workspace_root,
     };
     let manager = state.editor_window_manager.clone();
     manager.register(info.clone())?;

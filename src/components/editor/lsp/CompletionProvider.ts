@@ -22,10 +22,14 @@ export function registerCompletionProvider(
   monaco: typeof Monaco,
   language: string,
   sendRequest: SendRequest,
+  acceptModel: (model: Monaco.editor.ITextModel) => boolean = () => true,
 ): Monaco.IDisposable {
   return monaco.languages.registerCompletionItemProvider(language, {
     triggerCharacters: [".", ":", "/", "@", " "],
-    async provideCompletionItems(model, position) {
+    async provideCompletionItems(model, position, _context, token) {
+      if (!acceptModel(model) || token.isCancellationRequested) {
+        return { suggestions: [] };
+      }
       const result = await sendRequest<LspCompletionResult>(
         "textDocument/completion",
         {
@@ -37,7 +41,7 @@ export function registerCompletionProvider(
         },
       );
 
-      if (!result) return { suggestions: [] };
+      if (!result || token.isCancellationRequested) return { suggestions: [] };
 
       const items = Array.isArray(result) ? result : result.items ?? [];
 

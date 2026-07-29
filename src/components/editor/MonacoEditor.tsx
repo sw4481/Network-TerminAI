@@ -3,6 +3,11 @@ import type * as Monaco from "monaco-editor";
 import { useLspClient } from "../../hooks/useLspClient";
 import { registerCompletionProvider } from "./lsp/CompletionProvider";
 import { registerHoverProvider } from "./lsp/HoverProvider";
+import {
+  registerDefinitionProvider,
+  registerReferenceProvider,
+} from "./lsp/NavigationProviders";
+import { acquireLspDocument } from "./lsp/lspDocumentSync";
 import { registerHclLanguage } from "./lsp/hclLanguage";
 import { dispatchAskAi, type AskAiAction } from "./askAi";
 import { useZedMode } from "./ZedModeProvider";
@@ -67,6 +72,13 @@ type MonacoEditorProps = {
   tabId?: string;
   /** Current file path; included as context in AI prompts. */
   filePath?: string | null;
+  /** Project root used to scope the persistent language-server process. */
+  workspaceRoot?: string | null;
+  /** Handles Monaco cross-file definition/reference open operations. */
+  onOpenResource?: (
+    uri: string,
+    position: { line: number; column: number },
+  ) => boolean | Promise<boolean>;
   vimStatusRef?: RefObject<HTMLSpanElement | null>;
 };
 
@@ -100,6 +112,8 @@ export function MonacoEditor({
   onEditorReady,
   tabId,
   filePath = null,
+  workspaceRoot = null,
+  onOpenResource,
   vimStatusRef,
 }: MonacoEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -113,6 +127,7 @@ export function MonacoEditor({
   const fallbackVimStatusRef = useRef<HTMLSpanElement | null>(null);
   const activeVimStatusRef = vimStatusRef ?? fallbackVimStatusRef;
   const [error, setError] = useState<string | null>(null);
+  const [lspDocumentReady, setLspDocumentReady] = useState(false);
   const { mode, vimEnabled } = useZedMode();
   const fallbackBufferIdRef = useRef(
     `standalone:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
@@ -142,7 +157,12 @@ export function MonacoEditor({
   onSaveRef.current = onSave;
   onEditorReadyRef.current = onEditorReady;
 
-  const { sendRequest, ready: lspReady } = useLspClient(language, enableLsp);
+  const lspClient = useLspClient(
+    language,
+    workspaceRoot,
+    enableLsp && Boolean(filePath),
+  );
+  const { sendRequest, ready: lspReady } = lspClient;
 
   useEffect(() => {
     loadMonaco()
@@ -409,17 +429,145 @@ export function MonacoEditor({
   }, [settings, mode]);
 
   useEffect(() => {
-    if (!monaco || !lspReady || !enableLsp) return;
+    if (
+      !monaco ||
+      !editorInstance ||
+      !lspReady ||
+      !enableLsp ||
+      !workspaceRoot ||
+      !filePath
+    ) {
+      setLspDocumentReady(false);
+      return;
+    }
+    const model = editorInstance.getModel();
+    if (!model || model.uri.scheme !== "file") {
+      setLspDocumentReady(false);
+      return;
+    }
+    let active = true;
+    setLspDocumentReady(false);
+    const lease = acquireLspDocument({
+      monaco,
+      model,
+      sessionKey: `${language}:${workspaceRoot}`,
+      languageId: language,
+      transport: lspClient,
+    });
+    void lease.ready
+      .then(() => {
+        if (active) setLspDocumentReady(true);
+      })
+      .catch((documentError) => {
+        if (active) {
+          setLspDocumentReady(false);
+          console.error(`Failed to open LSP document ${filePath}:`, documentError);
+        }
+      });
+    return () => {
+      active = false;
+      setLspDocumentReady(false);
+      lease.dispose();
+    };
+  }, [
+    monaco,
+    editorInstance,
+    lspReady,
+    enableLsp,
+    workspaceRoot,
+    filePath,
+    activeBufferId,
+    language,
+    lspClient.clientId,
+    lspClient.openDocument,
+    lspClient.changeDocument,
+    lspClient.closeDocument,
+  ]);
+
+  useEffect(() => {
+    if (
+      !monaco ||
+      !editorInstance ||
+      !lspDocumentReady ||
+      !enableLsp
+    ) {
+      return;
+    }
+    const ownsModel = (model: Monaco.editor.ITextModel) =>
+      editorInstance.getModel() === model;
+    const ownsFocusedModel = (model: Monaco.editor.ITextModel) =>
+      ownsModel(model) && editorInstance.hasTextFocus();
 
     const disposables: Monaco.IDisposable[] = [
-      registerCompletionProvider(monaco, language, sendRequest),
-      registerHoverProvider(monaco, language, sendRequest),
+      registerCompletionProvider(
+        monaco,
+        language,
+        sendRequest,
+        ownsFocusedModel,
+      ),
+      registerHoverProvider(monaco, language, sendRequest, ownsFocusedModel),
     ];
+    if (mode === "zed") {
+      disposables.push(
+        registerDefinitionProvider(
+          monaco,
+          language,
+          sendRequest,
+          ownsFocusedModel,
+        ),
+        registerReferenceProvider(
+          monaco,
+          language,
+          sendRequest,
+          ownsFocusedModel,
+        ),
+      );
+    }
 
     return () => {
       disposables.forEach((d) => d.dispose());
     };
-  }, [monaco, lspReady, enableLsp, language, sendRequest]);
+  }, [
+    monaco,
+    editorInstance,
+    lspDocumentReady,
+    enableLsp,
+    language,
+    sendRequest,
+    mode,
+  ]);
+
+  useEffect(() => {
+    if (
+      !monaco ||
+      !editorInstance ||
+      mode !== "zed" ||
+      !onOpenResource
+    ) {
+      return;
+    }
+    const opener = monaco.editor.registerEditorOpener({
+      openCodeEditor(source, resource, selectionOrPosition) {
+        if (source !== editorInstance || resource.scheme !== "file") {
+          return false;
+        }
+        const selection = selectionOrPosition as
+          | Monaco.IRange
+          | Monaco.IPosition
+          | undefined;
+        const line =
+          selection && "startLineNumber" in selection
+            ? selection.startLineNumber
+            : selection?.lineNumber ?? 1;
+        const column =
+          selection && "startColumn" in selection
+            ? selection.startColumn
+            : selection?.column ?? 1;
+        return onOpenResource(resource.toString(), { line, column });
+      },
+    });
+    return () => opener.dispose();
+  }, [monaco, editorInstance, mode, onOpenResource]);
 
   if (error) {
     return <div style={{ color: "#f87171", padding: "20px" }}>Editor failed to load: {error}</div>;
@@ -437,6 +585,8 @@ export function MonacoEditor({
         data-editor-mode={mode}
         data-editor-theme={themeForEditorMode(mode)}
         data-vim-enabled={String(mode === "zed" && vimEnabled)}
+        data-lsp-ready={String(lspDocumentReady)}
+        data-lsp-server={lspClient.serverName ?? ""}
         style={{ height: "100%", width: "100%" }}
       />
       {!vimStatusRef && (

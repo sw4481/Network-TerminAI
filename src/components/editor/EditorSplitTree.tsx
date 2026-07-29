@@ -40,6 +40,11 @@ export type EditorSplitTreeProps = {
     editor: Monaco.editor.IStandaloneCodeEditor,
     monaco: typeof Monaco,
   ) => void;
+  onOpenResource: (
+    paneId: string,
+    uri: string,
+    position: { line: number; column: number },
+  ) => boolean | Promise<boolean>;
 };
 
 type BranchProps = EditorSplitTreeProps & {
@@ -114,6 +119,9 @@ function EditorSplitBranch(props: BranchProps) {
         onSave={() => props.onSave(node.bufferId)}
         onEditorReady={(editor, monaco) =>
           props.onEditorReady(node.id, editor, monaco)
+        }
+        onOpenResource={(uri, position) =>
+          props.onOpenResource(node.id, uri, position)
         }
       />
     );

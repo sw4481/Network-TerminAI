@@ -325,6 +325,7 @@ export function IacStudioTab({ tab }: { tab: Tab }) {
               settings={settings}
               tabId={tab.id}
               filePath={state.file_path}
+              workspaceRoot={state.root_path}
               onEditorReady={(editor, monaco) => {
                 editorRef.current = editor;
                 monacoRef.current = monaco;

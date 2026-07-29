@@ -2373,6 +2373,7 @@ export type DetachedEditorWindowInfo = {
   paneId: string;
   bufferId: string;
   title: string;
+  workspaceRoot: string | null;
 };
 
 export type DetachedEditorWindowClosed = Pick<
@@ -2385,12 +2386,14 @@ export const editorDetachPane = (
   paneId: string,
   bufferId: string,
   title: string,
+  workspaceRoot: string | null,
 ) =>
   invoke<DetachedEditorWindowInfo>("editor_detach_pane", {
     tabId,
     paneId,
     bufferId,
     title,
+    workspaceRoot,
   });
 
 export const editorDetachedWindowList = () =>
@@ -2583,21 +2586,97 @@ export const editorCreateDirectory = (
 // Language Server Protocol (LSP)
 // ---------------------------------------------------------------------------
 
-export const lspStart = (language: string) =>
-  invoke<void>("lsp_start", { language });
+export type LspSessionInfo = {
+  language: string;
+  workspaceRoot: string;
+  serverName: string;
+};
 
-export const lspStop = (language: string) =>
-  invoke<void>("lsp_stop", { language });
+export const lspStart = (
+  language: string,
+  workspaceRoot: string,
+  clientId: string,
+) =>
+  invoke<LspSessionInfo>("lsp_start", {
+    language,
+    workspaceRoot,
+    clientId,
+  });
+
+export const lspStop = (
+  language: string,
+  workspaceRoot: string,
+  clientId: string,
+) =>
+  invoke<void>("lsp_stop", {
+    language,
+    workspaceRoot,
+    clientId,
+  });
 
 export const lspRequest = <T = unknown>(
   language: string,
-  request: Record<string, unknown>,
-) => invoke<T>("lsp_request", { language, request });
+  workspaceRoot: string,
+  method: string,
+  params: unknown,
+) =>
+  invoke<T>("lsp_request", {
+    language,
+    workspaceRoot,
+    method,
+    params,
+  });
 
-export const lspIsRunning = (language: string) =>
-  invoke<boolean>("lsp_is_running", { language });
+export const lspDocumentOpen = (
+  language: string,
+  workspaceRoot: string,
+  clientId: string,
+  uri: string,
+  languageId: string,
+  text: string,
+) =>
+  invoke<void>("lsp_document_open", {
+    language,
+    workspaceRoot,
+    clientId,
+    uri,
+    languageId,
+    text,
+  });
 
-export const lspCheckAvailable = () => invoke<string[]>("lsp_check_available");
+export const lspDocumentChange = (
+  language: string,
+  workspaceRoot: string,
+  clientId: string,
+  uri: string,
+  text: string,
+) =>
+  invoke<void>("lsp_document_change", {
+    language,
+    workspaceRoot,
+    clientId,
+    uri,
+    text,
+  });
+
+export const lspDocumentClose = (
+  language: string,
+  workspaceRoot: string,
+  clientId: string,
+  uri: string,
+) =>
+  invoke<void>("lsp_document_close", {
+    language,
+    workspaceRoot,
+    clientId,
+    uri,
+  });
+
+export const lspIsRunning = (language: string, workspaceRoot: string) =>
+  invoke<boolean>("lsp_is_running", { language, workspaceRoot });
+
+export const lspCheckAvailable = (workspaceRoot: string) =>
+  invoke<string[]>("lsp_check_available", { workspaceRoot });
 
 // ---------------------------------------------------------------------------
 // Git integration

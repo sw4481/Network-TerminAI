@@ -12,6 +12,9 @@ type RegistryEntry = {
 };
 
 function modelUri(monaco: typeof Monaco, bufferId: string): Monaco.Uri {
+  if (bufferId.startsWith("file:")) {
+    return monaco.Uri.file(bufferId.slice("file:".length));
+  }
   return monaco.Uri.parse(
     `inmemory://ccie-editor/${encodeURIComponent(bufferId)}`,
   );

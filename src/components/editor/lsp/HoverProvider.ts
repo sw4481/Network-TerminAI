@@ -19,9 +19,11 @@ export function registerHoverProvider(
   monaco: typeof Monaco,
   language: string,
   sendRequest: SendRequest,
+  acceptModel: (model: Monaco.editor.ITextModel) => boolean = () => true,
 ): Monaco.IDisposable {
   return monaco.languages.registerHoverProvider(language, {
-    async provideHover(model, position) {
+    async provideHover(model, position, token) {
+      if (!acceptModel(model) || token.isCancellationRequested) return null;
       const result = await sendRequest<LspHoverResult>("textDocument/hover", {
         textDocument: { uri: model.uri.toString() },
         position: {
@@ -30,7 +32,9 @@ export function registerHoverProvider(
         },
       });
 
-      if (!result || !result.contents) return null;
+      if (!result || !result.contents || token.isCancellationRequested) {
+        return null;
+      }
 
       const raw = Array.isArray(result.contents)
         ? result.contents

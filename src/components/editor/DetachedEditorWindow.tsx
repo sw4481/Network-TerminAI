@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { emit } from "@tauri-apps/api/event";
 import type { EditorBufferState } from "../../state/editorStore";
 import {
   editorDetachedWindowClose,
@@ -17,6 +18,12 @@ import { useZedMode } from "./ZedModeProvider";
 import type { EditorPaneLeaf } from "./editorPaneLayout";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
+import {
+  EDITOR_LSP_OPEN_LOCATION_EVENT,
+  fileUriToPath,
+  pathIsWithinWorkspace,
+  type EditorLspOpenLocation,
+} from "./lsp/locationRouting";
 import "./DetachedEditorWindow.css";
 
 function bufferFromSnapshot(
@@ -255,7 +262,10 @@ export function DetachedEditorWindow() {
       </header>
 
       {buffer.file_path && (
-        <EditorBreadcrumbs filePath={buffer.file_path} rootPath={null} />
+        <EditorBreadcrumbs
+          filePath={buffer.file_path}
+          rootPath={metadata.workspaceRoot}
+        />
       )}
 
       <div className="detached-editor-canvas">
@@ -263,7 +273,7 @@ export function DetachedEditorWindow() {
           tabId={metadata.tabId}
           pane={pane}
           buffer={buffer}
-          rootPath={null}
+          rootPath={metadata.workspaceRoot}
           focused
           showControls={false}
           canClose={false}
@@ -295,6 +305,24 @@ export function DetachedEditorWindow() {
           }
           onSave={() => void save()}
           onEditorReady={() => {}}
+          onOpenResource={async (uri, position) => {
+            const filePath = fileUriToPath(uri);
+            if (
+              !filePath ||
+              !metadata.workspaceRoot ||
+              !pathIsWithinWorkspace(filePath, metadata.workspaceRoot)
+            ) {
+              return false;
+            }
+            const payload: EditorLspOpenLocation = {
+              tabId: metadata.tabId,
+              uri,
+              position,
+            };
+            await emit(EDITOR_LSP_OPEN_LOCATION_EVENT, payload);
+            await editorSourceWindowFocus();
+            return true;
+          }}
         />
       </div>
 

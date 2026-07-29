@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phase 1 complete; Phases 2–3 implemented with native validation pending
+**Status:** Phase 1 complete; Phases 2–4 implemented with native interaction validation pending
 **Author:** brainstormed with operator
 
 ---
@@ -176,14 +176,26 @@ Codex session cannot use macOS screen capture or Accessibility UI control.
 
 ## 7. Phase 4 — Project-wide LSP navigation (OUTLINE)
 
-- Today LSP is single-file (`src/components/editor/lsp/*`: CompletionProvider,
-  HoverProvider, hclLanguage). This phase adds **persistent language-server
-  processes** (e.g. pyright for Python) managed in Rust with a supervise/restart
-  loop.
-- Wire go-to-definition, find-references, and workspace symbol search into Monaco
-  beyond the current single-file providers.
-- Establishes the **shared child-process management scaffolding** that Phase 5
-  reuses.
+**Detailed implementation plan:** `docs/plans/2026-07-29-zed-mode-phase-4.md`
+
+**Implementation status (2026-07-29):** implemented on
+`feature/zed-mode-phase-4`. The full frontend and Rust library suites,
+production frontend build, real two-file Pyright integration/restart test, and
+live Tauri/sidecar release invariant pass. The final native editor interaction
+matrix remains a manual follow-up because the repository's Playwright driver
+does not attach to the Tauri WKWebView.
+
+- **Backend:** one persistent, supervised server per canonical
+  `(workspace root, language)` session, with reference-counted client/document
+  ownership, JSON-RPC correlation, LSP initialize/shutdown lifecycle,
+  full-document synchronization, crash restart, and document reopening.
+- **Languages:** exact-version Pyright and YAML Language Server dependencies,
+  resolved from TerminAI's repository first and then `PATH`.
+- **Frontend:** real file-backed Monaco URIs, project-wide go-to-definition and
+  find-references, cross-file attached/detached routing, and a Zed-gated
+  `Cmd/Ctrl+T` workspace-symbol picker.
+- The Rust process lifecycle and supervision seam is the starting scaffold for
+  Phase 5's DAP adapter management.
 - Deliverable: project-wide code navigation for supported languages in Zed Mode.
 
 ## 8. Phase 5 — Debugging / DAP (OUTLINE)

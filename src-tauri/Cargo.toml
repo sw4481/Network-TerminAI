@@ -80,6 +80,7 @@ tokio-cron-scheduler = "0.13"
 dashmap = "6"
 tokio-util = { version = "0.7", features = ["rt"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+url = "2"
 # Plan 12 — RAG. Decision B per docs/rag/sqlite-vec-research.md: use the
 # safe-wrapper crate that vendors sqlite-vec's C sources and registers
 # `sqlite3_vec_init` via `rusqlite::ffi::sqlite3_auto_extension`. No loose
@@ -143,4 +144,3 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
-
