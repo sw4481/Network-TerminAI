@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { EditorBufferState } from "../../state/editorStore";
@@ -6,6 +8,11 @@ import {
   splitEditorPane,
 } from "./editorPaneLayout";
 import { EditorSplitTree } from "./EditorSplitTree";
+
+const editorSplitStyles = readFileSync(
+  resolve(process.cwd(), "src/components/editor/editor-splits.css"),
+  "utf8",
+);
 
 vi.mock("./MonacoEditor", () => ({
   MonacoEditor: ({ bufferId }: { bufferId: string }) => (
@@ -61,6 +68,30 @@ function treeProps() {
 }
 
 describe("EditorSplitTree", () => {
+  it("stretches a lone root pane to fill the editor workspace", () => {
+    const tree = treeProps();
+    const styles = document.createElement("style");
+    styles.textContent = editorSplitStyles;
+    document.head.append(styles);
+
+    try {
+      render(
+        <EditorSplitTree
+          {...tree}
+          node={createEditorPaneLayout(buffer.id, "pane-only")}
+          focusedPaneId="pane-only"
+        />,
+      );
+
+      expect(screen.getByTestId("editor-split-tree")).toHaveStyle({
+        display: "flex",
+      });
+      expect(screen.getByTestId("editor-pane-pane-only")).toBeVisible();
+    } finally {
+      styles.remove();
+    }
+  });
+
   it("renders recursive panes that share the same logical model", () => {
     const tree = treeProps();
     render(<EditorSplitTree {...tree} />);
