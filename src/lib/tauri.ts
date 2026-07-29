@@ -2309,6 +2309,52 @@ export const editorSaveFile = (
   content: string
 ) => invoke<void>("editor_save_file", { tabId, filePath, content });
 
+export type EditorBufferSeed = {
+  bufferId: string;
+  filePath: string | null;
+  content: string;
+  language: string;
+  dirty: boolean;
+  sourceId: string;
+};
+
+export type EditorBufferSnapshot = EditorBufferSeed & {
+  revision: number;
+};
+
+export type EditorBufferUpdateResult =
+  | { status: "applied"; snapshot: EditorBufferSnapshot }
+  | { status: "conflict"; snapshot: EditorBufferSnapshot };
+
+export type EditorBufferUpdateRequest = {
+  bufferId: string;
+  baseRevision: number;
+  content: string;
+  language: string;
+  dirty: boolean;
+  sourceId: string;
+};
+
+export type EditorBufferMarkSavedRequest = {
+  bufferId: string;
+  revision: number;
+  sourceId: string;
+};
+
+export const editorBufferRegister = (seed: EditorBufferSeed) =>
+  invoke<EditorBufferSnapshot>("editor_buffer_register", { seed });
+
+export const editorBufferGet = (bufferId: string) =>
+  invoke<EditorBufferSnapshot>("editor_buffer_get", { bufferId });
+
+export const editorBufferUpdate = (request: EditorBufferUpdateRequest) =>
+  invoke<EditorBufferUpdateResult>("editor_buffer_update", request);
+
+export const editorBufferMarkSaved = (
+  request: EditorBufferMarkSavedRequest,
+) =>
+  invoke<EditorBufferUpdateResult>("editor_buffer_mark_saved", request);
+
 export type DetachedEditorWindowInfo = {
   windowId: string;
   tabId: string;

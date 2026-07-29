@@ -29,6 +29,7 @@ pub mod config;
 pub mod database;
 pub mod db;
 pub mod drift;
+pub mod editor;
 pub mod fanout;
 pub mod ftp;
 pub mod tftp;
@@ -300,6 +301,10 @@ pub fn run() {
             commands::editor::editor_get_home_directory,
             commands::editor::editor_mode_get,
             commands::editor::editor_mode_set,
+            commands::editor::editor_buffer_register,
+            commands::editor::editor_buffer_get,
+            commands::editor::editor_buffer_update,
+            commands::editor::editor_buffer_mark_saved,
             commands::editor::editor_create_file,
             commands::editor::editor_delete_file,
             commands::editor::editor_rename_file,

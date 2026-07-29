@@ -34,6 +34,7 @@ import {
 } from "./EditorTerminalPanel";
 import { useEditorSettings } from "../../hooks/useEditorSettings";
 import { useZedMode } from "./ZedModeProvider";
+import { EditorBufferSyncClient } from "./editorBufferSync";
 import "./EditorTab.css";
 
 function leafById(
@@ -73,6 +74,10 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const editorRefs = useRef(
     new Map<string, Monaco.editor.IStandaloneCodeEditor>(),
   );
+  const syncClients = useRef(new Map<string, EditorBufferSyncClient>());
+  const syncSourceId = useRef(
+    `editor-main:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
+  );
   const [showFind, setShowFind] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
@@ -86,6 +91,93 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const focusedBuffer = focusedPane
     ? buffers[focusedPane.bufferId]
     : undefined;
+
+  const ensureBufferSync = useCallback(
+    async (bufferId: string) => {
+      const state = useEditorStore.getState();
+      const buffer = state.buffers[bufferId];
+      if (!buffer) {
+        throw new Error(`Unknown editor buffer: ${bufferId}`);
+      }
+      const existing = syncClients.current.get(bufferId);
+      if (existing) {
+        await existing.start({
+          bufferId,
+          filePath: buffer.file_path,
+          content: buffer.content,
+          language: buffer.language,
+          dirty: buffer.is_dirty,
+          sourceId: syncSourceId.current,
+        });
+        return existing;
+      }
+
+      const client = new EditorBufferSyncClient({
+        bufferId,
+        sourceId: syncSourceId.current,
+        onSnapshot: (snapshot) => {
+          useEditorStore.getState().patchBuffer(bufferId, {
+            file_path: snapshot.filePath,
+            content: snapshot.content,
+            language: snapshot.language,
+            is_dirty: snapshot.dirty,
+            revision: snapshot.revision,
+            sync_status: "synced",
+            error: null,
+          });
+        },
+        onRevision: (snapshot) => {
+          useEditorStore.getState().patchBuffer(bufferId, {
+            revision: snapshot.revision,
+          });
+        },
+        onStatus: (sync_status, error) => {
+          useEditorStore.getState().patchBuffer(bufferId, {
+            sync_status,
+            error: error ?? null,
+          });
+        },
+      });
+      syncClients.current.set(bufferId, client);
+      try {
+        await client.start({
+          bufferId,
+          filePath: buffer.file_path,
+          content: buffer.content,
+          language: buffer.language,
+          dirty: buffer.is_dirty,
+          sourceId: syncSourceId.current,
+        });
+      } catch (error) {
+        client.dispose();
+        syncClients.current.delete(bufferId);
+        throw error;
+      }
+      return client;
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      for (const client of syncClients.current.values()) client.dispose();
+      syncClients.current.clear();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const detachedBufferIds = new Set(
+      getEditorPaneLeaves(workspace.layout)
+        .filter((pane) => pane.detachedWindowId !== null)
+        .map((pane) => pane.bufferId),
+    );
+    for (const bufferId of detachedBufferIds) {
+      void ensureBufferSync(bufferId).catch((error) => {
+        patchWorkspace(tab.id, { error: String(error) });
+      });
+    }
+  }, [workspace.layout, tab.id, ensureBufferSync, patchWorkspace]);
 
   // Rehydrate layout first, then populate every file-backed buffer from disk.
   // Unsaved text is deliberately not part of Phase 2 layout persistence.
@@ -218,8 +310,16 @@ export function EditorTab({ tab }: { tab: Tab }) {
       if (!current?.file_path) return;
       patchWorkspace(tab.id, { loading: true, error: null });
       try {
+        const sync = syncClients.current.get(bufferId);
+        const savedRevision = sync
+          ? await sync.flushNow()
+          : current.revision;
         await editorSaveFile(tab.id, current.file_path, current.content);
-        markBufferSaved(bufferId, current.revision);
+        if (sync) {
+          await sync.markSaved(savedRevision);
+        } else {
+          markBufferSaved(bufferId, current.revision);
+        }
       } catch (error) {
         patchWorkspace(tab.id, { error: String(error) });
       } finally {
@@ -258,6 +358,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
       if (!pane || !buffer || pane.detachedWindowId) return;
       patchWorkspace(tab.id, { loading: true, error: null });
       try {
+        await ensureBufferSync(buffer.id);
         const info = await editorDetachPane(
           tab.id,
           pane.id,
@@ -271,7 +372,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
         patchWorkspace(tab.id, { loading: false });
       }
     },
-    [mode, tab.id, markPaneDetached, patchWorkspace],
+    [
+      mode,
+      tab.id,
+      ensureBufferSync,
+      markPaneDetached,
+      patchWorkspace,
+    ],
   );
 
   const bringPaneBack = useCallback(
@@ -369,8 +476,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
       void editorDetachedWindowFocus(windowId).catch((error) =>
         patchWorkspace(tab.id, { error: String(error) })
       ),
-    onChange: (bufferId: string, content: string) =>
-      setBufferContent(bufferId, content),
+    onChange: (bufferId: string, content: string) => {
+      setBufferContent(bufferId, content);
+      const buffer = useEditorStore.getState().buffers[bufferId];
+      syncClients.current
+        .get(bufferId)
+        ?.queueLocal(content, buffer.language, true);
+    },
     onCursorChange: (
       paneId: string,
       position: { line: number; column: number },
@@ -511,7 +623,10 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   onReattach={() => {}}
                   onFocusWindow={() => {}}
                   onChange={(content) =>
-                    setBufferContent(classicPane.bufferId, content)
+                    paneCallbacks.onChange(
+                      classicPane.bufferId,
+                      content,
+                    )
                   }
                   onCursorChange={(position) =>
                     updatePaneView(tab.id, classicPane.id, {

@@ -274,6 +274,8 @@ pub struct AppState {
     pub pane_manager: Arc<crate::pane_context::PaneContextManager>,
     /// Phase 3 — open popup browser windows registry.
     pub browser_manager: Arc<crate::browser::BrowserManager>,
+    /// Zed Mode Phase 2 — authoritative cross-webview editor buffers.
+    pub editor_buffer_manager: Arc<crate::editor::EditorBufferManager>,
     /// Heartbeat Monitoring System — Lazily initialized scheduler for automated
     /// network health checks. Optional so unit tests can construct AppState without
     /// a Tauri AppHandle.
@@ -371,6 +373,7 @@ impl AppState {
         ));
         let pane_manager = Arc::new(crate::pane_context::PaneContextManager::new());
         let browser_manager = Arc::new(crate::browser::BrowserManager::new());
+        let editor_buffer_manager = Arc::new(crate::editor::EditorBufferManager::new());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
             db: db_arc,
@@ -406,6 +409,7 @@ impl AppState {
             troubleshoot: Arc::new(crate::troubleshoot::state::TroubleshootState::new()),
             pane_manager,
             browser_manager,
+            editor_buffer_manager,
             heartbeat_scheduler: Arc::new(parking_lot::Mutex::new(None)),
         }
     }

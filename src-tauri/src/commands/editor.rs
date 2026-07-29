@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use super::AppState;
 use std::path::{Path, PathBuf};
 use std::fs;
@@ -200,6 +200,89 @@ pub fn editor_mode_set(
 ) -> Result<(), String> {
     let conn = state.db.lock();
     store_editor_mode(&conn, &mode)
+}
+
+pub const EDITOR_BUFFER_CHANGED_EVENT: &str = "editor-buffer-changed";
+
+fn require_editor_buffer_id(buffer_id: &str) -> Result<(), String> {
+    if buffer_id.trim().is_empty() {
+        Err("buffer_id must not be empty".to_string())
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub fn editor_buffer_register(
+    state: State<'_, AppState>,
+    seed: crate::editor::EditorBufferSeed,
+) -> Result<crate::editor::EditorBufferSnapshot, String> {
+    require_editor_buffer_id(&seed.buffer_id)?;
+    Ok(state.editor_buffer_manager.register(seed))
+}
+
+#[tauri::command]
+pub fn editor_buffer_get(
+    state: State<'_, AppState>,
+    buffer_id: String,
+) -> Result<crate::editor::EditorBufferSnapshot, String> {
+    require_editor_buffer_id(&buffer_id)?;
+    state
+        .editor_buffer_manager
+        .get(&buffer_id)
+        .ok_or_else(|| format!("editor buffer not registered: {buffer_id}"))
+}
+
+#[tauri::command]
+pub fn editor_buffer_update(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    buffer_id: String,
+    base_revision: u64,
+    content: String,
+    language: String,
+    dirty: bool,
+    source_id: String,
+) -> Result<crate::editor::EditorBufferUpdateResult, String> {
+    require_editor_buffer_id(&buffer_id)?;
+    let result = state
+        .editor_buffer_manager
+        .update(
+            &buffer_id,
+            base_revision,
+            content,
+            language,
+            dirty,
+            source_id,
+        )
+        .ok_or_else(|| format!("editor buffer not registered: {buffer_id}"))?;
+    if let crate::editor::EditorBufferUpdateResult::Applied { snapshot } = &result {
+        if let Err(error) = app.emit(EDITOR_BUFFER_CHANGED_EVENT, snapshot) {
+            tracing::warn!(%error, buffer_id, "failed to emit editor buffer update");
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn editor_buffer_mark_saved(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    buffer_id: String,
+    revision: u64,
+    source_id: String,
+) -> Result<crate::editor::EditorBufferUpdateResult, String> {
+    require_editor_buffer_id(&buffer_id)?;
+    let result = state
+        .editor_buffer_manager
+        .mark_saved(&buffer_id, revision, source_id)
+        .ok_or_else(|| format!("editor buffer not registered: {buffer_id}"))?;
+    if let crate::editor::EditorBufferUpdateResult::Applied { snapshot } = &result {
+        if let Err(error) = app.emit(EDITOR_BUFFER_CHANGED_EVENT, snapshot) {
+            tracing::warn!(%error, buffer_id, "failed to emit editor buffer save");
+        }
+    }
+    Ok(result)
 }
 
 #[tauri::command]
