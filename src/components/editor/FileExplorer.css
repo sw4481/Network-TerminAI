@@ -35,7 +35,7 @@
 
 .explorer-actions button:hover {
   background: var(--surface-hover);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .explorer-create-row {
@@ -182,7 +182,7 @@
   padding: 2px 5px;
   background: var(--surface-2);
   border-radius: 3px;
-  color: var(--text-inverse);
+  color: var(--text-primary);
   font-weight: 600;
   flex-shrink: 0;
 }

@@ -164,7 +164,7 @@
 
 .btn-submit {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .btn-submit:hover {
@@ -197,7 +197,7 @@
 
 .btn-save {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .btn-save:hover {
@@ -273,7 +273,7 @@
 
 .save-dialog-actions button:last-child {
   background: var(--surface-overlay);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .save-dialog-actions button:last-child:hover {

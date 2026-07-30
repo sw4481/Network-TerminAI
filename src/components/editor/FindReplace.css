@@ -35,7 +35,7 @@
 }
 
 .close-button:hover {
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .find-replace-row {
@@ -63,7 +63,7 @@
 .find-replace-row button {
   padding: 4px 9px;
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   border-radius: 3px;
   cursor: pointer;

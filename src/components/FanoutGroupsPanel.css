@@ -28,7 +28,7 @@
 
 .fanout-groups-list-header button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;
@@ -59,7 +59,7 @@
 .fanout-new-group-form input:focus { border-color: var(--accent-subtle); }
 .fanout-new-group-form button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;

@@ -20,7 +20,7 @@
 }
 .iac-wizard-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .iac-wizard-actions button { padding: 6px 14px; border-radius: 4px; cursor: pointer; }
-.iac-wizard-generate { background: var(--accent-subtle); color: var(--text-inverse); border: none; }
+.iac-wizard-generate { background: var(--accent-subtle); color: var(--text-primary); border: none; }
 .iac-wizard-generate:disabled { opacity: 0.5; cursor: not-allowed; }
 .iac-wizard-cancel { background: transparent; color: var(--text-primary); border: 1px solid var(--text-primary); }
 .iac-wizard-error { color: var(--status-danger); font-size: 12px; }

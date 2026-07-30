@@ -100,13 +100,13 @@
 .br-btn:hover { background: var(--accent-subtle); }
 .br-btn.primary {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-color: var(--accent-subtle);
 }
 .br-btn.primary:hover { background: var(--accent-subtle); }
 .br-btn.danger {
   background: var(--status-danger-surface);
-  color: var(--text-inverse);
+  color: var(--status-danger);
   border-color: var(--status-danger);
 }
 .br-btn.danger:hover { background: var(--status-danger-surface); }

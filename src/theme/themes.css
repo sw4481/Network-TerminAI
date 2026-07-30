@@ -39,7 +39,8 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --integration-primary-hover: #e0b865;
   --agent-active-surface: rgb(59 130 246 / 90%);
   --agent-waiting-surface: rgb(249 115 22 / 90%);
-  --notification-badge-surface: #ef4444;
+  --notification-badge-surface: #b91c1c;
+  --notification-badge-text: #ffffff;
   --notification-shadow: rgb(0 0 0 / 30%);
   --border-subtle: #1f232b;
   --border-default: #262a33;
@@ -78,9 +79,9 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --debug-current-line-border: rgb(229 192 123 / 30%);
   --iac-created: #50c878;
   --iac-created-surface: #1e3a1e;
-  --iac-modified: #4a90e2;
+  --iac-modified: #5298e8;
   --iac-modified-surface: #1e2a3a;
-  --iac-destroyed: #e94b3c;
+  --iac-destroyed: #f05c4e;
   --iac-destroyed-surface: #3a1e1e;
   --iac-skipped: #9a9a9a;
   --iac-skipped-surface: #2a2a2a;
@@ -143,7 +144,8 @@ html[data-theme="slate-grey"] {
   --integration-primary-hover: #c9b77f;
   --agent-active-surface: rgb(91 132 173 / 90%);
   --agent-waiting-surface: rgb(190 132 82 / 90%);
-  --notification-badge-surface: #cd8b8b;
+  --notification-badge-surface: #8f3f46;
+  --notification-badge-text: #ffffff;
   --notification-shadow: rgb(0 0 0 / 30%);
   --border-subtle: #2c3138;
   --border-default: #3b424b;
@@ -158,7 +160,7 @@ html[data-theme="slate-grey"] {
   --status-info: #9bb8ce;
   --status-success: #98b98f;
   --status-warning: #c6b782;
-  --status-danger: #cd8b8b;
+  --status-danger: #d18f8f;
   --status-recording-live: #cd8b8b;
   --status-recording-failure-surface: #392426;
   --status-recording-failure-border: #cd8b8b;
@@ -247,7 +249,8 @@ html[data-theme="matrix"] {
   --integration-primary-hover: #e6ff99;
   --agent-active-surface: rgb(114 216 255 / 90%);
   --agent-waiting-surface: rgb(217 255 106 / 90%);
-  --notification-badge-surface: #ff6b6b;
+  --notification-badge-surface: #9f2633;
+  --notification-badge-text: #ffffff;
   --notification-shadow: rgb(0 0 0 / 45%);
   --border-subtle: #123116;
   --border-default: #256b2d;

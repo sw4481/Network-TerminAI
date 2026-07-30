@@ -148,7 +148,7 @@
 
 .palette-scope [role="tab"][aria-selected="true"] {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-color: var(--border-default);
 }
 
@@ -166,7 +166,7 @@
   padding: 2px 8px;
   border-radius: 10px;
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   font-size: 11px;
   white-space: nowrap;
 }

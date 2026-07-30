@@ -113,7 +113,7 @@
 
 .push-modal-confirm {
   background: var(--surface-overlay);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .push-modal-confirm:hover:not(:disabled) {

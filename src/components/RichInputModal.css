@@ -50,5 +50,5 @@
 .rich-input-btn--primary {
   background: var(--surface-input);
   border-color: transparent;
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }

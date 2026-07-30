@@ -24,9 +24,9 @@ function formatTime(ms?: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function progressForStatus(status: DeviceRunState["status"]): number {
+function progressForStatus(status: DeviceRunState["status"]): number | undefined {
   if (status === "pending") return 0;
-  if (status === "running") return 60;
+  if (status === "running") return undefined;
   return 100;
 }
 
@@ -295,11 +295,7 @@ export function FanoutPanel() {
                   aria-valuenow={progressForStatus(d.status)}
                   aria-valuetext={d.status}
                 >
-                  <div
-                    style={{
-                      width: d.status === "running" ? "60%" : undefined,
-                    }}
-                  />
+                  <div />
                 </div>
                 <span style={{ color: "var(--text-secondary)" }}>
                   {formatTime(d.durationMs)}

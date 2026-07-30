@@ -75,12 +75,12 @@ describe("Task 5 theme recovery", () => {
     expect(source("src/App.tsx")).toContain("color:var(--status-recording-failure-text)");
   });
 
-  it("preserves representative exact Dark values across all seven batches", () => {
+  it("preserves representative Dark semantics with documented accessibility adjustments", () => {
     const themes = source("src/theme/themes.css");
     for (const declaration of [
       "--iac-created: #50c878;",
-      "--iac-modified: #4a90e2;",
-      "--iac-destroyed: #e94b3c;",
+      "--iac-modified: #5298e8;",
+      "--iac-destroyed: #f05c4e;",
       "--diff-added-surface: rgb(76 175 80 / 18%);",
       "--diff-removed-surface: rgb(244 67 54 / 18%);",
       "--diff-changed-surface: rgb(255 193 7 / 18%);",

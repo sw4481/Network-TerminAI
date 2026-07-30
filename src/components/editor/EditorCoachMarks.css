@@ -45,7 +45,7 @@
 .coach-bubble-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .coach-bubble-body {
@@ -76,7 +76,7 @@
 
 .coach-btn-next {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
 }
 

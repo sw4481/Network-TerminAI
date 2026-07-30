@@ -29,7 +29,7 @@
 .fanout-command-bar input.timeout-input { width: 80px; }
 .fanout-command-bar button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 6px 14px;
@@ -92,6 +92,7 @@
   width: 0%;
   transition: width 0.2s ease;
 }
+.fanout-progress-bar.running > div { width: 100%; opacity: 0.55; }
 .fanout-progress-bar.success > div { background: var(--status-success); width: 100% !important; }
 .fanout-progress-bar.failed  > div { background: var(--status-danger); width: 100% !important; }
 .fanout-progress-bar.timeout > div { background: var(--status-warning); width: 100% !important; }

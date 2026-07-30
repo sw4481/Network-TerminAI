@@ -38,27 +38,27 @@
 
 .iac-badge.exit-code.success {
   background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
-  color: var(--text-inverse);
+  color: var(--status-success);
 }
 
 .iac-badge.exit-code.error {
   background: var(--status-danger-surface);
-  color: var(--text-inverse);
+  color: var(--status-danger);
 }
 
 .iac-badge.resources-changed {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .iac-badge.resources-failed {
   background: var(--status-danger-surface);
-  color: var(--text-inverse);
+  color: var(--status-danger);
 }
 
 .iac-badge.duration {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .iac-header-right {

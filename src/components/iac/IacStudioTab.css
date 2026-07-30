@@ -29,7 +29,7 @@
 .iac-studio-file .dirty-marker { color: var(--text-primary); }
 .iac-studio-toolbar button {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   border-radius: 3px;
   padding: 3px 12px;
@@ -42,7 +42,7 @@
 .iac-studio-empty p { margin: 0; }
 .iac-studio-empty-hint { color: var(--text-primary); font-size: 13px; margin-top: 8px; }
 .iac-studio-getstarted {
-  background: var(--surface-2); color: var(--text-inverse); border: none;
+  background: var(--surface-2); color: var(--text-primary); border: none;
   padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer;
 }
 .iac-studio-getstarted:hover { background: var(--surface-2); }
@@ -52,9 +52,9 @@
 .iac-studio-run-real {
   border: none; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 12px;
 }
-.iac-studio-run-check { background: var(--accent-subtle); color: var(--accent-subtle); }
+.iac-studio-run-check { background: var(--accent-subtle); color: var(--text-primary); }
 .iac-studio-run-check:hover { background: var(--accent-subtle); }
-.iac-studio-run-real { background: var(--accent-subtle); color: var(--text-inverse); }
+.iac-studio-run-real { background: var(--accent-subtle); color: var(--text-primary); }
 .iac-studio-run-real:hover { background: var(--accent-subtle); }
 .iac-studio-error {
   padding: 6px 12px;

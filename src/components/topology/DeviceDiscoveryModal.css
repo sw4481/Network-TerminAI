@@ -200,7 +200,7 @@
 .discovery-modal__button--primary {
   background: var(--surface-overlay);
   border-color: var(--border-default);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   font-weight: 500;
 }
 

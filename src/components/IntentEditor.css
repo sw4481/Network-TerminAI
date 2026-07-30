@@ -28,7 +28,7 @@
 
 .intent-list-header button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;
@@ -68,7 +68,7 @@
 .intent-new-form button,
 .intent-rename-form button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;
@@ -164,7 +164,7 @@
   font-size: 11px;
 }
 .intent-detail-actions button:hover { background: var(--accent-subtle); }
-.intent-detail-actions button.primary { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-inverse); }
+.intent-detail-actions button.primary { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-primary); }
 .intent-detail-actions button.danger { color: var(--status-danger); border-color: var(--status-danger); }
 
 .intent-tab-bar {

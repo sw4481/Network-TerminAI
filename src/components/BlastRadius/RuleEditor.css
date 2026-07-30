@@ -48,7 +48,7 @@
 .rule-editor .rule-list-header button:hover { background: var(--accent-subtle); }
 .rule-editor .rule-list-header button.primary {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-color: var(--accent-subtle);
 }
 
@@ -230,12 +230,12 @@
 .rule-editor .rule-footer button:hover { background: var(--accent-subtle); }
 .rule-editor .rule-footer button.primary {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-color: var(--accent-subtle);
 }
 .rule-editor .rule-footer button.danger {
   background: var(--status-danger-surface);
-  color: var(--text-inverse);
+  color: var(--status-danger);
   border-color: var(--status-danger);
 }
 .rule-editor .rule-footer button:disabled { opacity: 0.5; cursor: not-allowed; }

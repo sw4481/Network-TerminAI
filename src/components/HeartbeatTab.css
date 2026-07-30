@@ -73,7 +73,7 @@
 
 .heartbeat-new-btn {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 6px 12px;
   border-radius: 4px;
@@ -112,7 +112,7 @@
 
 .heartbeat-empty-btn {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;

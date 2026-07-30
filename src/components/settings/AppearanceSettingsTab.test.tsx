@@ -69,13 +69,16 @@ describe("AppearanceSettingsTab", () => {
 
     const scanlines = screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i });
     const glow = screen.getByRole("checkbox", { name: /Enable Matrix glow/i });
+    const motion = screen.getByRole("combobox", { name: /Matrix motion preference/i });
     expect(scanlines).toBeDisabled();
     expect(glow).toBeDisabled();
+    expect(motion).toBeDisabled();
     expect(scanlines).toHaveAccessibleDescription(/Select Matrix/i);
 
     await user.click(screen.getByRole("radio", { name: /Matrix/i }));
     expect(scanlines).toBeEnabled();
     expect(glow).toBeEnabled();
+    expect(motion).toBeEnabled();
   });
 
   it("disables duplicate saves and announces progress and success in text", async () => {
@@ -97,6 +100,39 @@ describe("AppearanceSettingsTab", () => {
     await screen.findByText("Appearance saved.");
     expect(save).toBeEnabled();
     expect(screen.getByRole("status")).toHaveTextContent("Appearance saved.");
+  });
+
+  it("locks every editable control and keeps the saving status truthful until persistence settles", async () => {
+    let finishSave: (() => void) | undefined;
+    appearance.setSettings.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+
+    await user.click(screen.getByRole("radio", { name: /Matrix/i }));
+    const previewsBeforeSave = appearance.previewSettings.mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "Save appearance" }));
+
+    const slate = screen.getByRole("radio", { name: /Slate Grey/i });
+    for (const control of screen.getAllByRole("radio")) expect(control).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix glow/i })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: /Matrix motion preference/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset appearance" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Saving appearance");
+
+    await user.click(slate);
+    await user.click(screen.getByRole("button", { name: "Reset appearance" }));
+    expect(screen.getByRole("radio", { name: /Matrix/i })).toBeChecked();
+    expect(appearance.previewSettings).toHaveBeenCalledTimes(previewsBeforeSave);
+    expect(appearance.setSettings).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status")).toHaveTextContent("Saving appearance");
+
+    finishSave?.();
+    await screen.findByText("Appearance saved.");
   });
 
   it("keeps every appearance control keyboard reachable when Matrix is active", async () => {

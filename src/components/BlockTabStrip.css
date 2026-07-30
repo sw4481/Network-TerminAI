@@ -27,7 +27,7 @@
 }
 
 .block-tab.active {
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-bottom-color: var(--border-default);
   background: var(--surface-terminal);
 }

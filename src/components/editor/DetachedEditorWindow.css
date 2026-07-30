@@ -68,7 +68,7 @@
   justify-content: space-between;
   padding: 0 10px;
   background: var(--surface-input);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   font: 12px/1 monospace;
 }
 

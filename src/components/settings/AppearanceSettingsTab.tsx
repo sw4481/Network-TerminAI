@@ -13,16 +13,19 @@ export function AppearanceSettingsTab() {
   const { settings, error, previewSettings, setSettings } = useAppearance();
   const [draft, setDraft] = useState(settings);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const isSaving = saveStatus === "saving";
 
   useEffect(() => setDraft(settings), [settings]);
 
   const preview = (next: AppearanceSettingsV1) => {
+    if (isSaving) return;
     setDraft(next);
     setSaveStatus("idle");
     previewSettings(next);
   };
 
   const save = async () => {
+    if (isSaving) return;
     setSaveStatus("saving");
     try {
       await setSettings(draft);
@@ -57,7 +60,7 @@ export function AppearanceSettingsTab() {
 
       {error && <p className="appearance-settings__error" role="alert">{error}</p>}
 
-      <fieldset className="appearance-settings__presets">
+      <fieldset className="appearance-settings__presets" disabled={isSaving}>
         <legend>Application theme</legend>
         <div className="appearance-settings__cards">
           {APP_THEME_PRESETS.map((preset) => (
@@ -87,7 +90,7 @@ export function AppearanceSettingsTab() {
         <label>
           <input
             type="checkbox"
-            disabled={!matrixEffectsAvailable}
+            disabled={!matrixEffectsAvailable || isSaving}
             aria-describedby="matrix-effects-description"
             checked={draft.effects.matrixScanlines}
             onChange={(event) => preview({ ...draft, effects: { ...draft.effects, matrixScanlines: event.target.checked } })}
@@ -97,7 +100,7 @@ export function AppearanceSettingsTab() {
         <label>
           <input
             type="checkbox"
-            disabled={!matrixEffectsAvailable}
+            disabled={!matrixEffectsAvailable || isSaving}
             aria-describedby="matrix-effects-description"
             checked={draft.effects.matrixGlow}
             onChange={(event) => preview({ ...draft, effects: { ...draft.effects, matrixGlow: event.target.checked } })}
@@ -108,6 +111,7 @@ export function AppearanceSettingsTab() {
           Motion preference
           <select
             aria-label="Matrix motion preference"
+            disabled={!matrixEffectsAvailable || isSaving}
             value={draft.effects.motion}
             onChange={(event) => preview({ ...draft, effects: { ...draft.effects, motion: event.target.value as AppearanceSettingsV1["effects"]["motion"] } })}
           >
@@ -121,12 +125,12 @@ export function AppearanceSettingsTab() {
         <button
           type="button"
           className="primary"
-          disabled={saveStatus === "saving"}
+          disabled={isSaving}
           onClick={() => void save()}
         >
           Save appearance
         </button>
-        <button type="button" onClick={reset}>Reset appearance</button>
+        <button type="button" disabled={isSaving} onClick={reset}>Reset appearance</button>
       </div>
       {saveMessage && (
         <p

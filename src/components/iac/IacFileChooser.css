@@ -74,7 +74,7 @@
 
 .iac-chooser-edit {
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .iac-chooser-edit:hover {

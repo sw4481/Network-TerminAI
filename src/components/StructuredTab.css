@@ -74,7 +74,7 @@
 .structured-btn.primary {
   background: var(--accent-subtle);
   border-color: var(--border-default);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .structured-btn.primary:hover {

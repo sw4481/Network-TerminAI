@@ -24,7 +24,7 @@
   top: 4px;
   right: 4px;
   background-color: var(--notification-badge-surface);
-  color: var(--text-inverse);
+  color: var(--notification-badge-text);
   border-radius: 10px;
   padding: 2px 6px;
   font-size: 11px;

@@ -47,7 +47,7 @@
 }
 .drift-tree-header button {
   background: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   padding: 4px 10px;
@@ -137,7 +137,7 @@
 .drift-detail-header button.primary {
   background: var(--accent-subtle);
   border-color: var(--accent-subtle);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .drift-blocks {
@@ -172,7 +172,7 @@
 .drift-block-header .severity.destructive { background: var(--surface-2); color: var(--text-primary); }
 .drift-block-header .severity.additive    { background: var(--surface-2); color: var(--text-primary); }
 .drift-block-header .severity.none        { background: var(--surface-2); color: var(--text-primary); }
-.drift-block-header .severity.error       { background: var(--status-danger-surface); color: var(--status-danger-surface); }
+.drift-block-header .severity.error       { background: var(--status-danger-surface); color: var(--status-danger); }
 
 .drift-changes {
   padding: 4px 10px;
@@ -185,7 +185,7 @@
 }
 .drift-line.equal  { color: var(--text-primary); }
 .drift-line.insert { color: var(--text-primary); background: var(--surface-2); }
-.drift-line.delete { color: var(--status-danger-surface); background: var(--status-danger-surface); }
+.drift-line.delete { color: var(--status-danger); background: var(--status-danger-surface); }
 .drift-line .marker { display: inline-block; width: 12px; }
 
 .drift-empty {
@@ -248,5 +248,5 @@
 .drift-legend { font-size: 12px; color: var(--text-primary); margin: 6px 0; }
 .drift-badge { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
 .drift-badge.drift-insert { background: var(--surface-2); color: var(--text-primary); }  /* Missing = serious */
-.drift-badge.drift-delete { background: var(--status-danger-surface); color: var(--status-danger-surface); }  /* Changed */
+.drift-badge.drift-delete { background: var(--status-danger-surface); color: var(--status-danger); }  /* Changed */
 .drift-line.drift-equal { color: var(--text-muted); }

@@ -39,7 +39,7 @@
 }
 
 .editor-settings-panel .close-button:hover {
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .editor-settings-panel .settings-body {
@@ -116,7 +116,7 @@
 
 .editor-settings-panel .settings-footer button.primary {
   background: var(--surface-input);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-color: var(--border-default);
 }
 

@@ -142,7 +142,7 @@
   font-size: 11px;
   white-space: nowrap;
   background: var(--surface-2);
-  color: var(--text-inverse);
+  color: var(--text-primary);
   border-radius: 3px;
   pointer-events: none;
   opacity: 0;

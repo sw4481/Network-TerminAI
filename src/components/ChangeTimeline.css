@@ -47,13 +47,13 @@
 .timeline-step.active .timeline-marker {
   background: var(--accent-subtle);
   border-color: var(--border-default);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .timeline-step.done .timeline-marker {
   background: var(--surface-2);
   border-color: var(--border-default);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .timeline-label {

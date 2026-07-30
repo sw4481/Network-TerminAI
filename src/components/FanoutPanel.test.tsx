@@ -115,10 +115,12 @@ describe("FanoutPanel", () => {
 
     expect(screen.getByTestId("fanout-row-ssh-d1")).toHaveTextContent("running");
     expect(screen.getByTestId("fanout-row-ssh-d2")).toHaveTextContent("failed");
-    expect(screen.getByRole("progressbar", { name: "r1-atl progress" }))
-      .toHaveAttribute("aria-valuetext", "running");
-    expect(screen.getByRole("progressbar", { name: "r2-atl progress" }))
-      .toHaveAttribute("aria-valuetext", "failed");
+    const running = screen.getByRole("progressbar", { name: "r1-atl progress" });
+    const failed = screen.getByRole("progressbar", { name: "r2-atl progress" });
+    expect(running).toHaveAttribute("aria-valuetext", "running");
+    expect(running).not.toHaveAttribute("aria-valuenow");
+    expect(failed).toHaveAttribute("aria-valuetext", "failed");
+    expect(failed).toHaveAttribute("aria-valuenow", "100");
   });
 
   it("uses readable semantic foregrounds for fan-out status chips and progress fills", () => {

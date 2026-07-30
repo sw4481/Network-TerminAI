@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-30
 **Status:** In progress — implementation started 2026-07-30
-**Default compatibility target:** preserve the current TerminAI dark appearance exactly
+**Default compatibility target:** preserve the current TerminAI Dark identity,
+layout, and fallback behavior, with only the small contrast corrections
+documented in Phase 6
 
 ---
 
@@ -496,7 +498,9 @@ Run every row in Dark, Grey, and Matrix:
 The feature is complete only when:
 
 1. Dark, Grey, and Matrix style the whole application, terminal, and editor.
-2. TerminAI Dark is the safe default and matches the pre-feature appearance.
+2. TerminAI Dark is the safe default and preserves the pre-feature design,
+   except for the documented small-text, status, and focus contrast corrections
+   required for accessibility.
 3. Theme changes apply live to every window and open terminal.
 4. Terminal changes never restart or replace the PTY.
 5. Preferences survive relaunch and corrupt data falls back safely.
@@ -540,13 +544,17 @@ validation.
 
 ## Phase 6 — AUTOMATED IMPLEMENTATION COMPLETE; OPERATOR ACCEPTANCE PENDING 2026-07-30
 
-Deterministic WCAG checks now cover 41 named foreground/background pairs in
-Dark, Grey, and Matrix: normal text requires 4.5:1 and focus/control boundaries
-require 3:1. Focus treatment, 21 uniquely named terminal color controls,
-disabled/save states, and textual fan-out and sidecar statuses are covered by
-automated tests. The structural-color inventory, 247-file/1,887-test frontend
-suite, complete Rust suite (including 7 doctests), and relaxed production build
-pass.
+Deterministic WCAG checks retain 41 semantic foreground/background contracts in
+Dark, Grey, and Matrix and also discover 671 active flat rule-level text
+usages directly from source CSS. Normal and small text requires 4.5:1; only
+WCAG-large text and non-text control boundaries use 3:1. The audit currently
+has zero unsupported flat expressions and explicitly reports 140 inherited,
+transparent, or image/gradient cases that do not define a self-contained flat
+pair. Focus treatment, 21 uniquely named terminal color controls, locked
+pending-save behavior, and textual fan-out and sidecar statuses are covered by
+automated tests. TerminAI Dark remains the complete default and universal
+fallback; narrowly scoped contrast corrections deliberately supersede strict
+pixel parity for affected small text, status badges, and focus controls.
 
 Tasks 6.3 and 6.6 remain intentionally unchecked for Shaun's native
 Dark/Grey/Matrix operator matrix. Task 6.4 remains unchecked because the

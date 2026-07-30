@@ -130,7 +130,7 @@
 }
 .iac-diff-accept {
   background: var(--accent, var(--surface-2));
-  color: var(--text-inverse);
+  color: var(--text-on-strong-accent);
 }
 .iac-diff-reject {
   background: var(--button-bg, var(--surface-2));

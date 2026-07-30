@@ -5,25 +5,36 @@ Date: 2026-07-30
 ## Delivered
 
 - Added a deterministic WCAG contrast release gate for 41 named semantic
-  foreground/background pairs in each of Dark, Grey, and Matrix. Normal text
-  requires 4.5:1; focus rings and control boundaries require 3:1.
+  foreground/background pairs in each of Dark, Grey, and Matrix, plus 671
+  active flat foreground/background usages discovered directly from source
+  CSS. Normal/small text requires 4.5:1; only WCAG-large text and non-text
+  control boundaries use 3:1. The current audit has zero unsupported flat
+  expressions and explicitly counts 140 inherited, transparent, or
+  image/gradient cases that do not define a self-contained flat pair.
 - Wired the contrast gate into `bun run test`, alongside the existing
   structural-color guard.
-- Corrected low-contrast text/control tokens. The deliberate accessibility
-  exceptions to exact legacy Dark values are:
+- Corrected low-contrast text/control tokens. The initial deliberate
+  accessibility exceptions to exact legacy Dark values were:
   `--text-secondary: #9299a4`, `--text-muted: #8b929e`,
   `--text-recording-muted: #99a0a9`, and `--focus-control: #626a77`.
-  Grey uses `--text-muted: #99a0a9` and `--focus-control: #6b7581`.
-- Hardened Appearance controls with visible card focus, disabled Matrix-only
-  effects outside Matrix, readable reset/control styling, a disabled pending
-  Save state, and textual save status.
+  The source-derived audit added narrowly scoped corrections for notification
+  badges and IaC modified/destroyed labels, and distinguishes text on dark
+  surfaces (`--text-primary`) from text on strong bright accents
+  (`--text-on-strong-accent`). Grey also uses
+  `--text-muted: #99a0a9`, `--focus-control: #6b7581`, and the slightly
+  brighter `--status-danger: #d18f8f`.
+- Hardened Appearance controls with visible card focus, all Matrix-only
+  controls disabled outside Matrix, readable reset/control styling, every
+  editable/reset/save control locked throughout pending persistence, and
+  truthful textual save status.
 - Verified all 21 terminal color inputs have unique accessible names and
   keyboard-reachable controls. Terminal boundaries and action text use
   contrast-safe semantic tokens.
 - Made fan-out and sidecar state available without color alone. Fan-out chips
-  use distinct foregrounds, semantic progress fills, status text, and labelled
-  progressbar values. The sidecar chip is a polite status region with textual
-  `starting`, version, and `down` states.
+  use distinct foregrounds, semantic progress fills, status text, indeterminate
+  progress semantics while a run is active, and truthful numeric values only
+  for pending/terminal states. The sidecar chip is a polite status region with
+  textual `starting`, version, and `down` states.
 - Repaired two stale Rust doctests so the repository's exact full Cargo gate
   reaches a zero exit code.
 - Repaired Playwright clean-state setup: the root command now collects only
@@ -44,9 +55,29 @@ GREEN:
 
 ```text
 theme contrast CLI fixtures: passing accessible fixture; failing fixture
-correctly identifies the exact semantic pair
+correctly identifies semantic and discovered source pairs, comments, nested
+var fallbacks, color-mix, unsupported expressions, and non-flat exclusions
 terminal color controls: 21 inputs, 21 unique accessible names
-bun run test: contrast gate passed for 3 themes x 41 pairs
+bun run test: contrast gate passed for 3 themes x 41 semantic pairs and
+671 discovered rule-level usages; 0 unsupported; 140 explicit exclusions
+```
+
+### Review recovery
+
+RED review fixtures proved that commented theme declarations could satisfy a
+required token, direct source declarations were not audited, all Appearance
+controls except Save remained editable during pending persistence, the Matrix
+motion selector stayed active outside Matrix, and a running fan-out operation
+published a fabricated `aria-valuenow="60"`.
+
+GREEN:
+
+```text
+focused recovery: 5 files / 33 tests passed
+source contrast audit: 671 discovered usages / 0 unsupported /
+  140 explicit non-flat or inherited exclusions
+Appearance: theme/effect/motion/reset/save controls locked while saving
+Fanout: running is indeterminate; failed terminal state reports 100
 ```
 
 ### Rust release gate
@@ -105,8 +136,10 @@ bun run check:structural-colors -- --inventory
 
 bun run test
   structural guard passed
-  contrast passed: 3 themes, 41 semantic pairs
-  247 files / 1,887 tests passed
+  contrast passed: 3 themes, 41 semantic pairs,
+    671 discovered rule-level usages, 0 unsupported,
+    140 explicitly excluded non-flat/inherited usages
+  247 files / 1,895 tests passed
 
 CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' \
   cargo test --manifest-path src-tauri/Cargo.toml
@@ -114,7 +147,7 @@ CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' \
   doctests 7 passed
 
 bun run build:relaxed
-  exit 0; 2,106 modules transformed; built in 5.39s
+  exit 0; 2,106 modules transformed; built in 4.91s
 
 bun test e2e/unit/tauri-driver.test.ts
   3 passed / 0 failed
