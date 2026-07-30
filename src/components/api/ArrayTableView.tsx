@@ -117,7 +117,7 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
         data-testid="api-table-empty"
         style={{
           padding: 12,
-          color: "#6c7380",
+          color: "var(--text-muted)",
           fontFamily: "Menlo, monospace",
           fontSize: 12,
         }}
@@ -133,7 +133,7 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
         data-testid="api-table-not-objects"
         style={{
           padding: 12,
-          color: "#6c7380",
+          color: "var(--text-muted)",
           fontFamily: "Menlo, monospace",
           fontSize: 12,
         }}
@@ -149,7 +149,7 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
       style={{
         flex: 1,
         overflow: "auto",
-        background: "#0f1114",
+        background: "var(--app-canvas)",
         borderRadius: 4,
       }}
     >
@@ -161,7 +161,7 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
           fontSize: 12,
         }}
       >
-        <thead style={{ position: "sticky", top: 0, background: "#1a1d23" }}>
+        <thead style={{ position: "sticky", top: 0, background: "var(--surface-2)" }}>
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id}>
               {hg.headers.map((h) => {
@@ -174,10 +174,10 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
                     style={{
                       textAlign: "left",
                       padding: "6px 10px",
-                      color: "#8a8d94",
+                      color: "var(--text-secondary)",
                       fontWeight: 600,
                       cursor: "pointer",
-                      borderBottom: "1px solid #262a33",
+                      borderBottom: "1px solid var(--border-default)",
                       userSelect: "none",
                       whiteSpace: "nowrap",
                     }}
@@ -196,8 +196,8 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
               key={row.id}
               data-testid={`api-table-row-${i}`}
               style={{
-                background: i % 2 === 0 ? "#0f1114" : "#12141a",
-                color: "#e6e1cf",
+                background: i % 2 === 0 ? "var(--app-canvas)" : "#12141a",
+                color: "var(--text-primary)",
               }}
             >
               {row.getVisibleCells().map((cell) => (

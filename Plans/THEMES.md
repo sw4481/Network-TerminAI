@@ -418,13 +418,13 @@ Acceptance gate:
 
 ### Task 5 — Phase 5: Feature-area migration and enforcement
 
-- [ ] **5.1 — PARALLEL:** Migrate remaining feature CSS/inline styles in
+- [x] **5.1 — PARALLEL:** Migrate remaining feature CSS/inline styles in
   independent batches: terminal/blocks, API/NETCONF, editor/IaC, topology,
   troubleshooting, vault/recording, and settings/integrations.
-- [ ] **5.2 — SEQUENTIAL:** Review each literal by meaning. Convert structural
+- [x] **5.2 — SEQUENTIAL:** Review each literal by meaning. Convert structural
   palette colors to tokens; retain domain colors only through named semantic
   tokens or an explicit documented allowlist.
-- [ ] **5.3 — SEQUENTIAL:** Add a no-new-structural-color check for CSS and TSX.
+- [x] **5.3 — SEQUENTIAL:** Add a no-new-structural-color check for CSS and TSX.
   It should report new literal palette colors while allowing approved syntax,
   status, topology, chart, and vendor colors.
 - [ ] **5.4 — SEQUENTIAL:** Remove temporary aliases only after their usage

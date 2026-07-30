@@ -174,7 +174,7 @@ export function DriftSidebar() {
               <span className="name">
                 {selected.device_id} ({selected.device_kind})
               </span>
-              <span style={{ color: "#8a8d94", fontSize: 11 }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>
                 {new Date(selected.captured_at * 1000).toLocaleString()}
               </span>
               {selected.status === "drift" && (
@@ -257,7 +257,7 @@ function ReportRow({
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
           {report.device_id}
         </span>
-        <span style={{ fontSize: 10, color: "#8a8d94" }}>{report.status}</span>
+        <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>{report.status}</span>
       </div>
       <div className="drift-row-meta">
         <span>{new Date(report.captured_at * 1000).toLocaleTimeString()}</span>
@@ -298,7 +298,7 @@ function ScheduleRow({
         className={`drift-status-dot ${schedule.enabled ? "in_sync" : "error"}`}
       />
       <span className="drift-schedule-cron">{schedule.cron_expr}</span>
-      <span style={{ fontSize: 10, color: "#8a8d94" }}>
+      <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>
         {schedule.last_run_at
           ? `last ${new Date(schedule.last_run_at * 1000).toLocaleTimeString()}`
           : "never run"}

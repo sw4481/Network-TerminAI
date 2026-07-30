@@ -77,13 +77,13 @@ export function ResponseViewer({ tabId, state }: Props) {
       <div
         style={{
           padding: "8px 12px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           gap: 8,
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
           Response
         </div>
         <div style={{ flex: 1 }} />
@@ -93,9 +93,9 @@ export function ResponseViewer({ tabId, state }: Props) {
               data-testid="netconf-view-formatted"
               onClick={() => setViewMode("formatted")}
               style={{
-                background: viewMode === "formatted" ? "#262a33" : "transparent",
-                color: viewMode === "formatted" ? "#e6e1cf" : "#8a8d94",
-                border: "1px solid #262a33",
+                background: viewMode === "formatted" ? "var(--surface-3)" : "transparent",
+                color: viewMode === "formatted" ? "var(--text-primary)" : "var(--text-secondary)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "3px 8px",
                 cursor: "pointer",
@@ -108,9 +108,9 @@ export function ResponseViewer({ tabId, state }: Props) {
               data-testid="netconf-view-raw"
               onClick={() => setViewMode("raw")}
               style={{
-                background: viewMode === "raw" ? "#262a33" : "transparent",
-                color: viewMode === "raw" ? "#e6e1cf" : "#8a8d94",
-                border: "1px solid #262a33",
+                background: viewMode === "raw" ? "var(--surface-3)" : "transparent",
+                color: viewMode === "raw" ? "var(--text-primary)" : "var(--text-secondary)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "3px 8px",
                 cursor: "pointer",
@@ -124,8 +124,8 @@ export function ResponseViewer({ tabId, state }: Props) {
               onClick={copyToClipboard}
               style={{
                 background: "transparent",
-                color: "#5ccfe6",
-                border: "1px solid #262a33",
+                color: "var(--accent)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "3px 8px",
                 cursor: "pointer",
@@ -139,8 +139,8 @@ export function ResponseViewer({ tabId, state }: Props) {
               onClick={handleExplain}
               disabled={explaining}
               style={{
-                background: "#2d5a8c",
-                color: "#e6e1cf",
+                background: "var(--accent-subtle)",
+                color: "var(--text-primary)",
                 border: "none",
                 borderRadius: 4,
                 padding: "3px 10px",
@@ -167,11 +167,11 @@ export function ResponseViewer({ tabId, state }: Props) {
         style={{
           flex: 1,
           overflowY: "auto",
-          background: "#0f1114",
+          background: "var(--app-canvas)",
           padding: hasResponse ? 12 : 0,
           fontFamily: "Menlo, monospace",
           fontSize: 12,
-          color: "#e6e1cf",
+          color: "var(--text-primary)",
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
         }}
@@ -185,7 +185,7 @@ export function ResponseViewer({ tabId, state }: Props) {
               alignItems: "center",
               justifyContent: "center",
               height: "100%",
-              color: "#6c7380",
+              color: "var(--text-muted)",
               fontSize: 13,
             }}
           >
@@ -199,7 +199,7 @@ export function ResponseViewer({ tabId, state }: Props) {
         <div
           data-testid="netconf-explanation"
           style={{
-            borderTop: "1px solid #262a33",
+            borderTop: "1px solid var(--border-default)",
             background: "#14161a",
             padding: 12,
             maxHeight: "30%",
@@ -210,7 +210,7 @@ export function ResponseViewer({ tabId, state }: Props) {
             style={{
               fontSize: 11,
               fontWeight: 600,
-              color: "#5ccfe6",
+              color: "var(--accent)",
               marginBottom: 8,
             }}
           >
@@ -219,7 +219,7 @@ export function ResponseViewer({ tabId, state }: Props) {
           <div
             style={{
               fontSize: 12,
-              color: "#e6e1cf",
+              color: "var(--text-primary)",
               lineHeight: 1.6,
               whiteSpace: "pre-wrap",
             }}

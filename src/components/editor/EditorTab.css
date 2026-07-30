@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   color: #d4d4d4;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .dirty-marker {
-  color: #ffffff;
+  color: var(--text-inverse);
   font-size: 18px;
   line-height: 1;
 }
@@ -87,7 +87,7 @@
   min-height: 32px;
   overflow-x: auto;
   overflow-y: hidden;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border-bottom: 1px solid #3e3e42;
 }
 
@@ -126,14 +126,14 @@
 
 .editor-buffer-tab:hover,
 .editor-buffer-tab:focus-within {
-  color: #ffffff;
+  color: var(--text-inverse);
   background: #2d2d30;
 }
 
 .editor-buffer-tab.active {
   border-top-color: #4ea1d3;
-  background: #1e1e1e;
-  color: #ffffff;
+  background: var(--surface-terminal);
+  color: var(--text-inverse);
 }
 
 .editor-buffer-tab-close {
@@ -151,7 +151,7 @@
 .editor-buffer-tab-close:hover,
 .editor-buffer-tab-close:focus-visible {
   background: #46464b;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .editor-buffer-tab-dirty {
@@ -183,7 +183,7 @@
   flex-direction: column;
   flex-shrink: 0;
   border-top: 1px solid #3e3e42;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   position: relative;
 }
 
@@ -224,11 +224,11 @@
 }
 
 .editor-terminal-tabs button:hover {
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .editor-terminal-tabs button.active {
-  color: #ffffff;
+  color: var(--text-inverse);
   border-bottom-color: #007acc;
 }
 
@@ -242,7 +242,7 @@
 }
 
 .editor-terminal-close-btn:hover {
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .editor-terminal-slot-area {

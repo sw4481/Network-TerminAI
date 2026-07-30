@@ -3,7 +3,7 @@
   flex-direction: column;
   width: 250px;
   height: 100%;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border-right: 1px solid #333;
   overflow: hidden;
 }
@@ -35,7 +35,7 @@
 
 .explorer-actions button:hover {
   background: #37373d;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .explorer-create-row {
@@ -43,7 +43,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border-bottom: 1px solid #333;
 }
 
@@ -125,7 +125,7 @@
   text-align: center;
   font-size: 13px;
   color: #888;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
 }
 
 .file-explorer-error {
@@ -182,7 +182,7 @@
   padding: 2px 5px;
   background: #007acc;
   border-radius: 3px;
-  color: #fff;
+  color: var(--text-inverse);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -205,7 +205,7 @@
 }
 
 .file-tree::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
 }
 
 .file-tree::-webkit-scrollbar-thumb {

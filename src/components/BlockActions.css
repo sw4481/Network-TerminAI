@@ -22,7 +22,7 @@
 
 .action-btn:hover {
   background: #444;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .action-btn.bookmarked {
@@ -34,7 +34,7 @@
  * and only fades in on .block-header:hover). */
 .action-btn.active {
   background: #444;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 .block-actions:has(.action-btn.active) {
   opacity: 1;

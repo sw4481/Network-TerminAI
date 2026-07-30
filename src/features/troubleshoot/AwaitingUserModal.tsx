@@ -113,7 +113,7 @@ export function AwaitingUserModal() {
               autoComplete="off"
             />
           </label>
-          <div style={{ color: "#8a8d94", fontSize: 11 }}>
+          <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>
             Confirming captures your answer and keeps the run paused. Press
             Resume on the control bar to continue execution.
           </div>

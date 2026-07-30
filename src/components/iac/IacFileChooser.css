@@ -1,5 +1,5 @@
 .iac-chooser-sub {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.88rem;
   margin: 0 0 14px 0;
 }
@@ -29,7 +29,7 @@
 
 .iac-chooser-empty {
   padding: 16px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.88rem;
   text-align: center;
 }
@@ -54,7 +54,7 @@
   text-overflow: ellipsis;
   font-family: 'SF Mono', 'Menlo', monospace;
   font-size: 0.85rem;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .iac-chooser-rowactions {
@@ -74,7 +74,7 @@
 
 .iac-chooser-edit {
   background: #0e639c;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .iac-chooser-edit:hover {

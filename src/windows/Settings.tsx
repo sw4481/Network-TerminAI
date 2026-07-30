@@ -746,7 +746,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
             <div className="form-group">
               <label htmlFor="ai-model">
-                Model {modelsLoading && <span style={{ color: "#6c7380", fontSize: "11px" }}>(Loading...)</span>}
+                Model {modelsLoading && <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>(Loading...)</span>}
               </label>
               <select
                 id="ai-model"
@@ -785,10 +785,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 style={{
                   marginTop: "8px",
                   padding: "6px 12px",
-                  background: "#262a33",
+                  background: "var(--surface-3)",
                   border: "none",
                   borderRadius: "4px",
-                  color: "#e6e1cf",
+                  color: "var(--text-primary)",
                   fontSize: "12px",
                   cursor: "pointer",
                 }}
@@ -895,7 +895,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               </button>
             </div>
 
-            <hr style={{ border: "none", borderTop: "1px solid #262a33", margin: "28px 0 20px" }} />
+            <hr style={{ border: "none", borderTop: "1px solid var(--border-default)", margin: "28px 0 20px" }} />
 
             <h2>Context Graph <span className="muted" style={{ fontSize: "12px", fontWeight: 400 }}>(experimental)</span></h2>
             <p className="muted" style={{ marginBottom: "16px" }}>
@@ -1313,10 +1313,10 @@ If you upload Python scripts, reference them like:
                     style={{
                       width: "100%",
                       padding: "10px 12px",
-                      background: "#0a0c0f",
-                      border: "1px solid #262a33",
+                      background: "var(--surface-chrome)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: "4px",
-                      color: "#e6e1cf",
+                      color: "var(--text-primary)",
                       fontSize: "12px",
                       fontFamily: "monospace",
                       resize: "vertical",
@@ -1338,10 +1338,10 @@ If you upload Python scripts, reference them like:
                     style={{
                       width: "100%",
                       padding: "10px 12px",
-                      background: "#0a0c0f",
-                      border: "1px solid #262a33",
+                      background: "var(--surface-chrome)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: "4px",
-                      color: "#e6e1cf",
+                      color: "var(--text-primary)",
                       fontSize: "13px",
                     }}
                   />
@@ -1350,7 +1350,7 @@ If you upload Python scripts, reference them like:
                   </small>
                   {newSkillScripts.length > 0 && (
                     <div style={{ marginTop: "8px" }}>
-                      <small style={{ color: "#5ccfe6" }}>
+                      <small style={{ color: "var(--accent)" }}>
                         {newSkillScripts.length} file{newSkillScripts.length !== 1 ? 's' : ''} selected: {newSkillScripts.map(f => f.name).join(', ')}
                       </small>
                     </div>
@@ -1423,10 +1423,10 @@ Prefer 'show' commands before 'debug' commands.`}
                     style={{
                       width: "100%",
                       padding: "10px 12px",
-                      background: "#0a0c0f",
-                      border: "1px solid #262a33",
+                      background: "var(--surface-chrome)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: "4px",
-                      color: "#e6e1cf",
+                      color: "var(--text-primary)",
                       fontSize: "13px",
                       fontFamily: "monospace",
                       resize: "vertical",
@@ -1541,10 +1541,10 @@ Prefer 'show' commands before 'debug' commands.`}
                     style={{
                       width: "100%",
                       padding: "10px 12px",
-                      background: "#0a0c0f",
-                      border: "1px solid #262a33",
+                      background: "var(--surface-chrome)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: "4px",
-                      color: "#e6e1cf",
+                      color: "var(--text-primary)",
                       fontSize: "12px",
                       fontFamily: "monospace",
                       resize: "vertical",

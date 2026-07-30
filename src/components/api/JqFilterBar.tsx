@@ -35,7 +35,7 @@ export function JqFilterBar({ value, onChange, error, placeholder }: Props) {
       data-testid="api-jq-filter-bar"
       style={{ display: "flex", alignItems: "center", gap: 6 }}
     >
-      <span style={{ color: "#8a8d94", fontSize: 11, whiteSpace: "nowrap" }}>
+      <span style={{ color: "var(--text-secondary)", fontSize: 11, whiteSpace: "nowrap" }}>
         filter:
       </span>
       <input
@@ -46,9 +46,9 @@ export function JqFilterBar({ value, onChange, error, placeholder }: Props) {
         title={error ?? undefined}
         style={{
           flex: 1,
-          background: "#0f1114",
-          color: "#e6e1cf",
-          border: `1px solid ${isErr ? "#f28779" : "#262a33"}`,
+          background: "var(--app-canvas)",
+          color: "var(--text-primary)",
+          border: `1px solid ${isErr ? "var(--status-danger)" : "var(--border-default)"}`,
           borderRadius: 4,
           padding: "4px 8px",
           fontFamily: "Menlo, monospace",
@@ -64,7 +64,7 @@ export function JqFilterBar({ value, onChange, error, placeholder }: Props) {
           }}
           style={{
             background: "transparent",
-            color: "#8a8d94",
+            color: "var(--text-secondary)",
             border: "none",
             cursor: "pointer",
             fontSize: 14,
@@ -78,7 +78,7 @@ export function JqFilterBar({ value, onChange, error, placeholder }: Props) {
         <span
           data-testid="api-jq-filter-error"
           style={{
-            color: "#f28779",
+            color: "var(--status-danger)",
             fontSize: 11,
             fontFamily: "Menlo, monospace",
             maxWidth: 260,

@@ -7,15 +7,15 @@
 
 .pre-check-prompt {
   padding: 20px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   text-align: center;
 }
 
 .pre-check-prompt p {
   margin: 0;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -30,7 +30,7 @@
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #262a33;
+  border: 3px solid var(--border-default);
   border-top-color: #4a90e2;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -43,13 +43,13 @@
 }
 
 .pre-check-running span {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .pre-check-complete {
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -60,7 +60,7 @@
   gap: 8px;
   padding: 12px 16px;
   background: #1a2e1a;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   color: #10b981;
   font-weight: 600;
   font-size: 13px;
@@ -97,8 +97,8 @@
 .run-pre-check-btn,
 .start-change-btn {
   padding: 12px;
-  background: #2d5a8c;
-  color: #e6e1cf;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;

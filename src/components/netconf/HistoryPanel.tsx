@@ -46,7 +46,7 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
         bottom: 0,
         width: 400,
         background: "#14161a",
-        borderLeft: "1px solid #262a33",
+        borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
         zIndex: 10,
@@ -56,13 +56,13 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#e6e1cf" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
           History
         </div>
         <button
@@ -70,8 +70,8 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
           onClick={onClose}
           style={{
             background: "transparent",
-            color: "#8a8d94",
-            border: "1px solid #262a33",
+            color: "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
             cursor: "pointer",
@@ -85,7 +85,7 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
         {loading && (
-          <div style={{ padding: 16, textAlign: "center", color: "#8a8d94" }}>
+          <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
             Loading...
           </div>
         )}
@@ -97,7 +97,7 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
               background: "#2a1a1a",
               border: "1px solid #3d2626",
               borderRadius: 4,
-              color: "#f28779",
+              color: "var(--status-danger)",
               fontSize: 12,
             }}
           >
@@ -110,7 +110,7 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
             style={{
               padding: 16,
               textAlign: "center",
-              color: "#6c7380",
+              color: "var(--text-muted)",
               fontSize: 13,
             }}
           >
@@ -142,15 +142,15 @@ function HistoryItem({
       onClick={() => onLoad(item.id)}
       style={{
         padding: 10,
-        background: "#0f1114",
-        border: "1px solid #262a33",
+        background: "var(--app-canvas)",
+        border: "1px solid var(--border-default)",
         borderRadius: 4,
         marginBottom: 6,
         cursor: "pointer",
         transition: "background 0.15s",
       }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1c20")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "#0f1114")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--app-canvas)")}
     >
       <div
         style={{
@@ -164,7 +164,7 @@ function HistoryItem({
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: "#e6e1cf",
+            color: "var(--text-primary)",
             fontFamily: "Menlo, monospace",
           }}
         >
@@ -173,7 +173,7 @@ function HistoryItem({
         <div
           style={{
             fontSize: 10,
-            color: isSuccess ? "#6bd968" : "#f28779",
+            color: isSuccess ? "var(--status-success)" : "var(--status-danger)",
             fontWeight: 600,
           }}
         >
@@ -184,7 +184,7 @@ function HistoryItem({
       <div
         style={{
           fontSize: 11,
-          color: "#8a8d94",
+          color: "var(--text-secondary)",
           marginBottom: 4,
         }}
       >
@@ -197,7 +197,7 @@ function HistoryItem({
           alignItems: "center",
           justifyContent: "space-between",
           fontSize: 10,
-          color: "#6c7380",
+          color: "var(--text-muted)",
         }}
       >
         <span>{time}</span>

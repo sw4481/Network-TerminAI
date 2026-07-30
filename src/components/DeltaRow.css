@@ -1,6 +1,6 @@
 .delta-row {
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 10px 12px;
   margin-bottom: 8px;
@@ -16,7 +16,7 @@
 .delta-path {
   font-family: Menlo, monospace;
   font-size: 12px;
-  color: #5ccfe6;
+  color: var(--accent);
   flex: 1;
 }
 
@@ -30,15 +30,15 @@
 }
 
 .delta-before {
-  color: #f28779;
+  color: var(--status-danger);
 }
 
 .delta-arrow {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .delta-after {
-  color: #6bd968;
+  color: var(--status-success);
 }
 
 .delta-footer {
@@ -50,14 +50,14 @@
 
 .delta-message {
   font-size: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   flex: 1;
 }
 
 .delta-approve-btn {
   padding: 4px 12px;
-  background: #2d5a8c;
-  color: #e6e1cf;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
   border: none;
   border-radius: 4px;
   cursor: pointer;

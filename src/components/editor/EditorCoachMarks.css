@@ -13,7 +13,7 @@
   position: fixed;
   border: 2px solid #0e9c6c;
   border-radius: 4px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 9999px rgb(var(--backdrop-rgb) / 0.55);
   pointer-events: none;
   transition: top 0.12s ease, height 0.12s ease;
 }
@@ -22,12 +22,12 @@
   position: fixed;
   width: 340px;
   max-width: 90vw;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   color: #ddd;
   border: 1px solid #0e9c6c;
   border-radius: 6px;
   padding: 14px 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgb(var(--backdrop-rgb) / 0.5);
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -45,7 +45,7 @@
 .coach-bubble-title {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .coach-bubble-body {
@@ -76,7 +76,7 @@
 
 .coach-btn-next {
   background: #0e9c6c;
-  color: #fff;
+  color: var(--text-inverse);
   border: none;
 }
 

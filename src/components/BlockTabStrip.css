@@ -23,13 +23,13 @@
 }
 
 .block-tab:hover:not(:disabled) {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .block-tab.active {
-  color: #fff;
+  color: var(--text-inverse);
   border-bottom-color: #5c8eda;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
 }
 
 .block-tab:disabled {

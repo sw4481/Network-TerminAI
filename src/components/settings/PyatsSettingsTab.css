@@ -20,7 +20,7 @@
 }
 
 .pyats-warning code {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgb(var(--backdrop-rgb) / 0.2);
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
   font-family: "SF Mono", Monaco, monospace;
@@ -94,7 +94,7 @@
 }
 
 .pyats-table tbody tr:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.03));
+  background: var(--bg-hover, rgb(var(--overlay-light-rgb) / 0.03));
 }
 
 .pyats-table tbody tr:last-child td {
@@ -110,19 +110,19 @@
   border-radius: 4px;
   /* Explicit colors (not undefined theme vars) so the typed text is always
      legible regardless of any ancestor --text-primary definition. */
-  background: #1a1d23;
-  color: #e6e1cf;
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
 .pyats-table input::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 /* The native dropdown options render on the OS layer; force legible colors. */
 .pyats-table select option {
-  background: #1a1d23;
-  color: #e6e1cf;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .pyats-table input:focus,

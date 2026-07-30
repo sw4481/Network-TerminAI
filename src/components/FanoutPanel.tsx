@@ -287,7 +287,7 @@ export function FanoutPanel() {
                     }}
                   />
                 </div>
-                <span style={{ color: "#8a8d94" }}>
+                <span style={{ color: "var(--text-secondary)" }}>
                   {formatTime(d.durationMs)}
                 </span>
                 <div className="fanout-row-actions">
@@ -367,16 +367,16 @@ export function FanoutPanel() {
               {h.command}
             </span>
             <span className={`fanout-status-chip ${h.status}`}>{h.status}</span>
-            <span style={{ color: "#8a8d94" }}>
+            <span style={{ color: "var(--text-secondary)" }}>
               {h.succeeded}/{h.total}
             </span>
-            <span style={{ color: "#8a8d94" }}>
+            <span style={{ color: "var(--text-secondary)" }}>
               {new Date(h.started_at * 1000).toLocaleTimeString()}
             </span>
           </div>
         ))}
         {history.length === 0 && (
-          <div className="fanout-history-row" style={{ color: "#8a8d94" }}>
+          <div className="fanout-history-row" style={{ color: "var(--text-secondary)" }}>
             No previous runs
           </div>
         )}
@@ -389,7 +389,7 @@ function MergedView({ devices }: { devices: DeviceRunState[] }) {
   const succeeded = devices.filter((d) => d.status === "success");
   if (succeeded.length === 0) {
     return (
-      <div style={{ color: "#8a8d94" }}>
+      <div style={{ color: "var(--text-secondary)" }}>
         Waiting for device output. Each device's parsed result will appear here
         as a column once the run completes.
       </div>
@@ -418,10 +418,10 @@ function MergedView({ devices }: { devices: DeviceRunState[] }) {
               </span>
             </td>
             <td>{formatTime(d.durationMs)}</td>
-            <td style={{ color: "#8a8d94" }}>
+            <td style={{ color: "var(--text-secondary)" }}>
               {d.blockId ? d.blockId.slice(0, 8) : "—"}
             </td>
-            <td style={{ color: "#8a8d94" }}>
+            <td style={{ color: "var(--text-secondary)" }}>
               {d.parsedOutputId ?? "—"}
             </td>
           </tr>

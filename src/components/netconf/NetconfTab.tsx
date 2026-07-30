@@ -173,7 +173,7 @@ export function NetconfTab({ tab }: { tab: Tab }) {
       <div
         style={{
           width: 280,
-          borderRight: "1px solid #262a33",
+          borderRight: "1px solid var(--border-default)",
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
@@ -190,14 +190,14 @@ export function NetconfTab({ tab }: { tab: Tab }) {
         )}
 
         {/* YANG Browser button */}
-        <div style={{ padding: 12, borderTop: "1px solid #262a33" }}>
+        <div style={{ padding: 12, borderTop: "1px solid var(--border-default)" }}>
           <button
             data-testid="netconf-yang-browser-toggle"
             onClick={() => setYangBrowserOpen(!yangBrowserOpen)}
             style={{
-              background: yangBrowserOpen ? "#2d5a8c" : "transparent",
-              color: yangBrowserOpen ? "#e6e1cf" : "#5ccfe6",
-              border: "1px solid #262a33",
+              background: yangBrowserOpen ? "var(--accent-subtle)" : "transparent",
+              color: yangBrowserOpen ? "var(--text-primary)" : "var(--accent)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "6px 10px",
               cursor: "pointer",
@@ -232,7 +232,7 @@ export function NetconfTab({ tab }: { tab: Tab }) {
         />
         <div
           style={{
-            borderTop: "1px solid #262a33",
+            borderTop: "1px solid var(--border-default)",
             flex: 1,
             minHeight: 0,
             display: "flex",

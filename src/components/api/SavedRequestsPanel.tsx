@@ -68,13 +68,13 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        borderTop: "1px solid #262a33",
+        borderTop: "1px solid var(--border-default)",
       }}
     >
       <div
         style={{
           padding: "6px 10px",
-          color: "#8a8d94",
+          color: "var(--text-secondary)",
           fontSize: 11,
           textTransform: "uppercase",
           letterSpacing: 0.5,
@@ -86,7 +86,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
       {error && (
         <div
           data-testid="api-saved-error"
-          style={{ color: "#f28779", fontSize: 11, padding: 6 }}
+          style={{ color: "var(--status-danger)", fontSize: 11, padding: 6 }}
         >
           {error}
         </div>
@@ -98,7 +98,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
         {rows && rows.length === 0 && (
           <div
             data-testid="api-saved-empty"
-            style={{ color: "#6c7380", fontSize: 11, padding: 10 }}
+            style={{ color: "var(--text-muted)", fontSize: 11, padding: 10 }}
           >
             No saved requests. Click the ★ next to Send to save one.
           </div>
@@ -113,9 +113,9 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
               alignItems: "center",
               gap: 8,
               padding: "4px 10px",
-              borderBottom: "1px solid #1a1d23",
+              borderBottom: "1px solid var(--surface-2)",
               cursor: "pointer",
-              color: "#e6e1cf",
+              color: "var(--text-primary)",
               fontSize: 11,
             }}
           >
@@ -123,7 +123,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
               style={{
                 width: 46,
                 flexShrink: 0,
-                color: "#8a8d94",
+                color: "var(--text-secondary)",
                 fontWeight: 600,
               }}
             >
@@ -133,7 +133,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
             <span
               style={{
                 flex: 2,
-                color: "#6c7380",
+                color: "var(--text-muted)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -148,7 +148,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
               aria-label={`Delete ${r.name}`}
               style={{
                 background: "transparent",
-                color: "#f28779",
+                color: "var(--status-danger)",
                 border: "none",
                 cursor: "pointer",
                 fontSize: 14,

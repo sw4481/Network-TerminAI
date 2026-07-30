@@ -195,7 +195,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
       <div
         style={{
           padding: "10px 12px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -218,8 +218,8 @@ export function ApiTab({ tab }: { tab: Tab }) {
               title={`Fetch ${targetDetail.manifest.openapi_url}`}
               style={{
                 background: "transparent",
-                color: importing ? "#6c7380" : "#5ccfe6",
-                border: "1px dashed #262a33",
+                color: importing ? "var(--text-muted)" : "var(--accent)",
+                border: "1px dashed var(--border-default)",
                 borderRadius: 4,
                 padding: "2px 10px",
                 cursor: importing ? "wait" : "pointer",
@@ -242,8 +242,8 @@ export function ApiTab({ tab }: { tab: Tab }) {
             data-testid="api-import-status"
             style={{
               color: importStatus.startsWith("Import failed")
-                ? "#f28779"
-                : "#6bd968",
+                ? "var(--status-danger)"
+                : "var(--status-success)",
               fontSize: 11,
             }}
           >
@@ -253,7 +253,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
         {targetErr && (
           <div
             data-testid="api-target-detail-error"
-            style={{ color: "#f28779", fontSize: 11 }}
+            style={{ color: "var(--status-danger)", fontSize: 11 }}
           >
             {targetErr}
           </div>
@@ -277,7 +277,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
       />
       <div
         style={{
-          borderTop: "1px solid #262a33",
+          borderTop: "1px solid var(--border-default)",
           flex: 1,
           minHeight: 0,
           display: "flex",
@@ -344,9 +344,9 @@ function DrawerToggle({
       data-testid={`api-drawer-${key}`}
       onClick={() => setDrawer(drawer === key ? "closed" : key)}
       style={{
-        background: drawer === key ? "#262a33" : "transparent",
-        color: drawer === key ? "#e6e1cf" : "#8a8d94",
-        border: "1px solid #262a33",
+        background: drawer === key ? "var(--surface-3)" : "transparent",
+        color: drawer === key ? "var(--text-primary)" : "var(--text-secondary)",
+        border: "1px solid var(--border-default)",
         borderRadius: 4,
         padding: "2px 10px",
         cursor: "pointer",
@@ -387,7 +387,7 @@ function SavePrompt({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         zIndex: 25,
         display: "flex",
         alignItems: "center",
@@ -397,12 +397,12 @@ function SavePrompt({
       <div
         style={{
           background: "#14161a",
-          border: "1px solid #262a33",
+          border: "1px solid var(--border-default)",
           borderRadius: 6,
           padding: 14,
           width: 420,
           maxWidth: "90vw",
-          color: "#e6e1cf",
+          color: "var(--text-primary)",
           display: "flex",
           flexDirection: "column",
           gap: 8,
@@ -420,9 +420,9 @@ function SavePrompt({
           }}
           placeholder="list-prod-orgs"
           style={{
-            background: "#0f1114",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "6px 10px",
             fontFamily: "Menlo, monospace",
@@ -432,7 +432,7 @@ function SavePrompt({
         {error && (
           <div
             data-testid="api-save-error"
-            style={{ color: "#f28779", fontSize: 11 }}
+            style={{ color: "var(--status-danger)", fontSize: 11 }}
           >
             {error}
           </div>
@@ -443,8 +443,8 @@ function SavePrompt({
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
-              border: "1px solid #262a33",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "4px 12px",
               cursor: "pointer",
@@ -458,8 +458,8 @@ function SavePrompt({
             onClick={onCommit}
             disabled={!name.trim()}
             style={{
-              background: name.trim() ? "#2d5a8c" : "#262a33",
-              color: "#e6e1cf",
+              background: name.trim() ? "var(--accent-subtle)" : "var(--surface-3)",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: 4,
               padding: "4px 12px",

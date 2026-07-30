@@ -11,7 +11,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: var(--app-bg, #0f1114);
+  background: var(--app-bg, var(--app-canvas));
   color: inherit;
 }
 
@@ -42,7 +42,7 @@
 }
 
 .topology-tab__empty code {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgb(var(--overlay-light-rgb) / 0.06);
   padding: 1px 4px;
   border-radius: 3px;
   font-family: Menlo, monospace;

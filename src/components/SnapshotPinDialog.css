@@ -1,7 +1,7 @@
 .snapshot-pin-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(var(--backdrop-rgb) / 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,7 +14,7 @@
   border-radius: 8px;
   padding: 18px 20px;
   width: 380px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: "SF Mono", "Menlo", "Monaco", monospace;
   display: flex;
   flex-direction: column;
@@ -26,7 +26,7 @@
   font-size: 14px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .snapshot-pin-dialog p {
@@ -36,13 +36,13 @@
 }
 
 .snapshot-pin-dialog input {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border: 1px solid #3a3a3a;
   border-radius: 4px;
   padding: 6px 8px;
   font-family: inherit;
   font-size: 12.5px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .snapshot-pin-dialog input:focus {

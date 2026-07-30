@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,7 +12,7 @@
 }
 
 .block-notebook-modal {
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #3a3d43;
   border-radius: 8px;
   width: 600px;
@@ -20,7 +20,7 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
 }
 
 .block-notebook-header {
@@ -35,7 +35,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .close-btn {
@@ -53,14 +53,14 @@
 }
 
 .close-btn:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .block-notebook-tabs {
   display: flex;
   border-bottom: 1px solid #3a3d43;
   padding: 0 20px;
-  background: #0f1114;
+  background: var(--app-canvas);
 }
 
 .block-notebook-tabs button {
@@ -75,11 +75,11 @@
 }
 
 .block-notebook-tabs button:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .block-notebook-tabs button.active {
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .block-notebook-tabs button.active::after {
@@ -89,7 +89,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #5ccfe6;
+  background: var(--accent);
 }
 
 .block-notebook-content {
@@ -108,7 +108,7 @@
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .notebook-save-tab input,
@@ -117,27 +117,27 @@
   padding: 10px 12px;
   border: 1px solid #3a3d43;
   border-radius: 4px;
-  background: #0f1114;
-  color: #e6e1cf;
+  background: var(--app-canvas);
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 14px;
 }
 
 .notebook-save-tab input::placeholder,
 .notebook-save-tab textarea::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .notebook-save-tab input:focus,
 .notebook-save-tab textarea:focus {
   outline: none;
-  border-color: #5ccfe6;
-  background: #1a1d23;
+  border-color: var(--accent);
+  background: var(--surface-2);
 }
 
 .save-btn {
-  background: #5ccfe6;
-  color: #0f1114;
+  background: var(--accent);
+  color: var(--app-canvas);
   border: none;
   padding: 10px 24px;
   border-radius: 4px;
@@ -159,7 +159,7 @@
 /* Load tab styles */
 .notebook-load-tab p {
   margin-bottom: 16px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -168,14 +168,14 @@
   padding: 10px;
   border: 1px solid #3a3d43;
   border-radius: 4px;
-  background: #0f1114;
-  color: #e6e1cf;
+  background: var(--app-canvas);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .notebook-load-tab input[type="file"]::file-selector-button {
-  background: #5ccfe6;
-  color: #0f1114;
+  background: var(--accent);
+  color: var(--app-canvas);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -202,7 +202,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  background: #0f1114;
+  background: var(--app-canvas);
 }
 
 .notebook-info {
@@ -213,7 +213,7 @@
   margin: 0 0 8px 0;
   font-size: 16px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .notebook-description {
@@ -224,7 +224,7 @@
 
 .notebook-date {
   font-size: 12px;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .notebook-actions {
@@ -236,8 +236,8 @@
   padding: 6px 12px;
   border: 1px solid #3a3d43;
   border-radius: 4px;
-  background: #1a1d23;
-  color: #e6e1cf;
+  background: var(--surface-2);
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
   transition: all 0.15s ease;
@@ -245,7 +245,7 @@
 
 .notebook-actions button:hover {
   background: #2a2d33;
-  border-color: #5ccfe6;
+  border-color: var(--accent);
 }
 
 .empty-state,

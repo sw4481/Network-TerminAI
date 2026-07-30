@@ -170,7 +170,7 @@
   border-radius: 8px;
   padding: 20px;
   margin-top: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgb(var(--backdrop-rgb) / 0.3);
   color: #e0e0e0;
 }
 

@@ -4,7 +4,7 @@
   width: 280px;
   min-width: 220px;
   border-left: 1px solid var(--border, #2a2a2a);
-  background: var(--panel-bg, #1e1e1e);
+  background: var(--panel-bg, var(--surface-terminal));
   padding: 8px;
   gap: 8px;
   overflow-y: auto;
@@ -75,7 +75,7 @@
 .iac-diff-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgb(var(--backdrop-rgb) / 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -86,7 +86,7 @@
   flex-direction: column;
   width: 80vw;
   height: 75vh;
-  background: var(--panel-bg, #1e1e1e);
+  background: var(--panel-bg, var(--surface-terminal));
   border: 1px solid var(--border, #2a2a2a);
   border-radius: 6px;
   overflow: hidden;
@@ -130,7 +130,7 @@
 }
 .iac-diff-accept {
   background: var(--accent, #0e639c);
-  color: #fff;
+  color: var(--text-inverse);
 }
 .iac-diff-reject {
   background: var(--button-bg, #2d2d2d);

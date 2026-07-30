@@ -8,14 +8,14 @@
   border: none;
   cursor: pointer;
   padding: 8px;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, var(--text-inverse));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .notification-bell:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgb(var(--overlay-light-rgb) / 0.1);
   border-radius: 4px;
 }
 
@@ -38,10 +38,10 @@
   top: 100%;
   right: 0;
   margin-top: 8px;
-  background-color: var(--bg-secondary, #1e1e1e);
+  background-color: var(--bg-secondary, var(--surface-terminal));
   border: 1px solid var(--border-color, #333);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.3);
   width: 320px;
   max-height: 400px;
   display: flex;
@@ -61,7 +61,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, var(--text-inverse));
 }
 
 .clear-all-btn {
@@ -102,7 +102,7 @@
 }
 
 .notification-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgb(var(--overlay-light-rgb) / 0.05);
 }
 
 .notification-content {
@@ -112,7 +112,7 @@
 .notification-command {
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 13px;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, var(--text-inverse));
   margin-bottom: 4px;
 }
 
@@ -132,5 +132,5 @@
 }
 
 .dismiss-btn:hover {
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, var(--text-inverse));
 }

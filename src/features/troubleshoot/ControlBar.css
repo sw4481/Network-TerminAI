@@ -2,12 +2,12 @@
   display: flex;
   gap: 6px;
   padding: 8px 14px;
-  background: #0a0c0f;
-  border-bottom: 1px solid #262a33;
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-default);
   align-items: center;
   font-family: Menlo, monospace;
   font-size: 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   flex-wrap: wrap;
 }
 
@@ -15,15 +15,15 @@
 
 .tb-control-status {
   font-size: 11px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .tb-control-btn {
-  background: #1a1d23;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 10px;
   font-family: Menlo, monospace;
@@ -33,7 +33,7 @@
 
 .tb-control-btn:hover:not(:disabled) {
   border-color: #5a8fd6;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .tb-control-btn:disabled {

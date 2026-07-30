@@ -98,13 +98,13 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
       <div
         style={{
           padding: 12,
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           flexDirection: "column",
           gap: 4,
         }}
       >
-        <label style={{ fontSize: 11, color: "#8a8d94", fontWeight: 500 }}>
+        <label style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
           Saved Devices
         </label>
         <div style={{ display: "flex", gap: 4 }}>
@@ -115,9 +115,9 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
             disabled={isConnected}
             style={{
               flex: 1,
-              background: "#0f1114",
-              color: "#e6e1cf",
-              border: "1px solid #262a33",
+              background: "var(--app-canvas)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "6px 8px",
               fontFamily: "Menlo, monospace",
@@ -139,7 +139,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
               disabled={isConnected}
               style={{
                 background: "transparent",
-                color: "#f28779",
+                color: "var(--status-danger)",
                 border: "1px solid #3d2626",
                 borderRadius: 4,
                 padding: "6px 10px",
@@ -159,13 +159,13 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
         <div
           style={{
             padding: 12,
-            borderBottom: "1px solid #262a33",
+            borderBottom: "1px solid var(--border-default)",
             display: "flex",
             flexDirection: "column",
             gap: 10,
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf" }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
             Connect to Device
           </div>
 
@@ -207,7 +207,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
               alignItems: "center",
               gap: 6,
               fontSize: 11,
-              color: "#e6e1cf",
+              color: "var(--text-primary)",
               cursor: "pointer",
             }}
           >
@@ -237,7 +237,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
             <div
               data-testid="netconf-connection-error"
               style={{
-                color: "#f28779",
+                color: "var(--status-danger)",
                 fontSize: 11,
                 padding: "6px 8px",
                 background: "#2a1a1a",
@@ -253,8 +253,8 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
             onClick={onConnect}
             disabled={isConnecting}
             style={{
-              background: isConnecting ? "#262a33" : "#2d5a8c",
-              color: "#e6e1cf",
+              background: isConnecting ? "var(--surface-3)" : "var(--accent-subtle)",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: 4,
               padding: "8px 12px",
@@ -273,7 +273,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
         <div
           style={{
             padding: 12,
-            borderBottom: "1px solid #262a33",
+            borderBottom: "1px solid var(--border-default)",
             display: "flex",
             flexDirection: "column",
             gap: 8,
@@ -291,17 +291,17 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: "#6bd968",
+                background: "var(--status-success)",
               }}
             />
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
               Connected
             </div>
           </div>
           <div
             style={{
               fontSize: 11,
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
               fontFamily: "Menlo, monospace",
             }}
           >
@@ -310,7 +310,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
           <div
             style={{
               fontSize: 11,
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
             }}
           >
             Session ID: {state.server_session_id}
@@ -318,7 +318,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
           <div
             style={{
               fontSize: 11,
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
             }}
           >
             Framing: NETCONF {state.framing}
@@ -328,7 +328,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
             onClick={onDisconnect}
             style={{
               background: "transparent",
-              color: "#f28779",
+              color: "var(--status-danger)",
               border: "1px solid #3d2626",
               borderRadius: 4,
               padding: "6px 10px",
@@ -364,7 +364,7 @@ function Input({
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <label
         htmlFor={testId}
-        style={{ fontSize: 11, color: "#8a8d94", fontWeight: 500 }}
+        style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}
       >
         {label}
       </label>
@@ -376,9 +376,9 @@ function Input({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
-          background: "#0f1114",
-          color: "#e6e1cf",
-          border: "1px solid #262a33",
+          background: "var(--app-canvas)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-default)",
           borderRadius: 4,
           padding: "6px 8px",
           fontFamily: "Menlo, monospace",

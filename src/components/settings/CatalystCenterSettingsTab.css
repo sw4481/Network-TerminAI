@@ -11,7 +11,7 @@
 
 .cc-subtitle {
   margin: 0 0 2rem 0;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .cc-grid label {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   text-align: right;
 }
@@ -43,7 +43,7 @@
   padding: 0.5rem;
   border: 1px solid #3a3a3a;
   border-radius: 4px;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   color: #e0e0e0;
   font-size: 0.95rem;
 }
@@ -71,7 +71,7 @@
 }
 
 .cc-field-desc {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   margin-top: -0.5rem;
 }
@@ -94,7 +94,7 @@
 
 .cc-btn-primary {
   background: #d4a857;
-  color: #1e1e1e;
+  color: var(--surface-terminal);
 }
 
 .cc-btn-primary:hover:not(:disabled) {

@@ -8,7 +8,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,7 +16,7 @@
 }
 
 .discovery-modal {
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #2a2f3a;
   border-radius: 8px;
   width: 90%;
@@ -24,7 +24,7 @@
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
 }
 
 .discovery-modal__header {
@@ -125,7 +125,7 @@
 }
 
 .discovery-modal__password-input::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .discovery-modal__device {
@@ -140,7 +140,7 @@
 }
 
 .discovery-modal__device:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgb(var(--overlay-light-rgb) / 0.02);
   border-color: #3a3f4a;
 }
 
@@ -189,7 +189,7 @@
 }
 
 .discovery-modal__button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgb(var(--overlay-light-rgb) / 0.05);
 }
 
 .discovery-modal__button:disabled {
@@ -200,7 +200,7 @@
 .discovery-modal__button--primary {
   background: #0ea770;
   border-color: #0ea770;
-  color: #ffffff;
+  color: var(--text-inverse);
   font-weight: 500;
 }
 

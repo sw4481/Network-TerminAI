@@ -303,8 +303,8 @@ export function FtpSettingsTab({ visible }: { visible: boolean }) {
           alignItems: "end",
           marginBottom: 16,
           padding: 12,
-          background: "#0a0c0f",
-          border: "1px solid #262a33",
+          background: "var(--surface-chrome)",
+          border: "1px solid var(--border-default)",
           borderRadius: 6,
         }}
       >
@@ -438,9 +438,9 @@ function StatusPill({ status }: { status: FtpStatus | null }) {
         fontWeight: 600,
         letterSpacing: "0.04em",
         textTransform: "uppercase",
-        background: running ? "#0a2e1a" : "#262a33",
-        color: running ? "#6bd968" : "#8a8d94",
-        border: `1px solid ${running ? "#1b5a34" : "#262a33"}`,
+        background: running ? "#0a2e1a" : "var(--surface-3)",
+        color: running ? "var(--status-success)" : "var(--text-secondary)",
+        border: `1px solid ${running ? "#1b5a34" : "var(--border-default)"}`,
       }}
     >
       <span
@@ -448,8 +448,8 @@ function StatusPill({ status }: { status: FtpStatus | null }) {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          background: running ? "#6bd968" : "#6c7380",
-          boxShadow: running ? "0 0 6px #6bd968" : "none",
+          background: running ? "var(--status-success)" : "var(--text-muted)",
+          boxShadow: running ? "0 0 6px var(--status-success)" : "none",
         }}
       />
       {running

@@ -6,12 +6,12 @@
   transform: translateX(-50%);
   width: 600px;
   max-width: 90vw;
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #3a3d43;
   border-radius: 6px;
   max-height: 300px;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
   z-index: 100;
   animation: slideUp 0.15s ease-out;
 }
@@ -47,7 +47,7 @@
 }
 
 .drag-dots {
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1;
 }
@@ -63,7 +63,7 @@
 .suggestions-close-btn {
   background: transparent;
   border: none;
-  color: #6c7380;
+  color: var(--text-muted);
   cursor: pointer;
   padding: 4px 8px;
   font-size: 16px;
@@ -74,8 +74,8 @@
 }
 
 .suggestions-close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e6e1cf;
+  background: rgb(var(--overlay-light-rgb) / 0.1);
+  color: var(--text-primary);
 }
 
 .suggestions-close-btn:active {
@@ -127,7 +127,7 @@
 }
 
 .suggestion-command {
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: 'Menlo', 'SF Mono', Monaco, monospace;
   font-size: 13px;
   font-weight: 600;
@@ -143,7 +143,7 @@
   top: 10px;
   right: 12px;
   font-size: 10px;
-  color: #6c7380;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   display: flex;

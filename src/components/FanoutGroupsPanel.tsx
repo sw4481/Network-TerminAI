@@ -177,7 +177,7 @@ export function FanoutGroupsPanel() {
                       {m.device_kind.toUpperCase()}
                     </span>
                     <span>{m.display_name}</span>
-                    <span style={{ color: "#8a8d94" }}>{m.host}</span>
+                    <span style={{ color: "var(--text-secondary)" }}>{m.host}</span>
                     <button
                       className="fanout-member-remove"
                       onClick={() =>

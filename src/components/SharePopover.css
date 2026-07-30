@@ -1,6 +1,6 @@
 /* Compact menu popover anchored under the share (↗) action button.
  * Idiom matches PinnedRow / TagChipStrip / shared-import-banner:
- *   bg #1a1d23, border #262a33, accent #5ccfe6,
+ *   bg var(--surface-2), border var(--border-default), accent var(--accent),
  *   SF Mono / Menlo monospace, small radii, ~12px copy.
  *
  * Positioning: caller (BlockActions) wraps the popover in a
@@ -18,12 +18,12 @@
   right: 0;
   min-width: 200px;
   padding: 6px;
-  background: #1a1d23;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 6px 20px rgb(var(--backdrop-rgb) / 0.55);
   font: 500 12px/1.3 'SF Mono', 'Menlo', 'Monaco', monospace;
-  color: #e6e1cf;
+  color: var(--text-primary);
   z-index: 9000;
   display: flex;
   flex-direction: column;
@@ -40,7 +40,7 @@
   font: 500 10px/1 'SF Mono', 'Menlo', 'Monaco', monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5ccfe6;
+  color: var(--accent);
   padding: 4px 8px 6px;
 }
 
@@ -53,7 +53,7 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   font: inherit;
@@ -61,10 +61,10 @@
 }
 .share-popover-item:hover:not(:disabled) {
   background: #1f242c;
-  border-color: #5ccfe6;
+  border-color: var(--accent);
 }
 .share-popover-item:focus-visible {
-  outline: 2px solid #5ccfe6;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 .share-popover-item:disabled {
@@ -72,10 +72,10 @@
   cursor: not-allowed;
 }
 
-.share-popover-item-danger { color: #f28779; }
+.share-popover-item-danger { color: var(--status-danger); }
 .share-popover-item-danger:hover:not(:disabled) {
   background: rgba(242, 135, 121, 0.08);
-  border-color: #f28779;
+  border-color: var(--status-danger);
 }
 
 .share-popover-glyph {
@@ -84,7 +84,7 @@
   justify-content: center;
   width: 18px;
   font-size: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 .share-popover-item:hover:not(:disabled) .share-popover-glyph { color: inherit; }
 
@@ -92,7 +92,7 @@
 
 .share-popover-divider {
   height: 1px;
-  background: #262a33;
+  background: var(--surface-3);
   margin: 4px 0;
 }
 
@@ -104,11 +104,11 @@
   letter-spacing: 0.02em;
 }
 .share-popover-feedback-ok {
-  color: #5ccfe6;
+  color: var(--accent);
   background: rgba(92, 207, 230, 0.08);
 }
 .share-popover-feedback-err {
-  color: #f28779;
+  color: var(--status-danger);
   background: rgba(242, 135, 121, 0.08);
 }
 

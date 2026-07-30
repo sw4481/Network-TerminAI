@@ -13,10 +13,10 @@
   gap: 6px;
   margin-top: 6px;
   padding: 3px 8px;
-  border: 1px solid #262a33;
+  border: 1px solid var(--border-default);
   border-radius: 3px;
   background: transparent;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
   font-size: 11px;
   font-weight: 500;
@@ -25,7 +25,7 @@
 }
 
 .agent-sources-badge:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
   box-shadow: 0 0 0 1px #d4a857;
 }
 
@@ -52,7 +52,7 @@
 
 .agent-sources-badge-suffix {
   margin-left: 4px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 /* ============== Drawer overlay (panel-scoped) ============== */
@@ -74,9 +74,9 @@
   bottom: 0;
   width: 360px;
   max-width: 100%;
-  background: #0f1114;
-  color: #e6e1cf;
-  border-left: 1px solid #262a33;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border-left: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   transform: translateX(0);
@@ -97,8 +97,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #0f1114;
-  border-bottom: 1px solid #262a33;
+  background: var(--app-canvas);
+  border-bottom: 1px solid var(--border-default);
   padding: 10px 14px;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -110,13 +110,13 @@
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .agent-sources-count {
   font-size: 11px;
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
-  color: #8a8d94;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -124,8 +124,8 @@
 
 .agent-sources-close {
   background: transparent;
-  border: 1px solid #262a33;
-  color: #8a8d94;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
   font-size: 14px;
   width: 24px;
   height: 24px;
@@ -137,7 +137,7 @@
 }
 
 .agent-sources-close:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
   border-color: #d4a857;
 }
 
@@ -158,8 +158,8 @@
 }
 
 .agent-source-card {
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 10px 12px;
   display: flex;
@@ -170,7 +170,7 @@
 .agent-source-title {
   font-size: 13px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -188,7 +188,7 @@
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
   font-size: 11px;
   font-weight: 500;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .agent-source-text {
@@ -196,7 +196,7 @@
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
   font-size: 12px;
   line-height: 1.55;
-  color: #e6e1cf;
+  color: var(--text-primary);
   background: transparent;
   border-left: 2px solid #d4a857;
   padding: 4px 0 4px 8px;
@@ -212,8 +212,8 @@
 
 .agent-source-copy {
   background: transparent;
-  border: 1px solid #262a33;
-  color: #5ccfe6;
+  border: 1px solid var(--border-default);
+  color: var(--accent);
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
   font-size: 11px;
   padding: 3px 8px;
@@ -223,7 +223,7 @@
 }
 
 .agent-source-copy:hover {
-  border-color: #5ccfe6;
+  border-color: var(--accent);
 }
 
 .agent-source-copy:focus-visible {
@@ -248,13 +248,13 @@
 .agent-source-empty {
   padding: 24px 8px;
   text-align: center;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .agent-source-empty-title {
   margin: 0 0 6px 0;
   font-size: 13px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .agent-source-empty-body {
@@ -268,14 +268,14 @@
 .agent-sources-active-tags {
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
 }
 .agent-sources-active-tags-title {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 .agent-sources-active-tags-row {
   display: flex;
@@ -286,12 +286,12 @@
 .agent-sources-empty-tags {
   margin: 0 0 0.5rem;
   font-size: 0.8rem;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 .agent-sources-active-tags-help {
   margin: 0;
   font-size: 0.75rem;
-  color: #8a8d94;
+  color: var(--text-secondary);
   opacity: 0.8;
 }
 .rag-tag-count {

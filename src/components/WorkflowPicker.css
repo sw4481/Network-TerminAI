@@ -4,7 +4,7 @@
 .wf-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -19,7 +19,7 @@
 }
 
 .wf-picker-modal {
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #3a3d43;
   border-radius: 8px;
   width: 640px;
@@ -27,9 +27,9 @@
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgb(var(--backdrop-rgb) / 0.5);
   font-family: Menlo, Monaco, "Courier New", monospace;
-  color: #e6e1cf;
+  color: var(--text-primary);
   animation: wfPickerSlideUp 0.2s ease-out;
 }
 
@@ -43,14 +43,14 @@
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .wf-picker-search {
   flex: 1 1 auto;
-  background: #0f1114;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 8px 10px;
   font-family: inherit;
@@ -70,7 +70,7 @@
 }
 
 .wf-picker-scope-chip {
-  background: #262a33;
+  background: var(--surface-3);
   color: #c8c2a3;
   font-size: 11px;
   padding: 3px 8px;
@@ -90,8 +90,8 @@
 }
 
 .wf-picker-scope-toggle:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .wf-picker-list {
@@ -102,7 +102,7 @@
 
 .wf-picker-empty {
   padding: 24px 16px;
-  color: #6c7380;
+  color: var(--text-muted);
   text-align: center;
   font-size: 12px;
 }
@@ -117,7 +117,7 @@
   background: transparent;
   border: none;
   border-left: 3px solid transparent;
-  color: #e6e1cf;
+  color: var(--text-primary);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -140,7 +140,7 @@
 .wf-picker-item-name {
   font-size: 13px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,7 +162,7 @@
 }
 
 .wf-picker-tag {
-  background: #262a33;
+  background: var(--surface-3);
   color: #94d6c8;
   font-size: 10px;
   padding: 2px 6px;
@@ -171,11 +171,11 @@
 
 .wf-picker-steps {
   font-size: 10px;
-  color: #6c7380;
-  background: #0f1114;
+  color: var(--text-muted);
+  background: var(--app-canvas);
   padding: 2px 6px;
   border-radius: 8px;
-  border: 1px solid #262a33;
+  border: 1px solid var(--border-default);
 }
 
 .wf-picker-footer {
@@ -183,9 +183,9 @@
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
   font-size: 11px;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .wf-picker-footer-spacer {
@@ -209,13 +209,13 @@
 }
 
 .wf-picker-footer .wf-export-import button:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .wf-picker-new-btn {
   background: #0e639c;
-  color: #ffffff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 4px;
   padding: 4px 10px;

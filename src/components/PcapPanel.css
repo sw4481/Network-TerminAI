@@ -16,8 +16,8 @@
   min-height: 0;
   height: 100%;
   width: 100%;
-  background: #0f1114;
-  color: #e6e1cf;
+  background: var(--app-canvas);
+  color: var(--text-primary);
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 12px;
   overflow: hidden;
@@ -26,7 +26,7 @@
 .pcap-panel-col {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #262a33;
+  border-right: 1px solid var(--border-default);
   overflow: hidden;
   min-width: 0;
 }
@@ -55,10 +55,10 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }
 .pcap-panel-id {
-  color: #8a8d94;
+  color: var(--text-secondary);
   text-transform: none;
   letter-spacing: 0;
   font-size: 11px;
@@ -82,7 +82,7 @@
 .pcap-panel-conn-picker input {
   background: #0e0e0e;
   border: 1px solid #2d2d2d;
-  color: #e6e1cf;
+  color: var(--text-primary);
   border-radius: 4px;
   padding: 4px 8px;
   font-family: inherit;
@@ -158,7 +158,7 @@
   text-overflow: ellipsis;
 }
 .pcap-panel-recent-iface {
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 .pcap-panel-recent-size {
   color: #8a8a8a;

@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,15 +22,15 @@
 }
 
 .parameter-form {
-  background: #1a1d23;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 24px;
   min-width: 500px;
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
   animation: slideUp 0.2s ease-out;
 }
 
@@ -47,13 +47,13 @@
 
 .parameter-form-header {
   margin-bottom: 24px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   padding-bottom: 16px;
 }
 
 .parameter-form-header h3 {
   margin: 0 0 8px 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 20px;
   font-weight: 600;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
@@ -61,7 +61,7 @@
 
 .parameter-form-header p {
   margin: 0;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -79,7 +79,7 @@
 }
 
 .parameter-field label {
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   display: flex;
@@ -93,18 +93,18 @@
 }
 
 .parameter-description {
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 12px;
   margin-top: -4px;
 }
 
 .parameter-field input,
 .parameter-field select {
-  background: #262a33;
+  background: var(--surface-3);
   border: 1px solid #3a3f4b;
   border-radius: 4px;
   padding: 10px 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 14px;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   transition: border-color 0.2s, background-color 0.2s;
@@ -128,7 +128,7 @@
 }
 
 .parameter-field input::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .parameter-form-actions {
@@ -136,7 +136,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding-top: 16px;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
 }
 
 .parameter-form-actions button {
@@ -154,8 +154,8 @@
 }
 
 .btn-cancel {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .btn-cancel:hover {
@@ -164,7 +164,7 @@
 
 .btn-submit {
   background: #4a9eff;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .btn-submit:hover {
@@ -173,7 +173,7 @@
 
 .btn-submit:disabled {
   background: #3a3f4b;
-  color: #6c7380;
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
@@ -183,7 +183,7 @@
 }
 
 .parameter-form::-webkit-scrollbar-track {
-  background: #1a1d23;
+  background: var(--surface-2);
 }
 
 .parameter-form::-webkit-scrollbar-thumb {
@@ -197,7 +197,7 @@
 
 .btn-save {
   background: #48b88a;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .btn-save:hover {
@@ -209,28 +209,28 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #4a9eff;
   border-radius: 8px;
   padding: 20px;
   min-width: 300px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.7);
   z-index: 10;
 }
 
 .save-dialog h4 {
   margin: 0 0 16px 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
 .save-dialog input {
   width: 100%;
-  background: #262a33;
+  background: var(--surface-3);
   border: 1px solid #3a3f4b;
   border-radius: 4px;
   padding: 10px 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 14px;
   margin-bottom: 8px;
 }
@@ -263,8 +263,8 @@
 }
 
 .save-dialog-actions button:first-child {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .save-dialog-actions button:first-child:hover {
@@ -273,7 +273,7 @@
 
 .save-dialog-actions button:last-child {
   background: #48b88a;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .save-dialog-actions button:last-child:hover {

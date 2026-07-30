@@ -6,7 +6,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,7 +24,7 @@
 }
 
 .templates-modal {
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #3a3d43;
   border-radius: 8px;
   width: 700px;
@@ -32,7 +32,7 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
   animation: slideUp 0.2s ease-out;
 }
 
@@ -60,13 +60,13 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .close-btn {
   background: transparent;
   border: none;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 20px;
   cursor: pointer;
   padding: 4px 8px;
@@ -76,8 +76,8 @@
 }
 
 .close-btn:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .templates-content {
@@ -100,7 +100,7 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -108,12 +108,12 @@
 }
 
 .category-tab:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .category-tab.active {
-  color: #5ccfe6;
-  border-bottom-color: #5ccfe6;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .templates-list {
@@ -131,7 +131,7 @@
   align-items: flex-start;
   gap: 6px;
   padding: 12px 16px;
-  background: #0f1114;
+  background: var(--app-canvas);
   border: 1px solid #3a3d43;
   border-radius: 6px;
   cursor: pointer;
@@ -140,8 +140,8 @@
 }
 
 .template-item:hover {
-  background: #262a33;
-  border-color: #5ccfe6;
+  background: var(--surface-3);
+  border-color: var(--accent);
   transform: translateX(4px);
 }
 
@@ -152,13 +152,13 @@
 .template-name {
   font-size: 14px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .template-command {
   font-family: 'Menlo', 'SF Mono', Monaco, monospace;
   font-size: 12px;
-  color: #5ccfe6;
+  color: var(--accent);
   background: rgba(92, 207, 230, 0.1);
   padding: 4px 8px;
   border-radius: 3px;
@@ -179,7 +179,7 @@
 
 .templates-hint {
   font-size: 12px;
-  color: #6c7380;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -189,7 +189,7 @@
 }
 
 .templates-list::-webkit-scrollbar-track {
-  background: #1a1d23;
+  background: var(--surface-2);
 }
 
 .templates-list::-webkit-scrollbar-thumb {

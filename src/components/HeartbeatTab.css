@@ -3,8 +3,8 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: #0f1114;
-  color: #e6e1cf;
+  background: var(--app-canvas);
+  color: var(--text-primary);
   font-family: Menlo, monospace;
 }
 
@@ -13,8 +13,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #262a33;
-  background: #14171c;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-overlay);
 }
 
 .heartbeat-title {
@@ -27,12 +27,12 @@
   margin: 0;
   font-size: 18px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .heartbeat-count {
   font-size: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .heartbeat-controls {
@@ -51,14 +51,14 @@
 
 .heartbeat-filter label,
 .heartbeat-sort label {
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .heartbeat-filter select,
 .heartbeat-sort select {
   background: #1a1d22;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 4px 8px;
   font-family: inherit;
@@ -72,8 +72,8 @@
 }
 
 .heartbeat-new-btn {
-  background: #2d5a8c;
-  color: #fff;
+  background: var(--accent-subtle);
+  color: var(--text-inverse);
   border: none;
   padding: 6px 12px;
   border-radius: 4px;
@@ -102,7 +102,7 @@
   justify-content: center;
   height: 100%;
   gap: 16px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .heartbeat-empty p {
@@ -111,8 +111,8 @@
 }
 
 .heartbeat-empty-btn {
-  background: #2d5a8c;
-  color: #fff;
+  background: var(--accent-subtle);
+  color: var(--text-inverse);
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
@@ -127,8 +127,8 @@
 
 /* Card styles */
 .heartbeat-card {
-  background: #14171c;
-  border: 1px solid #262a33;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 16px;
   display: flex;
@@ -161,7 +161,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .heartbeat-disabled-badge {
@@ -180,8 +180,8 @@
 
 .heartbeat-action-btn {
   background: #1a1d22;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -209,7 +209,7 @@
 
 .heartbeat-card-description {
   font-size: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -227,13 +227,13 @@
 }
 
 .heartbeat-meta-label {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 10px;
   text-transform: uppercase;
 }
 
 .heartbeat-meta-value {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .heartbeat-card-footer {
@@ -260,14 +260,14 @@
 /* Timeline styles */
 .heartbeat-timeline {
   margin-top: 8px;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
   padding-top: 12px;
 }
 
 .heartbeat-timeline-empty {
   text-align: center;
   padding: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -285,7 +285,7 @@
   gap: 12px;
   align-items: center;
   padding: 8px 12px;
-  background: #0f1114;
+  background: var(--app-canvas);
   border: 1px solid #1a1d22;
   border-radius: 4px;
   font-size: 11px;
@@ -299,11 +299,11 @@
 }
 
 .heartbeat-timeline-time {
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .heartbeat-timeline-duration {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 /* Badge styles */

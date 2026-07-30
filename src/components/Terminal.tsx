@@ -617,14 +617,14 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       position: fixed;
       top: 20px;
       right: 20px;
-      background: #1a1d23;
+      background: var(--surface-2);
       border: 1px solid #0ea770;
       border-radius: 8px;
       padding: 12px 16px;
       color: #e3e4e6;
       font-size: 14px;
       z-index: 10001;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.5);
     `;
     statusDiv.textContent = '🗺️ Ingesting topology...';
     document.body.appendChild(statusDiv);
@@ -675,7 +675,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
     padding: "8px 12px",
     background: "transparent",
     border: "none",
-    color: "#e6e1cf",
+    color: "var(--text-primary)",
     cursor: "pointer",
     borderRadius: "4px",
     fontSize: "13px",
@@ -980,10 +980,10 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
             position: "fixed",
             left: contextMenu.x,
             top: contextMenu.y,
-            background: "#1a1d23",
-            border: "1px solid #262a33",
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-default)",
             borderRadius: "6px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.5)",
             padding: "4px",
             zIndex: 10000,
             minWidth: "200px",
@@ -998,7 +998,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
               <button
                 onClick={handleAskAI}
                 style={menuButtonStyle}
-                onMouseOver={(e) => (e.currentTarget.style.background = "#262a33")}
+                onMouseOver={(e) => (e.currentTarget.style.background = "var(--surface-selected)")}
                 onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 ✨ Ask AI about selection
@@ -1006,7 +1006,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
               {agents.length > 0 && (
                 <div
                   style={{
-                    borderTop: "1px solid #262a33",
+                    borderTop: "1px solid var(--border-default)",
                     margin: "4px 0",
                     paddingTop: "4px",
                   }}
@@ -1014,7 +1014,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
                   <div
                     style={{
                       padding: "4px 12px",
-                      color: "#6c7380",
+                      color: "var(--text-muted)",
                       fontSize: "11px",
                       textTransform: "uppercase",
                       letterSpacing: "0.06em",
@@ -1028,7 +1028,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
                       onClick={() => handleAskAgent(a.id)}
                       style={menuButtonStyle}
                       onMouseOver={(e) =>
-                        (e.currentTarget.style.background = "#262a33")
+                        (e.currentTarget.style.background = "var(--surface-selected)")
                       }
                       onMouseOut={(e) =>
                         (e.currentTarget.style.background = "transparent")
@@ -1049,7 +1049,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
                 <>
                   <div
                     style={{
-                      borderTop: "1px solid #262a33",
+                      borderTop: "1px solid var(--border-default)",
                       margin: "4px 0",
                     }}
                   />
@@ -1057,7 +1057,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
                     onClick={handleIngestTopology}
                     style={menuButtonStyle}
                     onMouseOver={(e) =>
-                      (e.currentTarget.style.background = "#262a33")
+                      (e.currentTarget.style.background = "var(--surface-selected)")
                     }
                     onMouseOut={(e) =>
                       (e.currentTarget.style.background = "transparent")
@@ -1070,7 +1070,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
               )}
               <div
                 style={{
-                  borderTop: "1px solid #262a33",
+                  borderTop: "1px solid var(--border-default)",
                   margin: "4px 0",
                 }}
               />
@@ -1087,7 +1087,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
                 onClick={handleCopy}
                 style={menuButtonStyle}
                 onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#262a33")
+                  (e.currentTarget.style.background = "var(--surface-selected)")
                 }
                 onMouseOut={(e) =>
                   (e.currentTarget.style.background = "transparent")
@@ -1101,7 +1101,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
               onClick={handlePaste}
               style={menuButtonStyle}
               onMouseOver={(e) =>
-                (e.currentTarget.style.background = "#262a33")
+                (e.currentTarget.style.background = "var(--surface-selected)")
               }
               onMouseOut={(e) =>
                 (e.currentTarget.style.background = "transparent")

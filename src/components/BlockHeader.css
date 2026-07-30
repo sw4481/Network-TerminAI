@@ -53,7 +53,7 @@
   flex: 1;
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 13px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

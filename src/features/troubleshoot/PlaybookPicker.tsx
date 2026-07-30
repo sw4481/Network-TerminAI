@@ -636,7 +636,7 @@ export function PlaybookPicker({
         {playbooks.length === 0 && (
           <div
             style={{
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
               fontSize: 11,
               padding: 6,
               textAlign: "center",

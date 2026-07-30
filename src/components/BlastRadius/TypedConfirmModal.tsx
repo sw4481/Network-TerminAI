@@ -81,7 +81,7 @@ export function TypedConfirmModal({
             data-testid="br-typed-input"
             aria-label="Type the command to confirm"
           />
-          <div style={{ fontSize: 11.5, color: "#8a8d94", marginTop: 6 }}>
+          <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginTop: 6 }}>
             Target: {vendor}/{platform}
           </div>
           <div className="br-impact" data-testid="br-impact">

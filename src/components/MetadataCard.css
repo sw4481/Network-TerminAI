@@ -5,8 +5,8 @@
   background: #1a1d24;
   border: 1px solid #2d3139;
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  color: #e6e1cf;
+  box-shadow: 0 8px 24px rgb(var(--backdrop-rgb) / 0.45);
+  color: var(--text-primary);
   font-size: 12px;
   user-select: none;
 }
@@ -23,7 +23,7 @@
   background: none; border: none; color: #9aa0aa; cursor: pointer;
   font-size: 14px; line-height: 1; padding: 2px 4px;
 }
-.metadata-card__btn:hover { color: #e6e1cf; }
+.metadata-card__btn:hover { color: var(--text-primary); }
 .metadata-card__body { padding: 8px 10px; }
 .metadata-card__section { margin-bottom: 10px; }
 .metadata-card__section h4 {

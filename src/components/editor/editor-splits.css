@@ -90,7 +90,7 @@
 
 .editor-pane-actions button:hover:not(:disabled) {
   background: #333333;
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .editor-pane-actions button:disabled {

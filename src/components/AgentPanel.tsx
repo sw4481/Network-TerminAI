@@ -854,10 +854,10 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 marginTop: "6px",
                 width: "100%",
                 padding: "6px 8px",
-                background: "#0a0c0f",
-                border: "1px solid #262a33",
+                background: "var(--surface-chrome)",
+                border: "1px solid var(--border-default)",
                 borderRadius: "4px",
-                color: "#e6e1cf",
+                color: "var(--text-primary)",
                 fontSize: "12px",
               }}
             >

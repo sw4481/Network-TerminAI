@@ -87,11 +87,11 @@ export function MaintenanceWindowModal({
             <strong>Why this is gated:</strong> {reasoning}
           </div>
           <code className="br-cmd">{command}</code>
-          <div style={{ fontSize: 11.5, color: "#8a8d94", marginBottom: 10 }}>
+          <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 10 }}>
             Target: {vendor}/{platform}
           </div>
 
-          <div style={{ fontSize: 11.5, color: "#8a8d94", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Maintenance windows
           </div>
           <ul className="br-mw-list" data-testid="br-mw-list">
@@ -109,7 +109,7 @@ export function MaintenanceWindowModal({
                   data-testid={`br-mw-${w.id}`}
                 >
                   <strong>{w.label}</strong>
-                  <span style={{ marginLeft: 8, color: "#8a8d94", fontSize: 11.5 }}>
+                  <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontSize: 11.5 }}>
                     {new Date(w.startsAt * 1000).toLocaleString()} →{" "}
                     {new Date(w.endsAt * 1000).toLocaleString()}
                   </span>

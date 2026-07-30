@@ -12,17 +12,17 @@ type Props = {
 function methodColor(method: string): string {
   switch (method.toUpperCase()) {
     case "GET":
-      return "#6bd968";
+      return "var(--status-success)";
     case "POST":
-      return "#5ccfe6";
+      return "var(--accent)";
     case "PUT":
-      return "#ffb454";
+      return "var(--status-warning)";
     case "PATCH":
       return "#d4bfff";
     case "DELETE":
-      return "#f28779";
+      return "var(--status-danger)";
     default:
-      return "#8a8d94";
+      return "var(--text-secondary)";
   }
 }
 
@@ -53,9 +53,9 @@ export function EndpointPicker({ endpoints, value, onChange }: Props) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         style={{
-          background: "#0f1114",
-          color: "#e6e1cf",
-          border: "1px solid #262a33",
+          background: "var(--app-canvas)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-default)",
           borderRadius: 4,
           padding: "4px 8px",
           fontFamily: "Menlo, monospace",
@@ -69,16 +69,16 @@ export function EndpointPicker({ endpoints, value, onChange }: Props) {
           flexDirection: "column",
           maxHeight: 220,
           overflowY: "auto",
-          border: "1px solid #262a33",
+          border: "1px solid var(--border-default)",
           borderRadius: 4,
-          background: "#0f1114",
+          background: "var(--app-canvas)",
         }}
       >
         {filtered.length === 0 && (
           <div
             style={{
               padding: 10,
-              color: "#6c7380",
+              color: "var(--text-muted)",
               fontSize: 12,
               fontFamily: "Menlo, monospace",
             }}
@@ -99,12 +99,12 @@ export function EndpointPicker({ endpoints, value, onChange }: Props) {
                 alignItems: "center",
                 gap: 10,
                 padding: "6px 10px",
-                background: selected ? "#262a33" : "transparent",
+                background: selected ? "var(--surface-3)" : "transparent",
                 border: "none",
-                borderBottom: "1px solid #1a1d23",
+                borderBottom: "1px solid var(--surface-2)",
                 cursor: "pointer",
                 textAlign: "left",
-                color: "#e6e1cf",
+                color: "var(--text-primary)",
                 fontFamily: "Menlo, monospace",
                 fontSize: 12,
               }}
@@ -120,12 +120,12 @@ export function EndpointPicker({ endpoints, value, onChange }: Props) {
                 {e.method}
               </span>
               <span style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: "#e6e1cf", fontWeight: 600 }}>
+                <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                   {e.name}
                 </div>
                 <div
                   style={{
-                    color: "#8a8d94",
+                    color: "var(--text-secondary)",
                     fontSize: 11,
                     whiteSpace: "nowrap",
                     overflow: "hidden",

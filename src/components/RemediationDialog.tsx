@@ -55,7 +55,7 @@ export function RemediationDialog({ report, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -67,10 +67,10 @@ export function RemediationDialog({ report, onClose }: Props) {
         style={{
           width: "min(900px, 92vw)",
           height: "min(640px, 80vh)",
-          background: "#14171c",
-          border: "1px solid #262a33",
+          background: "var(--surface-overlay)",
+          border: "1px solid var(--border-default)",
           borderRadius: 6,
-          color: "#e6e1cf",
+          color: "var(--text-primary)",
           fontFamily: "Menlo, monospace",
           display: "flex",
           flexDirection: "column",
@@ -81,7 +81,7 @@ export function RemediationDialog({ report, onClose }: Props) {
         <div
           style={{
             padding: "10px 14px",
-            borderBottom: "1px solid #262a33",
+            borderBottom: "1px solid var(--border-default)",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -90,7 +90,7 @@ export function RemediationDialog({ report, onClose }: Props) {
           <span style={{ fontSize: 13, fontWeight: 500 }}>
             Remediation Patch · {report.device_id}
           </span>
-          <span style={{ fontSize: 11, color: "#8a8d94" }}>
+          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
             Review before pushing
           </span>
           <button
@@ -98,7 +98,7 @@ export function RemediationDialog({ report, onClose }: Props) {
             style={{
               marginLeft: "auto",
               background: "transparent",
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
               border: "none",
               cursor: "pointer",
               fontSize: 16,
@@ -111,7 +111,7 @@ export function RemediationDialog({ report, onClose }: Props) {
         <div style={{ flex: 1, position: "relative" }}>
           <Suspense
             fallback={
-              <div style={{ padding: 16, color: "#8a8d94" }}>
+              <div style={{ padding: 16, color: "var(--text-secondary)" }}>
                 Loading editor…
               </div>
             }
@@ -128,7 +128,7 @@ export function RemediationDialog({ report, onClose }: Props) {
         <div
           style={{
             padding: "10px 14px",
-            borderTop: "1px solid #262a33",
+            borderTop: "1px solid var(--border-default)",
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -137,7 +137,7 @@ export function RemediationDialog({ report, onClose }: Props) {
           <label
             style={{
               fontSize: 11,
-              color: "#e6e1cf",
+              color: "var(--text-primary)",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -156,8 +156,8 @@ export function RemediationDialog({ report, onClose }: Props) {
             onClick={() => navigator.clipboard.writeText(patch)}
             style={{
               background: "#1a1d22",
-              color: "#e6e1cf",
-              border: "1px solid #262a33",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "6px 12px",
               fontFamily: "inherit",
@@ -171,8 +171,8 @@ export function RemediationDialog({ report, onClose }: Props) {
           <button
             disabled={!approved}
             style={{
-              background: approved ? "#5a2d2d" : "#262a33",
-              color: approved ? "#fff" : "#8a8d94",
+              background: approved ? "#5a2d2d" : "var(--surface-3)",
+              color: approved ? "var(--text-inverse)" : "var(--text-secondary)",
               border: "none",
               borderRadius: 4,
               padding: "6px 14px",

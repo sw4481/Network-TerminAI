@@ -56,7 +56,7 @@ export function OneClickModal({
         <div className="br-body">
           <div className="br-reasoning">{reasoning}</div>
           <code className="br-cmd">{command}</code>
-          <div style={{ fontSize: 11.5, color: "#8a8d94" }}>
+          <div style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>
             Target: {vendor}/{platform}
           </div>
         </div>

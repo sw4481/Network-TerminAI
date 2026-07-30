@@ -1,7 +1,7 @@
 .iac-approval-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgb(var(--backdrop-rgb) / 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,14 +9,14 @@
 }
 
 .iac-approval-modal {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   color: #d4d4d4;
   border: 1px solid #3a3a3a;
   border-radius: 6px;
   width: min(560px, 92vw);
   max-height: 86vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 40px rgb(var(--backdrop-rgb) / 0.5);
 }
 
 .iac-approval-modal.tier-high {
@@ -47,7 +47,7 @@
   font-size: 11px;
   font-weight: 700;
   background: #6c757d;
-  color: #fff;
+  color: var(--text-inverse);
 }
 .iac-approval-badge.tier-low {
   background: #50c878;
@@ -142,7 +142,7 @@
   background: #2d2d2d;
   border: 1px solid #555;
   border-radius: 3px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: monospace;
 }
 
@@ -170,7 +170,7 @@
 
 .iac-approval-proceed {
   background: #50c878;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .iac-approval-proceed:disabled {

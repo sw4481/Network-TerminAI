@@ -51,7 +51,7 @@
 }
 
 .zed-mode .editor-actions button:hover:not(:disabled) {
-  border-color: #3e4451;
+  border-color: var(--border-strong);
   background: #2c313c;
 }
 

@@ -302,7 +302,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
     padding: '8px 12px',
     background: 'transparent',
     border: 'none',
-    color: '#e6e1cf',
+    color: 'var(--text-primary)',
     cursor: 'pointer',
     borderRadius: '4px',
     fontSize: '13px',
@@ -409,10 +409,10 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             position: 'fixed',
             left: contextMenu.x,
             top: contextMenu.y,
-            background: '#1a1d23',
-            border: '1px solid #262a33',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border-default)',
             borderRadius: '6px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            boxShadow: '0 4px 12px rgb(var(--backdrop-rgb) / 0.5)',
             padding: '4px',
             zIndex: 10000,
             minWidth: '200px',
@@ -426,7 +426,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             <button
               onClick={handleCopy}
               style={menuButtonStyle}
-              onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+              onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
               onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               📋 Copy
@@ -435,28 +435,28 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
           <button
             onClick={handlePaste}
             style={menuButtonStyle}
-            onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
             onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             📄 Paste
           </button>
-          <div style={{ borderTop: '1px solid #262a33', margin: '4px 0' }} />
+          <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
           {contextMenu.selection && contextMenu.selection.trim() && (
             <>
               <button
                 onClick={handleAskAI}
                 style={menuButtonStyle}
-                onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+                onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
                 onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 ✨ Ask AI about selection
               </button>
               {agents.length > 0 && (
-                <div style={{ borderTop: '1px solid #262a33', margin: '4px 0', paddingTop: '4px' }}>
+                <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0', paddingTop: '4px' }}>
                   <div
                     style={{
                       padding: '4px 12px',
-                      color: '#6c7380',
+                      color: 'var(--text-muted)',
                       fontSize: '11px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
@@ -469,7 +469,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
                       key={a.id}
                       onClick={() => handleAskAgent(a.id)}
                       style={menuButtonStyle}
-                      onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+                      onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
                       onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
                       title={a.description}
                     >
@@ -483,11 +483,11 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
                 return TOPOLOGY_TRIGGER_CMD_RE.test(cleaned);
               }) && (
                 <>
-                  <div style={{ borderTop: '1px solid #262a33', margin: '4px 0' }} />
+                  <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
                   <button
                     onClick={handleIngestTopology}
                     style={menuButtonStyle}
-                    onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+                    onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
                     onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
                     title="Parse and add neighbors to topology graph"
                   >
@@ -495,14 +495,14 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
                   </button>
                 </>
               )}
-              <div style={{ borderTop: '1px solid #262a33', margin: '4px 0' }} />
+              <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
             </>
           )}
           <div style={{ paddingTop: contextMenu.selection && contextMenu.selection.trim() ? '4px' : '0' }}>
             <button
               onClick={handleOpenRunStructured}
               style={menuButtonStyle}
-              onMouseOver={(e) => (e.currentTarget.style.background = '#262a33')}
+              onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
               onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
               title="Run this command over SSH and view it as structured/diffable data"
             >

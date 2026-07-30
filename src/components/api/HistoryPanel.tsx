@@ -17,10 +17,10 @@ type Props = {
 };
 
 function statusColor(code: number | null): string {
-  if (code === null || code === 0) return "#f28779";
-  if (code >= 200 && code < 300) return "#6bd968";
-  if (code >= 300 && code < 400) return "#ffb454";
-  return "#f28779";
+  if (code === null || code === 0) return "var(--status-danger)";
+  if (code >= 200 && code < 300) return "var(--status-success)";
+  if (code >= 300 && code < 400) return "var(--status-warning)";
+  return "var(--status-danger)";
 }
 
 function relTime(sec: number): string {
@@ -80,7 +80,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
         display: "flex",
         flexDirection: "column",
         minHeight: 0,
-        borderTop: "1px solid #262a33",
+        borderTop: "1px solid var(--border-default)",
       }}
     >
       <div
@@ -89,7 +89,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "6px 10px",
-          color: "#8a8d94",
+          color: "var(--text-secondary)",
           fontSize: 11,
           textTransform: "uppercase",
           letterSpacing: 0.5,
@@ -102,7 +102,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
           onClick={reload}
           style={{
             background: "transparent",
-            color: "#5ccfe6",
+            color: "var(--accent)",
             border: "none",
             cursor: "pointer",
             fontSize: 11,
@@ -114,7 +114,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
       {error && (
         <div
           data-testid="api-history-error"
-          style={{ color: "#f28779", fontSize: 11, padding: 6 }}
+          style={{ color: "var(--status-danger)", fontSize: 11, padding: 6 }}
         >
           {error}
         </div>
@@ -126,7 +126,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
         {rows && rows.length === 0 && (
           <div
             data-testid="api-history-empty"
-            style={{ color: "#6c7380", fontSize: 11, padding: 10 }}
+            style={{ color: "var(--text-muted)", fontSize: 11, padding: 10 }}
           >
             No requests sent yet.
           </div>
@@ -144,8 +144,8 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
               padding: "4px 10px",
               background: "transparent",
               border: "none",
-              borderBottom: "1px solid #1a1d23",
-              color: "#e6e1cf",
+              borderBottom: "1px solid var(--surface-2)",
+              color: "var(--text-primary)",
               fontFamily: "Menlo, monospace",
               fontSize: 11,
               cursor: "pointer",
@@ -156,7 +156,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
               style={{
                 width: 46,
                 flexShrink: 0,
-                color: "#8a8d94",
+                color: "var(--text-secondary)",
                 fontWeight: 600,
               }}
             >
@@ -185,7 +185,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
             >
               {r.url}
             </span>
-            <span style={{ color: "#6c7380", fontSize: 10 }}>
+            <span style={{ color: "var(--text-muted)", fontSize: 10 }}>
               {relTime(r.sent_at)}
             </span>
           </button>

@@ -169,7 +169,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         zIndex: 40,
         display: "flex",
         alignItems: "flex-start",
@@ -182,10 +182,10 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
           width: 580,
           maxWidth: "90vw",
           background: "#14161a",
-          border: "1px solid #262a33",
+          border: "1px solid var(--border-default)",
           borderRadius: 6,
           overflow: "hidden",
-          color: "#e6e1cf",
+          color: "var(--text-primary)",
           display: "flex",
           flexDirection: "column",
         }}
@@ -213,10 +213,10 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
           }}
           placeholder="meraki list orgs   ★ saved-name   ..."
           style={{
-            background: "#0f1114",
-            color: "#e6e1cf",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
             border: "none",
-            borderBottom: "1px solid #262a33",
+            borderBottom: "1px solid var(--border-default)",
             padding: "10px 12px",
             fontFamily: "Menlo, monospace",
             fontSize: 13,
@@ -226,7 +226,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
         {err && (
           <div
             data-testid="api-cmdk-error"
-            style={{ color: "#f28779", fontSize: 11, padding: 6 }}
+            style={{ color: "var(--status-danger)", fontSize: 11, padding: 6 }}
           >
             {err}
           </div>
@@ -236,14 +236,14 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
           style={{ maxHeight: "60vh", overflowY: "auto" }}
         >
           {entries === null && (
-            <div style={{ padding: 10, color: "#6c7380", fontSize: 11 }}>
+            <div style={{ padding: 10, color: "var(--text-muted)", fontSize: 11 }}>
               Loading…
             </div>
           )}
           {entries !== null && results.length === 0 && (
             <div
               data-testid="api-cmdk-empty"
-              style={{ padding: 10, color: "#6c7380", fontSize: 11 }}
+              style={{ padding: 10, color: "var(--text-muted)", fontSize: 11 }}
             >
               No matches.
             </div>
@@ -262,9 +262,9 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
                 gap: 10,
                 width: "100%",
                 padding: "6px 12px",
-                background: i === cursor ? "#262a33" : "transparent",
+                background: i === cursor ? "var(--surface-3)" : "transparent",
                 border: "none",
-                color: "#e6e1cf",
+                color: "var(--text-primary)",
                 textAlign: "left",
                 fontFamily: "Menlo, monospace",
                 fontSize: 12,
@@ -273,7 +273,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
             >
               {r.kind === "endpoint" ? (
                 <>
-                  <span style={{ width: 60, color: "#8a8d94" }}>
+                  <span style={{ width: 60, color: "var(--text-secondary)" }}>
                     {r.target.display_name}
                   </span>
                   <span
@@ -286,11 +286,11 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
                     {r.endpoint.method}
                   </span>
                   <span style={{ flex: 1 }}>{r.endpoint.name}</span>
-                  <span style={{ color: "#6c7380" }}>{r.endpoint.path}</span>
+                  <span style={{ color: "var(--text-muted)" }}>{r.endpoint.path}</span>
                 </>
               ) : (
                 <>
-                  <span style={{ width: 60, color: "#ffb454" }}>★ saved</span>
+                  <span style={{ width: 60, color: "var(--status-warning)" }}>★ saved</span>
                   <span
                     style={{
                       width: 52,
@@ -303,7 +303,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
                   <span style={{ flex: 1 }}>{r.saved.name}</span>
                   <span
                     style={{
-                      color: "#6c7380",
+                      color: "var(--text-muted)",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -325,17 +325,17 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
 function methodColor(m: string): string {
   switch (m.toUpperCase()) {
     case "GET":
-      return "#6bd968";
+      return "var(--status-success)";
     case "POST":
-      return "#5ccfe6";
+      return "var(--accent)";
     case "PUT":
-      return "#ffb454";
+      return "var(--status-warning)";
     case "PATCH":
       return "#d4bfff";
     case "DELETE":
-      return "#f28779";
+      return "var(--status-danger)";
     default:
-      return "#8a8d94";
+      return "var(--text-secondary)";
   }
 }
 

@@ -35,26 +35,26 @@
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .explain-close {
   padding: 4px 8px;
   background: transparent;
   border: none;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 16px;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
 .explain-close:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .explain-content {
   padding: 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -67,7 +67,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .loading-spinner {

@@ -68,7 +68,7 @@
   justify-content: space-between;
   padding: 0 10px;
   background: #1f4f7a;
-  color: #ffffff;
+  color: var(--text-inverse);
   font: 12px/1 monospace;
 }
 

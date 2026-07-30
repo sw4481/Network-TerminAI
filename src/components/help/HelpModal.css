@@ -4,7 +4,7 @@
 .help-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,8 +13,8 @@
 }
 
 .help-modal {
-  background: #1a1d23;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   width: 1100px;
   max-width: 94vw;
@@ -22,7 +22,7 @@
   max-height: 88vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 12px 40px rgb(var(--backdrop-rgb) / 0.55);
   animation: help-slide-up 0.2s ease-out;
 }
 
@@ -41,12 +41,12 @@
   align-items: center;
   gap: 12px;
   padding: 16px 22px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .help-modal-header h2 {
   margin: 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.2px;
@@ -54,18 +54,18 @@
 
 .help-modal-search {
   flex: 1;
-  background: #0f1114;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 8px 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .help-modal-search::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .help-modal-search:focus {
@@ -75,7 +75,7 @@
 .help-modal-close {
   background: none;
   border: none;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 22px;
   cursor: pointer;
   width: 32px;
@@ -88,8 +88,8 @@
 }
 
 .help-modal-close:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .help-modal-body {
@@ -100,7 +100,7 @@
 
 .help-modal-sidebar {
   width: 240px;
-  border-right: 1px solid #262a33;
+  border-right: 1px solid var(--border-default);
   padding: 12px 8px;
   display: flex;
   flex-direction: column;
@@ -124,13 +124,13 @@
 
 .help-modal-nav-item:hover {
   background: #232831;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .help-modal-nav-item--active {
   background: #1f2a3a;
   border-color: #2f4663;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .help-modal-nav-label {
@@ -147,7 +147,7 @@
 .help-modal-empty {
   padding: 16px 12px;
   font-size: 12px;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .help-modal-content {
@@ -162,15 +162,15 @@
 /* Markdown styling — tuned for readability on the dark background. */
 .help-modal-content h1 {
   font-size: 22px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   margin: 0 0 12px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   padding-bottom: 8px;
 }
 
 .help-modal-content h2 {
   font-size: 17px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   margin: 26px 0 10px;
 }
 
@@ -195,18 +195,18 @@
 }
 
 .help-modal-content code {
-  background: #0f1114;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
   padding: 1px 6px;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
   font-size: 12.5px;
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .help-modal-content pre {
-  background: #0f1114;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
   border-radius: 5px;
   padding: 10px 12px;
   overflow-x: auto;
@@ -238,7 +238,7 @@
 
 .help-modal-content th,
 .help-modal-content td {
-  border: 1px solid #262a33;
+  border: 1px solid var(--border-default);
   padding: 6px 10px;
   text-align: left;
   vertical-align: top;
@@ -246,18 +246,18 @@
 
 .help-modal-content th {
   background: #1f242c;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .help-modal-content hr {
   border: none;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
   margin: 22px 0;
 }
 
 .help-modal-content a {
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .help-modal-content a:hover {
@@ -272,7 +272,7 @@
 
 .help-modal-sidebar::-webkit-scrollbar-track,
 .help-modal-content::-webkit-scrollbar-track {
-  background: #1a1d23;
+  background: var(--surface-2);
 }
 
 .help-modal-sidebar::-webkit-scrollbar-thumb,

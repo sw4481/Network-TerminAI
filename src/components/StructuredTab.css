@@ -1,6 +1,6 @@
 .structured-tab {
-  background: #1e1e1e;
-  color: #e6e1cf;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
   font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 12.5px;
   display: flex;
@@ -21,7 +21,7 @@
   font-weight: 600;
   font-size: 13px;
   margin-bottom: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .structured-empty-sub {
@@ -46,7 +46,7 @@
 }
 
 .structured-meta strong {
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -57,7 +57,7 @@
 
 .structured-btn {
   background: #2a2a2a;
-  color: #e6e1cf;
+  color: var(--text-primary);
   border: 1px solid #3a3a3a;
   border-radius: 4px;
   padding: 4px 10px;
@@ -72,9 +72,9 @@
 }
 
 .structured-btn.primary {
-  background: #2d5a8c;
+  background: var(--accent-subtle);
   border-color: #3a6fa6;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .structured-btn.primary:hover {
@@ -99,11 +99,11 @@
 
 .structured-jsonpath input {
   flex: 1;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border: 1px solid #3a3a3a;
   border-radius: 3px;
   padding: 3px 6px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 12px;
 }
@@ -137,7 +137,7 @@
 
 .structured-table thead th {
   background: #252525;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
   user-select: none;
@@ -158,11 +158,11 @@
 
 .structured-filter-row input {
   width: 100%;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border: 1px solid #2f2f2f;
   border-radius: 2px;
   padding: 2px 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 11px;
 }

@@ -3,7 +3,7 @@
 .code-block {
   border: 1px solid #3a3a3a;
   border-radius: 6px;
-  background: #1a1d23;
+  background: var(--surface-2);
   margin: 8px 0;
   overflow: hidden;
 }
@@ -25,7 +25,7 @@
 }
 
 .code-block-header:focus {
-  outline: 2px solid #5ccfe6;
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -56,16 +56,16 @@
 
 /* Executing - Cyan */
 .code-block-status-executing .code-block-status-icon {
-  color: #5ccfe6;
+  color: var(--accent);
   animation: spin 2s linear infinite;
 }
 
 .code-block-status-executing .code-block-status-text {
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .code-block-status-executing {
-  border-color: #5ccfe6;
+  border-color: var(--accent);
 }
 
 /* Success - Green */
@@ -125,7 +125,7 @@
 
 /* Code section */
 .code-block-code-section {
-  background: #14171c;
+  background: var(--surface-overlay);
 }
 
 .code-block-code {
@@ -133,7 +133,7 @@
   padding: 8px 12px;
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 13px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   background: transparent;
   overflow-x: auto;
 }

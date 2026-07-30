@@ -212,7 +212,7 @@ export function DevicePickerDialog({
                     {row.deviceKind.toUpperCase()}
                   </span>
                   <span>{row.name}</span>
-                  <span style={{ color: "#8a8d94" }}>{row.host}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{row.host}</span>
                 </div>
               );
             })
@@ -220,7 +220,7 @@ export function DevicePickerDialog({
         </div>
 
         <div className="csv-import-area">
-          <span style={{ fontSize: 11, color: "#8a8d94" }}>
+          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
             Or paste CSV:
             <code style={{ marginLeft: 6 }}>device_kind,identifier</code>
           </span>

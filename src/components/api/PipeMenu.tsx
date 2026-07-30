@@ -224,7 +224,7 @@ export function PipeMenu({ target, onClose }: Props) {
         left: target.x,
         zIndex: 30,
         background: "#14161a",
-        border: "1px solid #262a33",
+        border: "1px solid var(--border-default)",
         borderRadius: 4,
         padding: 4,
         minWidth: 220,
@@ -233,10 +233,10 @@ export function PipeMenu({ target, onClose }: Props) {
         // overflowing off-screen leaves "Send to AI" unreachable.
         maxHeight: "min(70vh, 520px)",
         overflowY: "auto",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.5)",
+        boxShadow: "0 4px 14px rgb(var(--backdrop-rgb) / 0.5)",
         fontSize: 12,
         fontFamily: "Menlo, monospace",
-        color: "#e6e1cf",
+        color: "var(--text-primary)",
       }}
     >
       <MenuHeader label={target.label} />
@@ -296,7 +296,7 @@ export function PipeMenu({ target, onClose }: Props) {
           data-testid="api-pipe-status"
           style={{
             padding: "4px 8px",
-            color: status.startsWith("error") ? "#f28779" : "#6bd968",
+            color: status.startsWith("error") ? "var(--status-danger)" : "var(--status-success)",
             fontSize: 11,
           }}
         >
@@ -310,7 +310,7 @@ export function PipeMenu({ target, onClose }: Props) {
 function MenuHeader({ label }: { label?: string }) {
   return (
     <div
-      style={{ padding: "4px 8px", color: "#8a8d94", fontSize: 11 }}
+      style={{ padding: "4px 8px", color: "var(--text-secondary)", fontSize: 11 }}
       data-testid="api-pipe-label"
     >
       {label ? `Field: ${label}` : "Picked value"}
@@ -319,7 +319,7 @@ function MenuHeader({ label }: { label?: string }) {
 }
 
 function MenuDivider() {
-  return <div style={{ height: 1, background: "#262a33", margin: "2px 0" }} />;
+  return <div style={{ height: 1, background: "var(--surface-3)", margin: "2px 0" }} />;
 }
 
 function SubHeader({ children }: { children: React.ReactNode }) {
@@ -327,7 +327,7 @@ function SubHeader({ children }: { children: React.ReactNode }) {
     <div
       style={{
         padding: "2px 8px",
-        color: "#6c7380",
+        color: "var(--text-muted)",
         fontSize: 10,
         textTransform: "uppercase",
         letterSpacing: 0.5,
@@ -360,7 +360,7 @@ function MenuRow({
         width: "100%",
         textAlign: "left",
         background: "transparent",
-        color: disabled ? "#6c7380" : "#e6e1cf",
+        color: disabled ? "var(--text-muted)" : "var(--text-primary)",
         border: "none",
         padding: "4px 8px",
         cursor: disabled ? "default" : "pointer",
@@ -369,7 +369,7 @@ function MenuRow({
       }}
       onMouseEnter={(e) => {
         if (!disabled)
-          (e.currentTarget as HTMLButtonElement).style.background = "#1a1d23";
+          (e.currentTarget as HTMLButtonElement).style.background = "var(--surface-2)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.background = "transparent";

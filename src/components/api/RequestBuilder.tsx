@@ -62,9 +62,9 @@ export function RequestBuilder({
             patch(tabId, { method: e.target.value as HttpMethod })
           }
           style={{
-            background: "#1a1d23",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--surface-2)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
           }}
@@ -84,9 +84,9 @@ export function RequestBuilder({
           onChange={(e) => patch(tabId, { url: e.target.value })}
           style={{
             flex: 1,
-            background: "#0f1114",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
             fontFamily: "Menlo, monospace",
@@ -97,8 +97,8 @@ export function RequestBuilder({
           disabled={!canSend}
           onClick={onSend}
           style={{
-            background: canSend ? "#2d5a8c" : "#262a33",
-            color: "#e6e1cf",
+            background: canSend ? "var(--accent-subtle)" : "var(--surface-3)",
+            color: "var(--text-primary)",
             border: "none",
             borderRadius: 4,
             padding: "4px 16px",
@@ -117,8 +117,8 @@ export function RequestBuilder({
             aria-label="Save request"
             style={{
               background: "transparent",
-              color: canSend ? "#ffb454" : "#6c7380",
-              border: "1px solid #262a33",
+              color: canSend ? "var(--status-warning)" : "var(--text-muted)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "4px 10px",
               cursor: canSend ? "pointer" : "not-allowed",
@@ -131,18 +131,18 @@ export function RequestBuilder({
       </div>
 
       {/* Row 2: sub-panel tabs */}
-      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid #262a33" }}>
+      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--border-default)" }}>
         {(["params", "headers", "body", "auth"] as PanelKey[]).map((k) => (
           <button
             key={k}
             data-testid={`api-panel-${k}`}
             onClick={() => setPanel(k)}
             style={{
-              background: panel === k ? "#262a33" : "transparent",
-              color: panel === k ? "#e6e1cf" : "#8a8d94",
+              background: panel === k ? "var(--surface-3)" : "transparent",
+              color: panel === k ? "var(--text-primary)" : "var(--text-secondary)",
               border: "none",
               borderBottom:
-                panel === k ? "2px solid #5ccfe6" : "2px solid transparent",
+                panel === k ? "2px solid var(--accent)" : "2px solid transparent",
               padding: "6px 12px",
               cursor: "pointer",
               fontSize: 12,
@@ -230,8 +230,8 @@ function KVEditor({
         style={{
           alignSelf: "flex-start",
           background: "transparent",
-          color: "#5ccfe6",
-          border: "1px dashed #262a33",
+          color: "var(--accent)",
+          border: "1px dashed var(--border-default)",
           padding: "4px 10px",
           borderRadius: 4,
           cursor: "pointer",
@@ -255,7 +255,7 @@ function BodyEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <label style={{ color: "#8a8d94", fontSize: 12 }}>Body kind:</label>
+        <label style={{ color: "var(--text-secondary)", fontSize: 12 }}>Body kind:</label>
         <select
           data-testid="api-body-kind"
           value={state.body_kind}
@@ -279,9 +279,9 @@ function BodyEditor({
           placeholder={state.body_kind === "json" ? "{}" : "key=value"}
           rows={8}
           style={{
-            background: "#0f1114",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: 8,
             fontFamily: "Menlo, monospace",
@@ -291,7 +291,7 @@ function BodyEditor({
         />
       )}
       {state.body_kind === "binary" && (
-        <div style={{ color: "#8a8d94", fontSize: 12 }}>
+        <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>
           Binary uploads arrive in a later step.
         </div>
       )}
@@ -363,7 +363,7 @@ function AuthEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <label style={{ color: "#8a8d94", fontSize: 12 }}>Type:</label>
+        <label style={{ color: "var(--text-secondary)", fontSize: 12 }}>Type:</label>
         <select
           data-testid="api-auth-type"
           value={auth.type}
@@ -529,7 +529,7 @@ function AuthEditor({
             style={kvInputStyle}
           />
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <label style={{ color: "#8a8d94", fontSize: 11 }}>Apply as:</label>
+            <label style={{ color: "var(--text-secondary)", fontSize: 11 }}>Apply as:</label>
             <select
               data-testid="api-auth-token-apply"
               value={auth.apply.mode}
@@ -659,7 +659,7 @@ function AuthEditor({
             }
             style={kvInputStyle}
           />
-          <p style={{ color: "#8a8d94", fontSize: 11, margin: 0 }}>
+          <p style={{ color: "var(--text-secondary)", fontSize: 11, margin: 0 }}>
             Place the module at{" "}
             <code>~/.ccie-terminal/api-hooks/{auth.module || "&lt;module&gt;"}.py</code>{" "}
             with a function <code>{auth.function || "sign_request"}(request, env)</code>.
@@ -671,7 +671,7 @@ function AuthEditor({
           display: "flex",
           alignItems: "center",
           gap: 6,
-          color: "#8a8d94",
+          color: "var(--text-secondary)",
           fontSize: 12,
           marginTop: 6,
         }}
@@ -691,9 +691,9 @@ function AuthEditor({
 }
 
 const kvInputStyle: React.CSSProperties = {
-  background: "#0f1114",
-  color: "#e6e1cf",
-  border: "1px solid #262a33",
+  background: "var(--app-canvas)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-default)",
   borderRadius: 4,
   padding: "4px 8px",
   fontFamily: "Menlo, monospace",
@@ -704,7 +704,7 @@ const kvInputStyle: React.CSSProperties = {
 
 const removeBtnStyle: React.CSSProperties = {
   background: "transparent",
-  color: "#f28779",
+  color: "var(--status-danger)",
   border: "none",
   cursor: "pointer",
   fontSize: 16,

@@ -1,0 +1,19 @@
+# Theme color domain allowlist
+
+Structural UI color must use the semantic variables in `src/theme/themes.css`.
+`scripts/check-structural-colors.mjs` rejects newly added instances of the
+legacy structural Dark palette in feature CSS and TSX, reporting file, line,
+and value from the merge-base diff.
+
+The following literal families remain intentional domain data rather than UI
+chrome. Keep their use local to the domain and name the surrounding selector,
+variable, or inline-style object for that meaning:
+
+- Status and severity: success, warning, danger, and informational indicators.
+- Syntax and diffs: language highlighting plus added, removed, and changed code.
+- Topology and charts: node/edge types, graph series, and link health.
+- Vendor identities: Cisco, Meraki, NetBox, Grafana, and other integration marks.
+
+Do not use a domain literal for a panel background, ordinary text, border,
+input, hover, modal, selection, or focus treatment. If a domain color needs a
+theme-aware surface, add a named semantic token instead.

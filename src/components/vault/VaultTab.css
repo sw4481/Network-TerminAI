@@ -35,7 +35,7 @@
 
 .vault-empty {
   padding: 32px 16px;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
 }
@@ -239,7 +239,7 @@
 .vault-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgb(var(--backdrop-rgb) / 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -322,6 +322,6 @@
 .vault-auto-unlock-hint {
   margin: 8px 0 0 24px;
   font-size: 11px;
-  color: #6c7380;
+  color: var(--text-muted);
   line-height: 1.4;
 }

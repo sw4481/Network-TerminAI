@@ -64,7 +64,7 @@ export function SelectorEditor({ value, onChange }: Props) {
 
   return (
     <div className="selector-editor" style={{ padding: 16, fontSize: 12 }}>
-      <p style={{ color: "#8a8d94", marginTop: 0 }}>
+      <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
         Choose what this intent is checked against. Drift opens an SSH session
         to each target and compares its running-config to the intent body.
       </p>

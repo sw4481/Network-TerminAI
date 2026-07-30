@@ -7,7 +7,7 @@
   margin-bottom: 8px;
   font-size: 20px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .browser-settings-tab h3 {
@@ -15,11 +15,11 @@
   margin-bottom: 8px;
   font-size: 16px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .browser-settings-tab .muted {
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -41,17 +41,17 @@
 .browser-settings-tab .code-block pre {
   font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
   font-size: 12px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   margin: 0;
   white-space: pre;
 }
 
 .browser-settings-tab .copy-button {
   padding: 8px 16px;
-  background: #262a33;
+  background: var(--surface-3);
   border: 1px solid #2d3139;
   border-radius: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
   transition: background 0.2s;

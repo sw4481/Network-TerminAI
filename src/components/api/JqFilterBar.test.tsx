@@ -80,7 +80,7 @@ describe("JqFilterBar", () => {
     // jsdom normalizes inline hex colors to rgb(). Assert via the computed
     // style component rather than the exact string.
     const border = (input as HTMLElement).style.border;
-    expect(border).toMatch(/rgb\(242,\s*135,\s*121\)|#f28779/);
+    expect(border).toContain("var(--status-danger)");
     expect(screen.getByTestId("api-jq-filter-error").textContent).toContain(
       "syntax error",
     );

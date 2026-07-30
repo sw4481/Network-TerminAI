@@ -96,7 +96,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
         bottom: 0,
         width: 500,
         background: "#14161a",
-        borderLeft: "1px solid #262a33",
+        borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
         zIndex: 10,
@@ -106,13 +106,13 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#e6e1cf" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
           Saved RPCs
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -121,8 +121,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               data-testid="netconf-saved-rpcs-new"
               onClick={handleNew}
               style={{
-                background: "#2d5a8c",
-                color: "#e6e1cf",
+                background: "var(--accent-subtle)",
+                color: "var(--text-primary)",
                 border: "none",
                 borderRadius: 4,
                 padding: "4px 10px",
@@ -139,8 +139,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
-              border: "1px solid #262a33",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "4px 8px",
               cursor: "pointer",
@@ -159,7 +159,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
             padding: 12,
             background: "#2a1a1a",
             borderBottom: "1px solid #3d2626",
-            color: "#f28779",
+            color: "var(--status-danger)",
             fontSize: 12,
           }}
         >
@@ -170,7 +170,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
         {loading && (
-          <div style={{ padding: 16, textAlign: "center", color: "#8a8d94" }}>
+          <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
             Loading...
           </div>
         )}
@@ -180,8 +180,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
           <div
             data-testid="netconf-saved-rpcs-editor"
             style={{
-              background: "#0f1114",
-              border: "1px solid #262a33",
+              background: "var(--app-canvas)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: 12,
               marginBottom: 12,
@@ -190,7 +190,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               gap: 10,
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
               {editingId === "new" ? "New RPC" : "Edit RPC"}
             </div>
 
@@ -202,8 +202,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               placeholder="RPC name"
               style={{
                 background: "#1a1c20",
-                color: "#e6e1cf",
-                border: "1px solid #262a33",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "6px 8px",
                 fontSize: 12,
@@ -218,8 +218,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               placeholder="<get-config>...</get-config>"
               style={{
                 background: "#1a1c20",
-                color: "#e6e1cf",
-                border: "1px solid #262a33",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "8px 10px",
                 fontSize: 11,
@@ -234,8 +234,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
                 data-testid="netconf-saved-rpc-save"
                 onClick={handleSave}
                 style={{
-                  background: "#2d5a8c",
-                  color: "#e6e1cf",
+                  background: "var(--accent-subtle)",
+                  color: "var(--text-primary)",
                   border: "none",
                   borderRadius: 4,
                   padding: "6px 12px",
@@ -251,8 +251,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
                 onClick={handleCancel}
                 style={{
                   background: "transparent",
-                  color: "#8a8d94",
-                  border: "1px solid #262a33",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
                   borderRadius: 4,
                   padding: "6px 12px",
                   cursor: "pointer",
@@ -271,7 +271,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
             style={{
               padding: 16,
               textAlign: "center",
-              color: "#6c7380",
+              color: "var(--text-muted)",
               fontSize: 13,
             }}
           >
@@ -311,8 +311,8 @@ function SavedRpcItem({
     <div
       data-testid={`netconf-saved-rpc-item-${rpc.id}`}
       style={{
-        background: "#0f1114",
-        border: "1px solid #262a33",
+        background: "var(--app-canvas)",
+        border: "1px solid var(--border-default)",
         borderRadius: 4,
         marginBottom: 8,
         padding: 10,
@@ -330,7 +330,7 @@ function SavedRpcItem({
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: "#e6e1cf",
+            color: "var(--text-primary)",
           }}
         >
           {rpc.name}
@@ -340,8 +340,8 @@ function SavedRpcItem({
             data-testid={`netconf-saved-rpc-load-${rpc.id}`}
             onClick={onLoad}
             style={{
-              background: "#2d5a8c",
-              color: "#e6e1cf",
+              background: "var(--accent-subtle)",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: 4,
               padding: "3px 8px",
@@ -357,8 +357,8 @@ function SavedRpcItem({
             onClick={onEdit}
             style={{
               background: "transparent",
-              color: "#8a8d94",
-              border: "1px solid #262a33",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "3px 8px",
               cursor: "pointer",
@@ -372,7 +372,7 @@ function SavedRpcItem({
             onClick={onDelete}
             style={{
               background: "transparent",
-              color: "#f28779",
+              color: "var(--status-danger)",
               border: "1px solid #3d2626",
               borderRadius: 4,
               padding: "3px 8px",
@@ -388,7 +388,7 @@ function SavedRpcItem({
       <div
         style={{
           fontSize: 10,
-          color: "#6c7380",
+          color: "var(--text-muted)",
           fontFamily: "Menlo, monospace",
           whiteSpace: "pre-wrap",
           wordBreak: "break-all",

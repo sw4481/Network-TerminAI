@@ -1,7 +1,7 @@
 .device-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgb(var(--backdrop-rgb) / 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,10 +10,10 @@
 .device-picker-dialog {
   width: 640px;
   max-height: 78vh;
-  background: #14171c;
-  color: #e6e1cf;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
   border-radius: 6px;
-  border: 1px solid #262a33;
+  border: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   font-family: Menlo, monospace;
@@ -21,7 +21,7 @@
 }
 .device-picker-header {
   padding: 12px 14px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -31,31 +31,31 @@
   margin-left: auto;
   background: transparent;
   border: none;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 18px;
 }
 .device-picker-toolbar {
   padding: 10px 14px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   gap: 8px;
   align-items: center;
 }
 .device-picker-toolbar input[type="text"] {
   flex: 1;
-  background: #0f1114;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 8px;
   font-family: inherit;
   font-size: 12px;
 }
 .device-picker-toolbar select {
-  background: #0f1114;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 8px;
   font-family: inherit;
@@ -63,8 +63,8 @@
 }
 .device-picker-toolbar button {
   background: #1a1d22;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 10px;
   font-family: inherit;
@@ -90,15 +90,15 @@
 
 .device-picker-footer {
   padding: 10px 14px;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.device-picker-status { font-size: 11px; color: #8a8d94; flex: 1; }
+.device-picker-status { font-size: 11px; color: var(--text-secondary); flex: 1; }
 .device-picker-footer button.primary {
-  background: #2d5a8c;
-  color: #fff;
+  background: var(--accent-subtle);
+  color: var(--text-inverse);
   border: none;
   padding: 6px 14px;
   border-radius: 4px;
@@ -106,11 +106,11 @@
   font-family: inherit;
   font-size: 12px;
 }
-.device-picker-footer button.primary:disabled { background: #262a33; cursor: not-allowed; }
+.device-picker-footer button.primary:disabled { background: var(--surface-3); cursor: not-allowed; }
 .device-picker-footer button.secondary {
   background: transparent;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
@@ -128,12 +128,12 @@
   flex-direction: column;
   padding: 10px 14px;
   gap: 6px;
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
 }
 .csv-import-area textarea {
-  background: #0f1114;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   font-family: inherit;
   font-size: 11px;

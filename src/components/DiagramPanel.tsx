@@ -102,7 +102,7 @@ export function buildViewerSrcDoc(xml: string): string {
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttr(IFRAME_CSP)}">
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: #0f1114; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--app-canvas); }
   .mxgraph { max-width: 100%; margin: 8px; }
 </style>
 </head>
@@ -150,7 +150,7 @@ export function buildMarkmapSrcDoc(markdown: string): string {
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttr(MARKMAP_CSP)}">
-<style>html,body{margin:0;padding:0;height:100%;background:#0f1114}#markmap-svg{width:100%;height:100vh}#markmap-error{color:#f44336;font-family:sans-serif;padding:8px}</style>
+<style>html,body{margin:0;padding:0;height:100%;background:var(--app-canvas)}#markmap-svg{width:100%;height:100vh}#markmap-error{color:#f44336;font-family:sans-serif;padding:8px}</style>
 </head>
 <body>
 <script type="text/template" id="markmap-source">${safe}</script>

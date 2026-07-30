@@ -75,13 +75,13 @@ export function RetrievePanel({ tabId, onRetrieve }: Props) {
       data-testid="netconf-retrieve-panel"
       style={{
         padding: 12,
-        borderBottom: "1px solid #262a33",
+        borderBottom: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
         gap: 8,
       }}
     >
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#e6e1cf" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
         Quick Retrieve
       </div>
 
@@ -118,9 +118,9 @@ export function RetrievePanel({ tabId, onRetrieve }: Props) {
           disabled={!isConnected}
           style={{
             flex: 1,
-            background: "#0f1114",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
             fontSize: 11,
@@ -154,9 +154,9 @@ export function RetrievePanel({ tabId, onRetrieve }: Props) {
           disabled={!isConnected}
           style={{
             flex: 1,
-            background: "#0f1114",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
             fontSize: 11,
@@ -194,8 +194,8 @@ function RetrieveButton({
       disabled={disabled}
       style={{
         background: "transparent",
-        color: disabled ? "#6c7380" : "#5ccfe6",
-        border: "1px dashed #262a33",
+        color: disabled ? "var(--text-muted)" : "var(--accent)",
+        border: "1px dashed var(--border-default)",
         borderRadius: 4,
         padding: "4px 10px",
         cursor: disabled ? "not-allowed" : "pointer",

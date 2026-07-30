@@ -35,12 +35,12 @@ export function UpdateNotification() {
         position: "fixed",
         bottom: "20px",
         right: "20px",
-        background: "#1e1e1e",
+        background: "var(--surface-terminal)",
         border: "1px solid #3c3c3c",
         borderRadius: "8px",
         padding: "16px",
         maxWidth: "400px",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+        boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.3)",
         zIndex: 9999,
       }}
     >

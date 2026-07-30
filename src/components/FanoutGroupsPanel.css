@@ -5,12 +5,12 @@
   height: 100%;
   min-height: 480px;
   font-family: Menlo, monospace;
-  color: #e6e1cf;
-  background: #0f1114;
+  color: var(--text-primary);
+  background: var(--app-canvas);
 }
 
 .fanout-groups-list {
-  border-right: 1px solid #262a33;
+  border-right: 1px solid var(--border-default);
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -18,17 +18,17 @@
 
 .fanout-groups-list-header {
   padding: 10px 12px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .fanout-groups-list-header button {
-  background: #2d5a8c;
-  color: #fff;
+  background: var(--accent-subtle);
+  color: var(--text-inverse);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;
@@ -42,7 +42,7 @@
   display: flex;
   gap: 6px;
   padding: 8px 12px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }
 .fanout-new-group-form input {
   flex: 1;
@@ -56,10 +56,10 @@
   font-size: 12px;
   outline: none;
 }
-.fanout-new-group-form input:focus { border-color: #2d5a8c; }
+.fanout-new-group-form input:focus { border-color: var(--accent-subtle); }
 .fanout-new-group-form button {
-  background: #2d5a8c;
-  color: #fff;
+  background: var(--accent-subtle);
+  color: var(--text-inverse);
   border: none;
   padding: 4px 10px;
   border-radius: 4px;
@@ -69,12 +69,12 @@
 }
 .fanout-new-group-form button[type="button"] {
   background: transparent;
-  color: #8a8d94;
+  color: var(--text-secondary);
   border: 1px solid #3a3f4a;
 }
 .fanout-new-group-form button:hover { background: #3a6ba0; }
 .fanout-new-group-form button[type="button"]:hover {
-  background: #1a1d23;
+  background: var(--surface-2);
   color: #e3e4e6;
 }
 
@@ -86,17 +86,17 @@
   flex-direction: column;
   gap: 4px;
 }
-.fanout-group-item:hover { background: #14171c; }
+.fanout-group-item:hover { background: var(--surface-overlay); }
 .fanout-group-item.selected { background: #1d2530; border-left: 3px solid #56b6c2; padding-left: 9px; }
 
 .fanout-group-name {
   font-size: 13px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 .fanout-group-meta {
   font-size: 11px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   display: flex;
   gap: 10px;
 }
@@ -104,7 +104,7 @@
 .fanout-groups-empty {
   padding: 24px 12px;
   text-align: center;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
@@ -116,7 +116,7 @@
 
 .fanout-detail-header {
   padding: 12px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -134,8 +134,8 @@
 }
 .fanout-detail-actions button {
   background: #1a1d22;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;

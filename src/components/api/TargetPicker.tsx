@@ -34,16 +34,16 @@ export function TargetPicker({ value, onChange }: Props) {
       style={{ display: "flex", alignItems: "center", gap: 8 }}
       data-testid="api-target-picker"
     >
-      <label style={{ color: "#8a8d94", fontSize: 12 }}>Target:</label>
+      <label style={{ color: "var(--text-secondary)", fontSize: 12 }}>Target:</label>
       <select
         data-testid="api-target-select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={targets === null && !error}
         style={{
-          background: "#1a1d23",
-          color: "#e6e1cf",
-          border: "1px solid #262a33",
+          background: "var(--surface-2)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-default)",
           borderRadius: 4,
           padding: "4px 8px",
           minWidth: 160,
@@ -60,7 +60,7 @@ export function TargetPicker({ value, onChange }: Props) {
       {error && (
         <span
           data-testid="api-target-error"
-          style={{ color: "#f28779", fontSize: 11 }}
+          style={{ color: "var(--status-danger)", fontSize: 11 }}
         >
           {error}
         </span>

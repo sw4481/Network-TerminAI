@@ -153,7 +153,7 @@ export function CredentialsPanel({
         left: 0,
         right: 0,
         bottom: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -166,14 +166,14 @@ export function CredentialsPanel({
       <div
         style={{
           background: "#14161a",
-          border: "1px solid #262a33",
+          border: "1px solid var(--border-default)",
           borderRadius: 6,
           padding: 16,
           width: 560,
           maxWidth: "90vw",
           maxHeight: "80vh",
           overflowY: "auto",
-          color: "#e6e1cf",
+          color: "var(--text-primary)",
           display: "flex",
           flexDirection: "column",
           gap: 10,
@@ -187,14 +187,14 @@ export function CredentialsPanel({
           }}
         >
           <h3 style={{ margin: 0 }}>
-            Credentials — <span style={{ color: "#5ccfe6" }}>{environment}</span>
+            Credentials — <span style={{ color: "var(--accent)" }}>{environment}</span>
           </h3>
           <button
             data-testid="api-credentials-close"
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
               border: "none",
               cursor: "pointer",
               fontSize: 18,
@@ -203,7 +203,7 @@ export function CredentialsPanel({
             ×
           </button>
         </div>
-        <p style={{ color: "#8a8d94", fontSize: 12, margin: 0 }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>
           Values are saved to <code>environments/{environment}.env</code>{" "}
           (chmod 600). Never hand-edit that file — use this panel.
         </p>
@@ -213,13 +213,13 @@ export function CredentialsPanel({
         <div
           data-testid="api-credentials-presets"
           style={{
-            border: "1px solid #262a33",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: 8,
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            background: "#0f1114",
+            background: "var(--app-canvas)",
           }}
         >
           <div
@@ -230,7 +230,7 @@ export function CredentialsPanel({
               flexWrap: "wrap",
             }}
           >
-            <span style={{ color: "#8a8d94", fontSize: 11, marginRight: 4 }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: 11, marginRight: 4 }}>
               Quick setup:
             </span>
             {CREDENTIAL_PRESETS.map((p) => (
@@ -240,9 +240,9 @@ export function CredentialsPanel({
                 onClick={() => setActivePreset(p.id)}
                 style={{
                   background:
-                    activePreset === p.id ? "#262a33" : "transparent",
-                  color: activePreset === p.id ? "#e6e1cf" : "#8a8d94",
-                  border: "1px solid #262a33",
+                    activePreset === p.id ? "var(--surface-selected)" : "transparent",
+                  color: activePreset === p.id ? "var(--text-primary)" : "var(--text-secondary)",
+                  border: "1px solid var(--border-default)",
                   borderRadius: 4,
                   padding: "2px 10px",
                   cursor: "pointer",
@@ -257,7 +257,7 @@ export function CredentialsPanel({
             <>
               <p
                 style={{
-                  color: "#8a8d94",
+                  color: "var(--text-secondary)",
                   fontSize: 11,
                   margin: 0,
                 }}
@@ -313,7 +313,7 @@ export function CredentialsPanel({
             data-testid="api-credentials-missing"
             style={{
               background: "#2d2512",
-              border: "1px solid #ffb454",
+              border: "1px solid var(--status-warning)",
               borderRadius: 4,
               padding: 8,
               display: "flex",
@@ -322,10 +322,10 @@ export function CredentialsPanel({
               fontSize: 12,
             }}
           >
-            <div style={{ color: "#ffb454", fontWeight: 600 }}>
+            <div style={{ color: "var(--status-warning)", fontWeight: 600 }}>
               Missing required variables for the selected target
             </div>
-            <div style={{ color: "#e6e1cf", fontFamily: "Menlo, monospace" }}>
+            <div style={{ color: "var(--text-primary)", fontFamily: "Menlo, monospace" }}>
               {missingRequired.join(", ")}
             </div>
             <div style={{ display: "flex", gap: 6 }}>
@@ -357,8 +357,8 @@ export function CredentialsPanel({
                   reload();
                 }}
                 style={{
-                  background: "#ffb454",
-                  color: "#1a1d23",
+                  background: "var(--status-warning)",
+                  color: "var(--surface-2)",
                   border: "none",
                   borderRadius: 4,
                   padding: "3px 10px",
@@ -376,9 +376,9 @@ export function CredentialsPanel({
           <div
             data-testid="api-credentials-error"
             style={{
-              color: "#f28779",
+              color: "var(--status-danger)",
               background: "#2a1517",
-              border: "1px solid #f28779",
+              border: "1px solid var(--status-danger)",
               borderRadius: 4,
               padding: 6,
               fontSize: 12,
@@ -395,7 +395,7 @@ export function CredentialsPanel({
           }}
         >
           <thead>
-            <tr style={{ color: "#8a8d94", textAlign: "left" }}>
+            <tr style={{ color: "var(--text-secondary)", textAlign: "left" }}>
               <th style={{ padding: "4px 6px" }}>Key</th>
               <th style={{ padding: "4px 6px" }}>Value</th>
               <th style={{ padding: "4px 6px" }}>Secret</th>
@@ -444,9 +444,9 @@ export function CredentialsPanel({
                         }
                       }}
                       style={{
-                        background: dirty ? "#1f2a1f" : "#0f1114",
-                        color: "#e6e1cf",
-                        border: `1px solid ${dirty ? "#6bd968" : "#262a33"}`,
+                        background: dirty ? "#1f2a1f" : "var(--app-canvas)",
+                        color: "var(--text-primary)",
+                        border: `1px solid ${dirty ? "var(--status-success)" : "var(--border-default)"}`,
                         borderRadius: 4,
                         padding: "2px 6px",
                         fontFamily: "Menlo, monospace",
@@ -458,7 +458,7 @@ export function CredentialsPanel({
                       <span
                         data-testid={`api-credentials-dirty-${row.key}`}
                         style={{
-                          color: "#6bd968",
+                          color: "var(--status-success)",
                           fontSize: 10,
                           marginLeft: 6,
                         }}
@@ -493,7 +493,7 @@ export function CredentialsPanel({
                       <button
                         data-testid={`api-credentials-save-${row.key}`}
                         onClick={commit}
-                        style={{ ...linkBtn, color: "#6bd968" }}
+                        style={{ ...linkBtn, color: "var(--status-success)" }}
                       >
                         save
                       </button>
@@ -501,7 +501,7 @@ export function CredentialsPanel({
                     <button
                       data-testid={`api-credentials-delete-${row.key}`}
                       onClick={() => remove(row.key)}
-                      style={{ ...linkBtn, color: "#f28779" }}
+                      style={{ ...linkBtn, color: "var(--status-danger)" }}
                     >
                       delete
                     </button>
@@ -514,7 +514,7 @@ export function CredentialsPanel({
                 <td
                   colSpan={4}
                   style={{
-                    color: "#6c7380",
+                    color: "var(--text-muted)",
                     padding: 8,
                     fontStyle: "italic",
                   }}
@@ -528,7 +528,7 @@ export function CredentialsPanel({
         </table>
         <div
           style={{
-            borderTop: "1px solid #262a33",
+            borderTop: "1px solid var(--border-default)",
             paddingTop: 8,
             display: "flex",
             gap: 6,
@@ -555,7 +555,7 @@ export function CredentialsPanel({
               display: "flex",
               alignItems: "center",
               gap: 4,
-              color: "#8a8d94",
+              color: "var(--text-secondary)",
               fontSize: 12,
             }}
           >
@@ -573,8 +573,8 @@ export function CredentialsPanel({
             disabled={!addKey.trim() || !addValue}
             style={{
               background:
-                !addKey.trim() || !addValue ? "#262a33" : "#2d5a8c",
-              color: "#e6e1cf",
+                !addKey.trim() || !addValue ? "var(--surface-selected)" : "var(--accent-subtle)",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: 4,
               padding: "4px 12px",
@@ -622,7 +622,7 @@ function PresetRow({
       <label
         htmlFor={`api-preset-${envKey}`}
         style={{
-          color: missing ? "#ffb454" : "#e6e1cf",
+          color: missing ? "var(--status-warning)" : "var(--text-primary)",
           fontSize: 12,
           fontWeight: 600,
           whiteSpace: "nowrap",
@@ -651,10 +651,10 @@ function PresetRow({
           }}
           style={{
             flex: 1,
-            background: dirty ? "#1f2a1f" : "#0f1114",
-            color: "#e6e1cf",
+            background: dirty ? "#1f2a1f" : "var(--app-canvas)",
+            color: "var(--text-primary)",
             border: `1px solid ${
-              dirty ? "#6bd968" : missing ? "#ffb454" : "#262a33"
+              dirty ? "var(--status-success)" : missing ? "var(--status-warning)" : "var(--surface-selected)"
             }`,
             borderRadius: 4,
             padding: "4px 8px",
@@ -669,7 +669,7 @@ function PresetRow({
             onClick={() => setReveal((r) => !r)}
             style={{
               background: "transparent",
-              color: "#5ccfe6",
+              color: "var(--accent)",
               border: "none",
               cursor: "pointer",
               fontSize: 11,
@@ -685,7 +685,7 @@ function PresetRow({
             onClick={onCommit}
             style={{
               background: "transparent",
-              color: "#6bd968",
+              color: "var(--status-success)",
               border: "none",
               cursor: "pointer",
               fontSize: 11,
@@ -701,7 +701,7 @@ function PresetRow({
 
 const linkBtn: React.CSSProperties = {
   background: "transparent",
-  color: "#5ccfe6",
+  color: "var(--accent)",
   border: "none",
   cursor: "pointer",
   fontSize: 11,
@@ -709,9 +709,9 @@ const linkBtn: React.CSSProperties = {
 };
 
 const field: React.CSSProperties = {
-  background: "#0f1114",
-  color: "#e6e1cf",
-  border: "1px solid #262a33",
+  background: "var(--app-canvas)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border-default)",
   borderRadius: 4,
   padding: "4px 8px",
   fontFamily: "Menlo, monospace",

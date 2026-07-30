@@ -114,7 +114,7 @@ export function DecisionLogView() {
         </div>
         <div style={{ overflow: "auto", padding: "0 14px" }}>
           <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
-            <thead style={{ textAlign: "left", color: "#8a8d94" }}>
+            <thead style={{ textAlign: "left", color: "var(--text-secondary)" }}>
               <tr>
                 <th style={{ padding: "6px 4px" }}>When</th>
                 <th style={{ padding: "6px 4px" }}>Tier</th>
@@ -127,7 +127,7 @@ export function DecisionLogView() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 16, color: "#8a8d94" }}>
+                  <td colSpan={6} style={{ padding: 16, color: "var(--text-secondary)" }}>
                     No decisions matching filters.
                   </td>
                 </tr>
@@ -175,7 +175,7 @@ export function DecisionLogView() {
           </table>
         </div>
         <div className="rule-footer">
-          <span style={{ color: "#8a8d94", fontSize: 11.5, marginRight: "auto" }}>
+          <span style={{ color: "var(--text-secondary)", fontSize: 11.5, marginRight: "auto" }}>
             {filtered.length} / {rows.length} rows
           </span>
         </div>

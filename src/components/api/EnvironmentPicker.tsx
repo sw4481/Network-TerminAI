@@ -55,15 +55,15 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
       style={{ display: "flex", alignItems: "center", gap: 8 }}
       data-testid="api-env-picker"
     >
-      <label style={{ color: "#8a8d94", fontSize: 12 }}>Environment:</label>
+      <label style={{ color: "var(--text-secondary)", fontSize: 12 }}>Environment:</label>
       <select
         data-testid="api-env-select"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{
-          background: "#1a1d23",
-          color: "#e6e1cf",
-          border: "1px solid #262a33",
+          background: "var(--surface-2)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border-default)",
           borderRadius: 4,
           padding: "4px 8px",
           minWidth: 120,
@@ -83,8 +83,8 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
           title="New environment"
           style={{
             background: "transparent",
-            color: "#5ccfe6",
-            border: "1px dashed #262a33",
+            color: "var(--accent)",
+            border: "1px dashed var(--border-default)",
             borderRadius: 4,
             padding: "2px 8px",
             cursor: "pointer",
@@ -110,9 +110,9 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
               }
             }}
             style={{
-              background: "#0f1114",
-              color: "#e6e1cf",
-              border: "1px solid #262a33",
+              background: "var(--app-canvas)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "4px 8px",
               fontFamily: "Menlo, monospace",
@@ -124,8 +124,8 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
             data-testid="api-env-save"
             onClick={onAdd}
             style={{
-              background: "#2d5a8c",
-              color: "#e6e1cf",
+              background: "var(--accent-subtle)",
+              color: "var(--text-primary)",
               border: "none",
               borderRadius: 4,
               padding: "2px 8px",
@@ -145,8 +145,8 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
           title={value ? `Edit credentials for ${value}` : "Select an environment first"}
           style={{
             background: "transparent",
-            color: value ? "#ffb454" : "#6c7380",
-            border: "1px dashed #262a33",
+            color: value ? "var(--status-warning)" : "var(--text-muted)",
+            border: "1px dashed var(--border-default)",
             borderRadius: 4,
             padding: "2px 8px",
             cursor: value ? "pointer" : "not-allowed",
@@ -159,7 +159,7 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
       {error && (
         <span
           data-testid="api-env-error"
-          style={{ color: "#f28779", fontSize: 11 }}
+          style={{ color: "var(--status-danger)", fontSize: 11 }}
         >
           {error}
         </span>

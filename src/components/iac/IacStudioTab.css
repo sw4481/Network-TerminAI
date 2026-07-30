@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   color: #ddd;
 }
 .iac-studio-toolbar {
@@ -29,7 +29,7 @@
 .iac-studio-file .dirty-marker { color: #e2c08d; }
 .iac-studio-toolbar button {
   background: #0e639c;
-  color: #fff;
+  color: var(--text-inverse);
   border: none;
   border-radius: 3px;
   padding: 3px 12px;
@@ -42,7 +42,7 @@
 .iac-studio-empty p { margin: 0; }
 .iac-studio-empty-hint { color: #aaa; font-size: 13px; margin-top: 8px; }
 .iac-studio-getstarted {
-  background: #0e639c; color: #fff; border: none;
+  background: #0e639c; color: var(--text-inverse); border: none;
   padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer;
 }
 .iac-studio-getstarted:hover { background: #1177bb; }
@@ -54,7 +54,7 @@
 }
 .iac-studio-run-check { background: #2d4a30; color: #b8e6bd; }
 .iac-studio-run-check:hover { background: #37623c; }
-.iac-studio-run-real { background: #0e9c6c; color: #fff; }
+.iac-studio-run-real { background: #0e9c6c; color: var(--text-inverse); }
 .iac-studio-run-real:hover { background: #12b57e; }
 .iac-studio-error {
   padding: 6px 12px;
@@ -87,7 +87,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -108,7 +108,7 @@
   font-family: ui-monospace, monospace;
   font-size: 11px;
   padding: 4px 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   border-bottom: 1px solid #1c2027;
   cursor: pointer;
 }
@@ -118,7 +118,7 @@
 .iac-studio-problem-row.info { color: #61afef; }
 .iac-studio-problem-row.clean { color: #98c379; cursor: default; }
 
-.iac-studio-problem-where { color: #8a8d94; min-width: 36px; }
+.iac-studio-problem-where { color: var(--text-secondary); min-width: 36px; }
 .iac-studio-problem-msg { flex: 1; }
 .iac-studio-problem-source { color: #5c6370; font-style: italic; }
 
@@ -132,7 +132,7 @@
   display: flex;
   gap: 8px;
   font-size: 11px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   padding: 2px 0;
 }
 

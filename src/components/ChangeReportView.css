@@ -9,14 +9,14 @@
   display: flex;
   gap: 12px;
   padding: 12px;
-  background: #0a0c0f;
+  background: var(--surface-chrome);
   border-radius: 6px;
 }
 
 .report-notes {
   padding: 12px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   font-size: 13px;
   color: #d0d0d0;
@@ -25,7 +25,7 @@
 .report-notes strong {
   display: block;
   margin-bottom: 6px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .report-notes p {
@@ -40,8 +40,8 @@
 }
 
 .delta-group {
-  background: #0a0c0f;
-  border: 1px solid #262a33;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -51,25 +51,25 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: #161a20;
+  background: var(--surface-input);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .delta-group-header:hover {
-  background: #1a1d23;
+  background: var(--surface-2);
 }
 
 .delta-group-command {
   font-family: Menlo, monospace;
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .delta-group-count {
   font-size: 11px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-weight: normal;
 }
 
@@ -78,5 +78,5 @@
 }
 
 .delta-group[open] .delta-group-header {
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }

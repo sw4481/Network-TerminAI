@@ -123,7 +123,7 @@ const SettingsBrowserTab: React.FC = () => {
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {windows.map((w) => (
               <li key={w.browserId} style={{ marginBottom: '12px', padding: '12px', background: '#1a1d24', border: '1px solid #2d3139', borderRadius: '4px' }}>
-                <div style={{ fontFamily: 'monospace', fontSize: 13, marginBottom: '8px', color: '#e6e1cf' }}>{w.url}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: 13, marginBottom: '8px', color: 'var(--text-primary)' }}>{w.url}</div>
                 <button
                   data-testid={`import-chrome-${w.browserId}`}
                   onClick={() => handleImport(w.browserId, 'chrome')}
@@ -143,7 +143,7 @@ const SettingsBrowserTab: React.FC = () => {
             ))}
           </ul>
         )}
-        {importStatus && <div style={{ marginTop: '12px', color: '#e6e1cf', fontSize: 13 }}>{importStatus}</div>}
+        {importStatus && <div style={{ marginTop: '12px', color: 'var(--text-primary)', fontSize: 13 }}>{importStatus}</div>}
       </div>
     </div>
   );

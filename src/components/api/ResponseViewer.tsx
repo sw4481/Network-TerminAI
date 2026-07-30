@@ -33,10 +33,10 @@ function humanSize(bytes: number): string {
 }
 
 function statusColor(code: number): string {
-  if (code === 0) return "#f28779";
-  if (code >= 200 && code < 300) return "#6bd968";
-  if (code >= 300 && code < 400) return "#ffb454";
-  return "#f28779";
+  if (code === 0) return "var(--status-danger)";
+  if (code >= 200 && code < 300) return "var(--status-success)";
+  if (code >= 300 && code < 400) return "var(--status-warning)";
+  return "var(--status-danger)";
 }
 
 export function ResponseViewer({
@@ -126,7 +126,7 @@ export function ResponseViewer({
         data-testid="api-response-empty"
         style={{
           padding: 20,
-          color: "#6c7380",
+          color: "var(--text-muted)",
           fontSize: 12,
           textAlign: "center",
         }}
@@ -203,19 +203,19 @@ export function ResponseViewer({
           style={{
             padding: "2px 8px",
             borderRadius: 4,
-            background: "#1a1d23",
+            background: "var(--surface-2)",
             color: statusColor(response.status_code),
             fontWeight: 600,
           }}
         >
           {isNetErr ? "ERR" : `${response.status_code} ${response.status_text}`}
         </span>
-        <span style={{ color: "#8a8d94" }}>{response.duration_ms} ms</span>
-        <span style={{ color: "#8a8d94" }}>
+        <span style={{ color: "var(--text-secondary)" }}>{response.duration_ms} ms</span>
+        <span style={{ color: "var(--text-secondary)" }}>
           {humanSize(Math.ceil((response.body.length * 3) / 4))}
         </span>
         {response.body_truncated && (
-          <span style={{ color: "#ffb454" }} data-testid="api-body-truncated">
+          <span style={{ color: "var(--status-warning)" }} data-testid="api-body-truncated">
             truncated
           </span>
         )}
@@ -233,8 +233,8 @@ export function ResponseViewer({
           }
           style={{
             background:
-              explaining || !parsed.ok ? "#262a33" : "#2d5a8c",
-            color: "#e6e1cf",
+              explaining || !parsed.ok ? "var(--surface-selected)" : "var(--accent-subtle)",
+            color: "var(--text-primary)",
             border: "none",
             borderRadius: 4,
             padding: "3px 10px",
@@ -251,9 +251,9 @@ export function ResponseViewer({
         <div
           data-testid="api-response-error"
           style={{
-            color: "#f28779",
+            color: "var(--status-danger)",
             background: "#2a1517",
-            border: "1px solid #f28779",
+            border: "1px solid var(--status-danger)",
             borderRadius: 4,
             padding: 8,
             fontFamily: "Menlo, monospace",
@@ -268,7 +268,7 @@ export function ResponseViewer({
         <JqFilterBar value={filter} onChange={setFilter} error={filterError} />
       )}
 
-      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid #262a33" }}>
+      <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--border-default)" }}>
         {(
           [
             "body",
@@ -290,11 +290,11 @@ export function ResponseViewer({
             data-testid={`api-response-tab-${k}`}
             onClick={() => setTab(k)}
             style={{
-              background: tab === k ? "#262a33" : "transparent",
-              color: tab === k ? "#e6e1cf" : "#8a8d94",
+              background: tab === k ? "var(--surface-3)" : "transparent",
+              color: tab === k ? "var(--text-primary)" : "var(--text-secondary)",
               border: "none",
               borderBottom:
-                tab === k ? "2px solid #5ccfe6" : "2px solid transparent",
+                tab === k ? "2px solid var(--accent)" : "2px solid transparent",
               padding: "6px 12px",
               cursor: "pointer",
               fontSize: 12,
@@ -316,8 +316,8 @@ export function ResponseViewer({
           style={{
             margin: 0,
             padding: 10,
-            background: "#0f1114",
-            color: "#e6e1cf",
+            background: "var(--app-canvas)",
+            color: "var(--text-primary)",
             borderRadius: 4,
             flex: 1,
             overflow: "auto",
@@ -328,7 +328,7 @@ export function ResponseViewer({
           }}
         >
           {prettyBody || (
-            <span style={{ color: "#6c7380" }}>(empty body)</span>
+            <span style={{ color: "var(--text-muted)" }}>(empty body)</span>
           )}
         </pre>
       )}
@@ -342,10 +342,10 @@ export function ResponseViewer({
           style={{
             margin: 0,
             padding: 10,
-            background: "#0f1114",
+            background: "var(--app-canvas)",
             // Use the system font here, not Menlo — the pretty view is
             // meant to read like a document, not code.
-            color: "#e6e1cf",
+            color: "var(--text-primary)",
             borderRadius: 4,
             flex: 1,
             overflow: "auto",
@@ -357,7 +357,7 @@ export function ResponseViewer({
           }}
         >
           {prettyText || (
-            <span style={{ color: "#6c7380" }}>(empty body)</span>
+            <span style={{ color: "var(--text-muted)" }}>(empty body)</span>
           )}
         </pre>
       )}
@@ -388,7 +388,7 @@ export function ResponseViewer({
           data-testid="api-response-headers"
           style={{
             padding: 10,
-            background: "#0f1114",
+            background: "var(--app-canvas)",
             borderRadius: 4,
             flex: 1,
             overflow: "auto",
@@ -397,12 +397,12 @@ export function ResponseViewer({
           }}
         >
           {Object.entries(response.headers).length === 0 && (
-            <span style={{ color: "#6c7380" }}>(no headers)</span>
+            <span style={{ color: "var(--text-muted)" }}>(no headers)</span>
           )}
           {Object.entries(response.headers).map(([k, v]) => (
             <div key={k} style={{ display: "flex", gap: 8 }}>
-              <span style={{ color: "#5ccfe6" }}>{k}:</span>
-              <span style={{ color: "#e6e1cf", wordBreak: "break-all" }}>
+              <span style={{ color: "var(--accent)" }}>{k}:</span>
+              <span style={{ color: "var(--text-primary)", wordBreak: "break-all" }}>
                 {v}
               </span>
             </div>
@@ -414,20 +414,20 @@ export function ResponseViewer({
           data-testid="api-response-explain-pane"
           style={{
             padding: 12,
-            background: "#0f1114",
+            background: "var(--app-canvas)",
             borderRadius: 4,
             flex: 1,
             overflow: "auto",
             fontFamily: "-apple-system, system-ui, sans-serif",
             fontSize: 13,
             lineHeight: 1.55,
-            color: "#e6e1cf",
+            color: "var(--text-primary)",
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           }}
         >
           {explaining && (
-            <div style={{ color: "#8a8d94", fontStyle: "italic" }}>
+            <div style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>
               Asking the AI to summarize…
             </div>
           )}
@@ -435,8 +435,8 @@ export function ResponseViewer({
             <div
               data-testid="api-response-explain-error"
               style={{
-                color: "#f28779",
-                border: "1px solid #f28779",
+                color: "var(--status-danger)",
+                border: "1px solid var(--status-danger)",
                 background: "#2a1517",
                 borderRadius: 4,
                 padding: 8,
@@ -451,7 +451,7 @@ export function ResponseViewer({
             <div data-testid="api-response-explain-text">{explanation}</div>
           )}
           {!explaining && !explainError && !explanation && (
-            <div style={{ color: "#8a8d94", fontStyle: "italic" }}>
+            <div style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>
               Click ✨ Explain in the header row to generate a plain-English
               summary of this response.
             </div>

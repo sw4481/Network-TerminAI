@@ -96,7 +96,7 @@ export function TroubleshootTab({ tabId }: TroubleshootTabProps) {
       <div
         style={{
           padding: "6px 12px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           gap: 8,
           alignItems: "center",
@@ -111,9 +111,9 @@ export function TroubleshootTab({ tabId }: TroubleshootTabProps) {
           }}
           data-testid="tb-tab-open-editor"
           style={{
-            background: "#1a1d23",
-            color: "#e6e1cf",
-            border: "1px solid #262a33",
+            background: "var(--surface-2)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 10px",
             fontSize: 11,

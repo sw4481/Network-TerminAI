@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: var(--app-bg, #0f1114);
+  background: var(--app-bg, var(--app-canvas));
   color: inherit;
   min-height: 0;
 }

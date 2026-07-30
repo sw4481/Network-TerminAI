@@ -1,6 +1,6 @@
 .structured-diff {
-  background: #1e1e1e;
-  color: #e6e1cf;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
   font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 12.5px;
 }
@@ -16,9 +16,9 @@
 }
 
 .structured-diff-toolbar select {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border: 1px solid #3a3a3a;
-  color: #e6e1cf;
+  color: var(--text-primary);
   padding: 2px 6px;
   font-family: inherit;
   font-size: 11.5px;

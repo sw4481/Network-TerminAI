@@ -7,15 +7,15 @@
 
 .post-check-prompt {
   padding: 20px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   text-align: center;
 }
 
 .post-check-prompt p {
   margin: 0;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -28,7 +28,7 @@
 }
 
 .post-check-running span {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -41,15 +41,15 @@
 .post-check-notes-field label {
   font-size: 12px;
   font-weight: 600;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .post-check-notes-field textarea {
   padding: 8px 12px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
@@ -57,11 +57,11 @@
 }
 
 .post-check-notes-field textarea:focus {
-  border-color: #3e4451;
+  border-color: var(--border-strong);
 }
 
 .post-check-notes-field textarea::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .post-check-confirm {
@@ -69,8 +69,8 @@
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -86,8 +86,8 @@
 
 .run-post-check-btn {
   padding: 12px;
-  background: #2d5a8c;
-  color: #e6e1cf;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
   border: none;
   border-radius: 6px;
   cursor: pointer;

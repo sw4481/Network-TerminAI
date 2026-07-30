@@ -3,8 +3,8 @@
   align-items: flex-start;
   gap: 8px;
   padding: 12px;
-  background: #1a1d23;
-  border-top: 1px solid #262a33;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-default);
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 13px;
 }
@@ -21,7 +21,7 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: inherit;
   font-size: inherit;
   resize: none;
@@ -32,7 +32,7 @@
 }
 
 .input-textarea::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .input-textarea:disabled {

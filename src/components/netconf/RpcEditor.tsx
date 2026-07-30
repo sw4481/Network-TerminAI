@@ -61,13 +61,13 @@ export function RpcEditor({
       <div
         style={{
           padding: "8px 12px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           gap: 8,
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
           RPC Editor
         </div>
 
@@ -77,9 +77,9 @@ export function RpcEditor({
             data-testid="netconf-mode-xml"
             onClick={() => patch(tabId, { editor_mode: "xml" })}
             style={{
-              background: state.editor_mode === "xml" ? "#262a33" : "transparent",
-              color: state.editor_mode === "xml" ? "#e6e1cf" : "#8a8d94",
-              border: "1px solid #262a33",
+              background: state.editor_mode === "xml" ? "var(--surface-3)" : "transparent",
+              color: state.editor_mode === "xml" ? "var(--text-primary)" : "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "2px 8px",
               cursor: "pointer",
@@ -92,9 +92,9 @@ export function RpcEditor({
             data-testid="netconf-mode-cli"
             onClick={() => patch(tabId, { editor_mode: "cli" })}
             style={{
-              background: state.editor_mode === "cli" ? "#262a33" : "transparent",
-              color: state.editor_mode === "cli" ? "#e6e1cf" : "#8a8d94",
-              border: "1px solid #262a33",
+              background: state.editor_mode === "cli" ? "var(--surface-3)" : "transparent",
+              color: state.editor_mode === "cli" ? "var(--text-primary)" : "var(--text-secondary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "2px 8px",
               cursor: "pointer",
@@ -114,9 +114,9 @@ export function RpcEditor({
               patch(tabId, { cli_platform: e.target.value as "iosxe" | "nxos" })
             }
             style={{
-              background: "#0f1114",
-              color: "#e6e1cf",
-              border: "1px solid #262a33",
+              background: "var(--app-canvas)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "2px 6px",
               fontSize: 11,
@@ -143,8 +143,8 @@ export function RpcEditor({
             }
             style={{
               background: "transparent",
-              color: "#5ccfe6",
-              border: "1px dashed #262a33",
+              color: "var(--accent)",
+              border: "1px dashed var(--border-default)",
               borderRadius: 4,
               padding: "3px 8px",
               cursor: "pointer",
@@ -162,8 +162,8 @@ export function RpcEditor({
               onClick={() => insertExample("show version")}
               style={{
                 background: "transparent",
-                color: "#5ccfe6",
-                border: "1px dashed #262a33",
+                color: "var(--accent)",
+                border: "1px dashed var(--border-default)",
                 borderRadius: 4,
                 padding: "3px 8px",
                 cursor: "pointer",
@@ -178,8 +178,8 @@ export function RpcEditor({
               disabled={!state.rpc_xml.trim()}
               style={{
                 background: "transparent",
-                color: state.rpc_xml.trim() ? "#5ccfe6" : "#6c7380",
-                border: "1px solid #262a33",
+                color: state.rpc_xml.trim() ? "var(--accent)" : "var(--text-muted)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "3px 8px",
                 cursor: state.rpc_xml.trim() ? "pointer" : "not-allowed",
@@ -195,9 +195,9 @@ export function RpcEditor({
           data-testid="netconf-saved-rpcs-toggle"
           onClick={onToggleSavedRpcs}
           style={{
-            background: savedRpcsOpen ? "#262a33" : "transparent",
-            color: savedRpcsOpen ? "#e6e1cf" : "#8a8d94",
-            border: "1px solid #262a33",
+            background: savedRpcsOpen ? "var(--surface-3)" : "transparent",
+            color: savedRpcsOpen ? "var(--text-primary)" : "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 10px",
             cursor: "pointer",
@@ -211,9 +211,9 @@ export function RpcEditor({
           data-testid="netconf-history-toggle"
           onClick={onToggleHistory}
           style={{
-            background: historyOpen ? "#262a33" : "transparent",
-            color: historyOpen ? "#e6e1cf" : "#8a8d94",
-            border: "1px solid #262a33",
+            background: historyOpen ? "var(--surface-3)" : "transparent",
+            color: historyOpen ? "var(--text-primary)" : "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 10px",
             cursor: "pointer",
@@ -228,8 +228,8 @@ export function RpcEditor({
           onClick={onSend}
           disabled={!canSend}
           style={{
-            background: canSend ? "#2d5a8c" : "#262a33",
-            color: canSend ? "#e6e1cf" : "#6c7380",
+            background: canSend ? "var(--accent-subtle)" : "var(--surface-3)",
+            color: canSend ? "var(--text-primary)" : "var(--text-muted)",
             border: "none",
             borderRadius: 4,
             padding: "6px 14px",
@@ -278,8 +278,8 @@ export function RpcEditor({
         disabled={state.status !== "connected"}
         style={{
           flex: 1,
-          background: "#0f1114",
-          color: "#e6e1cf",
+          background: "var(--app-canvas)",
+          color: "var(--text-primary)",
           border: "none",
           padding: 12,
           fontFamily: "Menlo, monospace",
@@ -297,7 +297,7 @@ export function RpcEditor({
             padding: "8px 12px",
             background: "#2a1a1a",
             borderTop: "1px solid #3d2626",
-            color: "#f28779",
+            color: "var(--status-danger)",
             fontSize: 11,
             fontFamily: "Menlo, monospace",
           }}
@@ -313,7 +313,7 @@ export function RpcEditor({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.7)",
+            background: "rgb(var(--backdrop-rgb) / 0.7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -323,8 +323,8 @@ export function RpcEditor({
         >
           <div
             style={{
-              background: "#0f1114",
-              border: "1px solid #262a33",
+              background: "var(--app-canvas)",
+              border: "1px solid var(--border-default)",
               borderRadius: 8,
               width: "80%",
               maxWidth: 800,
@@ -337,13 +337,13 @@ export function RpcEditor({
             <div
               style={{
                 padding: "12px 16px",
-                borderBottom: "1px solid #262a33",
+                borderBottom: "1px solid var(--border-default)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#e6e1cf" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                 NETCONF XML Preview
               </div>
               <button
@@ -351,7 +351,7 @@ export function RpcEditor({
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#8a8d94",
+                  color: "var(--text-secondary)",
                   cursor: "pointer",
                   fontSize: 16,
                   padding: "0 4px",
@@ -370,7 +370,7 @@ export function RpcEditor({
               <pre
                 style={{
                   margin: 0,
-                  color: "#e6e1cf",
+                  color: "var(--text-primary)",
                   fontSize: 12,
                   fontFamily: "Menlo, monospace",
                   whiteSpace: "pre-wrap",
@@ -383,7 +383,7 @@ export function RpcEditor({
             <div
               style={{
                 padding: "12px 16px",
-                borderTop: "1px solid #262a33",
+                borderTop: "1px solid var(--border-default)",
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: 8,
@@ -395,8 +395,8 @@ export function RpcEditor({
                 }}
                 style={{
                   background: "transparent",
-                  color: "#5ccfe6",
-                  border: "1px solid #262a33",
+                  color: "var(--accent)",
+                  border: "1px solid var(--border-default)",
                   borderRadius: 4,
                   padding: "6px 12px",
                   cursor: "pointer",
@@ -408,8 +408,8 @@ export function RpcEditor({
               <button
                 onClick={() => setPreviewXml(null)}
                 style={{
-                  background: "#2d5a8c",
-                  color: "#e6e1cf",
+                  background: "var(--accent-subtle)",
+                  color: "var(--text-primary)",
                   border: "none",
                   borderRadius: 4,
                   padding: "6px 12px",

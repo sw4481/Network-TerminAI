@@ -1,5 +1,5 @@
 .block-output {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   min-height: 100px;
 }
 
@@ -21,7 +21,7 @@
   padding: 12px;
   font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
   font-size: 13px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-x: auto;
@@ -33,7 +33,7 @@
 }
 
 .output-text::-webkit-scrollbar-track {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
 }
 
 .output-text::-webkit-scrollbar-thumb {
@@ -57,43 +57,43 @@
   gap: 8px;
   padding: 16px;
   margin: 8px 0;
-  background: rgba(255, 255, 255, 0.03);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgb(var(--overlay-light-rgb) / 0.03);
+  border-top: 1px solid rgb(var(--overlay-light-rgb) / 0.1);
+  border-bottom: 1px solid rgb(var(--overlay-light-rgb) / 0.1);
 }
 
 .show-more-btn {
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgb(var(--overlay-light-rgb) / 0.08);
+  border: 1px solid rgb(var(--overlay-light-rgb) / 0.15);
   border-radius: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .show-more-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgb(var(--overlay-light-rgb) / 0.15);
+  border-color: rgb(var(--overlay-light-rgb) / 0.25);
 }
 
 .truncate-hint {
   font-size: 12px;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .collapse-hint {
   display: inline-block;
   padding: 12px 16px;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 13px;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
 .collapse-hint:hover {
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 /* Search match highlighting */

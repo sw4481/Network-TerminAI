@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   z-index: 50;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -30,7 +30,7 @@
 .ghruns-close {
   background: transparent;
   border: none;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 15px;
   padding: 2px 6px;
@@ -40,12 +40,12 @@
 .ghruns-refresh:hover,
 .ghruns-close:hover {
   background: #2a2d33;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .ghruns-empty {
   padding: 16px 12px;
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 .ghruns-error {
@@ -103,7 +103,7 @@
 
 .ghruns-icon--cancelled,
 .ghruns-icon--other {
-  color: #8a8d94;
+  color: var(--text-secondary);
 }
 
 @keyframes ghruns-pulse {
@@ -127,7 +127,7 @@
 }
 
 .ghruns-sub {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
@@ -135,7 +135,7 @@
 }
 
 .ghruns-time {
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 11px;
   flex-shrink: 0;
 }

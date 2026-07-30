@@ -5,8 +5,8 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #14171c;
-  color: #e6e1cf;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -15,13 +15,13 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #262a33;
-  background: #1a1d23;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
   flex-wrap: wrap;
 }
 
 .tb-editor-toolbar-label {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -29,9 +29,9 @@
 }
 
 .tb-editor-select {
-  background: #14171c;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 4px 8px;
   font-family: inherit;
@@ -40,9 +40,9 @@
 }
 
 .tb-editor-gen-prompt {
-  background: #14171c;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 4px 8px;
   font-family: inherit;
@@ -65,9 +65,9 @@
 }
 
 .tb-editor-btn {
-  background: #14171c;
-  color: #e6e1cf;
-  border: 1px solid #262a33;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 5px 10px;
   font-family: inherit;
@@ -109,7 +109,7 @@
 
 .tb-editor-toolbar-status {
   font-size: 11px;
-  color: #8a8d94;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -145,7 +145,7 @@
 }
 
 .tb-editor-pane-left {
-  border-right: 1px solid #262a33;
+  border-right: 1px solid var(--border-default);
 }
 
 .tb-editor-monaco-host {
@@ -158,7 +158,7 @@
   flex: 1;
   min-height: 0;
   background: #0d1015;
-  color: #e6e1cf;
+  color: var(--text-primary);
   border: none;
   outline: none;
   font-family: ui-monospace, "JetBrains Mono", monospace;
@@ -177,9 +177,9 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #8a8d94;
+  color: var(--text-secondary);
   padding: 6px 12px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
   background: #16191e;
 }
 
@@ -199,7 +199,7 @@
 }
 
 .tb-editor-diagnostics {
-  border-top: 1px solid #262a33;
+  border-top: 1px solid var(--border-default);
   background: #16191e;
   max-height: 180px;
   display: flex;
@@ -214,7 +214,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -232,7 +232,7 @@
   font-family: ui-monospace, monospace;
   font-size: 11px;
   padding: 4px 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   border-bottom: 1px solid #1c2027;
 }
 
@@ -245,6 +245,6 @@
 }
 
 .tb-editor-diagnostic-where {
-  color: #8a8d94;
+  color: var(--text-secondary);
   margin-right: 8px;
 }

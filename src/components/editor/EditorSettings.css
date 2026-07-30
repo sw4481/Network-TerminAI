@@ -6,7 +6,7 @@
   background: #252526;
   border: 1px solid #3e3e42;
   border-radius: 4px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 18px rgb(var(--backdrop-rgb) / 0.45);
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
 }
 
 .editor-settings-panel .close-button:hover {
-  color: #ffffff;
+  color: var(--text-inverse);
 }
 
 .editor-settings-panel .settings-body {

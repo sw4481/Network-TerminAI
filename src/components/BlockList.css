@@ -32,7 +32,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  color: #8a8d94;
+  color: var(--text-secondary);
   padding: 32px;
 }
 .block-list-empty .hint {
@@ -41,7 +41,7 @@
   margin-top: 4px;
 }
 .block-list-empty strong {
-  color: #5ccfe6;
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -54,6 +54,6 @@
 }
 
 .block-list-row[data-focused="true"] .command-block {
-  outline: 2px solid #5ccfe6;
+  outline: 2px solid var(--focus-ring);
   outline-offset: -1px;
 }

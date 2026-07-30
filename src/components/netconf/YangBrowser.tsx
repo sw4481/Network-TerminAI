@@ -195,7 +195,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
         bottom: 0,
         width: 600,
         background: "#14161a",
-        borderLeft: "1px solid #262a33",
+        borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
         zIndex: 10,
@@ -205,24 +205,24 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
       <div
         style={{
           padding: "12px 16px",
-          borderBottom: "1px solid #262a33",
+          borderBottom: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#e6e1cf" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
             YANG Browser
           </div>
           {view === "modules" && selectedRelease && (
             <>
-              <div style={{ color: "#6c7380", fontSize: 12 }}>/</div>
+              <div style={{ color: "var(--text-muted)", fontSize: 12 }}>/</div>
               <button
                 onClick={() => setView("releases")}
                 style={{
                   background: "transparent",
-                  color: "#5ccfe6",
+                  color: "var(--accent)",
                   border: "none",
                   cursor: "pointer",
                   fontSize: 12,
@@ -239,8 +239,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
           onClick={onClose}
           style={{
             background: "transparent",
-            color: "#8a8d94",
-            border: "1px solid #262a33",
+            color: "var(--text-secondary)",
+            border: "1px solid var(--border-default)",
             borderRadius: 4,
             padding: "4px 8px",
             cursor: "pointer",
@@ -258,7 +258,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
             padding: 12,
             background: "#2a1a1a",
             borderBottom: "1px solid #3d2626",
-            color: "#f28779",
+            color: "var(--status-danger)",
             fontSize: 12,
           }}
         >
@@ -269,19 +269,19 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
       {/* Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "row", minHeight: 0 }}>
         {/* Module list */}
-        <div style={{ flex: selectedModule ? 0.4 : 1, overflowY: "auto", padding: 12, borderRight: selectedModule ? "1px solid #262a33" : "none" }}>
+        <div style={{ flex: selectedModule ? 0.4 : 1, overflowY: "auto", padding: 12, borderRight: selectedModule ? "1px solid var(--border-default)" : "none" }}>
         {view === "releases" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {/* Download form */}
             <div
               style={{
-                background: "#0f1114",
-                border: "1px solid #262a33",
+                background: "var(--app-canvas)",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: 12,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 10 }}>
                 Download Release
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -293,8 +293,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     style={{
                       flex: 1,
                       background: "#1a1c20",
-                      color: "#e6e1cf",
-                      border: "1px solid #262a33",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: 4,
                       padding: "6px 8px",
                       fontSize: 11,
@@ -312,8 +312,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     style={{
                       flex: 1,
                       background: "#1a1c20",
-                      color: "#e6e1cf",
-                      border: "1px solid #262a33",
+                      color: "var(--text-primary)",
+                      border: "1px solid var(--border-default)",
                       borderRadius: 4,
                       padding: "6px 8px",
                       fontSize: 11,
@@ -343,8 +343,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                   disabled={downloading}
                   style={{
                     background: "#1a1c20",
-                    color: "#e6e1cf",
-                    border: "1px solid #262a33",
+                    color: "var(--text-primary)",
+                    border: "1px solid var(--border-default)",
                     borderRadius: 4,
                     padding: "6px 8px",
                     fontSize: 11,
@@ -355,8 +355,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                   onClick={handleDownload}
                   disabled={downloading}
                   style={{
-                    background: downloading ? "#262a33" : "#2d5a8c",
-                    color: downloading ? "#6c7380" : "#e6e1cf",
+                    background: downloading ? "var(--surface-3)" : "var(--accent-subtle)",
+                    color: downloading ? "var(--text-muted)" : "var(--text-primary)",
                     border: "none",
                     borderRadius: 4,
                     padding: "8px 12px",
@@ -369,7 +369,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 </button>
                 {downloadProgress && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ fontSize: 10, color: "#8a8d94" }}>
+                    <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
                       {downloadProgress.total === 0 ? (
                         downloadProgress.file
                       ) : (
@@ -382,7 +382,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     <div
                       style={{
                         height: 4,
-                        background: "#262a33",
+                        background: "var(--surface-3)",
                         borderRadius: 2,
                         overflow: "hidden",
                       }}
@@ -390,7 +390,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                       <div
                         style={{
                           height: "100%",
-                          background: "#5ccfe6",
+                          background: "var(--accent)",
                           width: downloadProgress.total === 0 ? "100%" : `${(downloadProgress.done / downloadProgress.total) * 100}%`,
                           transition: "width 0.2s",
                         }}
@@ -402,18 +402,18 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
             </div>
 
             {/* Releases list */}
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#8a8d94" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
               Downloaded Releases
             </div>
 
             {loading && (
-              <div style={{ padding: 16, textAlign: "center", color: "#8a8d94" }}>
+              <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
                 Loading...
               </div>
             )}
 
             {!loading && releases.length === 0 && (
-              <div style={{ padding: 16, textAlign: "center", color: "#6c7380", fontSize: 13 }}>
+              <div style={{ padding: 16, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
                 No releases downloaded yet
               </div>
             )}
@@ -422,8 +422,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
               <div
                 key={release.id}
                 style={{
-                  background: "#0f1114",
-                  border: "1px solid #262a33",
+                  background: "var(--app-canvas)",
+                  border: "1px solid var(--border-default)",
                   borderRadius: 4,
                   padding: 10,
                   display: "flex",
@@ -432,10 +432,10 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf", marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
                     {release.vendor}/{release.os}/{release.release}
                   </div>
-                  <div style={{ fontSize: 11, color: "#8a8d94" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                     {release.module_count} modules
                   </div>
                 </div>
@@ -443,8 +443,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                   <button
                     onClick={() => handleSelectRelease(release)}
                     style={{
-                      background: "#2d5a8c",
-                      color: "#e6e1cf",
+                      background: "var(--accent-subtle)",
+                      color: "var(--text-primary)",
                       border: "none",
                       borderRadius: 4,
                       padding: "4px 10px",
@@ -459,7 +459,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     onClick={() => handleDelete(release)}
                     style={{
                       background: "transparent",
-                      color: "#f28779",
+                      color: "var(--status-danger)",
                       border: "1px solid #3d2626",
                       borderRadius: 4,
                       padding: "4px 10px",
@@ -488,8 +488,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 style={{
                   flex: 1,
                   background: "#1a1c20",
-                  color: "#e6e1cf",
-                  border: "1px solid #262a33",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border-default)",
                   borderRadius: 4,
                   padding: "6px 8px",
                   fontSize: 11,
@@ -499,8 +499,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
               <button
                 onClick={handleSearchModules}
                 style={{
-                  background: "#2d5a8c",
-                  color: "#e6e1cf",
+                  background: "var(--accent-subtle)",
+                  color: "var(--text-primary)",
                   border: "none",
                   borderRadius: 4,
                   padding: "6px 12px",
@@ -515,13 +515,13 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
 
             {/* Modules list */}
             {loading && (
-              <div style={{ padding: 16, textAlign: "center", color: "#8a8d94" }}>
+              <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
                 Loading modules...
               </div>
             )}
 
             {!loading && modules.length === 0 && (
-              <div style={{ padding: 16, textAlign: "center", color: "#6c7380", fontSize: 13 }}>
+              <div style={{ padding: 16, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
                 {moduleQuery ? "No modules match your search" : "No modules found"}
               </div>
             )}
@@ -531,23 +531,23 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 key={module.id}
                 onClick={() => handleModuleClick(module)}
                 style={{
-                  background: selectedModule?.id === module.id ? "#1a2332" : "#0f1114",
-                  border: `1px solid ${selectedModule?.id === module.id ? "#2d5a8c" : "#262a33"}`,
+                  background: selectedModule?.id === module.id ? "#1a2332" : "var(--app-canvas)",
+                  border: `1px solid ${selectedModule?.id === module.id ? "var(--accent-subtle)" : "var(--border-default)"}`,
                   borderRadius: 4,
                   padding: 10,
                   cursor: "pointer",
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#e6e1cf", marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
                   {module.name}
                 </div>
                 {module.namespace && (
-                  <div style={{ fontSize: 10, color: "#8a8d94", marginBottom: 2 }}>
+                  <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 2 }}>
                     {module.namespace}
                   </div>
                 )}
                 {module.revision && (
-                  <div style={{ fontSize: 10, color: "#6c7380" }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
                     Revision: {module.revision}
                   </div>
                 )}
@@ -561,17 +561,17 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
         {selectedModule && (
           <div style={{ flex: 0.6, display: "flex", flexDirection: "column", minHeight: 0 }}>
             {/* Detail header */}
-            <div style={{ padding: 12, borderBottom: "1px solid #262a33" }}>
+            <div style={{ padding: 12, borderBottom: "1px solid var(--border-default)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#e6e1cf" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
                   {selectedModule.name}
                 </div>
                 <button
                   onClick={() => setSelectedModule(null)}
                   style={{
                     background: "transparent",
-                    color: "#8a8d94",
-                    border: "1px solid #262a33",
+                    color: "var(--text-secondary)",
+                    border: "1px solid var(--border-default)",
                     borderRadius: 4,
                     padding: "4px 8px",
                     cursor: "pointer",
@@ -582,12 +582,12 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 </button>
               </div>
               {selectedModule.namespace && (
-                <div style={{ fontSize: 11, color: "#8a8d94", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>
                   {selectedModule.namespace}
                 </div>
               )}
               {selectedModule.revision && (
-                <div style={{ fontSize: 11, color: "#6c7380", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
                   Revision: {selectedModule.revision}
                 </div>
               )}
@@ -595,8 +595,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 onClick={handleExplain}
                 disabled={explaining || loadingContent}
                 style={{
-                  background: explaining || loadingContent ? "#262a33" : "#2d5a8c",
-                  color: explaining || loadingContent ? "#6c7380" : "#e6e1cf",
+                  background: explaining || loadingContent ? "var(--surface-3)" : "var(--accent-subtle)",
+                  color: explaining || loadingContent ? "var(--text-muted)" : "var(--text-primary)",
                   border: "none",
                   borderRadius: 4,
                   padding: "6px 12px",
@@ -611,13 +611,13 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
 
             {/* AI Explanation (if available) */}
             {explanation && (
-              <div style={{ padding: 12, background: "#0f1114", borderBottom: "1px solid #262a33", maxHeight: "300px", overflowY: "auto" }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#5ccfe6", marginBottom: 8 }}>
+              <div style={{ padding: 12, background: "var(--app-canvas)", borderBottom: "1px solid var(--border-default)", maxHeight: "300px", overflowY: "auto" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", marginBottom: 8 }}>
                   AI Explanation
                 </div>
                 <div style={{
                   fontSize: 11,
-                  color: "#e6e1cf",
+                  color: "var(--text-primary)",
                   lineHeight: "1.6",
                   whiteSpace: "pre-wrap",
                 }}>
@@ -629,7 +629,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
             {/* YANG content */}
             <div style={{ flex: 1, overflowY: "auto", padding: 12, position: "relative" }}>
               {loadingContent ? (
-                <div style={{ padding: 16, textAlign: "center", color: "#8a8d94" }}>
+                <div style={{ padding: 16, textAlign: "center", color: "var(--text-secondary)" }}>
                   Loading module content...
                 </div>
               ) : (
@@ -642,7 +642,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     margin: 0,
                     fontSize: 11,
                     fontFamily: "Menlo, monospace",
-                    color: "#e6e1cf",
+                    color: "var(--text-primary)",
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-all",
                     userSelect: "text",

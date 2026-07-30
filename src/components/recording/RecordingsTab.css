@@ -1,7 +1,7 @@
 .recordings-tab {
   height: 100%;
-  background: #0e1116;
-  color: #c9d1d9;
+  background: var(--surface-recording);
+  color: var(--text-recording);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   display: flex;
   flex-direction: column;
@@ -12,7 +12,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid var(--surface-recording-control);
 }
 
 .recordings-header h2 {
@@ -23,13 +23,13 @@
 .recordings-empty {
   padding: 64px 24px;
   text-align: center;
-  color: #8b949e;
+  color: var(--text-recording-muted);
   font-size: 13px;
   line-height: 1.6;
 }
 
 .recordings-empty code {
-  background: #161b22;
+  background: var(--surface-recording-inset);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -47,7 +47,7 @@
   gap: 12px;
   align-items: center;
   padding: 12px 24px;
-  border-bottom: 1px solid #161b22;
+  border-bottom: 1px solid var(--surface-recording-inset);
 }
 
 .rec-kind {
@@ -69,14 +69,14 @@
 }
 
 .rec-live {
-  color: #f85149;
+  color: var(--status-recording-live);
   font-weight: 600;
   font-size: 11px;
 }
 
 .rec-meta {
   font-size: 11px;
-  color: #8b949e;
+  color: var(--text-recording-muted);
 }
 
 .rec-actions {
@@ -85,9 +85,9 @@
 }
 
 .rec-btn {
-  background: #21262d;
-  color: #c9d1d9;
-  border: 1px solid #30363d;
+  background: var(--surface-recording-control);
+  color: var(--text-recording);
+  border: 1px solid var(--surface-recording-hover);
   border-radius: 5px;
   padding: 6px 12px;
   font: inherit;
@@ -96,7 +96,7 @@
 }
 
 .rec-btn:hover:not(:disabled) {
-  background: #30363d;
+  background: var(--surface-recording-hover);
 }
 
 .rec-btn:disabled {

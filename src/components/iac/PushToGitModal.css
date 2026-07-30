@@ -1,7 +1,7 @@
 .push-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgb(var(--backdrop-rgb) / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,13 +9,13 @@
 }
 
 .push-modal {
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   border: 1px solid #3a3a3a;
   border-radius: 8px;
   padding: 20px 24px;
   width: 480px;
   max-width: 90vw;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 40px rgb(var(--backdrop-rgb) / 0.4);
   color: #e0e0e0;
 }
 
@@ -26,7 +26,7 @@
 }
 
 .push-modal-sub {
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0 0 16px 0;
 }
@@ -63,7 +63,7 @@
 
 .push-modal-hint {
   font-size: 0.78rem;
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .push-modal-ok,
@@ -113,7 +113,7 @@
 
 .push-modal-confirm {
   background: #0e639c;
-  color: #fff;
+  color: var(--text-inverse);
 }
 
 .push-modal-confirm:hover:not(:disabled) {

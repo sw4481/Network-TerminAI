@@ -197,7 +197,7 @@ export default function WhatsAppSettingsTab() {
               alt="WhatsApp pairing QR"
               width={220}
               height={220}
-              style={{ background: '#fff', padding: 8, borderRadius: 6 }}
+              style={{ background: 'var(--text-inverse)', padding: 8, borderRadius: 6 }}
             />
           </div>
         )}

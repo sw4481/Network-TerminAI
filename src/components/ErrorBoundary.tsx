@@ -155,7 +155,7 @@ const styles: Record<string, React.CSSProperties> = {
   card: {
     maxWidth: "600px",
     padding: "24px",
-    backgroundColor: "#1e1e1e",
+    backgroundColor: "var(--surface-terminal)",
     border: "1px solid #ff4444",
     borderRadius: "8px",
   },
@@ -200,7 +200,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "8px 16px",
     fontSize: "14px",
     fontWeight: "500",
-    color: "#ffffff",
+    color: "var(--text-inverse)",
     backgroundColor: "#0078d4",
     border: "none",
     borderRadius: "4px",

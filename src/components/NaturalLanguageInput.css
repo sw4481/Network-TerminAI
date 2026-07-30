@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--backdrop-rgb) / 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -23,14 +23,14 @@
 }
 
 .nl-input-modal {
-  background: #1a1d23;
+  background: var(--surface-2);
   border: 1px solid #3a3d43;
   border-radius: 8px;
   width: 600px;
   max-width: 90vw;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
 }
 
 .nl-header {
@@ -45,13 +45,13 @@
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .close-btn {
   background: transparent;
   border: none;
-  color: #6c7380;
+  color: var(--text-muted);
   font-size: 20px;
   cursor: pointer;
   padding: 4px 8px;
@@ -61,8 +61,8 @@
 }
 
 .close-btn:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .nl-content {
@@ -74,7 +74,7 @@
   margin-bottom: 8px;
   font-size: 14px;
   font-weight: 500;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .nl-input-section textarea {
@@ -82,8 +82,8 @@
   padding: 12px;
   border: 1px solid #3a3d43;
   border-radius: 4px;
-  background: #0f1114;
-  color: #e6e1cf;
+  background: var(--app-canvas);
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 14px;
   resize: vertical;
@@ -91,13 +91,13 @@
 }
 
 .nl-input-section textarea::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .nl-input-section textarea:focus {
   outline: none;
-  border-color: #5ccfe6;
-  background: #1a1d23;
+  border-color: var(--accent);
+  background: var(--surface-2);
 }
 
 .nl-result {
@@ -125,10 +125,10 @@
 .result-command code {
   display: block;
   padding: 10px 12px;
-  background: #0f1114;
+  background: var(--app-canvas);
   border: 1px solid #3a3d43;
   border-radius: 4px;
-  color: #5ccfe6;
+  color: var(--accent);
   font-family: 'Menlo', 'SF Mono', Monaco, monospace;
   font-size: 13px;
   margin-top: 6px;
@@ -138,7 +138,7 @@
 
 .result-explanation p {
   margin: 6px 0 0 0;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -175,13 +175,13 @@
 
 .cancel-btn {
   background: #2a2d33;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .generate-btn,
 .use-btn {
-  background: #5ccfe6;
-  color: #0f1114;
+  background: var(--accent);
+  color: var(--app-canvas);
 }
 
 .cancel-btn:hover,
