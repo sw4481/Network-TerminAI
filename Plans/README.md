@@ -104,6 +104,7 @@ Team sharing was requested during brainstorm but requires auth/backend infra dec
 | [13](./13-inline-topology-awareness.md) | Inline topology awareness (CDP/LLDP graph) | ✅ Complete (2026-05-19) |
 | [14](./14-credential-vault-session-recording.md) | Credential vault + session recording (audit) | ✅ Complete (2026-05-20) |
 | [15](./15-ai-troubleshooting-tree.md) | AI-driven troubleshooting tree | ✅ Complete (2026-05-20) |
+| [Themes](./THEMES.md) | Application themes + terminal/editor appearance | 🚧 In progress |
 
 ## How to execute a plan
 
