@@ -20,6 +20,7 @@ type AppearanceContextValue = {
   settings: AppearanceSettingsV1;
   hydrated: boolean;
   error: string | null;
+  previewSettings: (settings: AppearanceSettingsV1) => void;
   setSettings: (settings: AppearanceSettingsV1) => Promise<void>;
 };
 
@@ -46,14 +47,18 @@ function writeThemeMirror(theme: AppThemeId): void {
   }
 }
 
-function applyDocumentTheme(theme: AppThemeId): void {
-  document.documentElement.dataset.theme = theme;
+export function applyAppearanceToDocument(settings: AppearanceSettingsV1): void {
+  const root = document.documentElement;
+  root.dataset.theme = settings.appTheme;
+  root.dataset.matrixScanlines = String(settings.effects.matrixScanlines);
+  root.dataset.matrixGlow = String(settings.effects.matrixGlow);
+  root.dataset.matrixMotion = settings.effects.motion;
 }
 
 /** Runs synchronously before the xterm CDN wait loop in main.tsx. */
 export function applyMirroredThemeBeforeRender(): AppThemeId {
   const theme = mirroredThemeId();
-  applyDocumentTheme(theme);
+  applyAppearanceToDocument({ ...createDefaultAppearanceSettings(), appTheme: theme });
   return theme;
 }
 
@@ -74,13 +79,13 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
 
   const applySettings = useCallback((next: AppearanceSettingsV1) => {
     setSettingsState(next);
-    applyDocumentTheme(next.appTheme);
+    applyAppearanceToDocument(next);
     writeThemeMirror(next.appTheme);
   }, []);
 
   useEffect(() => {
-    applyDocumentTheme(settings.appTheme);
-  }, [settings.appTheme]);
+    applyAppearanceToDocument(settings);
+  }, [settings]);
 
   useEffect(() => {
     let disposed = false;
@@ -147,9 +152,19 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     }
   }, [applySettings]);
 
+  const previewSettings = useCallback((candidate: AppearanceSettingsV1) => {
+    const validated = parseAppearanceSettings(candidate);
+    if (!validated) {
+      setError("Invalid appearance settings");
+      return;
+    }
+    applySettings(validated);
+    setError(null);
+  }, [applySettings]);
+
   const value = useMemo<AppearanceContextValue>(
-    () => ({ settings, hydrated, error, setSettings }),
-    [settings, hydrated, error, setSettings],
+    () => ({ settings, hydrated, error, previewSettings, setSettings }),
+    [settings, hydrated, error, previewSettings, setSettings],
   );
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;

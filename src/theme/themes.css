@@ -1,0 +1,140 @@
+/*
+ * Stable semantic appearance contract. Keep names semantic so feature-area
+ * migration can happen without coupling components to a particular preset.
+ */
+html[data-theme="terminai-dark"], :root:not([data-theme]) {
+  --app-canvas: #0f1114;
+  --surface-1: #0b0d10;
+  --surface-chrome: #0a0c0f;
+  --surface-2: #1a1d23;
+  --surface-3: #262a33;
+  --surface-overlay: #14171c;
+  --surface-hover: #1f232b;
+  --surface-selected: #262a33;
+  --text-primary: #e6e1cf;
+  --text-secondary: #8a8d94;
+  --text-muted: #6c7380;
+  --text-inverse: #ffffff;
+  --border-subtle: #1f232b;
+  --border-default: #262a33;
+  --border-strong: #3e4451;
+  --accent: #5ccfe6;
+  --accent-hover: #3d6a9c;
+  --accent-subtle: #2d5a8c;
+  --focus-ring: #5ccfe6;
+  --selection: #264f78;
+  --status-info: #5ccfe6;
+  --status-success: #6bd968;
+  --status-warning: #ffb454;
+  --status-danger: #f28779;
+  --status-neutral: #8a8d94;
+  --terminal-background: #0f1114;
+  --terminal-foreground: #e6e1cf;
+  --editor-background: #0f1114;
+  --editor-foreground: #e6e1cf;
+}
+
+html[data-theme="slate-grey"] {
+  --app-canvas: #17191c;
+  --surface-1: #1d2024;
+  --surface-chrome: #15181b;
+  --surface-2: #25292e;
+  --surface-3: #31363d;
+  --surface-overlay: #21252a;
+  --surface-hover: #2d3238;
+  --surface-selected: #3a4048;
+  --text-primary: #d7d9dd;
+  --text-secondary: #aeb4bc;
+  --text-muted: #858c96;
+  --text-inverse: #ffffff;
+  --border-subtle: #2c3138;
+  --border-default: #3b424b;
+  --border-strong: #59626e;
+  --accent: #9bb8ce;
+  --accent-hover: #b5ccdc;
+  --accent-subtle: #455c70;
+  --focus-ring: #c4d6e4;
+  --selection: #46505b;
+  --status-info: #9bb8ce;
+  --status-success: #98b98f;
+  --status-warning: #c6b782;
+  --status-danger: #cd8b8b;
+  --status-neutral: #aeb4bc;
+  --terminal-background: #17191c;
+  --terminal-foreground: #d7d9dd;
+  --editor-background: #17191c;
+  --editor-foreground: #d7d9dd;
+}
+
+html[data-theme="matrix"] {
+  --app-canvas: #030703;
+  --surface-1: #071207;
+  --surface-chrome: #020502;
+  --surface-2: #0b1b0c;
+  --surface-3: #123116;
+  --surface-overlay: #091509;
+  --surface-hover: #133a19;
+  --surface-selected: #164b20;
+  --text-primary: #b8ffb8;
+  --text-secondary: #8dff9a;
+  --text-muted: #6dbd73;
+  --text-inverse: #030703;
+  --border-subtle: #123116;
+  --border-default: #256b2d;
+  --border-strong: #39a84a;
+  --accent: #39ff6a;
+  --accent-hover: #8dff9a;
+  --accent-subtle: #176b27;
+  --focus-ring: #d9ff6a;
+  --selection: #1b5e20;
+  --status-info: #72d8ff;
+  --status-success: #39ff6a;
+  --status-warning: #d9ff6a;
+  --status-danger: #ff6b6b;
+  --status-neutral: #8dff9a;
+  --terminal-background: #030703;
+  --terminal-foreground: #8dff9a;
+  --editor-background: #030703;
+  --editor-foreground: #b8ffb8;
+}
+
+/* Legacy aliases let existing shared controls opt in before their final cleanup. */
+:root {
+  --bg-primary: var(--app-canvas);
+  --bg-secondary: var(--surface-2);
+  --bg-tertiary: var(--surface-3);
+  --border-color: var(--border-default);
+  --accent-color: var(--accent);
+  --success-color: var(--status-success);
+  --warning-color: var(--status-warning);
+  --danger-color: var(--status-danger);
+}
+
+html[data-theme="matrix"][data-matrix-scanlines="true"] body::before,
+html[data-theme="matrix"][data-matrix-glow="true"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+}
+
+html[data-theme="matrix"][data-matrix-scanlines="true"] body::before {
+  background: repeating-linear-gradient(0deg, rgba(57, 255, 106, 0.035) 0 1px, transparent 1px 4px);
+}
+
+html[data-theme="matrix"][data-matrix-glow="true"] body::after {
+  box-shadow: inset 0 0 90px rgba(57, 255, 106, 0.08);
+}
+
+html[data-matrix-motion="reduced"] body::before,
+html[data-matrix-motion="reduced"] body::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-matrix-motion="system"] body::before,
+  html[data-matrix-motion="system"] body::after {
+    display: none;
+  }
+}

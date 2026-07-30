@@ -36,6 +36,7 @@ import WhatsAppSettingsTab from "../components/settings/WhatsAppSettingsTab";
 import TerminalSettingsTab from "../components/TerminalSettingsTab";
 import SettingsBrowserTab from "../components/SettingsBrowserTab";
 import EditorSettingsTab from "../components/settings/EditorSettingsTab";
+import { AppearanceSettingsTab } from "../components/settings/AppearanceSettingsTab";
 // import { useSessionsStore } from "../state/sessionsStore";
 
 type SettingsProps = {
@@ -96,7 +97,7 @@ const PROVIDER_MODELS: Record<AIProvider, string[]> = {
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates"
+    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates"
   >("general");
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -509,6 +510,12 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               onClick={() => setActiveTab("general")}
             >
               General
+            </button>
+            <button
+              className={activeTab === "appearance" ? "active" : ""}
+              onClick={() => setActiveTab("appearance")}
+            >
+              Appearance
             </button>
             <button
               className={activeTab === "editor" ? "active" : ""}
@@ -945,6 +952,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             </div>
           </div>
         )}
+        {activeTab === "appearance" && <AppearanceSettingsTab />}
         {activeTab === "editor" && <EditorSettingsTab />}
 
         {activeTab === "mcp" && (

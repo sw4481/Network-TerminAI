@@ -1,0 +1,65 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultAppearanceSettings } from "../../theme/defaults";
+import type { AppearanceSettingsV1 } from "../../theme/types";
+
+const appearance = vi.hoisted(() => ({
+  settings: null as unknown as AppearanceSettingsV1,
+  error: null as string | null,
+  previewSettings: vi.fn(),
+  setSettings: vi.fn(),
+}));
+
+vi.mock("../../theme/AppearanceProvider", () => ({
+  useAppearance: () => appearance,
+}));
+
+import { AppearanceSettingsTab } from "./AppearanceSettingsTab";
+
+describe("AppearanceSettingsTab", () => {
+  beforeEach(() => {
+    appearance.settings = createDefaultAppearanceSettings();
+    appearance.error = null;
+    appearance.previewSettings.mockReset();
+    appearance.setSettings.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("previews all three accessible presets immediately without persisting", async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+
+    const matrix = screen.getByRole("radio", { name: /Matrix/i });
+    await user.click(matrix);
+    expect(matrix).toBeChecked();
+    expect(appearance.previewSettings).toHaveBeenCalledWith(expect.objectContaining({ appTheme: "matrix" }));
+    expect(appearance.setSettings).not.toHaveBeenCalled();
+    expect(screen.getByText(/Black surfaces with restrained phosphor-green accents/i)).toBeVisible();
+  });
+
+  it("saves the preview, resets to the safe default, and exposes save errors", async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+    await user.click(screen.getByRole("radio", { name: /Slate Grey/i }));
+    await user.click(screen.getByRole("button", { name: "Save appearance" }));
+    expect(appearance.setSettings).toHaveBeenCalledWith(expect.objectContaining({ appTheme: "slate-grey" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset appearance" }));
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(expect.objectContaining({ appTheme: "terminai-dark" }));
+
+    appearance.error = "write failed";
+    render(<AppearanceSettingsTab />);
+    expect(screen.getByRole("alert")).toHaveTextContent("write failed");
+  });
+
+  it("keeps radios keyboard-operable and labels Matrix effect switches", async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+    await user.tab();
+    expect(screen.getByRole("radio", { name: /TerminAI Dark/i })).toHaveFocus();
+    await user.keyboard("[ArrowRight]");
+    expect(screen.getByRole("radio", { name: /Slate Grey/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix glow/i })).toBeInTheDocument();
+  });
+});

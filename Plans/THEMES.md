@@ -322,18 +322,18 @@ Acceptance gate:
 
 ### Task 2 — Phase 2: Theme tokens and core application shell
 
-- [ ] **2.1 — SEQUENTIAL:** Add `themes.css`, set
+- [x] **2.1 — SEQUENTIAL:** Add `themes.css`, set
   `data-theme="terminai-dark|slate-grey|matrix"` on `<html>`, and define the
   semantic contract plus temporary legacy aliases.
-- [ ] **2.2 — SEQUENTIAL:** Migrate the root, shell, tab bar, panes, footer,
+- [x] **2.2 — SEQUENTIAL:** Migrate the root, shell, tab bar, panes, footer,
   settings window, buttons, inputs, menus, popovers, overlays, scrollbars, and
   focus states in `App.css`.
-- [ ] **2.3 — PARALLEL:** Migrate common modal and shared-control styles that
+- [x] **2.3 — PARALLEL:** Migrate common modal and shared-control styles that
   appear across several feature areas.
-- [ ] **2.4 — SEQUENTIAL:** Add static optional Matrix scanlines/glow, guard
+- [x] **2.4 — SEQUENTIAL:** Add static optional Matrix scanlines/glow, guard
   them with explicit settings and `prefers-reduced-motion`, and confirm effects
   never intercept pointer events.
-- [ ] **2.5 — SEQUENTIAL:** Add an **Appearance** Settings tab with three
+- [x] **2.5 — SEQUENTIAL:** Add an **Appearance** Settings tab with three
   accessible preview cards, immediate live application, Save/Reset semantics,
   and theme descriptions.
 - [ ] **2.6 — Regression:** Compare TerminAI Dark to baseline screenshots and
@@ -517,3 +517,16 @@ appearance snapshots, and the pre-xterm local theme mirror are covered by unit,
 library, and production-build validation. Task 1.1's native screenshot matrix is
 explicitly deferred for operator acceptance; no screenshots or visual parity claim
 have been fabricated here.
+
+## Phase 2 — COMPLETED (AUTOMATED CORE SHELL) 2026-07-30
+
+Semantic Dark, Slate Grey, and Matrix CSS tokens now drive the core shell,
+settings, common modal/control structures, popovers, footer, focus rings, and
+scrollbars. The Appearance tab previews choices without remounting children,
+persists only on Save, resets to safe Dark, and labels all controls. Matrix
+scanlines/glow are static CSS overlays with pointer-events disabled and both
+explicit and system reduced-motion guards. Focused and repository frontend
+tests plus the relaxed production build passed. Task 2.6 remains intentionally
+unchecked: native screenshot parity, contrast measurement, and the full
+operator matrix cannot be proved headlessly and are deferred to release
+validation.

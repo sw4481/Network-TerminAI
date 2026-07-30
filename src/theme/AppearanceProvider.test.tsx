@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppearanceSettingsV1 } from "./types";
@@ -24,6 +25,7 @@ import {
   APPEARANCE_SETTINGS_CHANGED_EVENT,
   APPEARANCE_THEME_MIRROR_KEY,
   AppearanceProvider,
+  applyAppearanceToDocument,
   applyMirroredThemeBeforeRender,
   useAppearance,
 } from "./AppearanceProvider";
@@ -34,7 +36,7 @@ let deliverEvent:
   | undefined;
 
 function Probe() {
-  const { settings, hydrated, error, setSettings } = useAppearance();
+  const { settings, hydrated, error, setSettings, previewSettings } = useAppearance();
   return (
     <>
       <output data-testid="theme">{settings.appTheme}</output>
@@ -49,6 +51,11 @@ function Probe() {
         }
       >
         matrix
+      </button>
+      <button
+        onClick={() => previewSettings({ ...settings, appTheme: "slate-grey" })}
+      >
+        preview grey
       </button>
     </>
   );
@@ -94,6 +101,21 @@ describe("AppearanceProvider", () => {
     applyMirroredThemeBeforeRender();
     expect(document.documentElement).toHaveAttribute("data-theme", "terminai-dark");
   });
+
+  it.each(["terminai-dark", "slate-grey", "matrix"] as const)(
+    "applies %s and its effect guards to the document",
+    (appTheme) => {
+      applyAppearanceToDocument({
+        ...DEFAULT_APPEARANCE_SETTINGS,
+        appTheme,
+        effects: { matrixScanlines: true, matrixGlow: true, motion: "reduced" },
+      });
+      expect(document.documentElement).toHaveAttribute("data-theme", appTheme);
+      expect(document.documentElement).toHaveAttribute("data-matrix-scanlines", "true");
+      expect(document.documentElement).toHaveAttribute("data-matrix-glow", "true");
+      expect(document.documentElement).toHaveAttribute("data-matrix-motion", "reduced");
+    },
+  );
 
   it("uses Dark and surfaces a non-fatal error when hydration fails", async () => {
     mocks.get.mockRejectedValueOnce(new Error("database unavailable"));
@@ -147,5 +169,20 @@ describe("AppearanceProvider", () => {
       expect(screen.getByTestId("theme")).toHaveTextContent("terminai-dark");
       expect(screen.getByTestId("error")).toHaveTextContent("write failed");
     });
+  });
+
+  it("changes the document theme in place for a preview without remounting children", async () => {
+    const mount = vi.fn();
+    function StableProbe() {
+      useEffect(() => { mount(); }, []);
+      return <Probe />;
+    }
+    render(<AppearanceProvider><StableProbe /></AppearanceProvider>);
+    await waitFor(() => expect(mocks.get).toHaveBeenCalled());
+
+    screen.getByRole("button", { name: "preview grey" }).click();
+    expect(document.documentElement).toHaveAttribute("data-theme", "slate-grey");
+    expect(mount).toHaveBeenCalledTimes(1);
+    expect(mocks.set).not.toHaveBeenCalled();
   });
 });
