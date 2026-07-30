@@ -1904,7 +1904,7 @@ input:checked + .slider:before {
 .modal-header h2 {
   margin: 0;
   font-size: 16px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .modal-body {
@@ -1939,21 +1939,21 @@ input:checked + .slider:before {
 }
 
 .error-message {
-  background: #3d1f1f;
-  border: 1px solid #f28779;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
   border-radius: 4px;
   padding: 10px;
-  color: #f28779;
+  color: var(--status-danger);
   font-size: 12px;
   margin-top: 12px;
 }
 
 .warning-message {
-  background: #3d2f1f;
-  border: 1px solid #ffb454;
+  background: var(--status-warning-surface);
+  border: 1px solid var(--status-warning);
   border-radius: 4px;
   padding: 10px;
-  color: #ffb454;
+  color: var(--status-warning);
   font-size: 12px;
   margin-bottom: 12px;
 }
@@ -2574,22 +2574,22 @@ input:checked + .slider:before {
 .search-input {
   flex: 1;
   padding: 10px 14px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   font-family: -apple-system, system-ui, sans-serif;
 }
 
 .search-input:focus {
-  border-color: #3e4451;
-  background: #1a1d23;
+  border-color: var(--focus-control);
+  background: var(--surface-input-focus);
 }
 
 .search-input::placeholder {
-  color: #6c7380;
+  color: var(--text-muted);
 }
 
 .search-filters {
@@ -3523,7 +3523,7 @@ button.primary, .fix-button, .agent-input button, .tool-approval-btn-approve { b
 button.primary:hover:not(:disabled), .fix-button:hover, .agent-input button:hover:not(:disabled), .tool-approval-btn-approve:hover:not(:disabled) { background: var(--accent-hover); }
 .modal-content, .modal-card, .search-container, .status-popover { background: var(--app-canvas); border-color: var(--border-default); color: var(--text-primary); }
 .modal-header, .modal-footer, .status-popover-header, .search-header { border-color: var(--border-default); }
-.json-input, .search-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
+.json-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
 button.secondary:hover, .search-filters button:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text-primary); }
 .search-filters button.filter-active { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-primary); }
 .status-footer, .status-popover-header { background: var(--surface-chrome); border-color: var(--border-default); }

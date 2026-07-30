@@ -67,5 +67,12 @@ describe("semantic application themes", () => {
     expect(lastRule(".settings-tabs button.active")).toContain("background: var(--surface-selected)");
     expect(firstRule(".modal-card.recently-closed")).toContain("background: var(--surface-overlay)");
     expect(firstRule(".status-popover-error")).toContain("color: var(--status-danger)");
+    expect(lastRule(".modal-header h2")).toContain("color: var(--text-primary)");
+    expect(lastRule(".error-message")).toContain("background: var(--status-danger-surface)");
+    expect(lastRule(".warning-message")).toContain("background: var(--status-warning-surface)");
+    expect(lastRule(".search-input")).toContain("background: var(--surface-input)");
+    expect(lastRule(".search-input:focus")).toContain("border-color: var(--focus-control)");
+    expect(lastRule(".search-input:focus")).toContain("background: var(--surface-input-focus)");
+    expect(lastRule(".search-input::placeholder")).toContain("color: var(--text-muted)");
   });
 });
