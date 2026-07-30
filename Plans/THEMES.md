@@ -295,22 +295,22 @@ Additional CSS/TSX files are migrated by feature area in Phase 5.
 - [ ] **1.1 — SEQUENTIAL:** Capture baseline screenshots of the current Dark
   theme for the shell, Settings, terminal, editor, API, NETCONF, topology,
   troubleshooting, notifications, and common modals.
-- [ ] **1.2 — PARALLEL:** Implement typed defaults, preset definitions,
+- [x] **1.2 — PARALLEL:** Implement typed defaults, preset definitions,
   normalization, clamping, migration, and validation tests under `src/theme/`.
-- [ ] **1.3 — PARALLEL:** Add Rust `appearance_settings_get` and
+- [x] **1.3 — PARALLEL:** Add Rust `appearance_settings_get` and
   `appearance_settings_set` commands backed by the existing `app_flags` table,
   with Rust tests for defaults, valid round trips, malformed JSON, invalid
   colors, invalid IDs, and future schema versions.
-- [ ] **1.4 — SEQUENTIAL:** Add Tauri wrappers in `src/lib/tauri.ts`, register
+- [x] **1.4 — SEQUENTIAL:** Add Tauri wrappers in `src/lib/tauri.ts`, register
   the commands, and build `AppearanceProvider`.
-- [ ] **1.5 — SEQUENTIAL:** Add the
+- [x] **1.5 — SEQUENTIAL:** Add the
   `appearance-settings-changed` Tauri event so main and detached windows update
   from one validated snapshot.
-- [ ] **1.6 — SEQUENTIAL:** Apply the mirrored theme ID at the beginning of
+- [x] **1.6 — SEQUENTIAL:** Apply the mirrored theme ID at the beginning of
   `main.tsx` before its xterm wait loop, then reconcile against `app_flags`.
   The app must not render several seconds of Dark before restoring Grey or
   Matrix.
-- [ ] **1.7 — Regression:** Verify provider hydration, failure fallback,
+- [x] **1.7 — Regression:** Verify provider hydration, failure fallback,
   cross-window event ordering, persistence, and no first-paint regression.
 
 Acceptance gate:
@@ -509,3 +509,11 @@ The feature is complete only when:
   coverage is proven.
 - If hydration fails, apply Dark without blocking application startup.
 - Do not delete or replace `sidecar/.venv` or application data during validation.
+
+## Phase 1 — COMPLETED (AUTOMATED FOUNDATION) 2026-07-30
+
+Typed Dark/Grey/Matrix settings, validated `app_flags` persistence, cross-window
+appearance snapshots, and the pre-xterm local theme mirror are covered by unit,
+library, and production-build validation. Task 1.1's native screenshot matrix is
+explicitly deferred for operator acceptance; no screenshots or visual parity claim
+have been fabricated here.

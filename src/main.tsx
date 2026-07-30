@@ -3,6 +3,14 @@ import App from "./App";
 import { DetachedEditorWindow } from "./components/editor/DetachedEditorWindow";
 import { ZedModeProvider } from "./components/editor/ZedModeProvider";
 import "./components/editor/zed-mode.css";
+import {
+  AppearanceProvider,
+  applyMirroredThemeBeforeRender,
+} from "./theme/AppearanceProvider";
+
+// Restore the tiny theme-id mirror before the xterm CDN wait loop. The
+// provider reconciles this first-paint hint against app_flags after mounting.
+applyMirroredThemeBeforeRender();
 
 async function init() {
   const detachedEditor =
@@ -32,9 +40,11 @@ async function init() {
   }
 
   ReactDOM.createRoot(root).render(
-    <ZedModeProvider>
-      {detachedEditor ? <DetachedEditorWindow /> : <App />}
-    </ZedModeProvider>,
+    <AppearanceProvider>
+      <ZedModeProvider>
+        {detachedEditor ? <DetachedEditorWindow /> : <App />}
+      </ZedModeProvider>
+    </AppearanceProvider>,
   );
 }
 

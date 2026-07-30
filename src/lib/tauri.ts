@@ -7,6 +7,7 @@
 
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { PtyEvent, Tab } from "./types";
+import type { AppearanceSettingsV1 } from "../theme/types";
 
 /**
  * Ping the Rust core to verify it's responsive.
@@ -1622,6 +1623,14 @@ export const editorModeGet = () => invoke<EditorMode>("editor_mode_get");
 
 export const editorModeSet = (mode: EditorMode) =>
   invoke<void>("editor_mode_set", { mode });
+
+/** Authoritative, versioned appearance preferences stored in app_flags. */
+export const appearanceSettingsGet = () =>
+  invoke<AppearanceSettingsV1>("appearance_settings_get");
+
+/** Persists and returns the backend-normalized appearance snapshot. */
+export const appearanceSettingsSet = (settings: AppearanceSettingsV1) =>
+  invoke<AppearanceSettingsV1>("appearance_settings_set", { settings });
 
 // Master context-graph feature flag (agent graph helper, temporal memory,
 // graph-compact serialization). Persisted in app_flags; the sidecar reads the

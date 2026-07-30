@@ -305,6 +305,8 @@ pub fn run() {
             commands::editor::editor_get_home_directory,
             commands::editor::editor_mode_get,
             commands::editor::editor_mode_set,
+            commands::appearance::appearance_settings_get,
+            commands::appearance::appearance_settings_set,
             commands::editor::editor_buffer_register,
             commands::editor::editor_buffer_get,
             commands::editor::editor_buffer_update,

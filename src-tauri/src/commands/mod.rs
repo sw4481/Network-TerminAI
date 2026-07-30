@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod appearance;
 pub mod browser;
 pub mod dap;
 pub mod drift;
