@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -80,6 +81,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
   const [authoritativeState, setAuthoritativeState] = useState<"pending" | "ready" | "failed">("pending");
   const [error, setError] = useState<string | null>(null);
+  const generationRef = useRef(0);
 
   const applyPreview = useCallback((next: AppearanceSettingsV1) => {
     setSettingsState(next);
@@ -107,6 +109,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
           APPEARANCE_SETTINGS_CHANGED_EVENT,
           (event) => {
             if (disposed) return;
+            generationRef.current += 1;
             receivedLiveEvent = true;
             applyAuthoritativeSettings(normalizeAppearanceSettings(event.payload));
             setError(null);
@@ -120,15 +123,16 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
         console.error("Failed to listen for appearance changes:", listenerError);
       }
 
+      const requestGeneration = ++generationRef.current;
       try {
         const stored = await appearanceSettingsGet();
-        if (!disposed && !receivedLiveEvent) {
+        if (!disposed && !receivedLiveEvent && requestGeneration === generationRef.current) {
           applyAuthoritativeSettings(normalizeAppearanceSettings(stored));
           setError(null);
           setAuthoritativeState("ready");
         }
       } catch (loadError) {
-        if (!disposed) {
+        if (!disposed && requestGeneration === generationRef.current) {
           applyPreview(createDefaultAppearanceSettings());
           setError(errorMessage(loadError));
           setAuthoritativeState("failed");
@@ -153,7 +157,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       throw new Error(message);
     }
     try {
+      const requestGeneration = ++generationRef.current;
       const stored = await appearanceSettingsSet(validated);
+      if (requestGeneration !== generationRef.current) return;
       const normalized = normalizeAppearanceSettings(stored);
       applyAuthoritativeSettings(normalized);
       setError(null);
@@ -177,14 +183,17 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   }, [applyPreview]);
 
   const retryAuthoritativeSettings = useCallback(async () => {
+    const requestGeneration = ++generationRef.current;
     setAuthoritativeState("pending");
     setError(null);
     try {
       const stored = await appearanceSettingsGet();
+      if (requestGeneration !== generationRef.current) return;
       const normalized = normalizeAppearanceSettings(stored);
       applyAuthoritativeSettings(normalized);
       setAuthoritativeState("ready");
     } catch (loadError) {
+      if (requestGeneration !== generationRef.current) return;
       applyPreview(createDefaultAppearanceSettings());
       const message = errorMessage(loadError);
       setError(message);

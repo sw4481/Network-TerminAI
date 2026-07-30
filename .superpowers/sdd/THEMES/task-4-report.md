@@ -65,3 +65,11 @@ DAP test suites pass under the full frontend regression run.
   displays it.
 - Final repair verification: full frontend suite 241 files / 1805 tests and
   relaxed build pass; existing Vite warnings remain.
+
+## Round 2 repair evidence
+
+- RED/GREEN: deterministic provider tests prove that an older retry cannot
+  overwrite a newer retry or live cross-window event (15 focused tests).
+- A single generation counter now invalidates stale initial fetches, retries,
+  live events, and saves. `MonacoEditor` uses the public Monaco import again;
+  the Vite test alias maps only the test resolver to Monaco's browser entry.

@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => {
   return { model, editor, create: vi.fn(() => editor), defineTheme: vi.fn(), setTheme: vi.fn(), release: vi.fn(), applyContent: vi.fn(), appearance: { appTheme: "terminai-dark", editorTheme: "follow-app" } };
 });
 
-vi.mock("monaco-editor/esm/vs/editor/editor.main.js", () => ({
+vi.mock("monaco-editor", () => ({
   editor: { create: mocks.create, defineTheme: mocks.defineTheme, setTheme: mocks.setTheme, setModelLanguage: vi.fn(), registerEditorOpener: vi.fn(() => ({ dispose: vi.fn() })) },
   KeyMod: { CtrlCmd: 1 }, KeyCode: { KeyL: 2, KeyS: 3 },
 }));

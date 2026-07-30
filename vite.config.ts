@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath, URL } from "node:url";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -54,5 +55,10 @@ export default defineConfig(async () => ({
       '**/.{idea,git,cache,output,temp}/**',
       '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*'
     ],
+    alias: {
+      // Monaco's published package has no Node test entry; production still
+      // resolves its public package import through Vite's browser resolver.
+      "monaco-editor": fileURLToPath(new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.main.js", import.meta.url)),
+    },
   },
 }));

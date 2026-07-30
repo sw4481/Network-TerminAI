@@ -151,6 +151,32 @@ describe("AppearanceProvider", () => {
     });
   });
 
+  it("ignores an older retry that resolves after a newer retry", async () => {
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+    let first!: (value: AppearanceSettingsV1) => void;
+    let second!: (value: AppearanceSettingsV1) => void;
+    mocks.get.mockReset()
+      .mockImplementationOnce(() => new Promise<AppearanceSettingsV1>((resolve) => { first = resolve; }))
+      .mockImplementationOnce(() => new Promise<AppearanceSettingsV1>((resolve) => { second = resolve; }));
+    screen.getByRole("button", { name: "retry appearance" }).click();
+    screen.getByRole("button", { name: "retry appearance" }).click();
+    await act(async () => second({ ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "matrix" }));
+    await act(async () => first({ ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "slate-grey" }));
+    expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+  });
+
+  it("does not let a retry overwrite a newer live appearance event", async () => {
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(deliverEvent).toBeDefined());
+    let resolveRetry!: (value: AppearanceSettingsV1) => void;
+    mocks.get.mockReset().mockImplementationOnce(() => new Promise<AppearanceSettingsV1>((resolve) => { resolveRetry = resolve; }));
+    screen.getByRole("button", { name: "retry appearance" }).click();
+    act(() => deliverEvent?.({ payload: { ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "matrix" } }));
+    await act(async () => resolveRetry({ ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "slate-grey" }));
+    expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+  });
+
   it("does not let delayed hydration overwrite a live cross-window snapshot", async () => {
     let resolveHydration: ((settings: AppearanceSettingsV1) => void) | undefined;
     mocks.get.mockReturnValueOnce(new Promise<AppearanceSettingsV1>((resolve) => {
