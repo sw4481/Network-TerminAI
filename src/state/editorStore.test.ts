@@ -92,6 +92,125 @@ describe("editorStore normalized editor state", () => {
         (pane) => pane.bufferId,
       ),
     ).toEqual([bufferId, bufferId]);
+    expect(state.workspaces["editor-tab-1"].openBufferIds).toEqual([
+      "untitled:seed",
+      bufferId,
+    ]);
+  });
+
+  it("closes an inactive file tab without changing the visible pane", () => {
+    const store = useEditorStore.getState();
+    store.initializeWorkspace("editor-tab-1", {
+      bufferId: "untitled:seed",
+      paneId: "pane-seed",
+    });
+    const first = store.openFileInPane("editor-tab-1", "pane-seed", {
+      file_path: "/repo/first.py",
+      content: "first = 1",
+      language: "python",
+    });
+    const second = store.openFileInPane("editor-tab-1", "pane-seed", {
+      file_path: "/repo/second.py",
+      content: "second = 2",
+      language: "python",
+    });
+
+    store.closeBuffer("editor-tab-1", first);
+
+    const state = useEditorStore.getState();
+    expect(state.workspaces["editor-tab-1"].openBufferIds).toEqual([
+      "untitled:seed",
+      second,
+    ]);
+    expect(
+      getEditorPaneLeaves(state.workspaces["editor-tab-1"].layout)[0],
+    ).toHaveProperty("bufferId", second);
+    expect(state.buffers[first]).toBeUndefined();
+  });
+
+  it("moves every visible pane to the nearest tab when its active tab closes", () => {
+    const store = useEditorStore.getState();
+    store.initializeWorkspace("editor-tab-1", {
+      bufferId: "untitled:seed",
+      paneId: "pane-left",
+    });
+    const first = store.openFileInPane("editor-tab-1", "pane-left", {
+      file_path: "/repo/first.py",
+      content: "first = 1",
+      language: "python",
+    });
+    const second = store.openFileInPane("editor-tab-1", "pane-left", {
+      file_path: "/repo/second.py",
+      content: "second = 2",
+      language: "python",
+    });
+    store.splitPane("editor-tab-1", "pane-left", "horizontal", {
+      paneId: "pane-right",
+      splitId: "split-root",
+    });
+
+    store.closeBuffer("editor-tab-1", second);
+
+    const state = useEditorStore.getState();
+    expect(state.workspaces["editor-tab-1"].openBufferIds).toEqual([
+      "untitled:seed",
+      first,
+    ]);
+    expect(
+      getEditorPaneLeaves(state.workspaces["editor-tab-1"].layout).map(
+        (pane) => pane.bufferId,
+      ),
+    ).toEqual([first, first]);
+    expect(state.buffers[second]).toBeUndefined();
+  });
+
+  it("leaves a fresh untitled tab when the final tab closes", () => {
+    const store = useEditorStore.getState();
+    store.initializeWorkspace("editor-tab-1", {
+      bufferId: "untitled:seed",
+      paneId: "pane-seed",
+    });
+
+    store.closeBuffer("editor-tab-1", "untitled:seed");
+
+    const state = useEditorStore.getState();
+    const [replacementId] = state.workspaces["editor-tab-1"].openBufferIds;
+    expect(replacementId).toMatch(/^untitled:/);
+    expect(replacementId).not.toBe("untitled:seed");
+    expect(state.buffers[replacementId]).toMatchObject({
+      file_path: null,
+      content: "",
+      is_dirty: false,
+    });
+    expect(
+      getEditorPaneLeaves(state.workspaces["editor-tab-1"].layout)[0],
+    ).toHaveProperty("bufferId", replacementId);
+    expect(state.buffers["untitled:seed"]).toBeUndefined();
+  });
+
+  it("resets explorer-only state when a different workspace root is selected", () => {
+    const store = useEditorStore.getState();
+    store.initializeWorkspace("editor-tab-1", {
+      bufferId: "untitled:seed",
+      paneId: "pane-seed",
+    });
+    store.setFileTree("editor-tab-1", [], "/repo/old");
+    store.toggleDirectory("editor-tab-1", "/repo/old/src");
+    store.setGitStatus(
+      "editor-tab-1",
+      [{ path: "main.py", status: "modified" }],
+      true,
+    );
+
+    store.setFileTree("editor-tab-1", [], "/repo/new");
+
+    expect(useEditorStore.getState().workspaces["editor-tab-1"]).toMatchObject({
+      root_path: "/repo/new",
+      expanded_dirs: new Set(),
+      git_status: [],
+      is_git_repo: false,
+      error: null,
+    });
   });
 
   it("does not publish a store update when buffer text is unchanged", () => {

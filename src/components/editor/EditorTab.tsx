@@ -7,12 +7,14 @@ import {
   editorDetachedWindowFocus,
   editorDetachedWindowList,
   editorDetachPane,
-  editorGetHomeDirectory,
   editorGetState,
   editorOpenFile,
   editorSaveFile,
+  dapBreakpointsGet,
+  dapBreakpointsSet,
   gitGetStatus,
   gitIsRepo,
+  type DapStackFrame,
   type DetachedEditorWindowClosed,
 } from "../../lib/tauri";
 import { bufferIdForFile, useEditorStore } from "../../state/editorStore";
@@ -22,6 +24,7 @@ import {
   getEditorPaneLeaves,
   type EditorPaneLeaf,
 } from "./editorPaneLayout";
+import { confirmEditorBufferClose, EditorBufferTabs } from "./EditorBufferTabs";
 import { EditorPane } from "./EditorPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { FileExplorer } from "./FileExplorer";
@@ -32,6 +35,7 @@ import {
   type EditorTerminalMode,
 } from "./EditorTerminalPanel";
 import { useEditorSettings } from "../../hooks/useEditorSettings";
+import { useDebugSession } from "../../hooks/useDebugSession";
 import { normalizeLspLanguage } from "../../hooks/useLspClient";
 import { useZedMode } from "./ZedModeProvider";
 import { EditorBufferSyncClient } from "./editorBufferSync";
@@ -52,6 +56,8 @@ import {
   pathIsWithinWorkspace,
   type EditorLspOpenLocation,
 } from "./lsp/locationRouting";
+import { DebugPanel } from "./debug/DebugPanel";
+import { pickWorkspaceFolder } from "./workspaceFolderPicker";
 import "./EditorTab.css";
 
 function leafById(
@@ -71,6 +77,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const buffers = useEditorStore((s) => s.buffers);
   const patchWorkspace = useEditorStore((s) => s.patchWorkspace);
   const openFileInPane = useEditorStore((s) => s.openFileInPane);
+  const closeBuffer = useEditorStore((s) => s.closeBuffer);
   const setBufferContent = useEditorStore((s) => s.setBufferContent);
   const markBufferSaved = useEditorStore((s) => s.markBufferSaved);
   const splitPane = useEditorStore((s) => s.splitPane);
@@ -100,21 +107,29 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const [showSettings, setShowSettings] = useState(false);
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const [terminalMode, setTerminalMode] =
     useState<EditorTerminalMode>("opencode");
+  const debug = useDebugSession(tab.id, modeHydrated ? mode === "zed" : null);
 
   const focusedPane =
     leafById(workspace.layout, workspace.focusedPaneId) ??
     getAttachedEditorPanes(workspace.layout)[0] ??
     getEditorPaneLeaves(workspace.layout)[0];
   const focusedBuffer = focusedPane ? buffers[focusedPane.bufferId] : undefined;
-  const {
-    summary: gitSummary,
-    refresh: refreshGitSummary,
-  } = useGitRepositorySummary(
-    focusedBuffer?.file_path ?? workspace.root_path,
-    mode === "zed",
-  );
+  const openBuffers = workspace.openBufferIds
+    .map((bufferId) => buffers[bufferId])
+    .filter((buffer): buffer is NonNullable<typeof buffer> => Boolean(buffer));
+  const pythonDebuggable =
+    mode === "zed" &&
+    Boolean(workspace.root_path) &&
+    Boolean(focusedBuffer?.file_path) &&
+    focusedBuffer?.language.trim().toLowerCase() === "python";
+  const { summary: gitSummary, refresh: refreshGitSummary } =
+    useGitRepositorySummary(
+      focusedBuffer?.file_path ?? workspace.root_path,
+      mode === "zed",
+    );
 
   const ensureBufferSync = useCallback(async (bufferId: string) => {
     const state = useEditorStore.getState();
@@ -332,14 +347,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
   }, [tab.id, loadWorkspaceLayout, patchWorkspace]);
 
   useEffect(() => {
-    if (!workspace.root_path) {
-      editorGetHomeDirectory()
-        .then((homePath) => setFileTree(tab.id, [], homePath))
-        .catch((error) => patchWorkspace(tab.id, { error: String(error) }));
-    }
-  }, [tab.id, workspace.root_path, setFileTree, patchWorkspace]);
-
-  useEffect(() => {
     const rootPath = workspace.root_path;
     if (!rootPath) return;
 
@@ -376,7 +383,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const saveBuffer = useCallback(
     async (bufferId: string) => {
       const current = useEditorStore.getState().buffers[bufferId];
-      if (!current?.file_path) return;
+      if (!current?.file_path) return false;
       patchWorkspace(tab.id, { loading: true, error: null });
       try {
         const sync = syncClients.current.get(bufferId);
@@ -392,8 +399,10 @@ export function EditorTab({ tab }: { tab: Tab }) {
           markBufferSaved(bufferId, current.revision);
         }
         await refreshGitSummary();
+        return true;
       } catch (error) {
         patchWorkspace(tab.id, { error: String(error) });
+        return false;
       } finally {
         patchWorkspace(tab.id, { loading: false });
       }
@@ -499,6 +508,179 @@ export function EditorTab({ tab }: { tab: Tab }) {
     [tab.id, openFileAtPane],
   );
 
+  const selectOpenBuffer = useCallback(
+    (bufferId: string) => {
+      const state = useEditorStore.getState();
+      const currentWorkspace = state.workspaces[tab.id];
+      const buffer = state.buffers[bufferId];
+      if (!currentWorkspace || !buffer) return;
+      const focused = leafById(
+        currentWorkspace.layout,
+        currentWorkspace.focusedPaneId,
+      );
+      const target =
+        focused?.detachedWindowId === null
+          ? focused
+          : getAttachedEditorPanes(currentWorkspace.layout)[0];
+      if (!target) return;
+      openFileInPane(tab.id, target.id, {
+        file_path: buffer.file_path,
+        content: buffer.content,
+        language: buffer.language,
+      });
+    },
+    [openFileInPane, tab.id],
+  );
+
+  const closeOpenBuffer = useCallback(
+    async (bufferId: string) => {
+      const state = useEditorStore.getState();
+      const buffer = state.buffers[bufferId];
+      const currentWorkspace = state.workspaces[tab.id];
+      if (!buffer || !currentWorkspace || !confirmEditorBufferClose(buffer)) {
+        return;
+      }
+
+      const detachedPanes = getEditorPaneLeaves(currentWorkspace.layout).filter(
+        (pane) => pane.bufferId === bufferId && pane.detachedWindowId !== null,
+      );
+      for (const pane of detachedPanes) {
+        try {
+          await editorDetachedWindowClose(pane.detachedWindowId!);
+        } catch (error) {
+          patchWorkspace(tab.id, { error: String(error) });
+        } finally {
+          reattachPane(tab.id, pane.id);
+        }
+      }
+      closeBuffer(tab.id, bufferId);
+    },
+    [closeBuffer, patchWorkspace, reattachPane, tab.id],
+  );
+
+  const selectWorkspaceFolder = useCallback(async () => {
+    patchWorkspace(tab.id, { loading: true, error: null });
+    try {
+      const selected = await pickWorkspaceFolder(
+        useEditorStore.getState().workspaces[tab.id]?.root_path ?? null,
+      );
+      if (!selected) return;
+      setFileTree(tab.id, [], selected);
+      patchWorkspace(tab.id, { explorer_open: true });
+    } catch (error) {
+      patchWorkspace(tab.id, { error: String(error) });
+    } finally {
+      patchWorkspace(tab.id, { loading: false });
+    }
+  }, [patchWorkspace, setFileTree, tab.id]);
+
+  const startDebugging = useCallback(async () => {
+    const state = useEditorStore.getState();
+    const currentWorkspace = state.workspaces[tab.id];
+    const pane =
+      leafById(currentWorkspace.layout, currentWorkspace.focusedPaneId) ??
+      getAttachedEditorPanes(currentWorkspace.layout)[0];
+    const buffer = pane ? state.buffers[pane.bufferId] : undefined;
+    if (
+      mode !== "zed" ||
+      !currentWorkspace.root_path ||
+      !buffer?.file_path ||
+      buffer.language.trim().toLowerCase() !== "python"
+    ) {
+      return;
+    }
+    if (buffer.is_dirty && !(await saveBuffer(buffer.id))) return;
+    setShowTerminal(false);
+    setShowDebug(true);
+    await debug.start({
+      tabId: tab.id,
+      workspaceRoot: currentWorkspace.root_path,
+      program: buffer.file_path,
+    });
+  }, [debug.start, mode, saveBuffer, tab.id]);
+
+  const continueOrStartDebugging = useCallback(async () => {
+    if (debug.status === "paused") {
+      await debug.continueExecution();
+      return;
+    }
+    if (
+      debug.status === "idle" ||
+      debug.status === "stopped" ||
+      debug.status === "error"
+    ) {
+      await startDebugging();
+    }
+  }, [debug.continueExecution, debug.status, startDebugging]);
+
+  const toggleCurrentBreakpoint = useCallback(async () => {
+    const state = useEditorStore.getState();
+    const currentWorkspace = state.workspaces[tab.id];
+    const pane =
+      leafById(currentWorkspace.layout, currentWorkspace.focusedPaneId) ??
+      getAttachedEditorPanes(currentWorkspace.layout)[0];
+    const buffer = pane ? state.buffers[pane.bufferId] : undefined;
+    if (
+      mode !== "zed" ||
+      !currentWorkspace.root_path ||
+      !buffer?.file_path ||
+      buffer.language.trim().toLowerCase() !== "python"
+    ) {
+      return;
+    }
+    const line =
+      editorRefs.current.get(pane.id)?.getPosition()?.lineNumber ??
+      pane.cursor_position.line;
+    try {
+      const current = await dapBreakpointsGet(
+        tab.id,
+        currentWorkspace.root_path,
+        buffer.file_path,
+      );
+      const lines = new Set(
+        current.breakpoints.map((breakpoint) => breakpoint.line),
+      );
+      if (lines.has(line)) lines.delete(line);
+      else lines.add(line);
+      await dapBreakpointsSet(
+        tab.id,
+        currentWorkspace.root_path,
+        buffer.file_path,
+        [...lines].sort((left, right) => left - right),
+      );
+    } catch (breakpointError) {
+      patchWorkspace(tab.id, { error: String(breakpointError) });
+    }
+  }, [mode, patchWorkspace, tab.id]);
+
+  const revealDebugFrame = useCallback(
+    async (frame: DapStackFrame) => {
+      const filePath = frame.source?.path;
+      if (!filePath) return;
+      const current = useEditorStore.getState().workspaces[tab.id];
+      if (
+        !current.root_path ||
+        !pathIsWithinWorkspace(filePath, current.root_path)
+      ) {
+        patchWorkspace(tab.id, {
+          error: "Debug stack frame is outside the open workspace",
+        });
+        return;
+      }
+      const focused = leafById(current.layout, current.focusedPaneId);
+      const target =
+        focused?.detachedWindowId === null
+          ? focused
+          : getAttachedEditorPanes(current.layout)[0];
+      if (!target) return;
+      await openFileAtPane(target.id, filePath, {
+        line: frame.line,
+        column: frame.column,
+      });
+    },
+    [openFileAtPane, patchWorkspace, tab.id],
+  );
+
   const detachPane = useCallback(
     async (paneId: string) => {
       if (mode !== "zed") return;
@@ -577,23 +759,22 @@ export function EditorTab({ tab }: { tab: Tab }) {
 
   useEffect(() => {
     const openSymbols = (event: Event) => {
-      const source = (
-        event as CustomEvent<{ source?: Node }>
-      ).detail?.source;
+      const source = (event as CustomEvent<{ source?: Node }>).detail?.source;
       if (source && editorTabRef.current?.contains(source)) {
         setShowSymbolSearch(true);
       }
     };
-    window.addEventListener(
-      EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT,
-      openSymbols,
-    );
+    window.addEventListener(EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT, openSymbols);
     return () =>
       window.removeEventListener(
         EDITOR_WORKSPACE_SYMBOL_SEARCH_EVENT,
         openSymbols,
       );
   }, []);
+
+  useEffect(() => {
+    if (mode !== "zed") setShowDebug(false);
+  }, [mode]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -604,7 +785,39 @@ export function EditorTab({ tab }: { tab: Tab }) {
         return;
       }
       const meta = event.metaKey || event.ctrlKey;
-      if (
+      const ownsDebugKeys =
+        mode === "zed" && (pythonDebuggable || debug.session !== null);
+      if (ownsDebugKeys && event.key === "F9") {
+        event.preventDefault();
+        void toggleCurrentBreakpoint();
+      } else if (ownsDebugKeys && event.key === "F10") {
+        event.preventDefault();
+        if (debug.status === "paused") void debug.stepOver();
+      } else if (ownsDebugKeys && event.key === "F11") {
+        event.preventDefault();
+        if (debug.status === "paused") {
+          if (event.shiftKey) void debug.stepOut();
+          else void debug.stepInto();
+        }
+      } else if (
+        ownsDebugKeys &&
+        event.key === "F5" &&
+        meta &&
+        event.shiftKey
+      ) {
+        event.preventDefault();
+        setShowTerminal(false);
+        setShowDebug(true);
+        void debug.restart();
+      } else if (ownsDebugKeys && event.key === "F5" && event.shiftKey) {
+        event.preventDefault();
+        void debug.stop();
+      } else if (ownsDebugKeys && event.key === "F5") {
+        event.preventDefault();
+        setShowTerminal(false);
+        setShowDebug(true);
+        void continueOrStartDebugging();
+      } else if (
         mode === "zed" &&
         meta &&
         !event.shiftKey &&
@@ -635,12 +848,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
         (event.key === "o" || event.key === "O")
       ) {
         event.preventDefault();
+        setShowDebug(false);
         setTerminalMode("opencode");
         setShowTerminal((value) =>
           terminalMode === "opencode" ? !value : true,
         );
       } else if (meta && !event.shiftKey && event.key === "`") {
         event.preventDefault();
+        setShowDebug(false);
         setTerminalMode("shell");
         setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
       } else if (
@@ -663,6 +878,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
     showSymbolSearch,
     terminalMode,
     mode,
+    pythonDebuggable,
+    debug.session,
+    debug.restart,
+    debug.stepInto,
+    debug.stepOut,
+    debug.stepOver,
+    debug.stop,
+    continueOrStartDebugging,
+    toggleCurrentBreakpoint,
   ]);
 
   const classicPane = useMemo(
@@ -740,6 +964,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
         </div>
         <div className="editor-actions">
           <button
+            type="button"
+            onClick={() => void selectWorkspaceFolder()}
+            title="Select Workspace Folder"
+            aria-label="Select Workspace Folder"
+            data-testid="editor-select-workspace"
+          >
+            📂
+          </button>
+          <button
             onClick={() => toggleExplorer(tab.id)}
             title="Toggle Explorer (Cmd+Shift+E)"
             data-testid="editor-toggle-explorer"
@@ -767,6 +1000,117 @@ export function EditorTab({ tab }: { tab: Tab }) {
               ◇
             </button>
           )}
+          {pythonDebuggable && (
+            <div
+              className="editor-debug-actions"
+              data-testid="editor-debug-actions"
+              role="group"
+              aria-label="Python debug controls"
+            >
+              <button
+                type="button"
+                aria-label={
+                  debug.status === "paused"
+                    ? "Continue debugging"
+                    : "Start debugging"
+                }
+                title={
+                  debug.status === "paused"
+                    ? "Continue (F5)"
+                    : "Start Python Debugging (F5)"
+                }
+                disabled={
+                  debug.status === "starting" || debug.status === "running"
+                }
+                onClick={() => {
+                  setShowTerminal(false);
+                  setShowDebug(true);
+                  void continueOrStartDebugging();
+                }}
+              >
+                ▶
+              </button>
+              <button
+                type="button"
+                aria-label="Pause debugging"
+                title="Pause"
+                disabled={debug.status !== "running"}
+                onClick={() => void debug.pause()}
+              >
+                ⏸
+              </button>
+              <button
+                type="button"
+                aria-label="Step over"
+                title="Step Over (F10)"
+                disabled={debug.status !== "paused"}
+                onClick={() => void debug.stepOver()}
+              >
+                ↷
+              </button>
+              <button
+                type="button"
+                aria-label="Step into"
+                title="Step Into (F11)"
+                disabled={debug.status !== "paused"}
+                onClick={() => void debug.stepInto()}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                aria-label="Step out"
+                title="Step Out (Shift+F11)"
+                disabled={debug.status !== "paused"}
+                onClick={() => void debug.stepOut()}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                aria-label="Restart debugging"
+                title="Restart (Cmd/Ctrl+Shift+F5)"
+                disabled={
+                  debug.status === "idle" || debug.status === "starting"
+                }
+                onClick={() => void debug.restart()}
+              >
+                ↻
+              </button>
+              <button
+                type="button"
+                aria-label="Stop debugging"
+                title="Stop (Shift+F5)"
+                disabled={
+                  debug.status === "idle" ||
+                  debug.status === "stopped" ||
+                  debug.status === "error"
+                }
+                onClick={() => void debug.stop()}
+              >
+                ■
+              </button>
+              <button
+                type="button"
+                aria-label="Toggle breakpoint"
+                title="Toggle Breakpoint (F9)"
+                onClick={() => void toggleCurrentBreakpoint()}
+              >
+                ●
+              </button>
+              <button
+                type="button"
+                aria-label="Toggle debug panel"
+                title="Toggle Debug Panel"
+                onClick={() => {
+                  setShowTerminal(false);
+                  setShowDebug((value) => !value);
+                }}
+              >
+                🐞
+              </button>
+            </div>
+          )}
           <button
             onClick={() => setShowSettings((value) => !value)}
             title="Editor Settings (Cmd+,)"
@@ -776,6 +1120,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
           </button>
           <button
             onClick={() => {
+              setShowDebug(false);
               setTerminalMode("opencode");
               setShowTerminal((value) =>
                 terminalMode === "opencode" ? !value : true,
@@ -788,6 +1133,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
           </button>
           <button
             onClick={() => {
+              setShowDebug(false);
               setTerminalMode("shell");
               setShowTerminal((value) =>
                 terminalMode === "shell" ? !value : true,
@@ -815,6 +1161,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
         </div>
       </div>
 
+      <EditorBufferTabs
+        buffers={openBuffers}
+        activeBufferId={focusedBuffer?.id ?? null}
+        onSelect={selectOpenBuffer}
+        onClose={(bufferId) => void closeOpenBuffer(bufferId)}
+      />
+
       <div className="editor-main">
         {workspace.explorer_open && (
           <FileExplorer
@@ -822,6 +1175,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
             expandedDirs={workspace.expanded_dirs}
             onSelectFile={openFile}
             onToggleDir={(dirPath) => toggleDirectory(tab.id, dirPath)}
+            onSelectWorkspace={() => void selectWorkspaceFolder()}
             gitStatus={workspace.is_git_repo ? workspace.git_status : undefined}
           />
         )}
@@ -874,11 +1228,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
                     editorRefs.current.set(classicPane.id, editor);
                   }}
                   onOpenResource={(uri, position) =>
-                    paneCallbacks.onOpenResource(
-                      classicPane.id,
-                      uri,
-                      position,
-                    )
+                    paneCallbacks.onOpenResource(classicPane.id, uri, position)
                   }
                 />
               )
@@ -903,10 +1253,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
               onClose={() => setShowSymbolSearch(false)}
               onSelect={async (symbol: WorkspaceSymbolResult) => {
                 const current = useEditorStore.getState().workspaces[tab.id];
-                const focused = leafById(
-                  current.layout,
-                  current.focusedPaneId,
-                );
+                const focused = leafById(current.layout, current.focusedPaneId);
                 const target =
                   focused?.detachedWindowId === null
                     ? focused
@@ -932,6 +1279,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
         />
       )}
 
+      {mode === "zed" && showDebug && (
+        <DebugPanel
+          controller={debug}
+          onClose={() => setShowDebug(false)}
+          onFrameSelect={revealDebugFrame}
+        />
+      )}
+
       {workspace.error && (
         <div className="error-banner" data-testid="editor-error">
           {workspace.error}
@@ -946,6 +1301,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
           />
         )}
         <span>{focusedBuffer?.sync_status ?? "local"}</span>
+        {mode === "zed" && debug.status !== "idle" && (
+          <span
+            className={`editor-debug-status editor-debug-status--${debug.status}`}
+            data-testid="editor-debug-status"
+          >
+            Debug: {debug.status}
+          </span>
+        )}
         <span>
           Ln {focusedPane?.cursor_position.line ?? 1}, Col{" "}
           {focusedPane?.cursor_position.column ?? 1}

@@ -86,6 +86,15 @@
   background: #2a2d2e;
 }
 
+.file-node.selected {
+  background: #37373d;
+}
+
+.file-node.selected:focus,
+.file-node.selected:hover {
+  background: #094771;
+}
+
 .file-icon {
   margin-right: 6px;
   font-size: 14px;
@@ -121,6 +130,25 @@
 
 .file-explorer-error {
   color: #f48771;
+}
+
+.file-explorer-empty {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-explorer-empty button {
+  padding: 6px 10px;
+  border: 1px solid #4a4a4f;
+  border-radius: 4px;
+  background: #2d2d30;
+  color: #f0f0f0;
+  cursor: pointer;
+}
+
+.file-explorer-empty button:hover {
+  border-color: #007acc;
+  background: #37373d;
 }
 
 /* Git status indicators on file tree nodes. */

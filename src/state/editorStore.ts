@@ -55,6 +55,7 @@ export type EditorWorkspaceState = {
   tabId: string;
   root_path: string | null;
   file_tree: FileNode[];
+  openBufferIds: string[];
   expanded_dirs: Set<string>;
   explorer_open: boolean;
   git_status: GitFileStatus[];
@@ -106,6 +107,7 @@ type EditorStore = {
       Pick<EditorBufferSeed, "file_path" | "content" | "language">
     >,
   ) => string;
+  closeBuffer: (tabId: string, bufferId: string) => void;
   setBufferContent: (bufferId: string, content: string) => void;
   patchBuffer: (
     bufferId: string,
@@ -192,6 +194,7 @@ function createWorkspace(
     tabId,
     root_path: null,
     file_tree: [],
+    openBufferIds: [bufferId],
     expanded_dirs: new Set(),
     explorer_open: true,
     git_status: [],
@@ -219,9 +222,10 @@ function bufferFromIdentity(identity: EditorBufferIdentity): EditorBufferState {
 
 function usedBufferIds(workspaces: Record<string, EditorWorkspaceState>) {
   return new Set(
-    Object.values(workspaces).flatMap((workspace) =>
-      getEditorPaneLeaves(workspace.layout).map((pane) => pane.bufferId),
-    ),
+    Object.values(workspaces).flatMap((workspace) => [
+      ...workspace.openBufferIds,
+      ...getEditorPaneLeaves(workspace.layout).map((pane) => pane.bufferId),
+    ]),
   );
 }
 
@@ -283,6 +287,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           paneId,
           candidate.id,
         );
+        const openBufferIds = workspace.openBufferIds.includes(candidate.id)
+          ? workspace.openBufferIds
+          : [...workspace.openBufferIds, candidate.id];
         return {
           buffers: {
             ...state.buffers,
@@ -293,6 +300,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
             [tabId]: {
               ...workspace,
               layout,
+              openBufferIds,
               focusedPaneId: paneId,
             },
           },
@@ -300,6 +308,50 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       });
       persistLater(tabId);
       return candidate.id;
+    },
+
+    closeBuffer: (tabId, bufferId) => {
+      let changed = false;
+      set((state) => {
+        const workspace = state.workspaces[tabId];
+        const closedIndex = workspace?.openBufferIds.indexOf(bufferId) ?? -1;
+        if (!workspace || closedIndex < 0) return state;
+
+        const openBufferIds = workspace.openBufferIds.filter(
+          (candidateId) => candidateId !== bufferId,
+        );
+        const buffers = { ...state.buffers };
+        let replacementId =
+          openBufferIds[Math.min(closedIndex, openBufferIds.length - 1)];
+        if (!replacementId) {
+          const replacement = createEditorBuffer();
+          replacementId = replacement.id;
+          openBufferIds.push(replacementId);
+          buffers[replacementId] = replacement;
+        }
+
+        let layout = workspace.layout;
+        for (const pane of getEditorPaneLeaves(workspace.layout)) {
+          if (pane.bufferId === bufferId) {
+            layout = setEditorPaneBuffer(layout, pane.id, replacementId);
+          }
+        }
+
+        const workspaces = {
+          ...state.workspaces,
+          [tabId]: {
+            ...workspace,
+            layout,
+            openBufferIds,
+          },
+        };
+        if (!usedBufferIds(workspaces).has(bufferId)) {
+          delete buffers[bufferId];
+        }
+        changed = true;
+        return { buffers, workspaces };
+      });
+      if (changed) persistLater(tabId);
     },
 
     setBufferContent: (bufferId, content) =>
@@ -506,8 +558,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       persistLater(tabId);
     },
 
-    setFileTree: (tabId, file_tree, root_path) =>
-      get().patchWorkspace(tabId, { file_tree, root_path }),
+    setFileTree: (tabId, file_tree, root_path) => {
+      const workspace = get().workspaces[tabId];
+      if (!workspace) return;
+      const rootChanged = workspace.root_path !== root_path;
+      get().patchWorkspace(tabId, {
+        file_tree,
+        root_path,
+        ...(rootChanged
+          ? {
+              expanded_dirs: new Set<string>(),
+              git_status: [],
+              is_git_repo: false,
+              error: null,
+            }
+          : {}),
+      });
+    },
 
     toggleExplorer: (tabId) => {
       const workspace = get().workspaces[tabId];
@@ -570,6 +637,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
                     ...existing,
                     layout,
                     focusedPaneId: hydrated.focusedPaneId,
+                    openBufferIds: [
+                      ...new Set(
+                        getEditorPaneLeaves(layout).map(
+                          (pane) => pane.bufferId,
+                        ),
+                      ),
+                    ],
                   },
                 },
               };

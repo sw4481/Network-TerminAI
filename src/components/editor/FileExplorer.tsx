@@ -15,10 +15,48 @@ type FileExplorerProps = {
   /** Bump to force the root tree to reload (e.g. after a wizard writes a file). */
   refreshKey?: number;
   expandedDirs: Set<string>;
-  onSelectFile: (path: string) => void;
+  onSelectFile: (path: string) => void | Promise<void>;
   onToggleDir: (path: string) => void;
+  onSelectWorkspace?: () => void;
   gitStatus?: GitFileStatus[];
 };
+
+function parentDirectory(path: string): string {
+  const withoutTrailingSeparator = path.replace(/[\\/]+$/, "");
+  const separatorIndex = Math.max(
+    withoutTrailingSeparator.lastIndexOf("/"),
+    withoutTrailingSeparator.lastIndexOf("\\"),
+  );
+  return separatorIndex > 0
+    ? withoutTrailingSeparator.slice(0, separatorIndex)
+    : withoutTrailingSeparator;
+}
+
+function joinPath(directory: string, name: string): string {
+  const withoutTrailingSeparator = directory.replace(/[\\/]+$/, "");
+  const separator =
+    directory.includes("\\") && !directory.includes("/") ? "\\" : "/";
+  return `${withoutTrailingSeparator}${separator}${name}`;
+}
+
+function updateNodeChildren(
+  nodes: FileNode[],
+  targetPath: string,
+  children: FileNode[],
+): FileNode[] {
+  return nodes.map((node) => {
+    if (node.path === targetPath) {
+      return { ...node, children };
+    }
+    if (node.children) {
+      return {
+        ...node,
+        children: updateNodeChildren(node.children, targetPath, children),
+      };
+    }
+    return node;
+  });
+}
 
 export function FileExplorer({
   rootPath,
@@ -26,6 +64,7 @@ export function FileExplorer({
   expandedDirs,
   onSelectFile,
   onToggleDir,
+  onSelectWorkspace,
   gitStatus,
 }: FileExplorerProps) {
   const [rootTree, setRootTree] = useState<FileNode[]>([]);
@@ -36,14 +75,27 @@ export function FileExplorer({
     targetType: "file" | "directory";
     position: { x: number; y: number };
   } | null>(null);
-  // Inline creation row at the workspace root ("file" | "folder" | null).
-  // window.prompt() is blocked in Tauri's WKWebView, so we render an input.
+  // Inline creation row targeting the selected directory. window.prompt() is
+  // blocked in Tauri's WKWebView, so we render an input.
   const [creating, setCreating] = useState<"file" | "folder" | null>(null);
   const [newName, setNewName] = useState("");
+  const [selectedNodePath, setSelectedNodePath] = useState<string | null>(null);
+  const [selectedDirectoryPath, setSelectedDirectoryPath] = useState<
+    string | null
+  >(rootPath);
+  const [createParentPath, setCreateParentPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedNodePath(null);
+    setSelectedDirectoryPath(rootPath);
+    setCreateParentPath(null);
+    setCreating(null);
+    setNewName("");
+  }, [rootPath]);
 
   useEffect(() => {
     if (!rootPath) return;
-    loadDirectory(rootPath);
+    void loadDirectory(rootPath);
   }, [rootPath, refreshKey]);
 
   // Close context menu on outside click
@@ -71,34 +123,54 @@ export function FileExplorer({
   // Open the inline creation row. window.prompt() is unavailable in the
   // Tauri webview, so name entry happens in a rendered input instead.
   const startCreate = (kind: "file" | "folder") => {
+    if (!rootPath) return;
     setNewName("");
+    setCreateParentPath(selectedDirectoryPath ?? rootPath);
     setCreating(kind);
   };
 
   const cancelCreate = () => {
     setCreating(null);
     setNewName("");
+    setCreateParentPath(null);
   };
 
-  // Commit the inline creation at the workspace root, then refresh the tree.
+  const refreshDirectory = async (path: string) => {
+    if (path === rootPath) {
+      await loadDirectory(path);
+      return;
+    }
+    const children = await editorListDirectory(path);
+    setRootTree((tree) => updateNodeChildren(tree, path, children));
+  };
+
+  // Commit under the selected directory, refresh that directory, and open a
+  // newly-created file in the focused editor pane.
   const commitCreate = async () => {
     const name = newName.trim();
-    if (!rootPath || !creating || !name) {
+    const parentPath = createParentPath ?? selectedDirectoryPath ?? rootPath;
+    if (!rootPath || !parentPath || !creating || !name) {
       cancelCreate();
       return;
     }
-    const path = `${rootPath.replace(/\/$/, "")}/${name}`;
+    const path = joinPath(parentPath, name);
     try {
       if (creating === "file") {
         await editorCreateFile(path, rootPath);
       } else {
         await editorCreateDirectory(path, rootPath);
       }
-      loadDirectory(rootPath);
+      await refreshDirectory(parentPath);
+      setSelectedNodePath(path);
+      if (creating === "file") {
+        setSelectedDirectoryPath(parentPath);
+        await onSelectFile(path);
+      } else {
+        setSelectedDirectoryPath(path);
+      }
+      cancelCreate();
     } catch (err) {
       alert(`Failed to create ${creating}: ${err}`);
-    } finally {
-      cancelCreate();
     }
   };
 
@@ -111,9 +183,12 @@ export function FileExplorer({
   };
 
   const handleNodeClick = async (node: FileNode) => {
+    setSelectedNodePath(node.path);
     if (node.node_type === "file") {
-      onSelectFile(node.path);
+      setSelectedDirectoryPath(parentDirectory(node.path));
+      await onSelectFile(node.path);
     } else {
+      setSelectedDirectoryPath(node.path);
       onToggleDir(node.path);
       // Lazy load children if expanding
       if (!expandedDirs.has(node.path) && !node.children) {
@@ -122,25 +197,6 @@ export function FileExplorer({
         setRootTree((tree) => updateNodeChildren(tree, node.path, children));
       }
     }
-  };
-
-  const updateNodeChildren = (
-    nodes: FileNode[],
-    targetPath: string,
-    children: FileNode[]
-  ): FileNode[] => {
-    return nodes.map((node) => {
-      if (node.path === targetPath) {
-        return { ...node, children };
-      }
-      if (node.children) {
-        return {
-          ...node,
-          children: updateNodeChildren(node.children, targetPath, children),
-        };
-      }
-      return node;
-    });
   };
 
   const handleContextMenu = (e: React.MouseEvent, node: FileNode) => {
@@ -172,11 +228,12 @@ export function FileExplorer({
     return (
       <div key={node.path}>
         <div
-          className={`file-node${git ? ` git-${git}` : ""}`}
+          className={`file-node${selectedNodePath === node.path ? " selected" : ""}${git ? ` git-${git}` : ""}`}
           style={{ paddingLeft: `${depth * 16}px` }}
           onClick={() => handleNodeClick(node)}
           onContextMenu={(e) => handleContextMenu(e, node)}
           data-testid={`file-node-${node.node_type}`}
+          aria-selected={selectedNodePath === node.path}
         >
           <span className="file-icon">{getFileIcon(node)}</span>
           <span className="file-name">{node.name}</span>
@@ -204,7 +261,16 @@ export function FileExplorer({
   }
 
   if (!rootPath) {
-    return <div className="file-explorer-empty">No directory selected</div>;
+    return (
+      <div className="file-explorer-empty">
+        <span>No workspace folder selected</span>
+        {onSelectWorkspace && (
+          <button type="button" onClick={onSelectWorkspace}>
+            Select Workspace Folder
+          </button>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -230,23 +296,36 @@ export function FileExplorer({
       </div>
       {creating && (
         <div className="explorer-create-row" data-testid="explorer-create-row">
-          <span className="file-icon">{creating === "folder" ? "📁" : "📄"}</span>
+          <span className="file-icon">
+            {creating === "folder" ? "📁" : "📄"}
+          </span>
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") commitCreate();
-              if (e.key === "Escape") cancelCreate();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.stopPropagation();
+                void commitCreate();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelCreate();
+              }
             }}
             onBlur={cancelCreate}
             placeholder={creating === "folder" ? "folder name" : "file name"}
+            title={`Create in ${createParentPath ?? selectedDirectoryPath ?? rootPath}`}
             autoFocus
             data-testid="explorer-create-input"
           />
         </div>
       )}
-      <div className="file-tree">{rootTree.map((node) => renderNode(node))}</div>
+      <div className="file-tree">
+        {rootTree.map((node) => renderNode(node))}
+      </div>
 
       {contextMenu && (
         <FileContextMenu

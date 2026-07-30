@@ -487,9 +487,19 @@ pub async fn editor_create_file(
             .map_err(|e| format!("Failed to create directories: {}", e))?;
     }
 
-    // Create empty file
-    fs::write(&safe, "")
-        .map_err(|e| format!("Failed to create file: {}", e))
+    // A "new file" action must never truncate an existing file.
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&safe)
+        .map(|_| ())
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format!("File already exists: {}", safe.display())
+            } else {
+                format!("Failed to create file: {}", e)
+            }
+        })
 }
 
 #[tauri::command]
@@ -634,6 +644,36 @@ fn detect_language(file_path: &str) -> String {
         "go" => "go",
         _ => "plaintext",
     }.to_string()
+}
+
+#[cfg(test)]
+mod editor_file_mutation_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn rt() -> tokio::runtime::Runtime {
+        tokio::runtime::Runtime::new().unwrap()
+    }
+
+    #[test]
+    fn create_file_creates_an_empty_file_without_overwriting_an_existing_one() {
+        let dir = TempDir::new().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        let file = dir.path().join("src").join("main.py");
+        let path = file.to_string_lossy().to_string();
+
+        rt().block_on(editor_create_file(path.clone(), Some(root.clone())))
+            .expect("new file should be created");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "");
+
+        std::fs::write(&file, "preserve me\n").unwrap();
+        let error = rt()
+            .block_on(editor_create_file(path, Some(root)))
+            .expect_err("an existing file must not be overwritten");
+
+        assert!(error.contains("already exists"), "{error}");
+        assert_eq!(std::fs::read_to_string(&file).unwrap(), "preserve me\n");
+    }
 }
 
 #[cfg(test)]

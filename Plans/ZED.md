@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phase 1 complete; Phases 2–4 implemented; Phase 4 native validation complete
+**Status:** Phases 1–5 implemented; Phase 5 automated/native health validation complete; operator feature validation pending
 **Author:** brainstormed with operator
 
 ---
@@ -199,7 +199,9 @@ WKWebView.
   Phase 5's DAP adapter management.
 - Deliverable: project-wide code navigation for supported languages in Zed Mode.
 
-## 8. Phase 5 — Debugging / DAP (OUTLINE)
+## 8. Phase 5 — Debugging / DAP (IMPLEMENTED — OPERATOR VALIDATION IN PROGRESS)
+
+**Detailed implementation plan:** `docs/plans/2026-07-29-zed-mode-phase-5.md`
 
 - **Target:** user-authored scripts opened in the editor, primarily Python via
   `debugpy` (a real DAP adapter). NOT the Terminal app.
@@ -207,6 +209,10 @@ WKWebView.
   Phase 4 process scaffolding; launches `debugpy`, speaks DAP over stdio/socket.
 - **Frontend:** debug UI — breakpoint gutter, variables/scopes panel, call stack,
   watch, and step controls (continue/step over/into/out).
+- **Operator follow-up:** Steps 7 and 10 passed. Feedback from Steps 9 and 11
+  added workspace-scoped folder selection, closable open-file tabs with
+  unsaved-change protection, and disposal-safe LSP cleanup for split-pane
+  teardown. The corrected interactions are ready for operator retest.
 - Depends on Phase 4. Adapters for languages without DAP support are out of scope.
 - Deliverable: breakpoint debugging of user Python scripts, Zed-style.
 

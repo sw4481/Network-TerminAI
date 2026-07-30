@@ -26,6 +26,7 @@ pub mod codex_hooks;
 pub mod command_parser;
 pub mod commands;
 pub mod config;
+pub mod dap;
 pub mod database;
 pub mod db;
 pub mod drift;
@@ -326,6 +327,25 @@ pub fn run() {
             commands::lsp::lsp_document_close,
             commands::lsp::lsp_is_running,
             commands::lsp::lsp_check_available,
+            commands::dap::dap_check_available,
+            commands::dap::dap_resolve_interpreter,
+            commands::dap::dap_start,
+            commands::dap::dap_restart,
+            commands::dap::dap_stop,
+            commands::dap::dap_clear_tab,
+            commands::dap::dap_session_for_tab,
+            commands::dap::dap_breakpoints_get,
+            commands::dap::dap_breakpoints_set,
+            commands::dap::dap_threads,
+            commands::dap::dap_stack_trace,
+            commands::dap::dap_scopes,
+            commands::dap::dap_variables,
+            commands::dap::dap_evaluate,
+            commands::dap::dap_continue,
+            commands::dap::dap_pause,
+            commands::dap::dap_next,
+            commands::dap::dap_step_in,
+            commands::dap::dap_step_out,
             commands::git::git_get_status,
             commands::git::git_get_diff,
             commands::git::git_get_file_changes,

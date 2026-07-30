@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod browser;
+pub mod dap;
 pub mod drift;
 pub mod fanout;
 pub mod guardrails;
@@ -234,6 +235,8 @@ pub struct AppState {
     pub netconf_registry: Arc<crate::netconf_runner::registry::SessionRegistry>,
     /// LSP server process manager for editor language intelligence.
     pub lsp_manager: Arc<crate::lsp::LspManager>,
+    /// Zed Mode Phase 5 — Python debug adapter/session authority.
+    pub dap_manager: Arc<crate::dap::DapManager>,
     /// SQLite-backed cache for parsed show-output results.
     pub parser_cache: crate::parsers::cache::ParseCache,
     /// Bridge to the Python sidecar's `parse.request` NDJSON method.
@@ -394,6 +397,7 @@ impl AppState {
             api_hooks,
             netconf_registry: Arc::new(crate::netconf_runner::registry::SessionRegistry::new()),
             lsp_manager: Arc::new(crate::lsp::LspManager::new()),
+            dap_manager: Arc::new(crate::dap::DapManager::new()),
             parser_cache,
             parser_bridge,
             notebook_runs: crate::commands::notebooks_runnable::RunRegistry::new(),
@@ -852,7 +856,7 @@ pub fn tab_new_editor(
 
 /// Close an Editor tab (no PTY, just a DB close). Safe to call repeatedly.
 #[tauri::command]
-pub fn tab_close_editor(
+pub async fn tab_close_editor(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     tab_id: String,
@@ -864,6 +868,7 @@ pub fn tab_close_editor(
         &state.editor_window_manager,
         &validated,
     )?;
+    state.dap_manager.remove_tab(&validated).await;
     let db = state.db.lock();
     session::close_tab(&db, &validated)
         .map_err(|e| e.to_string())

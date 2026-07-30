@@ -2679,6 +2679,228 @@ export const lspCheckAvailable = (workspaceRoot: string) =>
   invoke<string[]>("lsp_check_available", { workspaceRoot });
 
 // ---------------------------------------------------------------------------
+// Debug Adapter Protocol (DAP)
+// ---------------------------------------------------------------------------
+
+export const DAP_EVENT = "dap://event";
+export const DAP_BREAKPOINTS_CHANGED_EVENT = "dap://breakpoints-changed";
+
+export type DapSessionStatus =
+  | "starting"
+  | "running"
+  | "paused"
+  | "stopped"
+  | "error";
+
+export type DapSessionInfo = {
+  sessionId: string;
+  tabId: string;
+  workspaceRoot: string;
+  program: string;
+  interpreter: string;
+  adapterName: string;
+  status: DapSessionStatus;
+};
+
+export type DapAvailability = {
+  available: boolean;
+  adapterPython: string;
+  interpreter: string | null;
+  message: string | null;
+};
+
+export type DapBreakpoint = {
+  id: number | null;
+  line: number;
+  verified: boolean;
+  message: string | null;
+};
+
+export type DapBreakpointSet = {
+  tabId: string;
+  filePath: string;
+  breakpoints: DapBreakpoint[];
+};
+
+export type DapEventEnvelope = {
+  sessionId: string;
+  tabId: string;
+  event: string;
+  body: Record<string, unknown> | null;
+};
+
+export type DapSource = {
+  name?: string;
+  path?: string;
+  sourceReference?: number;
+};
+
+export type DapThread = {
+  id: number;
+  name: string;
+};
+
+export type DapStackFrame = {
+  id: number;
+  name: string;
+  source?: DapSource;
+  line: number;
+  column: number;
+  endLine?: number;
+  endColumn?: number;
+  presentationHint?: string;
+};
+
+export type DapScope = {
+  name: string;
+  variablesReference: number;
+  expensive: boolean;
+  namedVariables?: number;
+  indexedVariables?: number;
+  source?: DapSource;
+  line?: number;
+  column?: number;
+};
+
+export type DapVariable = {
+  name: string;
+  value: string;
+  type?: string;
+  evaluateName?: string;
+  variablesReference: number;
+  namedVariables?: number;
+  indexedVariables?: number;
+  memoryReference?: string;
+};
+
+export type DapEvaluateResult = {
+  result: string;
+  type?: string;
+  variablesReference: number;
+  namedVariables?: number;
+  indexedVariables?: number;
+  memoryReference?: string;
+};
+
+export type DapLaunchOptions = {
+  tabId: string;
+  workspaceRoot: string;
+  program: string;
+  interpreter?: string | null;
+  args?: string[];
+  env?: Record<string, string>;
+  stopOnEntry?: boolean;
+  justMyCode?: boolean;
+};
+
+export const dapCheckAvailable = (workspaceRoot: string) =>
+  invoke<DapAvailability>("dap_check_available", { workspaceRoot });
+
+export const dapResolveInterpreter = (
+  workspaceRoot: string,
+  explicit?: string | null,
+) =>
+  invoke<string>("dap_resolve_interpreter", {
+    workspaceRoot,
+    explicit: explicit ?? null,
+  });
+
+export const dapStart = (options: DapLaunchOptions) =>
+  invoke<DapSessionInfo>("dap_start", {
+    tabId: options.tabId,
+    workspaceRoot: options.workspaceRoot,
+    program: options.program,
+    interpreter: options.interpreter ?? null,
+    args: options.args ?? [],
+    env: options.env ?? {},
+    stopOnEntry: options.stopOnEntry ?? false,
+    justMyCode: options.justMyCode ?? true,
+  });
+
+export const dapRestart = (sessionId: string) =>
+  invoke<DapSessionInfo>("dap_restart", { sessionId });
+
+export const dapStop = (sessionId: string) =>
+  invoke<void>("dap_stop", { sessionId });
+
+export const dapClearTab = (tabId: string) =>
+  invoke<void>("dap_clear_tab", { tabId });
+
+export const dapSessionForTab = (tabId: string) =>
+  invoke<DapSessionInfo | null>("dap_session_for_tab", { tabId });
+
+export const dapBreakpointsGet = (
+  tabId: string,
+  workspaceRoot: string,
+  filePath: string,
+) =>
+  invoke<DapBreakpointSet>("dap_breakpoints_get", {
+    tabId,
+    workspaceRoot,
+    filePath,
+  });
+
+export const dapBreakpointsSet = (
+  tabId: string,
+  workspaceRoot: string,
+  filePath: string,
+  lines: number[],
+) =>
+  invoke<DapBreakpointSet>("dap_breakpoints_set", {
+    tabId,
+    workspaceRoot,
+    filePath,
+    lines,
+  });
+
+export const dapThreads = (sessionId: string) =>
+  invoke<{ threads: DapThread[] }>("dap_threads", { sessionId });
+
+export const dapStackTrace = (sessionId: string, threadId: number) =>
+  invoke<{ stackFrames: DapStackFrame[]; totalFrames?: number }>(
+    "dap_stack_trace",
+    { sessionId, threadId },
+  );
+
+export const dapScopes = (sessionId: string, frameId: number) =>
+  invoke<{ scopes: DapScope[] }>("dap_scopes", { sessionId, frameId });
+
+export const dapVariables = (
+  sessionId: string,
+  variablesReference: number,
+) =>
+  invoke<{ variables: DapVariable[] }>("dap_variables", {
+    sessionId,
+    variablesReference,
+  });
+
+export const dapEvaluate = (
+  sessionId: string,
+  expression: string,
+  frameId?: number | null,
+) =>
+  invoke<DapEvaluateResult>("dap_evaluate", {
+    sessionId,
+    expression,
+    frameId: frameId ?? null,
+  });
+
+export const dapContinue = (sessionId: string, threadId: number) =>
+  invoke<unknown>("dap_continue", { sessionId, threadId });
+
+export const dapPause = (sessionId: string, threadId: number) =>
+  invoke<unknown>("dap_pause", { sessionId, threadId });
+
+export const dapNext = (sessionId: string, threadId: number) =>
+  invoke<unknown>("dap_next", { sessionId, threadId });
+
+export const dapStepIn = (sessionId: string, threadId: number) =>
+  invoke<unknown>("dap_step_in", { sessionId, threadId });
+
+export const dapStepOut = (sessionId: string, threadId: number) =>
+  invoke<unknown>("dap_step_out", { sessionId, threadId });
+
+// ---------------------------------------------------------------------------
 // Git integration
 // ---------------------------------------------------------------------------
 

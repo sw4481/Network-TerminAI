@@ -60,11 +60,22 @@ function appendChange(entry: DocumentEntry, text: string): void {
     });
 }
 
+function currentModelText(entry: DocumentEntry): string {
+  if (entry.model.isDisposed()) return entry.lastQueuedText;
+  try {
+    return entry.model.getValue();
+  } catch {
+    // Monaco can dispose its final model lease before React runs this passive
+    // LSP cleanup. The last queued snapshot is already authoritative then.
+    return entry.lastQueuedText;
+  }
+}
+
 function scheduleChange(entry: DocumentEntry, debounceMs: number): void {
   if (entry.changeTimer) clearTimeout(entry.changeTimer);
   entry.changeTimer = setTimeout(() => {
     entry.changeTimer = null;
-    appendChange(entry, entry.model.getValue());
+    appendChange(entry, currentModelText(entry));
   }, debounceMs);
 }
 
@@ -139,7 +150,7 @@ export function acquireLspDocument({
         clearTimeout(currentEntry.changeTimer);
         currentEntry.changeTimer = null;
       }
-      appendChange(currentEntry, currentEntry.model.getValue());
+      appendChange(currentEntry, currentModelText(currentEntry));
       currentEntry.changeListener.dispose();
       registry.delete(key);
       currentEntry.queue = currentEntry.queue

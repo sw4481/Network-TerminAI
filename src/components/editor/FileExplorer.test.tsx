@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, fireEvent, waitFor } from "@testing-library/react";
+import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 
 vi.mock("../../lib/tauri", () => ({
   editorListDirectory: vi.fn(async () => []),
@@ -20,6 +20,22 @@ const baseProps = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("FileExplorer inline create", () => {
+  it("offers a workspace folder selector when no root is open", () => {
+    const onSelectWorkspace = vi.fn();
+    render(
+      <FileExplorer
+        {...baseProps}
+        rootPath={null}
+        onSelectWorkspace={onSelectWorkspace}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Workspace Folder" }),
+    );
+    expect(onSelectWorkspace).toHaveBeenCalledOnce();
+  });
+
   it("shows an inline input (not window.prompt) when New File is clicked", async () => {
     const { getByTestId, queryByTestId, findByTestId } = render(
       <FileExplorer {...baseProps} />,
@@ -31,24 +47,74 @@ describe("FileExplorer inline create", () => {
   });
 
   it("creates a file at the workspace root on Enter", async () => {
-    const { getByTestId, findByTestId } = render(<FileExplorer {...baseProps} />);
+    const { getByTestId, findByTestId } = render(
+      <FileExplorer {...baseProps} />,
+    );
     fireEvent.click(await findByTestId("explorer-new-file"));
     const input = getByTestId("explorer-create-input");
     fireEvent.change(input, { target: { value: "notes.txt" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
-      expect(tauri.editorCreateFile).toHaveBeenCalledWith("/proj/notes.txt", "/proj"),
+      expect(tauri.editorCreateFile).toHaveBeenCalledWith(
+        "/proj/notes.txt",
+        "/proj",
+      ),
+    );
+    await waitFor(() =>
+      expect(baseProps.onSelectFile).toHaveBeenCalledWith("/proj/notes.txt"),
     );
   });
 
+  it("creates a file in the selected directory and opens it automatically", async () => {
+    vi.mocked(tauri.editorListDirectory).mockImplementation(async (path) =>
+      path === "/proj"
+        ? [
+            {
+              path: "/proj/src",
+              name: "src",
+              node_type: "directory",
+            },
+          ]
+        : [],
+    );
+    const onSelectFile = vi.fn();
+    const { getByTestId, findByTestId, findByText } = render(
+      <FileExplorer {...baseProps} onSelectFile={onSelectFile} />,
+    );
+
+    const selectedDirectory = (await findByText("src")).closest(".file-node")!;
+    fireEvent.click(selectedDirectory);
+    expect(selectedDirectory.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(await findByTestId("explorer-new-file"));
+    const input = getByTestId("explorer-create-input");
+    fireEvent.change(input, { target: { value: "main.py" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(tauri.editorCreateFile).toHaveBeenCalledWith(
+        "/proj/src/main.py",
+        "/proj",
+      ),
+    );
+    await waitFor(() =>
+      expect(tauri.editorListDirectory).toHaveBeenCalledWith("/proj/src"),
+    );
+    expect(onSelectFile).toHaveBeenCalledWith("/proj/src/main.py");
+  });
+
   it("creates a folder at the workspace root on Enter", async () => {
-    const { getByTestId, findByTestId } = render(<FileExplorer {...baseProps} />);
+    const { getByTestId, findByTestId } = render(
+      <FileExplorer {...baseProps} />,
+    );
     fireEvent.click(await findByTestId("explorer-new-folder"));
     const input = getByTestId("explorer-create-input");
     fireEvent.change(input, { target: { value: "configs" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() =>
-      expect(tauri.editorCreateDirectory).toHaveBeenCalledWith("/proj/configs", "/proj"),
+      expect(tauri.editorCreateDirectory).toHaveBeenCalledWith(
+        "/proj/configs",
+        "/proj",
+      ),
     );
   });
 

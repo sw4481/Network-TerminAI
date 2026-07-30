@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { emit } from "@tauri-apps/api/event";
+import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { EditorBufferState } from "../../state/editorStore";
 import {
   editorDetachedWindowClose,
   editorDetachedWindowGetCurrent,
   editorSaveFile,
   editorSourceWindowFocus,
+  DAP_EVENT,
+  dapSessionForTab,
+  type DapEventEnvelope,
+  type DapSessionStatus,
   type DetachedEditorWindowInfo,
   type EditorBufferSnapshot,
 } from "../../lib/tauri";
@@ -56,6 +60,8 @@ export function DetachedEditorWindow() {
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [debugStatus, setDebugStatus] =
+    useState<DapSessionStatus | null>(null);
   const clientRef = useRef<EditorBufferSyncClient | null>(null);
   const closingRef = useRef(false);
   const sourceIdRef = useRef(
@@ -171,6 +177,50 @@ export function DetachedEditorWindow() {
       void closeDetachedWindow();
     }
   }, [hydrated, mode, closeDetachedWindow]);
+
+  useEffect(() => {
+    if (!metadata || mode !== "zed") {
+      setDebugStatus(null);
+      return;
+    }
+    let disposed = false;
+    let unlisten: UnlistenFn | null = null;
+    void dapSessionForTab(metadata.tabId)
+      .then((session) => {
+        if (!disposed) setDebugStatus(session?.status ?? null);
+      })
+      .catch(() => {});
+    void listen<DapEventEnvelope>(DAP_EVENT, (event) => {
+      if (disposed || event.payload.tabId !== metadata.tabId) return;
+      switch (event.payload.event) {
+        case "stopped":
+          setDebugStatus("paused");
+          break;
+        case "process":
+        case "continued":
+          setDebugStatus("running");
+          break;
+        case "exited":
+        case "terminated":
+          setDebugStatus("stopped");
+          break;
+        case "adapterError":
+          setDebugStatus("error");
+          break;
+        default:
+          break;
+      }
+    })
+      .then((stopListening) => {
+        if (disposed) stopListening();
+        else unlisten = stopListening;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [metadata, mode]);
 
   const save = useCallback(async () => {
     const current = bufferRef.current;
@@ -339,6 +389,9 @@ export function DetachedEditorWindow() {
           />
         )}
         <span>{buffer.sync_status}</span>
+        {mode === "zed" &&
+          buffer.language.trim().toLowerCase() === "python" &&
+          debugStatus && <span>Debug: {debugStatus}</span>}
         <span>
           Ln {view.cursor_position.line}, Col {view.cursor_position.column}
         </span>

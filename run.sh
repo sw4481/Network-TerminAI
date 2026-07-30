@@ -50,7 +50,7 @@ fi
 echo "   Activating virtual environment..."
 source .venv/bin/activate
 
-if ! python -c "import ccie_sidecar" 2>/dev/null; then
+if ! python -c "import ccie_sidecar, debugpy" 2>/dev/null; then
     echo "   Installing Python dependencies..."
     pip install -e . > /dev/null 2>&1
 fi

@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   markSaved: vi.fn(),
   dispose: vi.fn(),
   onCloseRequested: vi.fn(),
+  listen: vi.fn(),
+  dapSessionForTab: vi.fn(),
   unlistenClose: vi.fn(),
   closeRequestHandler: undefined as
     | ((event: { preventDefault: () => void }) => Promise<void>)
@@ -34,6 +36,8 @@ vi.mock("../../lib/tauri", () => ({
   editorDetachedWindowClose: mocks.close,
   editorSourceWindowFocus: mocks.focusSource,
   gitGetRepositorySummary: mocks.gitSummary,
+  DAP_EVENT: "dap://event",
+  dapSessionForTab: mocks.dapSessionForTab,
 }));
 
 vi.mock("./editorBufferSync", () => ({
@@ -96,6 +100,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 vi.mock("@tauri-apps/api/event", () => ({
   emit: vi.fn().mockResolvedValue(undefined),
+  listen: mocks.listen,
 }));
 
 import { DetachedEditorWindow } from "./DetachedEditorWindow";
@@ -126,6 +131,8 @@ describe("DetachedEditorWindow", () => {
     mocks.close.mockReset().mockResolvedValue(undefined);
     mocks.focusSource.mockReset().mockResolvedValue(undefined);
     mocks.gitSummary.mockReset().mockResolvedValue(null);
+    mocks.dapSessionForTab.mockReset().mockResolvedValue(null);
+    mocks.listen.mockReset().mockResolvedValue(vi.fn());
     mocks.start.mockReset().mockImplementation(async () => {
       mocks.syncOptions?.onSnapshot(authoritative);
     });

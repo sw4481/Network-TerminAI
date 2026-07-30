@@ -5,10 +5,15 @@ import { acquireLspDocument } from "./lspDocumentSync";
 function fixture() {
   let value = "value = 1\n";
   let change: (() => void) | null = null;
+  let disposed = false;
   const listener = { dispose: vi.fn() };
   const model = {
     uri: { toString: () => "file:///repo/main.py" },
-    getValue: () => value,
+    getValue: vi.fn(() => {
+      if (disposed) throw new Error("Model is disposed!");
+      return value;
+    }),
+    isDisposed: () => disposed,
     onDidChangeContent: vi.fn((callback: () => void) => {
       change = callback;
       return listener;
@@ -29,6 +34,9 @@ function fixture() {
     setValue(next: string) {
       value = next;
       change?.();
+    },
+    disposeModel() {
+      disposed = true;
     },
   };
 }
@@ -106,5 +114,27 @@ describe("LSP document synchronization", () => {
     await Promise.resolve();
     expect(item.listener.dispose).not.toHaveBeenCalled();
     second.dispose();
+  });
+
+  it("releases a document safely when Monaco disposed the model first", async () => {
+    const item = fixture();
+    const lease = acquireLspDocument({
+      monaco: item.monaco,
+      model: item.model,
+      sessionKey: "python:/repo",
+      languageId: "python",
+      transport: item.transport,
+    });
+    await lease.ready;
+
+    item.disposeModel();
+
+    expect(() => lease.dispose()).not.toThrow();
+    await vi.waitFor(() =>
+      expect(item.transport.closeDocument).toHaveBeenCalledWith(
+        "file:///repo/main.py",
+      ),
+    );
+    expect(item.listener.dispose).toHaveBeenCalledOnce();
   });
 });

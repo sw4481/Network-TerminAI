@@ -27,6 +27,8 @@ dependencies = [
     "beautifulsoup4 >= 4.12",
     "lxml >= 5.2",
     "pygnmi >= 0.8",
+    # Zed Mode Phase 5 — Python Debug Adapter Protocol implementation.
+    "debugpy>=1.8,<2",
     # DeepAgents migration dependencies (Phase 1+)
     "deepagents>=0.6.8",
     "langgraph>=0.2.50",

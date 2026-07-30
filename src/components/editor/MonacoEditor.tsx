@@ -28,8 +28,10 @@ import {
   type MonacoModelLease,
 } from "./monacoModelRegistry";
 import { installGitAwareness } from "./gitAwareness";
+import { installDebugDecorations } from "./debug/debugDecorations";
 import "./MonacoEditor.css";
 import "./git-awareness.css";
+import "./debug/debug-decorations.css";
 
 export type EditorSettings = {
   fontSize: number;
@@ -406,6 +408,41 @@ export function MonacoEditor({
     });
     return () => awareness.dispose();
   }, [monaco, editorInstance, mode, activeBufferId, filePath]);
+
+  useEffect(() => {
+    if (
+      !monaco ||
+      !editorInstance ||
+      mode !== "zed" ||
+      language.trim().toLowerCase() !== "python" ||
+      !tabId ||
+      !workspaceRoot ||
+      !filePath
+    ) {
+      return;
+    }
+    const decorations = installDebugDecorations({
+      editor: editorInstance,
+      monaco,
+      tabId,
+      workspaceRoot,
+      filePath,
+      dependencies: {
+        onError: (debugError) =>
+          console.error(`Python debug decoration failed for ${filePath}:`, debugError),
+      },
+    });
+    return () => decorations.dispose();
+  }, [
+    monaco,
+    editorInstance,
+    mode,
+    activeBufferId,
+    language,
+    tabId,
+    workspaceRoot,
+    filePath,
+  ]);
 
   useEffect(() => {
     if (!editorRef.current) return;

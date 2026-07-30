@@ -40,7 +40,27 @@
 
 .editor-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.editor-debug-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+  border-right: 1px solid #3e3e42;
+  border-left: 1px solid #3e3e42;
+}
+
+.editor-actions .editor-debug-actions button {
+  min-width: 25px;
+  padding: 4px 6px;
+  background: #333337;
+}
+
+.editor-actions .editor-debug-actions button:hover:not(:disabled) {
+  background: #4b4b50;
 }
 
 .editor-actions button {
@@ -60,6 +80,84 @@
 .editor-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.editor-buffer-tabs {
+  display: flex;
+  min-height: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #1e1e1e;
+  border-bottom: 1px solid #3e3e42;
+}
+
+.editor-buffer-tab {
+  display: inline-flex;
+  align-items: center;
+  min-width: 110px;
+  max-width: 220px;
+  border-right: 1px solid #333337;
+  border-top: 2px solid transparent;
+  background: #252526;
+  color: #a9a9a9;
+  font-size: 12px;
+}
+
+.editor-buffer-tab-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px 6px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.editor-buffer-tab-select span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-buffer-tab:hover,
+.editor-buffer-tab:focus-within {
+  color: #ffffff;
+  background: #2d2d30;
+}
+
+.editor-buffer-tab.active {
+  border-top-color: #4ea1d3;
+  background: #1e1e1e;
+  color: #ffffff;
+}
+
+.editor-buffer-tab-close {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #8f8f8f;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.editor-buffer-tab-close:hover,
+.editor-buffer-tab-close:focus-visible {
+  background: #46464b;
+  color: #ffffff;
+}
+
+.editor-buffer-tab-dirty {
+  margin-left: auto;
+  color: #d7ba7d;
+  font-size: 9px;
 }
 
 .editor-main {
@@ -170,6 +268,21 @@
   color: white;
   font-size: 12px;
   font-family: monospace;
+}
+
+.editor-debug-status {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 20%);
+  text-transform: capitalize;
+}
+
+.editor-debug-status--paused {
+  background: #8a681f;
+}
+
+.editor-debug-status--error {
+  background: #8c2d2d;
 }
 
 .zed-vim-status:empty {
