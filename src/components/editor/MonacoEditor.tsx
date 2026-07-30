@@ -12,10 +12,10 @@ import { registerHclLanguage } from "./lsp/hclLanguage";
 import { dispatchAskAi, type AskAiAction } from "./askAi";
 import { useZedMode } from "./ZedModeProvider";
 import {
-  applyEditorModeTheme,
   fontFamilyForEditorMode,
-  themeForEditorMode,
 } from "./themes/zed-one-dark";
+import { applyMonacoTheme, resolveMonacoTheme } from "../../theme/monacoThemes";
+import { useAppearance } from "../../theme/AppearanceProvider";
 import { installZedKeybindings } from "./zedKeybindings";
 import { useVimMode } from "./useVimMode";
 import {
@@ -131,6 +131,8 @@ export function MonacoEditor({
   const [error, setError] = useState<string | null>(null);
   const [lspDocumentReady, setLspDocumentReady] = useState(false);
   const { mode, vimEnabled } = useZedMode();
+  const { settings: appearanceSettings } = useAppearance();
+  const resolvedTheme = resolveMonacoTheme(appearanceSettings, mode);
   const fallbackBufferIdRef = useRef(
     `standalone:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
@@ -182,9 +184,7 @@ export function MonacoEditor({
     if (!monaco || !containerRef.current) return;
     if (editorRef.current) return;
 
-    if (mode === "zed") {
-      applyEditorModeTheme(monaco, mode);
-    }
+    applyMonacoTheme(monaco, resolvedTheme);
 
     const editorDisposables: Monaco.IDisposable[] = [];
     const registry = getMonacoModelRegistry(monaco);
@@ -198,7 +198,7 @@ export function MonacoEditor({
     try {
       editor = monaco.editor.create(containerRef.current, {
       model: modelLease.model,
-      theme: themeForEditorMode(mode),
+      theme: resolvedTheme,
       fontSize: settings.fontSize,
       fontFamily: fontFamilyForEditorMode(mode),
       minimap: { enabled: settings.minimap },
@@ -364,8 +364,10 @@ export function MonacoEditor({
 
   useEffect(() => {
     if (!monaco) return;
-    applyEditorModeTheme(monaco, mode);
-  }, [monaco, mode]);
+    // Monaco applies themes to the existing editor/model; avoid lifecycle work
+    // here so changing appearance cannot interrupt splits, LSP, or DAP.
+    applyMonacoTheme(monaco, resolvedTheme);
+  }, [monaco, resolvedTheme]);
 
   useEffect(() => {
     if (!monaco || !editorInstance) return;
@@ -620,7 +622,7 @@ export function MonacoEditor({
         ref={containerRef}
         className="monaco-editor-wrapper"
         data-editor-mode={mode}
-        data-editor-theme={themeForEditorMode(mode)}
+        data-editor-theme={resolvedTheme}
         data-vim-enabled={String(mode === "zed" && vimEnabled)}
         data-lsp-ready={String(lspDocumentReady)}
         data-lsp-server={lspClient.serverName ?? ""}

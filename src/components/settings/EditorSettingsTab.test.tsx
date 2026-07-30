@@ -6,10 +6,27 @@ const state = vi.hoisted(() => ({
   vimEnabled: false,
   setMode: vi.fn(),
   setVimEnabled: vi.fn(),
+  settings: {
+    schemaVersion: 1 as const,
+    appTheme: "terminai-dark" as const,
+    editorTheme: "follow-app" as const,
+    terminal: {},
+    effects: {},
+  },
+  previewSettings: vi.fn(),
+  setSettings: vi.fn(),
 }));
 
 vi.mock("../editor/ZedModeProvider", () => ({
   useZedMode: () => state,
+}));
+
+vi.mock("../../theme/AppearanceProvider", () => ({
+  useAppearance: () => ({
+    settings: state.settings,
+    previewSettings: state.previewSettings,
+    setSettings: state.setSettings,
+  }),
 }));
 
 import EditorSettingsTab from "./EditorSettingsTab";
@@ -20,6 +37,10 @@ describe("EditorSettingsTab", () => {
     state.vimEnabled = false;
     state.setMode.mockReset().mockResolvedValue(undefined);
     state.setVimEnabled.mockReset().mockResolvedValue(undefined);
+    state.settings.appTheme = "terminai-dark";
+    state.settings.editorTheme = "follow-app";
+    state.previewSettings.mockReset();
+    state.setSettings.mockReset().mockResolvedValue(undefined);
   });
 
   it("selects Zed Mode through the provider", async () => {
@@ -46,5 +67,25 @@ describe("EditorSettingsTab", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("database locked");
     expect(screen.getByRole("button", { name: "Monaco (classic)" }))
       .toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("previews and saves an accessible explicit editor theme without changing Zed or Vim settings", async () => {
+    state.mode = "zed";
+    state.vimEnabled = true;
+    render(<EditorSettingsTab />);
+
+    expect(screen.getByRole("radio", { name: "Follow application theme" }))
+      .toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Matrix" }));
+    expect(state.previewSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorTheme: "matrix", appTheme: "terminai-dark" }),
+    );
+    expect(state.setMode).not.toHaveBeenCalled();
+    expect(state.setVimEnabled).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
+    await waitFor(() => expect(state.setSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ editorTheme: "matrix", appTheme: "terminai-dark" }),
+    ));
   });
 });

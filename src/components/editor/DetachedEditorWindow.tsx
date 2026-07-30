@@ -19,6 +19,7 @@ import { EditorBreadcrumbs } from "./EditorBreadcrumbs";
 import { EditorBufferSyncClient } from "./editorBufferSync";
 import { EditorPane } from "./EditorPane";
 import { useZedMode } from "./ZedModeProvider";
+import { useAppearance } from "../../theme/AppearanceProvider";
 import type { EditorPaneLeaf } from "./editorPaneLayout";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
@@ -49,6 +50,7 @@ function bufferFromSnapshot(
 export function DetachedEditorWindow() {
   const { settings } = useEditorSettings();
   const { mode, hydrated } = useZedMode();
+  const { hydrated: appearanceHydrated } = useAppearance();
   const [metadata, setMetadata] = useState<DetachedEditorWindowInfo | null>(
     null,
   );
@@ -259,6 +261,13 @@ export function DetachedEditorWindow() {
         )}
       </main>
     );
+  }
+
+  // Do not create a detached Monaco editor from a transient default. The
+  // provider applies the mirrored app theme before React and waits here for
+  // the validated cross-window snapshot before the pane becomes interactive.
+  if (!appearanceHydrated) {
+    return <main className="detached-editor-state">Loading editor appearance…</main>;
   }
 
   const pane: EditorPaneLeaf = {

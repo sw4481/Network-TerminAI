@@ -28,6 +28,8 @@ const mocks = vi.hoisted(() => ({
     | undefined,
   mode: "zed" as "zed" | "monaco",
   hydrated: true,
+  appearanceHydrated: true,
+  appTheme: "terminai-dark",
 }));
 
 vi.mock("../../lib/tauri", () => ({
@@ -60,6 +62,13 @@ vi.mock("./ZedModeProvider", () => ({
     vimEnabled: false,
     setMode: vi.fn(),
     setVimEnabled: vi.fn(),
+  }),
+}));
+
+vi.mock("../../theme/AppearanceProvider", () => ({
+  useAppearance: () => ({
+    hydrated: mocks.appearanceHydrated,
+    settings: { appTheme: mocks.appTheme },
   }),
 }));
 
@@ -159,6 +168,8 @@ describe("DetachedEditorWindow", () => {
     mocks.syncOptions = undefined;
     mocks.mode = "zed";
     mocks.hydrated = true;
+    mocks.appearanceHydrated = true;
+    mocks.appTheme = "terminai-dark";
   });
 
   it("hydrates metadata and one authoritative editor pane", async () => {
@@ -301,5 +312,17 @@ describe("DetachedEditorWindow", () => {
     await waitFor(() =>
       expect(mocks.close).toHaveBeenCalledWith(metadata.windowId),
     );
+  });
+
+  it("waits for the authoritative appearance snapshot before mounting an interactive pane", async () => {
+    mocks.appearanceHydrated = false;
+    const view = render(<DetachedEditorWindow />);
+    expect(await screen.findByText("Loading editor appearance…")).toBeInTheDocument();
+    expect(screen.queryByTestId("detached-editor-pane")).not.toBeInTheDocument();
+
+    mocks.appearanceHydrated = true;
+    mocks.appTheme = "matrix";
+    view.rerender(<DetachedEditorWindow />);
+    expect(await screen.findByTestId("detached-editor-pane")).toBeInTheDocument();
   });
 });

@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useZedMode } from "../editor/ZedModeProvider";
 import type { EditorMode } from "../../lib/tauri";
+import { useAppearance } from "../../theme/AppearanceProvider";
+import type { AppearanceSettingsV1, EditorThemeId } from "../../theme/types";
 import "./EditorSettingsTab.css";
 
 export default function EditorSettingsTab() {
   const { mode, vimEnabled, setMode, setVimEnabled } = useZedMode();
+  const { settings: appearanceSettings, previewSettings, setSettings } = useAppearance();
+  const [appearanceDraft, setAppearanceDraft] = useState(appearanceSettings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setAppearanceDraft(appearanceSettings), [appearanceSettings]);
+
+  const previewEditorTheme = (editorTheme: EditorThemeId) => {
+    const next: AppearanceSettingsV1 = { ...appearanceDraft, editorTheme };
+    setAppearanceDraft(next);
+    previewSettings(next);
+  };
+
+  const saveEditorAppearance = async () => {
+    setError(null);
+    try {
+      await setSettings(appearanceDraft);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
 
   const selectMode = async (nextMode: EditorMode) => {
     if (nextMode === mode) return;
@@ -60,9 +81,71 @@ export default function EditorSettingsTab() {
           </button>
         </div>
         <p className="editor-settings-help">
-          Changes apply immediately. Zed Mode keeps Monaco and adds Zed-style
-          theme, chrome, keybindings, and optional Vim editing.
+          Changes apply immediately. Zed Mode keeps Monaco and adds behavior,
+          chrome, keybindings, and optional Vim editing; colors are selected below.
         </p>
+      </div>
+
+      <div className="editor-settings-section">
+        <fieldset>
+          <legend>Editor color theme</legend>
+          <p className="editor-settings-help">
+            Preview a color choice immediately, then save it for all TerminAI windows.
+          </p>
+          <label>
+            <input
+              type="radio"
+              name="editor-color-theme"
+              value="follow-app"
+              checked={appearanceDraft.editorTheme === "follow-app"}
+              onChange={() => previewEditorTheme("follow-app")}
+            />
+            Follow application theme
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="editor-color-theme"
+              value="classic-dark"
+              checked={appearanceDraft.editorTheme === "classic-dark"}
+              onChange={() => previewEditorTheme("classic-dark")}
+            />
+            Classic Dark
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="editor-color-theme"
+              value="zed-one-dark"
+              checked={appearanceDraft.editorTheme === "zed-one-dark"}
+              onChange={() => previewEditorTheme("zed-one-dark")}
+            />
+            Zed One Dark
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="editor-color-theme"
+              value="slate-grey"
+              checked={appearanceDraft.editorTheme === "slate-grey"}
+              onChange={() => previewEditorTheme("slate-grey")}
+            />
+            Slate Grey
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="editor-color-theme"
+              value="matrix"
+              checked={appearanceDraft.editorTheme === "matrix"}
+              onChange={() => previewEditorTheme("matrix")}
+            />
+            Matrix
+          </label>
+          <button type="button" onClick={() => void saveEditorAppearance()}>
+            Save editor appearance
+          </button>
+        </fieldset>
       </div>
 
       <div className="editor-settings-section">
