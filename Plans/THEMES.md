@@ -440,9 +440,9 @@ Acceptance gate:
 
 ### Task 6 — Phase 6: Accessibility, release validation, and rollout
 
-- [ ] **6.1:** Verify normal text contrast at 4.5:1 and large/UI text and
+- [x] **6.1:** Verify normal text contrast at 4.5:1 and large/UI text and
   controls at 3:1 where applicable.
-- [ ] **6.2:** Verify focus rings, keyboard navigation, color-picker labels,
+- [x] **6.2:** Verify focus rings, keyboard navigation, color-picker labels,
   screen-reader names, disabled states, and non-color status indicators.
 - [ ] **6.3:** Test theme changes during active local shells, SSH sessions,
   split terminals, detached editors, debugging, model activity, and sidecar
@@ -466,7 +466,7 @@ Acceptance gate:
   - The footer leaves `starting` and displays the sidecar version.
 - [ ] **6.6:** Complete the native visual matrix below and attach screenshots
   to the phase completion record.
-- [ ] **6.7:** Update this plan's checkboxes and append the completion block
+- [x] **6.7:** Update this plan's checkboxes and append the completion block
   required by `Plans/README.md`.
 
 ## 8. Native visual and behavior matrix
@@ -537,3 +537,25 @@ tests plus the relaxed production build passed. Task 2.6 remains intentionally
 unchecked: native screenshot parity, contrast measurement, and the full
 operator matrix cannot be proved headlessly and are deferred to release
 validation.
+
+## Phase 6 — AUTOMATED IMPLEMENTATION COMPLETE; OPERATOR ACCEPTANCE PENDING 2026-07-30
+
+Deterministic WCAG checks now cover 41 named foreground/background pairs in
+Dark, Grey, and Matrix: normal text requires 4.5:1 and focus/control boundaries
+require 3:1. Focus treatment, 21 uniquely named terminal color controls,
+disabled/save states, and textual fan-out and sidecar statuses are covered by
+automated tests. The structural-color inventory, 247-file/1,887-test frontend
+suite, complete Rust suite (including 7 doctests), and relaxed production build
+pass.
+
+Tasks 6.3 and 6.6 remain intentionally unchecked for Shaun's native
+Dark/Grey/Matrix operator matrix. Task 6.4 remains unchecked because the
+repository's documented Playwright Tauri driver still returns a mock page:
+the command now cleanly discovers 18 smoke tests and builds/launches the current
+shared-target `TerminAI`, but its first interaction fails because the mock has
+no keyboard or locator implementation. Task 6.5 remains unchecked pending the
+native footer observation. Its other live invariants pass through `./run.sh`:
+`TerminAI` owns a `python -m ccie_sidecar` child loading from the preserved
+`sidecar/.venv`, warmup ping succeeds, and consecutive `sidecar_status`
+heartbeats report version `0.0.1`. No screenshots, active-session preservation,
+or native visual result is claimed here.
