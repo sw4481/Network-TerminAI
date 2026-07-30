@@ -204,7 +204,15 @@ describe("DetachedEditorWindow appearance event integration", () => {
     mocks.lifecycle.closeLspDocument.mockResolvedValue(undefined);
   });
 
-  it("applies a live Matrix event to the existing detached Monaco editor without lifecycle churn", async () => {
+  it.each([
+    ["Matrix", { appTheme: "matrix" }, "ccie-matrix"],
+    ["Slate Grey", { appTheme: "slate-grey" }, "ccie-slate-grey"],
+    [
+      "an explicit Zed One Dark editor override",
+      { appTheme: "matrix", editorTheme: "zed-one-dark" },
+      "ccie-zed-one-dark",
+    ],
+  ] as const)("applies a live %s event to the existing detached Monaco editor without lifecycle churn", async (_label, changes, expectedTheme) => {
     render(
       <AppearanceProvider>
         <ZedModeProvider>
@@ -220,12 +228,12 @@ describe("DetachedEditorWindow appearance event integration", () => {
     for (const mock of Object.values(mocks.lifecycle)) mock.mockClear();
     await act(async () => {
       mocks.listeners.get("appearance-settings-changed")?.({
-        payload: { ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "matrix" },
+        payload: { ...DEFAULT_APPEARANCE_SETTINGS, ...changes },
       });
     });
 
-    await waitFor(() => expect(mocks.lifecycle.setTheme).toHaveBeenCalledWith("ccie-matrix"));
-    expect(mocks.lifecycle.defineTheme).toHaveBeenCalledWith("ccie-matrix", expect.any(Object));
+    await waitFor(() => expect(mocks.lifecycle.setTheme).toHaveBeenCalledWith(expectedTheme));
+    expect(mocks.lifecycle.defineTheme).toHaveBeenCalledWith(expectedTheme, expect.any(Object));
     expect(mocks.lifecycle.createEditor).not.toHaveBeenCalled();
     expect(mocks.lifecycle.createModel).not.toHaveBeenCalled();
     expect(mocks.lifecycle.disposeEditor).not.toHaveBeenCalled();

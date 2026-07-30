@@ -1,103 +1,101 @@
-import { defineConfig } from "vite";
+import { createRequire } from "node:module";
+import { defineConfig, type ConfigEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import { fileURLToPath, URL } from "node:url";
+
+const requireFromConfig = createRequire(import.meta.url);
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
-// https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+/** Resolve browser-only Monaco imports from the installed package in test mode. */
+export function monacoTestAliases() {
+  return [
+    {
+      find: "monaco-editor/esm/vs/editor/common/commands/shiftCommand",
+      replacement: requireFromConfig.resolve(
+        "monaco-editor/esm/vs/editor/common/commands/shiftCommand.js",
+      ),
+    },
+    {
+      find: "monaco-editor/esm/vs/editor/editor.api",
+      replacement: requireFromConfig.resolve(
+        "monaco-editor/esm/vs/editor/editor.api.js",
+      ),
+    },
+    {
+      find: "monaco-editor",
+      replacement: requireFromConfig.resolve(
+        "monaco-editor/esm/vs/editor/editor.main.js",
+      ),
+    },
+  ];
+}
+
+export function createTerminaiViteConfig({ mode }: ConfigEnv) {
   const testMode = mode === "test";
 
   return {
-  plugins: [react()],
+    plugins: [react()],
 
-  ...(testMode
-    ? {
-        resolve: {
-          alias: [
-            {
-              find: "monaco-editor/esm/vs/editor/common/commands/shiftCommand",
-              replacement: fileURLToPath(
-                new URL("../../node_modules/monaco-editor/esm/vs/editor/common/commands/shiftCommand.js", import.meta.url),
-              ),
-            },
-            {
-              find: "monaco-editor/esm/vs/editor/editor.api",
-              replacement: fileURLToPath(
-                new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.api.js", import.meta.url),
-              ),
-            },
-            {
-              // Test-only: production retains the public package import and
-              // Vite's normal browser resolver.
-              find: "monaco-editor",
-              replacement: fileURLToPath(
-                new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.main.js", import.meta.url),
-              ),
-            },
-          ],
-        },
-      }
-    : {}),
+    // These aliases are unavailable to production builds, which retain Vite's
+    // normal public-package Monaco resolution.
+    ...(testMode ? { resolve: { alias: monacoTestAliases() } } : {}),
 
-  optimizeDeps: {
-    include: [
-      '@xterm/xterm',
-      '@xterm/addon-fit',
-      '@xterm/addon-web-links',
-      'monaco-editor/esm/vs/editor/editor.api',
-    ],
-  },
-  build: {
-    commonjsOptions: {
-      transformMixedEsModules: true,
+    optimizeDeps: {
+      include: [
+        "@xterm/xterm",
+        "@xterm/addon-fit",
+        "@xterm/addon-web-links",
+        "monaco-editor/esm/vs/editor/editor.api",
+      ],
     },
-  },
+    build: {
+      commonjsOptions: {
+        transformMixedEsModules: true,
+      },
+    },
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
-  clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
-  server: {
-    port: 1420,
-    strictPort: true,
-    host: host || false,
-    hmr: host
+    // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`.
+    clearScreen: false,
+    server: {
+      port: 1420,
+      strictPort: true,
+      host: host || false,
+      hmr: host
+        ? {
+            protocol: "ws",
+            host,
+            port: 1421,
+          }
+        : undefined,
+      watch: {
+        ignored: ["**/src-tauri/**"],
+      },
+    },
+    ...(testMode
       ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
-  },
-  ...(testMode
-    ? {
-        test: {
-          globals: true,
-          environment: "jsdom",
-          setupFiles: ["./src/test-setup.ts"],
-          server: {
-            deps: {
-              // Monaco-vim's published browser entry must be transformed for
-              // its extensionless Monaco imports to use these test aliases.
-              inline: ["monaco-vim"],
+          test: {
+            globals: true,
+            environment: "jsdom",
+            setupFiles: ["./src/test-setup.ts"],
+            server: {
+              deps: {
+                // Monaco-vim's browser entry has extensionless Monaco imports.
+                inline: ["monaco-vim"],
+              },
             },
+            exclude: [
+              "**/node_modules/**",
+              "**/dist/**",
+              "**/e2e/**",
+              "**/.{idea,git,cache,output,temp}/**",
+              "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
+            ],
           },
-          exclude: [
-            "**/node_modules/**",
-            "**/dist/**",
-            "**/e2e/**",
-            "**/.{idea,git,cache,output,temp}/**",
-            "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
-          ],
-        },
-      }
-    : {}),
+        }
+      : {}),
   };
-});
+}
+
+// https://vite.dev/config/
+export default defineConfig(createTerminaiViteConfig);

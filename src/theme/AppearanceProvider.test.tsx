@@ -221,6 +221,28 @@ describe("AppearanceProvider", () => {
     });
   });
 
+  it("does not let an older failed save overwrite a newer live appearance event", async () => {
+    let rejectOlderSave!: (error: Error) => void;
+    mocks.set.mockImplementationOnce(
+      () => new Promise<AppearanceSettingsV1>((_resolve, reject) => {
+        rejectOlderSave = reject;
+      }),
+    );
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(deliverEvent).toBeDefined());
+
+    screen.getByRole("button", { name: "matrix" }).click();
+    await waitFor(() => expect(mocks.set).toHaveBeenCalledOnce());
+    act(() => deliverEvent?.({
+      payload: { ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "slate-grey" },
+    }));
+    await act(async () => rejectOlderSave(new Error("write failed")));
+
+    expect(screen.getByTestId("theme")).toHaveTextContent("slate-grey");
+    expect(screen.getByTestId("error")).toHaveTextContent("");
+    expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready");
+  });
+
   it("changes the document theme in place for a preview without remounting children", async () => {
     const mount = vi.fn();
     function StableProbe() {

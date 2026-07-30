@@ -33,6 +33,37 @@
   chunk-size warnings remained.
 - GREEN hygiene: `git diff --check` passed.
 
+## Round 3 recovery evidence
+
+- RED stale save: `bun run test -- --run
+  src/theme/AppearanceProvider.test.tsx` failed 1 of 15 tests. An older failed
+  save after a newer Slate Grey cross-window event reverted the provider to
+  Dark instead of preserving Slate Grey.
+- RED test resolver: `bun run test -- --run src/viteConfig.test.ts` failed 1
+  of 1 tests because the portable `monacoTestAliases` resolver did not yet
+  exist. The node-environment config test asserts installed-package resolution
+  and that production config has no aliases.
+- GREEN focused: `bun run test -- --run
+  src/theme/AppearanceProvider.test.tsx src/viteConfig.test.ts
+  src/components/editor/DetachedEditorWindow.appearance.integration.test.tsx
+  src/components/editor/MonacoEditor.appearance.test.tsx
+  src/components/editor/MonacoEditor.lifecycle.test.ts
+  src/components/editor/EditorPane.test.tsx` passed: 6 files, 26 tests.
+- Detached integration now sends real Matrix, Slate Grey, and explicit Zed One
+  Dark editor-override snapshots through `appearance-settings-changed`. Each
+  resolves the expected Monaco theme and leaves editor/model/LSP lifecycle
+  counters unchanged after the event.
+- `setSettings` now captures its generation before persistence and ignores a
+  stale failure entirely; only the current save failure can apply the Dark
+  fallback, error, and rejection behavior.
+- Monaco test aliases now use `createRequire(import.meta.url).resolve(...)`
+  and are created only for `mode === "test"`; the config test verifies the
+  installed package entries and an alias-free production config.
+- GREEN full frontend: `bun run test -- --dir src` passed: 243 files, 1812
+  tests. GREEN build: `bun run build:relaxed` passed. Existing Vite
+  dynamic-import/chunk-size warnings, jsdom navigation notices, and the
+  upstream missing Monaco `marked.umd.js.map` source-map warning remain.
+
 ## Lifecycle-state evidence
 
 `src/theme/monacoThemes.test.ts` proves the live application seam invokes only

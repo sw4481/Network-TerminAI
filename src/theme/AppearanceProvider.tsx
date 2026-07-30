@@ -156,8 +156,8 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       setError(message);
       throw new Error(message);
     }
+    const requestGeneration = ++generationRef.current;
     try {
-      const requestGeneration = ++generationRef.current;
       const stored = await appearanceSettingsSet(validated);
       if (requestGeneration !== generationRef.current) return;
       const normalized = normalizeAppearanceSettings(stored);
@@ -165,6 +165,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       setError(null);
       await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, normalized);
     } catch (saveError) {
+      // A newer event, retry, or save is authoritative. A stale failed save
+      // must not replace that snapshot with the Dark fallback or an error.
+      if (requestGeneration !== generationRef.current) return;
       applyPreview(createDefaultAppearanceSettings());
       const message = errorMessage(saveError);
       setError(message);
