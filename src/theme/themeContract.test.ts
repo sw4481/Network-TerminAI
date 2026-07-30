@@ -28,6 +28,37 @@ describe("appearance contract", () => {
     });
   });
 
+  it("matches the effective CDN xterm 5.5 legacy theme when ANSI and selection were omitted", () => {
+    // xterm 5.5.0 ThemeService defaults: DEFAULT_ANSI_COLORS plus
+    // rgba(255, 255, 255, 0.3) for active/inactive selection. The legacy
+    // TerminAI constructors only supplied the four non-default values below.
+    expect(DEFAULT_APPEARANCE_SETTINGS.terminal).toMatchObject({
+      foreground: "#E6E1CF",
+      background: "#0F1114",
+      cursor: "#5CCFE6",
+      cursorAccent: "#000000",
+      selectionBackground: "#FFFFFF4D",
+      ansi: {
+        black: "#2E3436",
+        red: "#CC0000",
+        green: "#4E9A06",
+        yellow: "#C4A000",
+        blue: "#3465A4",
+        magenta: "#75507B",
+        cyan: "#06989A",
+        white: "#D3D7CF",
+        brightBlack: "#555753",
+        brightRed: "#EF2929",
+        brightGreen: "#8AE234",
+        brightYellow: "#FCE94F",
+        brightBlue: "#729FCF",
+        brightMagenta: "#AD7FA8",
+        brightCyan: "#34E2E2",
+        brightWhite: "#EEEEEC",
+      },
+    });
+  });
+
   it("defines each bundled app preset with a complete terminal palette", () => {
     expect(APP_THEME_PRESETS.map((preset) => preset.id)).toEqual([
       "terminai-dark",

@@ -128,24 +128,24 @@ impl Default for AppearanceSettingsV1 {
                 background: "#0F1114".into(),
                 cursor: "#5CCFE6".into(),
                 cursor_accent: "#000000".into(),
-                selection_background: "#264F78".into(),
+                selection_background: "#FFFFFF4D".into(),
                 ansi: TerminalAnsiPalette {
-                    black: "#1A1D23".into(),
-                    red: "#F28779".into(),
-                    green: "#7CD99A".into(),
-                    yellow: "#F0C674".into(),
-                    blue: "#5CCFE6".into(),
-                    magenta: "#B39CFF".into(),
-                    cyan: "#5CD6C0".into(),
-                    white: "#E6E1CF".into(),
-                    bright_black: "#6C7380".into(),
-                    bright_red: "#FF9688".into(),
-                    bright_green: "#9AE6B4".into(),
-                    bright_yellow: "#FCD34D".into(),
-                    bright_blue: "#7DD3FC".into(),
-                    bright_magenta: "#C4B5FD".into(),
-                    bright_cyan: "#99F6E4".into(),
-                    bright_white: "#FFFFFF".into(),
+                    black: "#2E3436".into(),
+                    red: "#CC0000".into(),
+                    green: "#4E9A06".into(),
+                    yellow: "#C4A000".into(),
+                    blue: "#3465A4".into(),
+                    magenta: "#75507B".into(),
+                    cyan: "#06989A".into(),
+                    white: "#D3D7CF".into(),
+                    bright_black: "#555753".into(),
+                    bright_red: "#EF2929".into(),
+                    bright_green: "#8AE234".into(),
+                    bright_yellow: "#FCE94F".into(),
+                    bright_blue: "#729FCF".into(),
+                    bright_magenta: "#AD7FA8".into(),
+                    bright_cyan: "#34E2E2".into(),
+                    bright_white: "#EEEEEC".into(),
                 },
                 font_family: "Menlo, \"SF Mono\", Monaco, monospace".into(),
                 font_size: 13.0,
@@ -323,6 +323,8 @@ mod tests {
         assert_eq!(settings.app_theme, AppThemeId::TerminaiDark);
         assert_eq!(settings.terminal.background, "#0F1114");
         assert_eq!(settings.terminal.foreground, "#E6E1CF");
+        assert_eq!(settings.terminal.selection_background, "#FFFFFF4D");
+        assert_eq!(settings.terminal.ansi.bright_white, "#EEEEEC");
     }
 
     #[test]

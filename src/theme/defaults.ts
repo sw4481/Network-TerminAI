@@ -1,22 +1,25 @@
 import type { AppearanceSettingsV1, TerminalAnsiPalette } from "./types";
 
+// These are xterm 5.5.0 ThemeService's DEFAULT_ANSI_COLORS. TerminAI's
+// current constructors omit every ANSI and selection field, so encoding their
+// effective values keeps Dark visually identical once Task 3 applies them.
 const DARK_ANSI: TerminalAnsiPalette = {
-  black: "#1A1D23",
-  red: "#F28779",
-  green: "#7CD99A",
-  yellow: "#F0C674",
-  blue: "#5CCFE6",
-  magenta: "#B39CFF",
-  cyan: "#5CD6C0",
-  white: "#E6E1CF",
-  brightBlack: "#6C7380",
-  brightRed: "#FF9688",
-  brightGreen: "#9AE6B4",
-  brightYellow: "#FCD34D",
-  brightBlue: "#7DD3FC",
-  brightMagenta: "#C4B5FD",
-  brightCyan: "#99F6E4",
-  brightWhite: "#FFFFFF",
+  black: "#2E3436",
+  red: "#CC0000",
+  green: "#4E9A06",
+  yellow: "#C4A000",
+  blue: "#3465A4",
+  magenta: "#75507B",
+  cyan: "#06989A",
+  white: "#D3D7CF",
+  brightBlack: "#555753",
+  brightRed: "#EF2929",
+  brightGreen: "#8AE234",
+  brightYellow: "#FCE94F",
+  brightBlue: "#729FCF",
+  brightMagenta: "#AD7FA8",
+  brightCyan: "#34E2E2",
+  brightWhite: "#EEEEEC",
 };
 
 /**
@@ -34,7 +37,8 @@ export function createDefaultAppearanceSettings(): AppearanceSettingsV1 {
       background: "#0F1114",
       cursor: "#5CCFE6",
       cursorAccent: "#000000",
-      selectionBackground: "#264F78",
+      // xterm 5.5's omitted selection default: rgba(255, 255, 255, 0.3).
+      selectionBackground: "#FFFFFF4D",
       ansi: { ...DARK_ANSI },
       fontFamily: 'Menlo, "SF Mono", Monaco, monospace',
       fontSize: 13,

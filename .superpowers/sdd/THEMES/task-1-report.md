@@ -30,6 +30,14 @@ Date: 2026-07-30
 
 `CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' cargo test --manifest-path src-tauri/Cargo.toml commands::appearance::tests --lib` passed: 5 tests.
 
+### Review remediation — xterm 5.5 Dark parity
+
+The original Task 1 default incorrectly invented an ANSI palette and opaque selection color. The actual legacy constructors in `src/lib/terminalRegistry.ts` and `src/hooks/usePty.ts` only supply background, foreground, cursor, and cursor accent. The authoritative CDN runtime used by `index.html`, `https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js`, defines `DEFAULT_ANSI_COLORS` as the GNOME palette (`#2E3436` through `#EEEEEC`) and the omitted selection default as `rgba(255, 255, 255, 0.3)`, represented exactly by `#FFFFFF4D`.
+
+RED: `bun run test -- --run src/theme/themeContract.test.ts` failed the new exact legacy-xterm assertion, showing the invented palette and `#264F78` selection.
+
+GREEN: `bun run test -- --run src/theme/themeContract.test.ts src/theme/AppearanceProvider.test.tsx` passed: 2 files, 12 tests. `CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' cargo test --manifest-path src-tauri/Cargo.toml commands::appearance::tests --lib` passed: 5 tests. `bun run build:relaxed` passed.
+
 ## Regression evidence
 
 - `bun run test -- --dir src` — passed: 235 files, 1,741 tests.
@@ -58,4 +66,4 @@ Task 1.1 is intentionally left unchecked. No native screenshots were captured fo
 
 ## Commit
 
-`ed62d3f01a61201539bded599554aa3bdd98d4b3` (amended below after this report update).
+Foundation commit: `2101940b8477380fc27d539bd4d327add476969a` (`feat: add appearance settings foundation`). The separate review-remediation commit follows it immediately in Git history and is returned in the implementation handoff.
