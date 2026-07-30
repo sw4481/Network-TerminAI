@@ -196,7 +196,7 @@ export function ArrayTableView({ rows, onCellContext }: Props) {
               key={row.id}
               data-testid={`api-table-row-${i}`}
               style={{
-                background: i % 2 === 0 ? "var(--app-canvas)" : "#12141a",
+                background: i % 2 === 0 ? "var(--app-canvas)" : "var(--surface-2)",
                 color: "var(--text-primary)",
               }}
             >

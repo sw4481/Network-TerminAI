@@ -45,7 +45,7 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
         top: 0,
         bottom: 0,
         width: 400,
-        background: "#14161a",
+        background: "var(--surface-2)",
         borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
@@ -94,8 +94,8 @@ export function HistoryPanel({ tabId, onClose, onLoad }: Props) {
           <div
             style={{
               padding: 12,
-              background: "#2a1a1a",
-              border: "1px solid #3d2626",
+              background: "var(--surface-2)",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               color: "var(--status-danger)",
               fontSize: 12,
@@ -149,7 +149,7 @@ function HistoryItem({
         cursor: "pointer",
         transition: "background 0.15s",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1c20")}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-selected)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "var(--app-canvas)")}
     >
       <div

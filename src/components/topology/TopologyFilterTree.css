@@ -9,8 +9,8 @@
   flex-direction: column;
   gap: 4px;
   padding: 10px;
-  border-right: 1px solid var(--cb-border, #2a2f3a);
-  background: rgb(var(--overlay-light-rgb) / 0.02);
+  border-right: 1px solid var(--cb-border, var(--border-default));
+  background: var(--surface-2);
   overflow-y: auto;
   font-size: 12px;
 }
@@ -67,7 +67,7 @@
 }
 
 .topology-filter-tree__leaf:hover {
-  background: rgb(var(--overlay-light-rgb) / 0.04);
+  background: var(--surface-hover);
   border-radius: 3px;
 }
 

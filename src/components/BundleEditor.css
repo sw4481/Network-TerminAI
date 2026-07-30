@@ -1,7 +1,7 @@
 .bundle-editor-overlay {
   position: fixed;
   inset: 0;
-  background: rgb(var(--backdrop-rgb) / 0.75);
+  background: var(--surface-input);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,7 +17,7 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgb(var(--backdrop-rgb) / 0.5);
+  box-shadow: 0 10px 40px var(--surface-input);
 }
 
 .bundle-editor-header {
@@ -120,7 +120,7 @@
 }
 
 .bundle-editor-footer button.primary:hover:not(:disabled) {
-  background: #3d6a9c;
+  background: var(--surface-hover);
 }
 
 .bundle-editor-footer button.secondary {

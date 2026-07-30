@@ -30,7 +30,7 @@
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
+  box-shadow: 0 8px 32px var(--surface-2);
   animation: slideUp 0.2s ease-out;
 }
 
@@ -88,7 +88,7 @@
 }
 
 .parameter-field .required {
-  color: #ff6b6b;
+  color: var(--text-primary);
   font-weight: bold;
 }
 
@@ -101,7 +101,7 @@
 .parameter-field input,
 .parameter-field select {
   background: var(--surface-3);
-  border: 1px solid #3a3f4b;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 10px 12px;
   color: var(--text-primary);
@@ -113,18 +113,18 @@
 .parameter-field input:focus,
 .parameter-field select:focus {
   outline: none;
-  border-color: #4a9eff;
-  background: #2a2e38;
+  border-color: var(--focus-ring);
+  background: var(--surface-input);
 }
 
 .parameter-field input:required:invalid,
 .parameter-field select:required:invalid {
-  border-color: #3a3f4b;
+  border-color: var(--status-danger);
 }
 
 .parameter-field input:required:valid,
 .parameter-field select:required:valid {
-  border-color: #48b88a;
+  border-color: var(--status-success);
 }
 
 .parameter-field input::placeholder {
@@ -159,20 +159,20 @@
 }
 
 .btn-cancel:hover {
-  background: #2f3442;
+  background: var(--surface-hover);
 }
 
 .btn-submit {
-  background: #4a9eff;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .btn-submit:hover {
-  background: #3d8de6;
+  background: var(--surface-hover);
 }
 
 .btn-submit:disabled {
-  background: #3a3f4b;
+  background: var(--surface-2);
   color: var(--text-muted);
   cursor: not-allowed;
 }
@@ -187,21 +187,21 @@
 }
 
 .parameter-form::-webkit-scrollbar-thumb {
-  background: #3a3f4b;
+  background: var(--surface-2);
   border-radius: 4px;
 }
 
 .parameter-form::-webkit-scrollbar-thumb:hover {
-  background: #4a5061;
+  background: var(--surface-hover);
 }
 
 .btn-save {
-  background: #48b88a;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .btn-save:hover {
-  background: #3da077;
+  background: var(--surface-hover);
 }
 
 .save-dialog {
@@ -210,7 +210,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   background: var(--surface-2);
-  border: 1px solid #4a9eff;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 20px;
   min-width: 300px;
@@ -227,7 +227,7 @@
 .save-dialog input {
   width: 100%;
   background: var(--surface-3);
-  border: 1px solid #3a3f4b;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 10px 12px;
   color: var(--text-primary);
@@ -237,11 +237,11 @@
 
 .save-dialog input:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: var(--focus-ring);
 }
 
 .save-error {
-  color: #ff6b6b;
+  color: var(--status-danger);
   font-size: 12px;
   margin-bottom: 12px;
 }
@@ -268,14 +268,14 @@
 }
 
 .save-dialog-actions button:first-child:hover {
-  background: #2f3442;
+  background: var(--surface-hover);
 }
 
 .save-dialog-actions button:last-child {
-  background: #48b88a;
+  background: var(--surface-overlay);
   color: var(--text-inverse);
 }
 
 .save-dialog-actions button:last-child:hover {
-  background: #3da077;
+  background: var(--surface-hover);
 }

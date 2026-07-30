@@ -3,7 +3,7 @@
   border-left: 2px solid var(--accent);
   background: linear-gradient(
     to bottom,
-    rgba(92, 207, 230, 0.04),
+    var(--text-primary),
     transparent 80%
   );
   margin-bottom: 8px;
@@ -20,7 +20,7 @@
   text-transform: uppercase;
   margin-bottom: 6px;
 }
-.pinned-row-sep { color: #3a3a3a; }
+.pinned-row-sep { color: var(--text-primary); }
 .pinned-row-count { color: var(--text-secondary); letter-spacing: 0.04em; }
 
 .pinned-row-list {
@@ -42,7 +42,7 @@
 }
 .pinned-row-item:hover {
   border-color: var(--accent);
-  background: #1f242c;
+  background: var(--surface-hover);
 }
 .pinned-row-item:active { cursor: grabbing; }
 .pinned-row-item[data-drop-target="true"] {
@@ -77,7 +77,7 @@
 }
 
 .pinned-row-bookmark {
-  color: #ffd700;
+  color: var(--text-primary);
   font-size: 12px;
 }
 

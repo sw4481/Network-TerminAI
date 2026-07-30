@@ -95,7 +95,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
         top: 0,
         bottom: 0,
         width: 500,
-        background: "#14161a",
+        background: "var(--surface-2)",
         borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
@@ -157,8 +157,8 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
         <div
           style={{
             padding: 12,
-            background: "#2a1a1a",
-            borderBottom: "1px solid #3d2626",
+            background: "var(--surface-2)",
+            borderBottom: "1px solid var(--border-default)",
             color: "var(--status-danger)",
             fontSize: 12,
           }}
@@ -201,7 +201,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               onChange={(e) => setEditName(e.target.value)}
               placeholder="RPC name"
               style={{
-                background: "#1a1c20",
+                background: "var(--surface-2)",
                 color: "var(--text-primary)",
                 border: "1px solid var(--border-default)",
                 borderRadius: 4,
@@ -217,7 +217,7 @@ export function SavedRpcsPanel({ tabId, onClose, onLoad }: Props) {
               onChange={(e) => setEditXml(e.target.value)}
               placeholder="<get-config>...</get-config>"
               style={{
-                background: "#1a1c20",
+                background: "var(--surface-2)",
                 color: "var(--text-primary)",
                 border: "1px solid var(--border-default)",
                 borderRadius: 4,
@@ -373,7 +373,7 @@ function SavedRpcItem({
             style={{
               background: "transparent",
               color: "var(--status-danger)",
-              border: "1px solid #3d2626",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "3px 8px",
               cursor: "pointer",

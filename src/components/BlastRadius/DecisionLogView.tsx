@@ -133,7 +133,7 @@ export function DecisionLogView() {
                 </tr>
               ) : (
                 filtered.map((r) => (
-                  <tr key={r.id} style={{ borderTop: "1px solid #1f232b" }} data-testid={`dl-row-${r.id}`}>
+                  <tr key={r.id} style={{ borderTop: "1px solid var(--border-default)" }} data-testid={`dl-row-${r.id}`}>
                     <td style={{ padding: "6px 4px", whiteSpace: "nowrap" }}>
                       {new Date(r.decided_at * 1000).toLocaleString()}
                     </td>
@@ -157,7 +157,7 @@ export function DecisionLogView() {
                       style={{
                         padding: "6px 4px",
                         fontFamily: "Menlo, monospace",
-                        color: "#d0c8aa",
+                        color: "var(--text-primary)",
                         maxWidth: 240,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -167,7 +167,7 @@ export function DecisionLogView() {
                     >
                       {r.command}
                     </td>
-                    <td style={{ padding: "6px 4px", color: "#b8b29c" }}>{r.reasoning}</td>
+                    <td style={{ padding: "6px 4px", color: "var(--text-primary)" }}>{r.reasoning}</td>
                   </tr>
                 ))
               )}

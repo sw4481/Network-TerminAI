@@ -4,19 +4,19 @@
   height: 100%;
   width: 100%;
   background: var(--surface-terminal);
-  color: #ddd;
+  color: var(--text-primary);
 }
 .iac-studio-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 6px 12px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-default);
   font-size: 13px;
 }
 .iac-studio-title { font-weight: 600; }
 .iac-studio-workspace {
-  color: #888;
+  color: var(--text-primary);
   font-family: 'SF Mono', 'Menlo', monospace;
   font-size: 11px;
   white-space: nowrap;
@@ -25,10 +25,10 @@
   max-width: 40%;
 }
 .iac-studio-spacer { flex: 1; }
-.iac-studio-file { color: #bbb; }
-.iac-studio-file .dirty-marker { color: #e2c08d; }
+.iac-studio-file { color: var(--text-primary); }
+.iac-studio-file .dirty-marker { color: var(--text-primary); }
 .iac-studio-toolbar button {
-  background: #0e639c;
+  background: var(--surface-2);
   color: var(--text-inverse);
   border: none;
   border-radius: 3px;
@@ -38,42 +38,42 @@
 .iac-studio-toolbar button:disabled { opacity: 0.4; cursor: default; }
 .iac-studio-main { display: flex; flex: 1; min-height: 0; }
 .iac-studio-content { flex: 1; min-width: 0; position: relative; }
-.iac-studio-empty { padding: 24px; color: #888; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.iac-studio-empty { padding: 24px; color: var(--text-primary); display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .iac-studio-empty p { margin: 0; }
-.iac-studio-empty-hint { color: #aaa; font-size: 13px; margin-top: 8px; }
+.iac-studio-empty-hint { color: var(--text-primary); font-size: 13px; margin-top: 8px; }
 .iac-studio-getstarted {
-  background: #0e639c; color: var(--text-inverse); border: none;
+  background: var(--surface-2); color: var(--text-inverse); border: none;
   padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer;
 }
-.iac-studio-getstarted:hover { background: #1177bb; }
+.iac-studio-getstarted:hover { background: var(--surface-2); }
 
 /* Direct-SSH run buttons (Ansible playbook open) — no CI runner needed. */
 .iac-studio-run-check,
 .iac-studio-run-real {
   border: none; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 12px;
 }
-.iac-studio-run-check { background: #2d4a30; color: #b8e6bd; }
-.iac-studio-run-check:hover { background: #37623c; }
-.iac-studio-run-real { background: #0e9c6c; color: var(--text-inverse); }
-.iac-studio-run-real:hover { background: #12b57e; }
+.iac-studio-run-check { background: var(--accent-subtle); color: var(--accent-subtle); }
+.iac-studio-run-check:hover { background: var(--accent-subtle); }
+.iac-studio-run-real { background: var(--accent-subtle); color: var(--text-inverse); }
+.iac-studio-run-real:hover { background: var(--accent-subtle); }
 .iac-studio-error {
   padding: 6px 12px;
-  background: #5a1d1d;
-  color: #f4c7c7;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   font-size: 12px;
 }
 .iac-studio-status {
   display: flex;
   justify-content: space-between;
   padding: 3px 12px;
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--border-default);
   font-size: 11px;
-  color: #888;
+  color: var(--text-primary);
 }
 
 .iac-studio-problems {
-  border-top: 1px solid #333;
-  background: #16191e;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-2);
   max-height: 180px;
   display: flex;
   flex-direction: column;
@@ -93,7 +93,7 @@
 }
 
 .iac-studio-problems-header.has-errors {
-  color: #e06c75;
+  color: var(--status-danger);
 }
 
 .iac-studio-problems-list {
@@ -109,23 +109,23 @@
   font-size: 11px;
   padding: 4px 0;
   color: var(--text-primary);
-  border-bottom: 1px solid #1c2027;
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
 }
 
-.iac-studio-problem-row.error { color: #e06c75; }
-.iac-studio-problem-row.warning { color: #d7c187; }
-.iac-studio-problem-row.info { color: #61afef; }
-.iac-studio-problem-row.clean { color: #98c379; cursor: default; }
+.iac-studio-problem-row.error { color: var(--status-danger); }
+.iac-studio-problem-row.warning { color: var(--status-warning); }
+.iac-studio-problem-row.info { color: var(--status-info); }
+.iac-studio-problem-row.clean { color: var(--status-success); cursor: default; }
 
 .iac-studio-problem-where { color: var(--text-secondary); min-width: 36px; }
 .iac-studio-problem-msg { flex: 1; }
-.iac-studio-problem-source { color: #5c6370; font-style: italic; }
+.iac-studio-problem-source { color: var(--text-primary); font-style: italic; }
 
 .iac-studio-problems-linters {
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px dashed #2a2f37;
+  border-top: 1px dashed var(--border-default);
 }
 
 .iac-studio-linter-status {
@@ -136,5 +136,5 @@
   padding: 2px 0;
 }
 
-.iac-studio-linter-name { color: #abb2bf; }
+.iac-studio-linter-name { color: var(--text-primary); }
 .iac-studio-linter-reason { font-style: italic; }

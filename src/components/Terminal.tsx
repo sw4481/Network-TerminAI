@@ -618,13 +618,13 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       top: 20px;
       right: 20px;
       background: var(--surface-2);
-      border: 1px solid #0ea770;
+      border: 1px solid var(--border-default);
       border-radius: 8px;
       padding: 12px 16px;
-      color: #e3e4e6;
+      color: var(--text-primary);
       font-size: 14px;
       z-index: 10001;
-      box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.5);
+      box-shadow: 0 4px 12px var(--surface-2) / 0.5);
     `;
     statusDiv.textContent = '🗺️ Ingesting topology...';
     document.body.appendChild(statusDiv);
@@ -649,7 +649,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       console.log('[Terminal] Open the Topology tab (⌘K → "Topology") to view the graph.');
 
       // Update status to success
-      statusDiv.style.borderColor = '#0ea770';
+      statusDiv.style.borderColor = 'var(--text-primary)';
       statusDiv.textContent = '✅ Topology ingested! Open Topology tab (⌘K) to view.';
       setTimeout(() => {
         document.body.removeChild(statusDiv);
@@ -658,7 +658,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       console.error('[Terminal] ❌ Topology ingestion failed:', err);
 
       // Update status to error
-      statusDiv.style.borderColor = '#c0392b';
+      statusDiv.style.borderColor = 'var(--text-primary)';
       statusDiv.textContent = `❌ Ingestion failed: ${String(err)}`;
       setTimeout(() => {
         if (document.body.contains(statusDiv)) {
@@ -983,7 +983,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
             background: "var(--surface-2)",
             border: "1px solid var(--border-default)",
             borderRadius: "6px",
-            boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.5)",
+            boxShadow: "0 4px 12px var(--surface-2) / 0.5)",
             padding: "4px",
             zIndex: 10000,
             minWidth: "200px",

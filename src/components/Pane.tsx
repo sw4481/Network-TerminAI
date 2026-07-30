@@ -412,7 +412,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             background: 'var(--surface-2)',
             border: '1px solid var(--border-default)',
             borderRadius: '6px',
-            boxShadow: '0 4px 12px rgb(var(--backdrop-rgb) / 0.5)',
+            boxShadow: '0 4px 12px var(--surface-2) / 0.5)',
             padding: '4px',
             zIndex: 10000,
             minWidth: '200px',

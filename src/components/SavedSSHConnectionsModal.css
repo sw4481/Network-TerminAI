@@ -97,7 +97,7 @@
 }
 
 .ssh-modal-error {
-  color: #ff6b6b;
+  color: var(--status-danger);
 }
 
 .ssh-modal-hint {
@@ -122,7 +122,7 @@
 
 .ssh-connection-item {
   background: var(--surface-3);
-  border: 1px solid #3a3f4b;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 16px;
   display: flex;
@@ -132,8 +132,8 @@
 }
 
 .ssh-connection-item:hover {
-  border-color: #4a9eff;
-  background: #2a2e38;
+  border-color: var(--border-default);
+  background: var(--surface-hover);
 }
 
 .ssh-connection-info {
@@ -151,11 +151,11 @@
 
 .ssh-connection-details {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--text-primary);
 }
 
 .ssh-detail-user {
-  color: #48b88a;
+  color: var(--text-primary);
 }
 
 .ssh-detail-host {
@@ -163,7 +163,7 @@
 }
 
 .ssh-detail-port {
-  color: #9ca3af;
+  color: var(--text-primary);
 }
 
 .ssh-connection-command {
@@ -199,22 +199,22 @@
 }
 
 .ssh-btn-connect {
-  background: #4a9eff;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .ssh-btn-connect:hover {
-  background: #3d8de6;
+  background: var(--surface-hover);
 }
 
 .ssh-btn-delete {
   background: var(--surface-3);
-  color: #9ca3af;
+  color: var(--status-danger);
   padding: 8px 12px;
 }
 
 .ssh-btn-delete:hover {
-  background: #ff6b6b;
+  background: var(--status-danger-surface);
   color: var(--text-inverse);
 }
 
@@ -228,12 +228,12 @@
 }
 
 .ssh-modal-content::-webkit-scrollbar-thumb {
-  background: #3a3f4b;
+  background: var(--surface-overlay);
   border-radius: 4px;
 }
 
 .ssh-modal-content::-webkit-scrollbar-thumb:hover {
-  background: #4a5061;
+  background: var(--surface-hover);
 }
 
 /* Header actions (New button + close) */
@@ -244,7 +244,7 @@
 }
 
 .ssh-btn-add {
-  background: #4a9eff;
+  background: var(--surface-2);
   color: var(--text-inverse);
   border: none;
   border-radius: 4px;
@@ -256,7 +256,7 @@
 }
 
 .ssh-btn-add:hover {
-  background: #3d8de6;
+  background: var(--surface-hover);
 }
 
 .ssh-btn-add:active {
@@ -272,12 +272,12 @@
   font-size: 13px;
   font-weight: 500;
   background: var(--surface-3);
-  color: #9ca3af;
+  color: var(--text-primary);
   transition: background-color 0.2s, color 0.2s, transform 0.1s;
 }
 
 .ssh-btn-edit:hover {
-  background: #3a3f4b;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -288,7 +288,7 @@
 /* Add/Edit form */
 .ssh-form {
   background: var(--surface-3);
-  border: 1px solid #3a3f4b;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 20px;
   margin-bottom: 16px;
@@ -319,7 +319,7 @@
 
 .ssh-form-field > span {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-primary);
 }
 
 .ssh-form-hint-inline {
@@ -330,7 +330,7 @@
 
 .ssh-form-field input {
   background: var(--surface-2);
-  border: 1px solid #3a3f4b;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 8px 10px;
   color: var(--text-primary);
@@ -340,16 +340,16 @@
 }
 
 .ssh-form-field input:focus {
-  border-color: #4a9eff;
+  border-color: var(--focus-ring);
 }
 
 .ssh-form-error {
   margin-top: 12px;
   padding: 8px 12px;
-  border: 1px solid #8c2d2d;
+  border: 1px solid var(--status-danger);
   border-radius: 4px;
-  background: #3a2626;
-  color: #ff9b9b;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   font-size: 13px;
 }
 
@@ -373,22 +373,22 @@
 
 .ssh-btn-cancel {
   background: var(--surface-3);
-  color: #9ca3af;
-  border: 1px solid #3a3f4b;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
 }
 
 .ssh-btn-cancel:hover {
-  background: #2a2e38;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .ssh-btn-save {
-  background: #48b88a;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .ssh-btn-save:hover {
-  background: #3da377;
+  background: var(--surface-hover);
 }
 
 .ssh-btn-save:disabled,

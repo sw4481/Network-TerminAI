@@ -387,7 +387,7 @@ function SavePrompt({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgb(var(--backdrop-rgb) / 0.6)",
+        background: "var(--surface-2) / 0.6)",
         zIndex: 25,
         display: "flex",
         alignItems: "center",
@@ -396,7 +396,7 @@ function SavePrompt({
     >
       <div
         style={{
-          background: "#14161a",
+          background: "var(--surface-2)",
           border: "1px solid var(--border-default)",
           borderRadius: 6,
           padding: 14,

@@ -55,7 +55,7 @@ export function RemediationDialog({ report, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgb(var(--backdrop-rgb) / 0.6)",
+        background: "var(--surface-2) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -155,7 +155,7 @@ export function RemediationDialog({ report, onClose }: Props) {
           <button
             onClick={() => navigator.clipboard.writeText(patch)}
             style={{
-              background: "#1a1d22",
+              background: "var(--surface-2)",
               color: "var(--text-primary)",
               border: "1px solid var(--border-default)",
               borderRadius: 4,
@@ -171,7 +171,7 @@ export function RemediationDialog({ report, onClose }: Props) {
           <button
             disabled={!approved}
             style={{
-              background: approved ? "#5a2d2d" : "var(--surface-3)",
+              background: approved ? "var(--surface-2)" : "var(--surface-3)",
               color: approved ? "var(--text-inverse)" : "var(--text-secondary)",
               border: "none",
               borderRadius: 4,

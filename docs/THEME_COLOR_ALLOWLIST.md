@@ -1,9 +1,12 @@
 # Theme color domain allowlist
 
 Structural UI color must use the semantic variables in `src/theme/themes.css`.
-`scripts/check-structural-colors.mjs` rejects newly added instances of the
-legacy structural Dark palette in feature CSS and TSX, reporting file, line,
-and value from the merge-base diff.
+`scripts/check-structural-colors.mjs` rejects every newly added CSS/TSX color
+literal, reporting file, line, value, and property from the actual Git
+merge-base diff. `src/theme/color-literal-allowlist.json` is the only escape
+hatch: each entry must name an exact source path, exact value, property,
+context marker, and domain role. `themes.css` is the deliberately narrow token
+definition exception.
 
 The following literal families remain intentional domain data rather than UI
 chrome. Keep their use local to the domain and name the surrounding selector,

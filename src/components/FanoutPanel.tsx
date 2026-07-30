@@ -241,8 +241,8 @@ export function FanoutPanel() {
       {error && (
         <div
           style={{
-            background: "#4a1f1f",
-            color: "#ff8a8a",
+            background: "var(--surface-2)",
+            color: "var(--text-primary)",
             padding: "6px 12px",
             fontSize: 11,
           }}

@@ -10,7 +10,7 @@
 }
 
 .input-prompt {
-  color: #4a90e2;
+  color: var(--text-primary);
   font-weight: 600;
   padding-top: 2px;
   flex-shrink: 0;
@@ -57,10 +57,10 @@
 }
 
 .input-textarea::-webkit-scrollbar-thumb {
-  background: #444;
+  background: var(--surface-input);
   border-radius: 3px;
 }
 
 .input-textarea::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: var(--surface-hover);
 }

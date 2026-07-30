@@ -194,7 +194,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
         top: 0,
         bottom: 0,
         width: 600,
-        background: "#14161a",
+        background: "var(--surface-2)",
         borderLeft: "1px solid var(--border-default)",
         display: "flex",
         flexDirection: "column",
@@ -256,8 +256,8 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
         <div
           style={{
             padding: 12,
-            background: "#2a1a1a",
-            borderBottom: "1px solid #3d2626",
+            background: "var(--surface-2)",
+            borderBottom: "1px solid var(--border-default)",
             color: "var(--status-danger)",
             fontSize: 12,
           }}
@@ -292,7 +292,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     disabled={downloading}
                     style={{
                       flex: 1,
-                      background: "#1a1c20",
+                      background: "var(--surface-2)",
                       color: "var(--text-primary)",
                       border: "1px solid var(--border-default)",
                       borderRadius: 4,
@@ -311,7 +311,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     disabled={downloading}
                     style={{
                       flex: 1,
-                      background: "#1a1c20",
+                      background: "var(--surface-2)",
                       color: "var(--text-primary)",
                       border: "1px solid var(--border-default)",
                       borderRadius: 4,
@@ -342,7 +342,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                   placeholder="Release (e.g., 1715, 17.15.1)"
                   disabled={downloading}
                   style={{
-                    background: "#1a1c20",
+                    background: "var(--surface-2)",
                     color: "var(--text-primary)",
                     border: "1px solid var(--border-default)",
                     borderRadius: 4,
@@ -460,7 +460,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                     style={{
                       background: "transparent",
                       color: "var(--status-danger)",
-                      border: "1px solid #3d2626",
+                      border: "1px solid var(--border-default)",
                       borderRadius: 4,
                       padding: "4px 10px",
                       cursor: "pointer",
@@ -487,7 +487,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 placeholder="Search modules..."
                 style={{
                   flex: 1,
-                  background: "#1a1c20",
+                  background: "var(--surface-2)",
                   color: "var(--text-primary)",
                   border: "1px solid var(--border-default)",
                   borderRadius: 4,
@@ -531,7 +531,7 @@ export function YangBrowser({ tabId, onClose, onInsertXml }: Props) {
                 key={module.id}
                 onClick={() => handleModuleClick(module)}
                 style={{
-                  background: selectedModule?.id === module.id ? "#1a2332" : "var(--app-canvas)",
+                  background: selectedModule?.id === module.id ? "var(--surface-selected)" : "var(--app-canvas)",
                   border: `1px solid ${selectedModule?.id === module.id ? "var(--accent-subtle)" : "var(--border-default)"}`,
                   borderRadius: 4,
                   padding: 10,

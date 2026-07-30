@@ -59,12 +59,12 @@
 
 .pve-field label {
   font-size: 12px;
-  color: #b8b3a3;
+  color: var(--text-primary);
 }
 
 .pve-field .pve-hint {
   font-size: 11px;
-  color: #6c6f76;
+  color: var(--text-muted);
   font-weight: 400;
 }
 
@@ -82,13 +82,13 @@
 }
 
 .pve-field input::placeholder {
-  color: #5a5d64;
+  color: var(--text-muted);
 }
 
 .pve-field input:focus {
   outline: none;
-  border-color: #d4a857;
-  background: #12151a;
+  border-color: var(--focus-ring);
+  background: var(--surface-input);
 }
 
 /* Checkbox row */
@@ -97,14 +97,14 @@
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #b8b3a3;
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .pve-check input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: #d4a857;
+  accent-color: var(--text-primary);
   cursor: pointer;
 }
 
@@ -132,7 +132,7 @@
   background: var(--surface-input);
 }
 .pve-btn:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .pve-btn:disabled {
@@ -141,11 +141,11 @@
 }
 
 .pve-btn--primary {
-  border-color: #d4a857;
-  color: #d4a857;
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 .pve-btn--primary:hover:not(:disabled) {
-  background: rgba(212, 168, 87, 0.12);
+  background: var(--surface-hover);
 }
 
 .pve-btn[aria-busy="true"] {
@@ -160,20 +160,20 @@
   padding: 8px 12px;
   border-radius: 4px;
   border: 1px solid var(--border-default);
-  background: #12151a;
+  background: var(--surface-2);
   line-height: 1.4;
   min-height: 16px;
   word-break: break-word;
 }
 .pve-status--ok {
-  border-color: rgba(122, 196, 122, 0.5);
-  color: #8fce8f;
-  background: rgba(122, 196, 122, 0.08);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-2);
 }
 .pve-status--err {
-  border-color: rgba(224, 108, 108, 0.5);
-  color: #e88;
-  background: rgba(224, 108, 108, 0.08);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-2);
 }
 .pve-status--info {
   color: var(--text-secondary);

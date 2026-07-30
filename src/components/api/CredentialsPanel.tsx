@@ -153,7 +153,7 @@ export function CredentialsPanel({
         left: 0,
         right: 0,
         bottom: 0,
-        background: "rgb(var(--backdrop-rgb) / 0.6)",
+        background: "var(--surface-2) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -165,7 +165,7 @@ export function CredentialsPanel({
     >
       <div
         style={{
-          background: "#14161a",
+          background: "var(--surface-2)",
           border: "1px solid var(--border-default)",
           borderRadius: 6,
           padding: 16,
@@ -312,7 +312,7 @@ export function CredentialsPanel({
           <div
             data-testid="api-credentials-missing"
             style={{
-              background: "#2d2512",
+              background: "var(--surface-2)",
               border: "1px solid var(--status-warning)",
               borderRadius: 4,
               padding: 8,
@@ -377,7 +377,7 @@ export function CredentialsPanel({
             data-testid="api-credentials-error"
             style={{
               color: "var(--status-danger)",
-              background: "#2a1517",
+              background: "var(--surface-2)",
               border: "1px solid var(--status-danger)",
               borderRadius: 4,
               padding: 6,
@@ -444,7 +444,7 @@ export function CredentialsPanel({
                         }
                       }}
                       style={{
-                        background: dirty ? "#1f2a1f" : "var(--app-canvas)",
+                        background: dirty ? "var(--surface-2)" : "var(--app-canvas)",
                         color: "var(--text-primary)",
                         border: `1px solid ${dirty ? "var(--status-success)" : "var(--border-default)"}`,
                         borderRadius: 4,
@@ -651,7 +651,7 @@ function PresetRow({
           }}
           style={{
             flex: 1,
-            background: dirty ? "#1f2a1f" : "var(--app-canvas)",
+            background: dirty ? "var(--surface-2)" : "var(--app-canvas)",
             color: "var(--text-primary)",
             border: `1px solid ${
               dirty ? "var(--status-success)" : missing ? "var(--status-warning)" : "var(--surface-selected)"

@@ -252,7 +252,7 @@ export function ResponseViewer({
           data-testid="api-response-error"
           style={{
             color: "var(--status-danger)",
-            background: "#2a1517",
+            background: "var(--surface-2)",
             border: "1px solid var(--status-danger)",
             borderRadius: 4,
             padding: 8,
@@ -437,7 +437,7 @@ export function ResponseViewer({
               style={{
                 color: "var(--status-danger)",
                 border: "1px solid var(--status-danger)",
-                background: "#2a1517",
+                background: "var(--surface-2)",
                 borderRadius: 4,
                 padding: 8,
                 fontFamily: "Menlo, monospace",

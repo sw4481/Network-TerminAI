@@ -119,7 +119,7 @@ export function FanoutGroupsPanel() {
           ))
         )}
         {error && (
-          <div className="fanout-groups-empty" style={{ color: "#e06c75" }}>
+          <div className="fanout-groups-empty" style={{ color: "var(--text-primary)" }}>
             {error}
           </div>
         )}

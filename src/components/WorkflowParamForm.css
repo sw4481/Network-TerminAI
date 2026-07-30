@@ -14,13 +14,13 @@
 
 .wf-param-form {
   background: var(--surface-2);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   width: 480px;
   max-width: 92vw;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgb(var(--backdrop-rgb) / 0.5);
+  box-shadow: 0 12px 40px var(--surface-2);
   font-family: Menlo, Monaco, "Courier New", monospace;
   color: var(--text-primary);
 }
@@ -40,7 +40,7 @@
 .wf-param-header p {
   margin: 0;
   font-size: 11px;
-  color: #7a8294;
+  color: var(--text-primary);
 }
 
 .wf-param-fields {
@@ -60,18 +60,18 @@
 
 .wf-param-field label {
   font-size: 12px;
-  color: #c8c2a3;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .wf-param-field label .required {
-  color: #d68f7c;
+  color: var(--text-primary);
   margin-left: 4px;
 }
 
 .wf-param-desc {
   font-size: 11px;
-  color: #7a8294;
+  color: var(--text-primary);
 }
 
 .wf-param-field input,
@@ -88,12 +88,12 @@
 
 .wf-param-field input:focus,
 .wf-param-field select:focus {
-  border-color: #5a6e8c;
+  border-color: var(--focus-ring);
 }
 
 .wf-param-error {
   font-size: 11px;
-  color: #d68f7c;
+  color: var(--status-danger);
 }
 
 .wf-param-actions {
@@ -106,8 +106,8 @@
 
 .wf-param-actions button {
   background: transparent;
-  color: #c8c2a3;
-  border: 1px solid #3a3d43;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 12px;
   font-family: inherit;
@@ -127,6 +127,6 @@
 }
 
 .wf-param-actions button.primary:hover {
-  background: #3a6da3;
-  border-color: #3a6da3;
+  background: var(--surface-hover);
+  border-color: var(--border-default);
 }

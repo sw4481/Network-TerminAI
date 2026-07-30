@@ -247,9 +247,9 @@ export function RpcEditor({
         <div
           style={{
             padding: "6px 12px",
-            background: "#1a2b1a",
-            borderBottom: "1px solid #2a3d2a",
-            color: "#8fbc8f",
+            background: "var(--surface-2)",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-primary)",
             fontSize: 11,
             fontFamily: "Menlo, monospace",
             display: "flex",
@@ -257,7 +257,7 @@ export function RpcEditor({
             gap: 6,
           }}
         >
-          <span style={{ color: "#6abd6a" }}>ℹ️</span>
+          <span style={{ color: "var(--text-primary)" }}>ℹ️</span>
           <span>
             Enter <strong>configuration</strong> CLI — auto-wrapped via Cisco-IOS-XE-cli-rpc on Send.
             Show/exec commands aren't supported over NETCONF; use SSH for those.
@@ -295,8 +295,8 @@ export function RpcEditor({
           data-testid="netconf-rpc-error"
           style={{
             padding: "8px 12px",
-            background: "#2a1a1a",
-            borderTop: "1px solid #3d2626",
+            background: "var(--surface-2)",
+            borderTop: "1px solid var(--border-default)",
             color: "var(--status-danger)",
             fontSize: 11,
             fontFamily: "Menlo, monospace",
@@ -313,7 +313,7 @@ export function RpcEditor({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgb(var(--backdrop-rgb) / 0.7)",
+            background: "var(--surface-2) / 0.7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

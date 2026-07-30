@@ -9,8 +9,8 @@
 }
 
 .snapshot-pin-dialog {
-  background: #252525;
-  border: 1px solid #3a3a3a;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 18px 20px;
   width: 380px;
@@ -31,13 +31,13 @@
 
 .snapshot-pin-dialog p {
   margin: 0;
-  color: #9aa0a6;
+  color: var(--text-primary);
   font-size: 12px;
 }
 
 .snapshot-pin-dialog input {
   background: var(--surface-terminal);
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 8px;
   font-family: inherit;
@@ -46,12 +46,12 @@
 }
 
 .snapshot-pin-dialog input:focus {
-  border-color: #5c8eda;
+  border-color: var(--focus-ring);
   outline: none;
 }
 
 .snapshot-pin-error {
-  color: #f88;
+  color: var(--status-danger);
   font-size: 12px;
 }
 

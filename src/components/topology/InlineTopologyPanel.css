@@ -14,8 +14,8 @@
   flex: 0 0 320px;
   min-width: 280px;
   max-width: 360px;
-  border-left: 1px solid var(--cb-border, #2a2f3a);
-  background: var(--cb-side-bg, rgb(var(--overlay-light-rgb) / 0.02));
+  border-left: 1px solid var(--cb-border, var(--border-default));
+  background: var(--cb-side-bg, var(--surface-2));
 }
 
 /* Inner panel — height-capped at 280px per spec. */
@@ -33,11 +33,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--cb-border, #2a2f3a);
+  border-bottom: 1px solid var(--cb-border, var(--border-default));
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  background: rgb(var(--overlay-light-rgb) / 0.02);
+  background: var(--surface-2);
 }
 
 .topology-inline__title {
@@ -56,8 +56,8 @@
 }
 
 .topology-inline__expand:hover {
-  border-color: var(--cb-border, #2a2f3a);
-  background: rgb(var(--overlay-light-rgb) / 0.05);
+  border-color: var(--cb-border, var(--border-default));
+  background: var(--surface-hover);
 }
 
 .topology-inline__canvas {
@@ -84,7 +84,7 @@
   gap: 6px;
   padding: 4px 8px;
   font-size: 12px;
-  border: 1px solid var(--cb-border, #2a2f3a);
+  border: 1px solid var(--cb-border, var(--border-default));
   border-radius: 12px;
   cursor: pointer;
   background: transparent;
@@ -93,7 +93,7 @@
 
 /* Custom node — the vendor-coloured ring + label cluster. */
 .neighbor-node {
-  --neighbor-vendor-color: #7f7f7f;
+  --neighbor-vendor-color: var(--text-primary);
   position: relative;
   display: inline-flex;
   flex-direction: column;
@@ -113,8 +113,8 @@
   height: 28px;
   border-radius: 50%;
   background: var(--neighbor-vendor-color);
-  border: 2px solid rgb(var(--overlay-light-rgb) / 0.85);
-  box-shadow: 0 0 0 1px rgb(var(--backdrop-rgb) / 0.35);
+  border: 2px solid var(--border-default);
+  box-shadow: 0 0 0 1px var(--surface-2);
 }
 
 .neighbor-node--source .neighbor-node__circle {
@@ -141,7 +141,7 @@
   padding: 4px 8px;
   font-size: 11px;
   white-space: nowrap;
-  background: rgb(var(--backdrop-rgb) / 0.85);
+  background: var(--surface-2);
   color: var(--text-inverse);
   border-radius: 3px;
   pointer-events: none;

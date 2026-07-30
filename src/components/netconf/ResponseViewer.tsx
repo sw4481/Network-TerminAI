@@ -200,7 +200,7 @@ export function ResponseViewer({ tabId, state }: Props) {
           data-testid="netconf-explanation"
           style={{
             borderTop: "1px solid var(--border-default)",
-            background: "#14161a",
+            background: "var(--surface-2)",
             padding: 12,
             maxHeight: "30%",
             overflowY: "auto",

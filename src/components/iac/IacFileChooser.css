@@ -7,23 +7,23 @@
 .iac-chooser-create {
   width: 100%;
   padding: 10px;
-  border: 1px dashed #4a7fb5;
+  border: 1px dashed var(--border-default);
   border-radius: 5px;
-  background: rgba(14, 99, 156, 0.12);
-  color: #7fb0e0;
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-size: 0.92rem;
   cursor: pointer;
   margin-bottom: 14px;
 }
 
 .iac-chooser-create:hover {
-  background: rgba(14, 99, 156, 0.22);
+  background: var(--surface-hover);
 }
 
 .iac-chooser-listwrap {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid #2a2d33;
+  border: 1px solid var(--border-default);
   border-radius: 5px;
 }
 
@@ -39,7 +39,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-bottom: 1px solid #202329;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .iac-chooser-row:last-child {
@@ -73,20 +73,20 @@
 }
 
 .iac-chooser-edit {
-  background: #0e639c;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .iac-chooser-edit:hover {
-  background: #1177bb;
+  background: var(--surface-hover);
 }
 
 .iac-chooser-delete {
-  background: #3a3a3a;
-  color: #e0a0a0;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }
 
 .iac-chooser-delete:hover {
-  background: #5a2a2a;
-  color: #f4746a;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }

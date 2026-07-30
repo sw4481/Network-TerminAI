@@ -56,7 +56,7 @@
 
 .heartbeat-filter select,
 .heartbeat-sort select {
-  background: #1a1d22;
+  background: var(--surface-input);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 4px;
@@ -68,7 +68,7 @@
 
 .heartbeat-filter select:hover,
 .heartbeat-sort select:hover {
-  background: #232830;
+  background: var(--surface-hover);
 }
 
 .heartbeat-new-btn {
@@ -83,7 +83,7 @@
 }
 
 .heartbeat-new-btn:hover {
-  background: #3a6ba0;
+  background: var(--surface-hover);
 }
 
 .heartbeat-grid {
@@ -122,7 +122,7 @@
 }
 
 .heartbeat-empty-btn:hover {
-  background: #3a6ba0;
+  background: var(--surface-hover);
 }
 
 /* Card styles */
@@ -138,7 +138,7 @@
 }
 
 .heartbeat-card:hover {
-  border-color: #3a3f4a;
+  border-color: var(--border-default);
 }
 
 .heartbeat-card.expanded {
@@ -165,8 +165,8 @@
 }
 
 .heartbeat-disabled-badge {
-  background: #4a3320;
-  color: #ffcc70;
+  background: var(--surface-2);
+  color: var(--text-primary);
   padding: 2px 8px;
   border-radius: 3px;
   font-size: 10px;
@@ -179,7 +179,7 @@
 }
 
 .heartbeat-action-btn {
-  background: #1a1d22;
+  background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   padding: 4px 8px;
@@ -190,7 +190,7 @@
 }
 
 .heartbeat-action-btn:hover:not(:disabled) {
-  background: #232830;
+  background: var(--surface-hover);
 }
 
 .heartbeat-action-btn:disabled {
@@ -199,12 +199,12 @@
 }
 
 .heartbeat-action-btn.danger {
-  color: #e06c75;
-  border-color: #553030;
+  color: var(--status-danger);
+  border-color: var(--status-danger);
 }
 
 .heartbeat-action-btn.danger:hover:not(:disabled) {
-  background: #2a1a1a;
+  background: var(--status-danger-surface);
 }
 
 .heartbeat-card-description {
@@ -237,13 +237,13 @@
 }
 
 .heartbeat-card-footer {
-  border-top: 1px solid #1a1d22;
+  border-top: 1px solid var(--border-default);
   padding-top: 8px;
 }
 
 .heartbeat-expand-btn {
   background: transparent;
-  color: #56b6c2;
+  color: var(--text-primary);
   border: none;
   padding: 4px 0;
   cursor: pointer;
@@ -254,7 +254,7 @@
 }
 
 .heartbeat-expand-btn:hover {
-  color: #6fc9d4;
+  color: var(--text-primary);
 }
 
 /* Timeline styles */
@@ -286,15 +286,15 @@
   align-items: center;
   padding: 8px 12px;
   background: var(--app-canvas);
-  border: 1px solid #1a1d22;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   font-size: 11px;
   transition: all 0.15s ease;
 }
 
 .heartbeat-timeline-item:hover {
-  background: #16181c;
-  border-color: #2a2d31;
+  background: var(--surface-hover);
+  border-color: var(--border-default);
   transform: translateX(2px);
 }
 
@@ -318,47 +318,47 @@
 
 /* Severity badges */
 .severity-badge.severity-ok {
-  background: #1d4a2a;
-  color: #98c379;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .severity-badge.severity-info {
-  background: #1d3a5a;
-  color: #a3c9ff;
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  color: var(--status-info);
 }
 
 .severity-badge.severity-warning {
-  background: #4a3320;
-  color: #ffcc70;
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
 }
 
 .severity-badge.severity-critical {
-  background: #4a2020;
-  color: #ff7a7a;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }
 
 .severity-badge.severity-error {
-  background: #4a2020;
-  color: #e06c75;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }
 
 /* Status badges */
 .status-badge.status-running {
-  background: #3a2a5a;
-  color: #c9a3ff;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
 }
 
 .status-badge.status-completed {
-  background: #1d4a2a;
-  color: #98c379;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
 }
 
 .status-badge.status-completed_with_errors {
-  background: #4a3320;
-  color: #ffcc70;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }
 
 .status-badge.status-failed {
-  background: #4a2020;
-  color: #e06c75;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
 }

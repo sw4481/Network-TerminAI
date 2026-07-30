@@ -105,7 +105,7 @@
 }
 
 .rec-btn-danger {
-  background: #b62324;
-  border-color: #f85149;
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
   color: white;
 }

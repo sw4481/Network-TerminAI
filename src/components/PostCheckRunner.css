@@ -80,7 +80,7 @@
 }
 
 .post-check-confirm span {
-  color: #d0d0d0;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -96,7 +96,7 @@
 }
 
 .run-post-check-btn:hover:not(:disabled) {
-  background: #3d6a9c;
+  background: var(--surface-hover);
 }
 
 .run-post-check-btn:disabled {

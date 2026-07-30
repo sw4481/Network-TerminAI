@@ -4,8 +4,8 @@
   right: 0;
   bottom: 0;
   width: 340px;
-  background: #16181c;
-  border-left: 1px solid #2a2d33;
+  background: var(--surface-2);
+  border-left: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   z-index: 50;
@@ -18,7 +18,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid #2a2d33;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .ghruns-title {
@@ -39,7 +39,7 @@
 
 .ghruns-refresh:hover,
 .ghruns-close:hover {
-  background: #2a2d33;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -52,9 +52,9 @@
   margin: 10px 12px;
   padding: 8px 10px;
   border-radius: 4px;
-  background: rgba(244, 67, 54, 0.1);
-  border: 1px solid #f44336;
-  color: #f4746a;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  color: var(--status-danger);
   font-size: 12px;
 }
 
@@ -71,14 +71,14 @@
   padding: 10px 12px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid #202329;
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
   text-align: left;
   color: inherit;
 }
 
 .ghruns-row:hover {
-  background: #1e2127;
+  background: var(--surface-hover);
 }
 
 .ghruns-icon {
@@ -89,15 +89,15 @@
 }
 
 .ghruns-icon--ok {
-  color: #4caf50;
+  color: var(--text-primary);
 }
 
 .ghruns-icon--fail {
-  color: #f44336;
+  color: var(--status-danger);
 }
 
 .ghruns-icon--running {
-  color: #d4a857;
+  color: var(--status-success);
   animation: ghruns-pulse 1.2s ease-in-out infinite;
 }
 

@@ -9,8 +9,8 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border-left: 1px solid var(--cb-border, #2a2f3a);
-  background: rgb(var(--overlay-light-rgb) / 0.03);
+  border-left: 1px solid var(--cb-border, var(--border-default));
+  background: var(--surface-2);
   overflow-y: auto;
   font-size: 12px;
 }
@@ -20,7 +20,7 @@
   align-items: center;
   gap: 6px;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--cb-border, #2a2f3a);
+  border-bottom: 1px solid var(--cb-border, var(--border-default));
 }
 
 .topology-inspector__vendor-badge {
@@ -33,7 +33,7 @@
   letter-spacing: 0.04em;
   color: var(--text-inverse);
   border-radius: 3px;
-  text-shadow: 0 0 1px rgb(var(--backdrop-rgb) / 0.4);
+  text-shadow: 0 0 1px var(--surface-2);
 }
 
 .topology-inspector__title {
@@ -57,7 +57,7 @@
 }
 
 .topology-inspector__close:hover {
-  background: rgb(var(--overlay-light-rgb) / 0.08);
+  background: var(--surface-hover);
 }
 
 .topology-inspector__details dl {
@@ -88,7 +88,7 @@
   padding: 2px 6px;
   font-family: Menlo, monospace;
   font-size: 12px;
-  background: rgb(var(--overlay-light-rgb) / 0.05);
+  background: var(--surface-2);
   border: 1px solid transparent;
   border-radius: 3px;
   color: inherit;
@@ -96,7 +96,7 @@
 }
 
 .topology-inspector__copy:hover {
-  border-color: var(--cb-border, #2a2f3a);
+  border-color: var(--cb-border, var(--border-default));
 }
 
 .topology-inspector__copy-state {
@@ -141,7 +141,7 @@
   font-family: Menlo, monospace;
   font-size: 11px;
   padding: 2px 0;
-  border-bottom: 1px dashed rgb(var(--overlay-light-rgb) / 0.05);
+  border-bottom: 1px dashed var(--border-default);
 }
 
 .topology-inspector__edge:last-child {
@@ -154,22 +154,22 @@
   flex-direction: column;
   gap: 6px;
   padding-top: 8px;
-  border-top: 1px solid var(--cb-border, #2a2f3a);
+  border-top: 1px solid var(--cb-border, var(--border-default));
 }
 
 .topology-inspector__action {
   padding: 6px 10px;
   font-size: 12px;
   font-family: inherit;
-  background: #1a3550;
+  background: var(--surface-2);
   color: var(--text-primary);
-  border: 1px solid #2d5e8a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .topology-inspector__action:hover {
-  background: #234566;
+  background: var(--surface-hover);
 }
 
 .topology-inspector__hint {

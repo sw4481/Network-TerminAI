@@ -3,7 +3,7 @@
   width: 100%;
   height: 100%;
   background: var(--app-canvas);
-  color: #d7dce5;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
@@ -27,9 +27,9 @@
 
 .diagram-clear-btn,
 .diagram-open-btn {
-  background: #1b2129;
-  color: #d7dce5;
-  border: 1px solid #2d3543;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 5px;
   padding: 4px 10px;
   font-size: 12px;
@@ -38,7 +38,7 @@
 
 .diagram-clear-btn:hover,
 .diagram-open-btn:hover:not(:disabled) {
-  background: #232b36;
+  background: var(--surface-hover);
 }
 
 .diagram-open-btn:disabled {
@@ -49,7 +49,7 @@
 .diagram-panel-empty,
 .diagram-panel-placeholder {
   padding: 16px;
-  color: #7a8290;
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
@@ -66,15 +66,15 @@
   justify-content: space-between;
   padding: 8px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #1a1e25;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .diagram-panel-item:hover {
-  background: #161b22;
+  background: var(--surface-hover);
 }
 
 .diagram-panel-item.is-selected {
-  background: #1d2733;
+  background: var(--surface-selected);
 }
 
 .diagram-item-title {
@@ -86,7 +86,7 @@
 .diagram-item-format,
 .diagram-view-format {
   font-size: 11px;
-  color: #7a8290;
+  color: var(--text-primary);
   text-transform: uppercase;
   margin-left: 8px;
   flex-shrink: 0;
@@ -141,5 +141,5 @@
   gap: 12px;
   padding: 24px;
   text-align: center;
-  color: #9aa3b0;
+  color: var(--text-primary);
 }

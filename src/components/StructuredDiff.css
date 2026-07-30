@@ -9,15 +9,15 @@
   display: flex;
   gap: 16px;
   padding: 6px 12px;
-  background: #252525;
-  border-bottom: 1px solid #3a3a3a;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
   font-size: 11.5px;
-  color: #9aa0a6;
+  color: var(--text-primary);
 }
 
 .structured-diff-toolbar select {
   background: var(--surface-terminal);
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   color: var(--text-primary);
   padding: 2px 6px;
   font-family: inherit;
@@ -25,15 +25,15 @@
 }
 
 .structured-table tbody td.diff-added {
-  background: rgba(76, 175, 80, 0.18);
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
 }
 
 .structured-table tbody td.diff-removed {
-  background: rgba(244, 67, 54, 0.18);
+  background: var(--status-danger-surface);
 }
 
 .structured-table tbody td.diff-changed {
-  background: rgba(255, 193, 7, 0.18);
+  background: var(--surface-2);
 }
 
 .structured-table tbody td.diff-unchanged {
@@ -43,21 +43,21 @@
 .diff-marker {
   display: inline-block;
   width: 12px;
-  color: #9aa0a6;
+  color: var(--text-primary);
   font-weight: 700;
 }
 
 .diff-old {
-  color: #f88;
+  color: var(--text-primary);
   text-decoration: line-through;
   margin-right: 6px;
 }
 
 .diff-new {
-  color: #6c6;
+  color: var(--text-primary);
 }
 
 .diff-arrow {
-  color: #888;
+  color: var(--text-primary);
   margin: 0 4px;
 }

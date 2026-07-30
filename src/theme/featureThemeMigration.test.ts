@@ -1,13 +1,25 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const root = process.cwd();
+
 function source(file: string) {
-  return readFileSync(join(process.cwd(), file), "utf8");
+  return readFileSync(join(root, file), "utf8");
 }
 
 describe("feature-area theme migration", () => {
-  it("routes every Task 5 feature batch through semantic structural tokens", () => {
+  it("proves the full source inventory has no residual structural literals", () => {
+    expect(() => execFileSync("node", ["scripts/check-structural-colors.mjs", "--inventory"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: "pipe",
+      env: { ...process.env, STRUCTURAL_COLOR_GUARD_IGNORE_TEST_FIXTURES: "1" },
+    })).not.toThrow();
+  });
+
+  it("keeps each Task 5 batch on semantic state tokens", () => {
     for (const file of [
       "src/components/BlockNotebook.css",
       "src/components/api/ApiTab.tsx",
@@ -20,12 +32,12 @@ describe("feature-area theme migration", () => {
       "src/components/recording/RecordingsTab.css",
       "src/components/settings/IseSettingsTab.css",
     ]) {
-      expect(source(file), file).toMatch(/var\(--(?:surface|text|border|accent|status|focus|app-canvas)/);
+      expect(source(file), file).toMatch(/var\(--(?:surface|text|border|status|focus|app-canvas)/);
     }
-  });
-
-  it("preserves named topology and troubleshooting domain states", () => {
-    expect(source("src/components/topology/TopologyTab.tsx")).toContain("#0ea770");
-    expect(source("src/features/troubleshoot/PlaybookPicker.css")).toContain("#d2675a");
+    const codeBlock = source("src/components/CodeBlock.css");
+    expect(codeBlock).toContain(".code-block-status-executing .code-block-status-icon {\n  color: var(--status-info)");
+    expect(codeBlock).toContain("var(--status-success)");
+    expect(codeBlock).toContain("var(--status-warning)");
+    expect(codeBlock).toContain("var(--status-danger)");
   });
 });

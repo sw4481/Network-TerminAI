@@ -171,7 +171,7 @@ export function DeviceDiscoveryModal({
                           <div className="discovery-modal__device-name">
                             {conn.nickname || conn.host}
                             {!conn.password_encrypted && (
-                              <span style={{ color: '#f1a1a1', fontSize: 11, marginLeft: 8 }}>
+                              <span style={{ color: 'var(--text-primary)', fontSize: 11, marginLeft: 8 }}>
                                 (password required)
                               </span>
                             )}

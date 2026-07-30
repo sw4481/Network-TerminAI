@@ -172,7 +172,7 @@ export function IntentEditor({ onClose: _onClose }: Props = {}) {
           ))
         )}
         {error && (
-          <div className="intent-empty" style={{ color: "#e06c75" }}>
+          <div className="intent-empty" style={{ color: "var(--text-primary)" }}>
             {error}
           </div>
         )}

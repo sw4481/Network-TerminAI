@@ -1,20 +1,20 @@
 .editor-settings-tab {
-  color: #d7dae0;
+  color: var(--text-primary);
   max-width: 760px;
 }
 
 .editor-settings-tab header p,
 .editor-settings-help,
 .editor-vim-toggle small {
-  color: #8f96a3;
+  color: var(--text-primary);
 }
 
 .editor-settings-section {
   margin-top: 24px;
   padding: 18px;
-  border: 1px solid #343842;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  background: #1b1e24;
+  background: var(--surface-input);
 }
 
 .editor-style-picker {
@@ -22,22 +22,22 @@
   gap: 4px;
   padding: 4px;
   border-radius: 7px;
-  background: #111318;
+  background: var(--surface-input);
 }
 
 .editor-style-picker button {
   padding: 8px 14px;
   border: 1px solid transparent;
   border-radius: 5px;
-  color: #aeb4bf;
+  color: var(--text-primary);
   background: transparent;
   cursor: pointer;
 }
 
 .editor-style-picker button[aria-pressed="true"] {
-  color: #eef0f4;
-  border-color: #528bff;
-  background: #2b313b;
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--surface-input);
 }
 
 .editor-vim-toggle {
@@ -60,5 +60,5 @@
 
 .editor-settings-error {
   margin-top: 16px;
-  color: #e06c75;
+  color: var(--status-danger);
 }

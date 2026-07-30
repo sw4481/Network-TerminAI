@@ -1,7 +1,7 @@
 .block-explain {
   margin: 8px 0;
-  background: rgba(255, 200, 0, 0.1);
-  border: 1px solid rgba(255, 200, 0, 0.3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   overflow: hidden;
   animation: slideIn 0.2s ease;
@@ -23,8 +23,8 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(255, 200, 0, 0.15);
-  border-bottom: 1px solid rgba(255, 200, 0, 0.2);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .explain-icon {
@@ -80,5 +80,5 @@
 }
 
 .explain-error {
-  color: #ff6b6b;
+  color: var(--status-danger);
 }

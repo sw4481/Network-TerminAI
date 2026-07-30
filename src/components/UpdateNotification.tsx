@@ -36,30 +36,30 @@ export function UpdateNotification() {
         bottom: "20px",
         right: "20px",
         background: "var(--surface-terminal)",
-        border: "1px solid #3c3c3c",
+        border: "1px solid var(--border-default)",
         borderRadius: "8px",
         padding: "16px",
         maxWidth: "400px",
-        boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.3)",
+        boxShadow: "0 4px 12px var(--surface-2) / 0.3)",
         zIndex: 9999,
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
         <div style={{ flex: 1 }}>
-          <h3 style={{ margin: "0 0 8px 0", fontSize: "14px", fontWeight: 600, color: "#e0e0e0" }}>
+          <h3 style={{ margin: "0 0 8px 0", fontSize: "14px", fontWeight: 600, color: "var(--text-primary)" }}>
             Update Available
           </h3>
-          <p style={{ margin: "0 0 8px 0", fontSize: "13px", color: "#a0a0a0" }}>
+          <p style={{ margin: "0 0 8px 0", fontSize: "13px", color: "var(--text-primary)" }}>
             Version {available.version} is now available
             {available.currentVersion && ` (current: ${available.currentVersion})`}
           </p>
           {available.body && (
-            <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "#909090", maxHeight: "60px", overflow: "auto" }}>
+            <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "var(--text-primary)", maxHeight: "60px", overflow: "auto" }}>
               {available.body}
             </p>
           )}
           {error && (
-            <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "#ff6b6b" }}>
+            <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "var(--text-primary)" }}>
               {error}
             </p>
           )}
@@ -68,7 +68,7 @@ export function UpdateNotification() {
               onClick={() => downloadAndInstall()}
               disabled={downloading}
               style={{
-                background: "#0078d4",
+                background: "var(--surface-2)",
                 border: "none",
                 borderRadius: "4px",
                 color: "white",
@@ -86,9 +86,9 @@ export function UpdateNotification() {
               disabled={downloading}
               style={{
                 background: "transparent",
-                border: "1px solid #3c3c3c",
+                border: "1px solid var(--border-default)",
                 borderRadius: "4px",
-                color: "#a0a0a0",
+                color: "var(--text-primary)",
                 padding: "6px 12px",
                 fontSize: "12px",
                 fontWeight: 500,
@@ -106,7 +106,7 @@ export function UpdateNotification() {
             style={{
               background: "transparent",
               border: "none",
-              color: "#606060",
+              color: "var(--text-primary)",
               cursor: "pointer",
               fontSize: "16px",
               padding: "0",

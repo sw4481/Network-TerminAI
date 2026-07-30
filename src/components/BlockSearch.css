@@ -3,15 +3,15 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: rgb(var(--overlay-light-rgb) / 0.05);
-  border-bottom: 1px solid rgb(var(--overlay-light-rgb) / 0.08);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .search-input {
   flex: 1;
   padding: 6px 12px;
-  background: rgb(var(--backdrop-rgb) / 0.3);
-  border: 1px solid rgb(var(--overlay-light-rgb) / 0.1);
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: 13px;
@@ -20,7 +20,7 @@
 
 .search-input:focus {
   border-color: var(--accent);
-  background: rgb(var(--backdrop-rgb) / 0.4);
+  background: var(--surface-input);
 }
 
 .search-controls {
@@ -37,14 +37,14 @@
 
 .no-matches {
   font-size: 12px;
-  color: #e85d75;
+  color: var(--text-primary);
 }
 
 .search-nav-btn,
 .search-close-btn {
   padding: 4px 8px;
-  background: rgb(var(--overlay-light-rgb) / 0.08);
-  border: 1px solid rgb(var(--overlay-light-rgb) / 0.1);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: 14px;
@@ -54,7 +54,7 @@
 
 .search-nav-btn:hover:not(:disabled),
 .search-close-btn:hover {
-  background: rgb(var(--overlay-light-rgb) / 0.12);
+  background: var(--surface-hover);
 }
 
 .search-nav-btn:disabled {

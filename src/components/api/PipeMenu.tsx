@@ -223,7 +223,7 @@ export function PipeMenu({ target, onClose }: Props) {
         top: target.y,
         left: target.x,
         zIndex: 30,
-        background: "#14161a",
+        background: "var(--surface-2)",
         border: "1px solid var(--border-default)",
         borderRadius: 4,
         padding: 4,
@@ -233,7 +233,7 @@ export function PipeMenu({ target, onClose }: Props) {
         // overflowing off-screen leaves "Send to AI" unreachable.
         maxHeight: "min(70vh, 520px)",
         overflowY: "auto",
-        boxShadow: "0 4px 14px rgb(var(--backdrop-rgb) / 0.5)",
+        boxShadow: "0 4px 14px var(--surface-2) / 0.5)",
         fontSize: 12,
         fontFamily: "Menlo, monospace",
         color: "var(--text-primary)",

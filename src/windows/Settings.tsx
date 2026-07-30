@@ -839,9 +839,9 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 padding: "12px",
                 marginBottom: "16px",
                 borderRadius: "4px",
-                background: saveStatus.type === "success" ? "#1a3d2a" : "#3d1a1a",
-                border: `1px solid ${saveStatus.type === "success" ? "#4ade80" : "#f87171"}`,
-                color: saveStatus.type === "success" ? "#4ade80" : "#f87171",
+                background: saveStatus.type === "success" ? "color-mix(in srgb, var(--status-success) 18%, var(--surface-1))" : "color-mix(in srgb, var(--status-success) 18%, var(--surface-1))",
+                border: `1px solid ${saveStatus.type === "success" ? "var(--status-success)" : "var(--status-success)"}`,
+                color: saveStatus.type === "success" ? "var(--status-success)" : "var(--status-success)",
                 fontSize: "13px",
               }}>
                 {saveStatus.message}

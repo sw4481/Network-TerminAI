@@ -26,18 +26,18 @@
 
 .agent-sources-badge:hover {
   color: var(--text-primary);
-  box-shadow: 0 0 0 1px #d4a857;
+  box-shadow: 0 0 0 1px var(--surface-hover);
 }
 
 .agent-sources-badge:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .agent-sources-badge--open {
-  background: rgba(212, 168, 87, 0.12);
-  color: #d4a857;
-  border-color: #d4a857;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
 }
 
 .agent-sources-badge-caret {
@@ -60,7 +60,7 @@
 .agent-sources-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 17, 20, 0.5);
+  background: var(--surface-overlay);
   z-index: 50;
   pointer-events: auto;
   /* Reduced-motion users skip the fade. */
@@ -138,11 +138,11 @@
 
 .agent-sources-close:hover {
   color: var(--text-primary);
-  border-color: #d4a857;
+  border-color: var(--border-default);
 }
 
 .agent-sources-close:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -198,7 +198,7 @@
   line-height: 1.55;
   color: var(--text-primary);
   background: transparent;
-  border-left: 2px solid #d4a857;
+  border-left: 2px solid var(--border-default);
   padding: 4px 0 4px 8px;
   margin-left: 8px;
   white-space: pre-wrap;
@@ -227,20 +227,20 @@
 }
 
 .agent-source-copy:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 .agent-source-copy--copied {
-  color: #d4a857;
-  border-color: #d4a857;
-  background: rgba(212, 168, 87, 0.12);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--surface-2);
 }
 
 .agent-source-copy--failed {
-  color: #e87878;
-  border-color: #e87878;
-  background: rgba(232, 120, 120, 0.12);
+  color: var(--status-danger);
+  border-color: var(--status-danger);
+  background: var(--status-danger-surface);
 }
 
 /* ============== Empty state ============== */

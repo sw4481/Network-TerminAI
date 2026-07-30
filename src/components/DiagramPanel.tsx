@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDiagramStore, type StoredDiagram } from "../state/diagramStore";
+import { useAppearance } from "../theme/AppearanceProvider";
+import { IFRAME_THEMES } from "../theme/iframeTheme";
+import type { AppThemeId } from "../theme/types";
 import "./DiagramPanel.css";
 
 /**
@@ -85,9 +88,10 @@ const IFRAME_CSP =
   "base-uri 'none'";
 
 /** Build the self-contained HTML document rendered inside the iframe. */
-export function buildViewerSrcDoc(xml: string): string {
+export function buildViewerSrcDoc(xml: string, theme: AppThemeId = "terminai-dark"): string {
+  const colors = IFRAME_THEMES[theme];
   const config = {
-    highlight: "#00b4ff",
+    highlight: colors.info,
     nav: true,
     resize: true,
     toolbar: "zoom layers",
@@ -102,7 +106,8 @@ export function buildViewerSrcDoc(xml: string): string {
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttr(IFRAME_CSP)}">
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; background: var(--app-canvas); }
+  :root { --app-canvas: ${colors.canvas}; --text-primary: ${colors.text}; --status-info: ${colors.info}; --status-danger: ${colors.danger}; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--app-canvas); color: var(--text-primary); }
   .mxgraph { max-width: 100%; margin: 8px; }
 </style>
 </head>
@@ -141,7 +146,8 @@ const MARKMAP_CSP =
   "base-uri 'none'";
 
 /** Build a self-contained markmap document; markdown lives in a text template. */
-export function buildMarkmapSrcDoc(markdown: string): string {
+export function buildMarkmapSrcDoc(markdown: string, theme: AppThemeId = "terminai-dark"): string {
+  const colors = IFRAME_THEMES[theme];
   // Escape the closing-tag sequence so the markdown cannot break out of the
   // <script type="text/template"> block; everything else is inert text.
   const safe = markdown.replace(/<\/script>/gi, "<\\/script>");
@@ -150,7 +156,7 @@ export function buildMarkmapSrcDoc(markdown: string): string {
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttr(MARKMAP_CSP)}">
-<style>html,body{margin:0;padding:0;height:100%;background:var(--app-canvas)}#markmap-svg{width:100%;height:100vh}#markmap-error{color:#f44336;font-family:sans-serif;padding:8px}</style>
+<style>:root{--app-canvas:${colors.canvas};--text-primary:${colors.text};--status-danger:${colors.danger}}html,body{margin:0;padding:0;height:100%;background:var(--app-canvas);color:var(--text-primary)}#markmap-svg{width:100%;height:100vh}#markmap-error{color:var(--status-danger);font-family:sans-serif;padding:8px}</style>
 </head>
 <body>
 <script type="text/template" id="markmap-source">${safe}</script>
@@ -165,6 +171,7 @@ export function buildMarkmapSrcDoc(markdown: string): string {
 }
 
 function DiagramView({ diagram }: { diagram: StoredDiagram }) {
+  const { settings } = useAppearance();
   const canRenderInline = diagram.format === "xml" && !!diagram.xml;
   // Kroki SVG (format "image") renders as a plain <img> from an allowed host;
   // markmap renders its markdown (in diagram.source) via a CDN autoloader in a
@@ -173,10 +180,10 @@ function DiagramView({ diagram }: { diagram: StoredDiagram }) {
   const isMarkmap = diagram.format === "markmap" && !!diagram.source;
 
   const srcDoc = useMemo(() => {
-    if (canRenderInline) return buildViewerSrcDoc(diagram.xml as string);
-    if (isMarkmap) return buildMarkmapSrcDoc(diagram.source as string);
+    if (canRenderInline) return buildViewerSrcDoc(diagram.xml as string, settings.appTheme);
+    if (isMarkmap) return buildMarkmapSrcDoc(diagram.source as string, settings.appTheme);
     return "";
-  }, [canRenderInline, isMarkmap, diagram.xml, diagram.source]);
+  }, [canRenderInline, isMarkmap, diagram.xml, diagram.source, settings.appTheme]);
 
   const openInBrowser = async () => {
     if (!isSafeDiagramUrl(diagram.url)) {

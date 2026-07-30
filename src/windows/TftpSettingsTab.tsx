@@ -262,7 +262,7 @@ function StatusPill({ status }: { status: TftpStatus | null }) {
     : errored
       ? "Error"
       : "Stopped";
-  const dot = running ? "var(--status-success)" : errored ? "#e5534b" : "var(--text-muted)";
+  const dot = running ? "var(--status-success)" : errored ? "var(--text-primary)" : "var(--text-muted)";
   return (
     <span
       className="tftp-pill"
@@ -276,9 +276,9 @@ function StatusPill({ status }: { status: TftpStatus | null }) {
         fontWeight: 600,
         letterSpacing: "0.04em",
         textTransform: "uppercase",
-        background: running ? "#0a2e1a" : errored ? "#2e0f0f" : "var(--surface-3)",
-        color: running ? "var(--status-success)" : errored ? "#f08b83" : "var(--text-secondary)",
-        border: `1px solid ${running ? "#1b5a34" : errored ? "#5a1f1b" : "var(--border-default)"}`,
+        background: running ? "var(--status-danger-surface)" : errored ? "var(--status-danger-surface)" : "var(--surface-3)",
+        color: running ? "var(--status-success)" : errored ? "var(--status-danger)" : "var(--text-secondary)",
+        border: `1px solid ${running ? "var(--status-danger)" : errored ? "var(--status-danger)" : "var(--border-default)"}`,
       }}
     >
       <span
@@ -287,7 +287,7 @@ function StatusPill({ status }: { status: TftpStatus | null }) {
           height: 6,
           borderRadius: "50%",
           background: dot,
-          boxShadow: running ? "0 0 6px var(--status-success)" : errored ? "0 0 6px #e5534b" : "none",
+          boxShadow: running ? "0 0 6px var(--status-success)" : errored ? "0 0 6px var(--status-danger-surface)" : "none",
         }}
       />
       {label}

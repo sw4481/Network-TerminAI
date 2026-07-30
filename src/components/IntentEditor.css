@@ -45,7 +45,7 @@
 }
 .intent-new-form {
   padding: 8px 12px;
-  border-bottom: 1px solid #1a1d22;
+  border-bottom: 1px solid var(--border-default);
 }
 .intent-rename-form {
   flex: 1;
@@ -93,13 +93,13 @@
 .intent-row {
   padding: 10px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #1a1d22;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 .intent-row:hover { background: var(--surface-overlay); }
-.intent-row.selected { background: #1d2530; border-left: 3px solid #56b6c2; padding-left: 9px; }
+.intent-row.selected { background: var(--surface-2); border-left: 3px solid var(--surface-2); padding-left: 9px; }
 
 .intent-name { font-size: 13px; font-weight: 500; }
 .intent-meta {
@@ -117,8 +117,8 @@
   border-radius: 2px;
   font-weight: 600;
 }
-.intent-kind-badge.golden { background: #4a3a1f; color: #ffd070; }
-.intent-kind-badge.jinja  { background: #1f3a4a; color: #70c0ff; }
+.intent-kind-badge.golden { background: var(--surface-2); color: var(--text-primary); }
+.intent-kind-badge.jinja  { background: var(--surface-2); color: var(--text-primary); }
 
 .intent-empty {
   padding: 24px 12px;
@@ -154,7 +154,7 @@
 
 .intent-detail-actions { display: flex; gap: 6px; }
 .intent-detail-actions button {
-  background: #1a1d22;
+  background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   padding: 4px 10px;
@@ -163,26 +163,26 @@
   font-family: inherit;
   font-size: 11px;
 }
-.intent-detail-actions button:hover { background: #232830; }
+.intent-detail-actions button:hover { background: var(--accent-subtle); }
 .intent-detail-actions button.primary { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-inverse); }
-.intent-detail-actions button.danger { color: #e06c75; border-color: #553030; }
+.intent-detail-actions button.danger { color: var(--status-danger); border-color: var(--status-danger); }
 
 .intent-tab-bar {
   display: flex;
   border-bottom: 1px solid var(--border-default);
-  background: #0c0e11;
+  background: var(--surface-2);
 }
 .intent-tab {
   padding: 6px 14px;
   cursor: pointer;
-  border-right: 1px solid #1a1d22;
+  border-right: 1px solid var(--border-default);
   font-size: 11px;
   color: var(--text-secondary);
 }
 .intent-tab.active {
   background: var(--surface-overlay);
-  color: #56b6c2;
-  border-bottom: 2px solid #56b6c2;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-default);
 }
 
 .intent-meta-grid {
@@ -213,8 +213,8 @@
 }
 
 .intent-error {
-  background: #4a1f1f;
-  color: #ff8a8a;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   padding: 6px 12px;
   font-size: 11px;
 }

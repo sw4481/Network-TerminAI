@@ -169,7 +169,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgb(var(--backdrop-rgb) / 0.6)",
+        background: "var(--surface-2) / 0.6)",
         zIndex: 40,
         display: "flex",
         alignItems: "flex-start",
@@ -181,7 +181,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
         style={{
           width: 580,
           maxWidth: "90vw",
-          background: "#14161a",
+          background: "var(--surface-2)",
           border: "1px solid var(--border-default)",
           borderRadius: 6,
           overflow: "hidden",
@@ -331,7 +331,7 @@ function methodColor(m: string): string {
     case "PUT":
       return "var(--status-warning)";
     case "PATCH":
-      return "#d4bfff";
+      return "var(--text-primary)";
     case "DELETE":
       return "var(--status-danger)";
     default:

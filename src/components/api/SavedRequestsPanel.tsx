@@ -78,7 +78,7 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad }: Props) {
           fontSize: 11,
           textTransform: "uppercase",
           letterSpacing: 0.5,
-          background: "#12141a",
+          background: "var(--surface-2)",
         }}
       >
         Saved Requests

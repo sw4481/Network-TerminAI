@@ -438,9 +438,9 @@ function StatusPill({ status }: { status: FtpStatus | null }) {
         fontWeight: 600,
         letterSpacing: "0.04em",
         textTransform: "uppercase",
-        background: running ? "#0a2e1a" : "var(--surface-3)",
+        background: running ? "color-mix(in srgb, var(--status-success) 18%, var(--surface-1))" : "var(--surface-3)",
         color: running ? "var(--status-success)" : "var(--text-secondary)",
-        border: `1px solid ${running ? "#1b5a34" : "var(--border-default)"}`,
+        border: `1px solid ${running ? "var(--status-success)" : "var(--border-default)"}`,
       }}
     >
       <span

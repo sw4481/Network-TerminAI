@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgb(var(--backdrop-rgb) / 0.7);
+  background: var(--surface-input);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -24,13 +24,13 @@
 
 .nl-input-modal {
   background: var(--surface-2);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   width: 600px;
   max-width: 90vw;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
+  box-shadow: 0 4px 20px var(--surface-input);
 }
 
 .nl-header {
@@ -38,7 +38,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #3a3d43;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .nl-header h3 {
@@ -80,7 +80,7 @@
 .nl-input-section textarea {
   width: 100%;
   padding: 12px;
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   background: var(--app-canvas);
   color: var(--text-primary);
@@ -103,8 +103,8 @@
 .nl-result {
   margin-top: 20px;
   padding: 16px;
-  background: rgba(92, 207, 230, 0.05);
-  border: 1px solid rgba(92, 207, 230, 0.2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
 }
 
@@ -112,7 +112,7 @@
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
@@ -126,7 +126,7 @@
   display: block;
   padding: 10px 12px;
   background: var(--app-canvas);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   color: var(--accent);
   font-family: 'Menlo', 'SF Mono', Monaco, monospace;
@@ -146,10 +146,10 @@
 .nl-error {
   margin-top: 12px;
   padding: 12px;
-  background: rgba(232, 93, 117, 0.1);
-  border: 1px solid rgba(232, 93, 117, 0.3);
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
   border-radius: 4px;
-  color: #e85d75;
+  color: var(--status-danger);
   font-size: 13px;
 }
 
@@ -158,7 +158,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid #3a3d43;
+  border-top: 1px solid var(--border-default);
 }
 
 .cancel-btn,
@@ -174,7 +174,7 @@
 }
 
 .cancel-btn {
-  background: #2a2d33;
+  background: var(--surface-2);
   color: var(--text-primary);
 }
 

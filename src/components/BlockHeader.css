@@ -3,8 +3,8 @@
   flex-direction: column;
   gap: 4px;
   padding: 8px 12px;
-  background: #2a2a2a;
-  border-bottom: 1px solid #3a3a3a;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s ease;
@@ -29,13 +29,13 @@
 }
 
 .block-header:hover {
-  background: #333333;
+  background: var(--surface-hover);
 }
 
 .collapse-btn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-primary);
   font-size: 10px;
   cursor: pointer;
   padding: 4px;
@@ -64,11 +64,11 @@
   align-items: center;
   gap: 12px;
   font-size: 11px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .duration {
-  color: #aaa;
+  color: var(--text-primary);
 }
 
 .exit-code {
@@ -76,10 +76,10 @@
 }
 
 .timestamp {
-  color: #777;
+  color: var(--text-muted);
 }
 
 .bookmark-indicator {
-  color: #ffd700;
+  color: var(--text-primary);
   font-size: 14px;
 }

@@ -10,19 +10,19 @@
 .snapshot-list.empty,
 .snapshot-list.error {
   padding: 8px 12px;
-  color: #888;
+  color: var(--status-danger);
   font-style: italic;
 }
 
 .snapshot-list.error {
-  color: #f88;
+  color: var(--status-danger);
 }
 
 .snapshot-list-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .snapshot-list-link {
@@ -41,7 +41,7 @@
 }
 
 .snapshot-list-link:hover {
-  background: #252525;
+  background: var(--surface-hover);
 }
 
 .snapshot-name {
@@ -49,7 +49,7 @@
 }
 
 .snapshot-meta {
-  color: #888;
+  color: var(--text-muted);
   font-size: 10.5px;
 }
 
@@ -61,8 +61,8 @@
 
 .snapshot-btn {
   background: transparent;
-  border: 1px solid #3a3a3a;
-  color: #9aa0a6;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   width: 20px;
   height: 20px;
   border-radius: 3px;
@@ -72,12 +72,12 @@
 }
 
 .snapshot-btn:hover {
-  background: #2a2a2a;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .snapshot-btn.danger:hover {
-  background: #4a2020;
-  color: #f88;
-  border-color: #6a3030;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-color: var(--status-danger);
 }

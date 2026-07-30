@@ -15,11 +15,11 @@
 }
 
 .editor-git-state {
-  color: #98c379;
+  color: var(--text-primary);
 }
 
 .editor-git-state--dirty {
-  color: #e5c07b;
+  color: var(--text-primary);
 }
 
 .detached-editor-status .editor-git-status {

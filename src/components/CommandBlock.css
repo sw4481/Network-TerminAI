@@ -1,5 +1,5 @@
 .command-block {
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -7,30 +7,30 @@
 }
 
 .command-block:hover {
-  box-shadow: 0 2px 8px rgb(var(--backdrop-rgb) / 0.3);
+  box-shadow: 0 2px 8px var(--surface-hover);
 }
 
 .command-block.active {
-  border-color: #4a90e2;
-  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+  border-color: var(--border-default);
+  box-shadow: 0 0 0 2px var(--surface-selected);
 }
 
 .ai-analysis {
-  background: #2a2a3a;
-  border-top: 1px solid #3a3a4a;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-default);
   padding: 12px;
 }
 
 .ai-analysis-header {
   font-size: 12px;
   font-weight: 600;
-  color: #8ba4f5;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .ai-analysis-content {
   font-size: 13px;
-  color: #d0d0d0;
+  color: var(--text-primary);
   line-height: 1.5;
 }
 

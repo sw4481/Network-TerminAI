@@ -1,7 +1,7 @@
 .notebook-library-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(var(--backdrop-rgb) / 0.5);
+  background: var(--surface-2);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -12,9 +12,9 @@
 .notebook-library-modal {
   width: min(900px, 92vw);
   max-height: 86vh;
-  background: #1a1a1a;
+  background: var(--surface-overlay);
   color: var(--text-primary);
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .library-header h2 {
@@ -39,8 +39,8 @@
 
 .library-close {
   background: transparent;
-  color: #999;
-  border: 1px solid #2a2a2a;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   width: 26px;
   height: 26px;
@@ -50,7 +50,7 @@
 }
 
 .library-close:hover {
-  background: #262626;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -60,7 +60,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 12px 18px;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-default);
   flex-wrap: wrap;
 }
 
@@ -70,9 +70,9 @@
 }
 
 .filter-chip {
-  background: #1d1d1d;
-  border: 1px solid #2a2a2a;
-  color: #999;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   padding: 4px 12px;
   border-radius: 999px;
   font: inherit;
@@ -82,14 +82,14 @@
 }
 
 .filter-chip:hover {
-  background: #262626;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .filter-chip.is-active {
-  background: #1d2d4a;
-  border-color: #4a90e2;
-  color: #8ba4f5;
+  background: var(--surface-selected);
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
 .library-import {
@@ -99,8 +99,8 @@
 }
 
 .library-import input[type="url"] {
-  background: #131313;
-  border: 1px solid #2a2a2a;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 3px;
@@ -110,9 +110,9 @@
 }
 
 .library-action {
-  background: #262626;
+  background: var(--surface-2);
   color: var(--text-primary);
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   padding: 4px 10px;
   border-radius: 4px;
   font: inherit;
@@ -121,8 +121,8 @@
 }
 
 .library-action:hover:not(:disabled) {
-  background: #2e2e2e;
-  border-color: #4a4a4a;
+  background: var(--surface-hover);
+  border-color: var(--border-default);
 }
 
 .library-action:disabled {
@@ -131,21 +131,21 @@
 }
 
 .library-action.danger {
-  background: #2a1414;
-  border-color: #5a2828;
-  color: #ff9090;
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+  color: var(--status-danger);
 }
 
 .library-action.danger:hover:not(:disabled) {
-  background: #3a1d1d;
+  background: var(--status-danger-surface);
 }
 
 .library-error {
   padding: 8px 18px;
-  background: #2a1414;
-  color: #ff9090;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   font-size: 12px;
-  border-bottom: 1px solid #5a2828;
+  border-bottom: 1px solid var(--status-danger);
 }
 
 .library-list {
@@ -162,11 +162,11 @@
   justify-content: space-between;
   gap: 16px;
   padding: 10px 18px;
-  border-bottom: 1px solid #232323;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .library-row:hover {
-  background: #1d1d1d;
+  background: var(--surface-hover);
 }
 
 .library-row-title {
@@ -178,13 +178,13 @@
 .library-row-meta {
   margin-top: 2px;
   font-size: 11px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .library-row-desc {
   margin-top: 4px;
   font-size: 12px;
-  color: #999;
+  color: var(--text-primary);
 }
 
 .library-row-actions {
@@ -195,6 +195,6 @@
 .library-empty {
   padding: 24px;
   text-align: center;
-  color: #888;
+  color: var(--text-primary);
   font-size: 12px;
 }

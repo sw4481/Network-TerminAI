@@ -29,8 +29,8 @@
 }
 
 .browser-settings-tab .code-block {
-  background: #1a1d24;
-  border: 1px solid #2d3139;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 12px;
   margin-bottom: 12px;
@@ -49,7 +49,7 @@
 .browser-settings-tab .copy-button {
   padding: 8px 16px;
   background: var(--surface-3);
-  border: 1px solid #2d3139;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   color: var(--text-primary);
   font-size: 12px;
@@ -58,7 +58,7 @@
 }
 
 .browser-settings-tab .copy-button:hover {
-  background: #2d3139;
+  background: var(--surface-hover);
 }
 
 .browser-settings-tab .copy-button:active {

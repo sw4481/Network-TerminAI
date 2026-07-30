@@ -4,8 +4,8 @@
   height: 100vh;
   flex-direction: column;
   overflow: hidden;
-  background: #181818;
-  color: #d4d4d4;
+  background: var(--surface-input);
+  color: var(--text-primary);
 }
 
 .detached-editor-toolbar {
@@ -15,8 +15,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0 8px 0 12px;
-  border-bottom: 1px solid #333333;
-  background: #202020;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-input);
 }
 
 .detached-editor-title,
@@ -29,17 +29,17 @@
 .detached-editor-actions button,
 .detached-editor-state button {
   padding: 5px 9px;
-  border: 1px solid #444444;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
-  background: #2a2a2a;
-  color: #eeeeee;
+  background: var(--surface-input);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .detached-editor-actions button:hover:not(:disabled),
 .detached-editor-state button:hover {
-  border-color: #3b82f6;
-  background: #313b4c;
+  border-color: var(--border-default);
+  background: var(--surface-hover);
 }
 
 .detached-editor-actions button:disabled {
@@ -55,9 +55,9 @@
 
 .detached-editor-error {
   padding: 7px 10px;
-  border-top: 1px solid #be1100;
-  background: #5a1d1d;
-  color: #f8b4a8;
+  border-top: 1px solid var(--status-danger);
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   font-size: 12px;
 }
 
@@ -67,7 +67,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  background: #1f4f7a;
+  background: var(--surface-input);
   color: var(--text-inverse);
   font: 12px/1 monospace;
 }
@@ -80,6 +80,6 @@
   justify-content: center;
   flex-direction: column;
   gap: 12px;
-  background: #181818;
-  color: #d4d4d4;
+  background: var(--surface-input);
+  color: var(--text-primary);
 }

@@ -37,7 +37,7 @@
 }
 .block-list-empty .hint {
   font-size: 12px;
-  color: #5a5d62;
+  color: var(--text-muted);
   margin-top: 4px;
 }
 .block-list-empty strong {

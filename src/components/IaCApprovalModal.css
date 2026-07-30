@@ -10,8 +10,8 @@
 
 .iac-approval-modal {
   background: var(--surface-terminal);
-  color: #d4d4d4;
-  border: 1px solid #3a3a3a;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   width: min(560px, 92vw);
   max-height: 86vh;
@@ -20,11 +20,11 @@
 }
 
 .iac-approval-modal.tier-high {
-  border-top: 4px solid #f5a623;
+  border-top: 4px solid var(--border-default);
 }
 .iac-approval-modal.tier-critical,
 .iac-approval-modal.tier-destructive {
-  border-top: 4px solid #e94b3c;
+  border-top: 4px solid var(--border-default);
 }
 
 .iac-approval-header {
@@ -32,7 +32,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
-  border-bottom: 1px solid #3a3a3a;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .iac-approval-header h2 {
@@ -46,21 +46,21 @@
   border-radius: 3px;
   font-size: 11px;
   font-weight: 700;
-  background: #6c757d;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 .iac-approval-badge.tier-low {
-  background: #50c878;
+  background: var(--surface-2);
 }
 .iac-approval-badge.tier-medium {
-  background: #4a90e2;
+  background: var(--surface-2);
 }
 .iac-approval-badge.tier-high {
-  background: #f5a623;
+  background: var(--surface-2);
 }
 .iac-approval-badge.tier-critical,
 .iac-approval-badge.tier-destructive {
-  background: #e94b3c;
+  background: var(--surface-2);
 }
 
 .iac-approval-context {
@@ -74,12 +74,12 @@
 .iac-approval-label {
   display: inline-block;
   min-width: 80px;
-  color: #888;
+  color: var(--text-primary);
 }
 
 .iac-approval-command {
   font-family: monospace;
-  background: #2d2d2d;
+  background: var(--surface-2);
   padding: 2px 6px;
   border-radius: 3px;
 }
@@ -87,7 +87,7 @@
 .iac-approval-branch-warning {
   display: block;
   margin-top: 4px;
-  color: #f5a623;
+  color: var(--status-warning);
   font-size: 12px;
 }
 
@@ -97,7 +97,7 @@
 
 .iac-approval-section {
   margin-bottom: 0.5rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
 }
 
@@ -109,13 +109,13 @@
 }
 
 .iac-approval-section.action-create summary {
-  color: #50c878;
+  color: var(--text-primary);
 }
 .iac-approval-section.action-update summary {
-  color: #4a90e2;
+  color: var(--text-primary);
 }
 .iac-approval-section.action-destroy summary {
-  color: #e94b3c;
+  color: var(--text-primary);
 }
 
 .iac-approval-section ul {
@@ -126,7 +126,7 @@
 }
 
 .iac-approval-rid {
-  color: #888;
+  color: var(--text-primary);
   margin-left: 0.5rem;
 }
 
@@ -139,8 +139,8 @@
   width: 100%;
   margin-top: 6px;
   padding: 6px 8px;
-  background: #2d2d2d;
-  border: 1px solid #555;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
   color: var(--text-primary);
   font-family: monospace;
@@ -151,7 +151,7 @@
   justify-content: flex-end;
   gap: 0.5rem;
   padding: 0.9rem 1rem;
-  border-top: 1px solid #3a3a3a;
+  border-top: 1px solid var(--border-default);
 }
 
 .iac-approval-cancel,
@@ -164,17 +164,17 @@
 }
 
 .iac-approval-cancel {
-  background: #3a3a3a;
-  color: #d4d4d4;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .iac-approval-proceed {
-  background: #50c878;
+  background: var(--surface-2);
   color: var(--text-inverse);
 }
 
 .iac-approval-proceed:disabled {
-  background: #3a4a3a;
-  color: #777;
+  background: var(--surface-2);
+  color: var(--text-primary);
   cursor: not-allowed;
 }

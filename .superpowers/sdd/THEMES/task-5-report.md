@@ -59,6 +59,12 @@ bun run build:relaxed
 git diff --check
 ```
 
+Final repair result: 245 Vitest files / 1,820 tests passed; the full literal
+inventory, regular merge-base guard, relaxed production build, workflow YAML
+parse, and whitespace check all passed. The build retains pre-existing Vite
+chunking advisories and the test run retains the non-fatal jsdom/Monaco source
+map notices noted above.
+
 Results: 245 Vitest files / 1,816 tests pass; the relaxed Vite build passes;
 `git diff --check` passes. Existing jsdom navigation notices and Monaco's
 missing upstream `marked.umd.js.map` notice remain non-fatal test output.
@@ -77,3 +83,36 @@ perform Task 6 release validation.
 
 Commit: `feat(theme): migrate feature colors and guard structural palette`
 (the final hash is available from Git history).
+
+## Review repair — 2026-07-30
+
+RED/GREEN guard repair: the original enumerated-literal guard and its
+representative fixture failed review because arbitrary colors and older palettes
+could pass. The replacement starts RED with arbitrary, domain-misuse, untracked,
+and explicit-base fixtures, then GREEN with five guard behavioral tests. It
+derives `git merge-base <base> HEAD`, includes committed/staged/unstaged diff
+lines plus untracked source files, falls back locally through `origin/main`,
+`main`, and `HEAD~1`, and supports `--base` override. `--inventory` scans the
+full source CSS/TSX tree; it is clean.
+
+Structural styles across all seven Task 5 batches were reclassified and mapped
+to surface/text/border/focus/status tokens, including older component palettes.
+`CodeBlock` executing is now `--status-info`, distinct from success, warning,
+and danger. `DiagramPanel` now injects resolved Dark/Grey/Matrix variables into
+draw.io and Markmap `srcDoc` documents and regenerates them when appearance
+changes; focused tests cover all three output themes.
+
+CI repair: the normal `bun run test` verification path invokes the guard, and
+both CI and release workflows fetch full history and run an explicit guard step
+with an event-derived base SHA. YAML parsing passed locally.
+
+Repair verification:
+
+```sh
+bun run check:structural-colors -- --inventory
+bun run test -- src/theme/structuralColorGuard.test.ts src/theme/featureThemeMigration.test.ts src/components/DiagramPanel.test.tsx
+bun run test
+bun run build:relaxed
+ruby -e 'require "yaml"; %w[.github/workflows/ci.yml .github/workflows/release.yml].each { |f| YAML.load_file(f) }'
+git diff --check
+```

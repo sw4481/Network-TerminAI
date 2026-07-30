@@ -18,7 +18,7 @@ function methodColor(method: string): string {
     case "PUT":
       return "var(--status-warning)";
     case "PATCH":
-      return "#d4bfff";
+      return "var(--text-primary)";
     case "DELETE":
       return "var(--status-danger)";
     default:

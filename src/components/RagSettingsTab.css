@@ -42,15 +42,15 @@
   background: var(--surface-input);
 }
 .rag-btn:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .rag-btn--primary {
-  border-color: #d4a857;
-  color: #d4a857;
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 .rag-btn--primary:hover {
-  background: rgba(212, 168, 87, 0.12);
+  background: var(--surface-hover);
 }
 .rag-btn--primary:disabled {
   opacity: 0.5;
@@ -70,7 +70,7 @@
   padding: 4px 10px;
 }
 .rag-btn--secondary:hover {
-  background: rgba(92, 207, 230, 0.1);
+  background: var(--surface-hover);
 }
 .rag-btn--secondary:disabled {
   opacity: 0.5;
@@ -99,12 +99,12 @@
   background: var(--surface-2);
 }
 .rag-dropzone:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .rag-dropzone--active {
-  border: 2px solid #d4a857;
-  box-shadow: inset 0 0 0 1px rgba(212, 168, 87, 0.25);
+  border: 2px solid var(--border-default);
+  box-shadow: inset 0 0 0 1px var(--surface-selected);
   min-height: 128px;
   background: var(--surface-2);
 }
@@ -127,7 +127,7 @@
 
 .rag-drop-error {
   margin: 0;
-  color: #e87878;
+  color: var(--status-danger);
   font-size: 12px;
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
 }
@@ -158,7 +158,7 @@
   border: 1px solid var(--border-default);
   padding: 0 4px;
   border-radius: 3px;
-  color: #d4a857;
+  color: var(--text-primary);
 }
 
 /* ---------------- Doc list ---------------- */
@@ -211,7 +211,7 @@
   background: var(--surface-2);
 }
 .rag-doc-row--error {
-  background: rgba(232, 120, 120, 0.06);
+  background: var(--status-danger-surface);
 }
 .rag-doc-row--ghost {
   border-style: dashed;
@@ -222,7 +222,7 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #d4a857;
+  color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 3px;
   padding: 2px 4px;
@@ -299,9 +299,9 @@
   font-size: 10px;
 }
 .rag-tag--selected {
-  border-color: #d4a857;
-  background: rgba(212, 168, 87, 0.12);
-  color: #d4a857;
+  border-color: var(--border-default);
+  background: var(--surface-selected);
+  color: var(--text-primary);
 }
 
 .rag-tag-glyph {
@@ -314,7 +314,7 @@
   cursor: pointer;
 }
 .rag-tag.rag-modal-tag:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -348,10 +348,10 @@
   color: var(--text-secondary);
 }
 .rag-pipeline-step--done {
-  color: #79c879;
+  color: var(--text-primary);
 }
 .rag-pipeline-step--active {
-  color: #d4a857;
+  color: var(--text-primary);
   animation: rag-pulse 1.4s ease-in-out infinite alternate;
 }
 .rag-pipeline-step--pending {
@@ -401,15 +401,15 @@
   color: var(--text-primary);
 }
 .rag-row-action--danger {
-  color: #e87878;
-  border-color: #e87878;
+  color: var(--status-danger);
+  border-color: var(--status-danger);
   font-size: 11px;
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
   padding: 4px 8px;
 }
 
 .rag-row-error {
-  color: #e87878;
+  color: var(--status-danger);
   font-size: 12px;
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
 }
@@ -458,7 +458,7 @@
   line-height: 1;
 }
 .rag-modal-close:hover {
-  color: #e87878;
+  color: var(--text-primary);
 }
 
 .rag-modal-body {
@@ -509,9 +509,9 @@
   font-family: inherit;
 }
 .rag-title-input:focus-visible {
-  outline: 2px solid #d4a857;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 0;
-  border-color: #d4a857;
+  border-color: var(--focus-ring);
 }
 
 .rag-modal-tag-section {
@@ -534,12 +534,12 @@
   background: var(--surface-input);
   padding: 0 4px;
   border-radius: 3px;
-  color: #d4a857;
+  color: var(--text-primary);
 }
 .rag-modal-tag-error {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #e87878;
+  color: var(--status-danger);
 }
 
 .rag-modal-actions {
@@ -578,7 +578,7 @@
 .rag-seed-error {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #e87878;
+  color: var(--status-danger);
   font-family: ui-monospace, "SF Mono", "Menlo", monospace;
 }
 

@@ -5,11 +5,11 @@
 }
 
 .git-diff-glyph--added {
-  background: #98c379;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
 }
 
 .git-diff-glyph--modified {
-  background: #e5c07b;
+  background: var(--surface-2);
 }
 
 .git-diff-glyph--deleted {
@@ -19,7 +19,7 @@
   margin-left: 1px;
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
-  border-left: 6px solid #e06c75;
+  border-left: 6px solid var(--status-danger);
   border-radius: 0;
 }
 
@@ -30,19 +30,19 @@
 }
 
 .git-diff-line--added {
-  border-left: 3px solid #98c379;
+  border-left: 3px solid var(--status-success);
 }
 
 .git-diff-line--modified {
-  border-left: 3px solid #e5c07b;
+  border-left: 3px solid var(--border-default);
 }
 
 .git-diff-line--deleted {
-  border-left: 3px solid #e06c75;
+  border-left: 3px solid var(--status-danger);
 }
 
 .git-blame-inline {
-  color: #6f7682 !important;
+  color: var(--text-primary) !important;
   font-style: italic;
   opacity: 0.9;
   pointer-events: none;

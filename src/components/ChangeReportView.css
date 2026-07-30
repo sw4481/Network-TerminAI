@@ -19,7 +19,7 @@
   border: 1px solid var(--border-default);
   border-radius: 6px;
   font-size: 13px;
-  color: #d0d0d0;
+  color: var(--text-primary);
 }
 
 .report-notes strong {

@@ -8,8 +8,8 @@
   justify-content: space-between;
   gap: 12px;
   padding: 6px 10px;
-  border-bottom: 1px solid var(--cb-border, #2a2f3a);
-  background: rgb(var(--overlay-light-rgb) / 0.02);
+  border-bottom: 1px solid var(--cb-border, var(--border-default));
+  background: var(--surface-2);
   flex: 0 0 auto;
 }
 
@@ -33,39 +33,39 @@
   font-family: inherit;
   background: transparent;
   color: inherit;
-  border: 1px solid var(--cb-border, #2a2f3a);
+  border: 1px solid var(--cb-border, var(--border-default));
   border-radius: 4px;
   cursor: pointer;
 }
 
 .topology-toolbar__button:hover {
-  background: rgb(var(--overlay-light-rgb) / 0.05);
+  background: var(--surface-hover);
 }
 
 .topology-toolbar__button:focus-visible {
-  outline: 2px solid #4a90e2;
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
 .topology-toolbar__primary {
-  background: #0ea770;
-  border-color: #0ea770;
+  background: var(--surface-2);
+  border-color: var(--border-default);
   color: var(--text-inverse);
   font-weight: 500;
 }
 
 .topology-toolbar__primary:hover {
-  background: #0d9566;
-  border-color: #0d9566;
+  background: var(--surface-hover);
+  border-color: var(--border-default);
 }
 
 .topology-toolbar__danger {
-  border-color: rgba(220, 80, 80, 0.5);
-  color: #f1a1a1;
+  border-color: var(--status-danger);
+  color: var(--status-danger);
 }
 
 .topology-toolbar__danger:hover {
-  background: rgba(220, 80, 80, 0.12);
+  background: var(--status-danger-surface);
 }
 
 .topology-toolbar__select {
@@ -74,7 +74,7 @@
   font-family: inherit;
   background: var(--surface-2);
   color: inherit;
-  border: 1px solid var(--cb-border, #2a2f3a);
+  border: 1px solid var(--cb-border, var(--border-default));
   border-radius: 4px;
   cursor: pointer;
 }

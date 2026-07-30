@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get version from tag
         id: tag_name
@@ -60,6 +62,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -136,6 +140,11 @@ jobs:
 
       - name: Run frontend tests
         run: bun run test
+
+      - name: Check semantic color literals
+        env:
+          STRUCTURAL_COLOR_BASE: ${{ github.event.before || github.sha }}
+        run: bun run check:structural-colors
 
       - uses: tauri-apps/tauri-action@v0
         env:

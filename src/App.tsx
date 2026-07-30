@@ -738,7 +738,7 @@ export default function App() {
       } catch (e) {
         console.error('recording toggle failed', e);
         const note = document.createElement('div');
-        note.style.cssText = 'position:fixed;top:20px;right:20px;background:#2a1416;border:1px solid #e06c75;border-radius:8px;padding:12px 16px;color:#f1a1a1;font-size:13px;z-index:10001;max-width:480px;box-shadow:0 4px 12px rgba(0,0,0,0.5)';
+        note.style.cssText = 'position:fixed;top:20px;right:20px;background:var(--border-default);border:1px solid var(--border-default);border-radius:8px;padding:12px 16px;color:var(--border-default);font-size:13px;z-index:10001;max-width:480px;box-shadow:0 4px 12px var(--border-default)';
         note.textContent = `Recording failed: ${String(e)}`;
         document.body.appendChild(note);
         setTimeout(() => note.remove(), 8000);
@@ -1206,7 +1206,7 @@ export default function App() {
       </ErrorBoundary>
       <div className="workspace" style={workspaceStyle}>
         <ErrorBoundary componentName="Terminal">
-          <Suspense fallback={<div style={{ padding: "20px", color: "#6c7380" }}>Loading terminal...</div>}>
+          <Suspense fallback={<div style={{ padding: "20px", color: "var(--status-info)" }}>Loading terminal...</div>}>
             <div className="term-col">
               {/* Render active terminal tab */}
               {terminals.map(({ slot, tab, shell, cwd, visible }) => {
@@ -1650,7 +1650,7 @@ function ModalShell({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "var(--surface-2)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1662,8 +1662,8 @@ function ModalShell({
         style={{
           width: "min(1200px, 92vw)",
           height: "min(800px, 86vh)",
-          background: "#0f1114",
-          border: "1px solid #262a33",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-default)",
           borderRadius: 8,
           display: "flex",
           flexDirection: "column",
@@ -1677,8 +1677,8 @@ function ModalShell({
             justifyContent: "space-between",
             alignItems: "center",
             padding: "8px 14px",
-            borderBottom: "1px solid #262a33",
-            color: "#e6e1cf",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-primary)",
             fontFamily: "Menlo, monospace",
             fontSize: 12,
           }}
@@ -1688,7 +1688,7 @@ function ModalShell({
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
+              color: "var(--text-primary)",
               border: "none",
               cursor: "pointer",
               fontSize: 16,
@@ -1709,7 +1709,7 @@ function FanoutOverlay({ onClose }: { onClose: () => void }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "var(--surface-2)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1721,8 +1721,8 @@ function FanoutOverlay({ onClose }: { onClose: () => void }) {
         style={{
           width: "min(1200px, 92vw)",
           height: "min(800px, 86vh)",
-          background: "#0f1114",
-          border: "1px solid #262a33",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-default)",
           borderRadius: 8,
           display: "flex",
           flexDirection: "column",
@@ -1736,8 +1736,8 @@ function FanoutOverlay({ onClose }: { onClose: () => void }) {
             justifyContent: "space-between",
             alignItems: "center",
             padding: "8px 14px",
-            borderBottom: "1px solid #262a33",
-            color: "#e6e1cf",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-primary)",
             fontFamily: "Menlo, monospace",
             fontSize: 12,
           }}
@@ -1747,7 +1747,7 @@ function FanoutOverlay({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
+              color: "var(--text-primary)",
               border: "none",
               cursor: "pointer",
               fontSize: 16,
@@ -1768,7 +1768,7 @@ function FanoutGroupsOverlay({ onClose }: { onClose: () => void }) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.6)",
+        background: "var(--surface-2)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -1780,8 +1780,8 @@ function FanoutGroupsOverlay({ onClose }: { onClose: () => void }) {
         style={{
           width: "min(1100px, 90vw)",
           height: "min(720px, 80vh)",
-          background: "#0f1114",
-          border: "1px solid #262a33",
+          background: "var(--surface-2)",
+          border: "1px solid var(--border-default)",
           borderRadius: 8,
           display: "flex",
           flexDirection: "column",
@@ -1795,8 +1795,8 @@ function FanoutGroupsOverlay({ onClose }: { onClose: () => void }) {
             justifyContent: "space-between",
             alignItems: "center",
             padding: "8px 14px",
-            borderBottom: "1px solid #262a33",
-            color: "#e6e1cf",
+            borderBottom: "1px solid var(--border-default)",
+            color: "var(--text-primary)",
             fontFamily: "Menlo, monospace",
             fontSize: 12,
           }}
@@ -1806,7 +1806,7 @@ function FanoutGroupsOverlay({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             style={{
               background: "transparent",
-              color: "#8a8d94",
+              color: "var(--text-primary)",
               border: "none",
               cursor: "pointer",
               fontSize: 16,

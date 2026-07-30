@@ -122,7 +122,7 @@ const SettingsBrowserTab: React.FC = () => {
         ) : (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {windows.map((w) => (
-              <li key={w.browserId} style={{ marginBottom: '12px', padding: '12px', background: '#1a1d24', border: '1px solid #2d3139', borderRadius: '4px' }}>
+              <li key={w.browserId} style={{ marginBottom: '12px', padding: '12px', background: 'var(--border-default)', border: '1px solid var(--border-default)', borderRadius: '4px' }}>
                 <div style={{ fontFamily: 'monospace', fontSize: 13, marginBottom: '8px', color: 'var(--text-primary)' }}>{w.url}</div>
                 <button
                   data-testid={`import-chrome-${w.browserId}`}

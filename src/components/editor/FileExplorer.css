@@ -4,7 +4,7 @@
   width: 250px;
   height: 100%;
   background: var(--surface-terminal);
-  border-right: 1px solid #333;
+  border-right: 1px solid var(--border-default);
   overflow: hidden;
 }
 
@@ -13,8 +13,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  border-bottom: 1px solid #333;
-  background: #252526;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
 }
 
 .explorer-actions {
@@ -25,7 +25,7 @@
 .explorer-actions button {
   background: none;
   border: none;
-  color: #cccccc;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
@@ -34,7 +34,7 @@
 }
 
 .explorer-actions button:hover {
-  background: #37373d;
+  background: var(--surface-hover);
   color: var(--text-inverse);
 }
 
@@ -44,16 +44,16 @@
   gap: 6px;
   padding: 4px 12px;
   background: var(--surface-terminal);
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .explorer-create-row input {
   flex: 1;
   min-width: 0;
-  background: #3c3c3c;
-  border: 1px solid #007acc;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
-  color: #d4d4d4;
+  color: var(--text-primary);
   font-size: 13px;
   padding: 2px 6px;
   outline: none;
@@ -63,7 +63,7 @@
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #cccccc;
+  color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
@@ -83,16 +83,16 @@
 }
 
 .file-node:hover {
-  background: #2a2d2e;
+  background: var(--surface-hover);
 }
 
 .file-node.selected {
-  background: #37373d;
+  background: var(--surface-selected);
 }
 
 .file-node.selected:focus,
 .file-node.selected:hover {
-  background: #094771;
+  background: var(--surface-hover);
 }
 
 .file-icon {
@@ -103,7 +103,7 @@
 
 .file-name {
   font-size: 13px;
-  color: #cccccc;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -124,12 +124,12 @@
   padding: 20px;
   text-align: center;
   font-size: 13px;
-  color: #888;
+  color: var(--text-primary);
   background: var(--surface-terminal);
 }
 
 .file-explorer-error {
-  color: #f48771;
+  color: var(--status-danger);
 }
 
 .file-explorer-empty {
@@ -139,38 +139,38 @@
 
 .file-explorer-empty button {
   padding: 6px 10px;
-  border: 1px solid #4a4a4f;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
-  background: #2d2d30;
-  color: #f0f0f0;
+  background: var(--surface-2);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .file-explorer-empty button:hover {
-  border-color: #007acc;
-  background: #37373d;
+  border-color: var(--border-default);
+  background: var(--surface-hover);
 }
 
 /* Git status indicators on file tree nodes. */
 .file-node.git-modified .file-name {
-  color: #e2c08d;
+  color: var(--text-primary);
 }
 
 .file-node.git-added .file-name {
-  color: #81b88b;
+  color: var(--status-success);
 }
 
 .file-node.git-untracked .file-name {
-  color: #73c991;
+  color: var(--text-primary);
 }
 
 .file-node.git-deleted .file-name {
-  color: #f48771;
+  color: var(--status-danger);
   text-decoration: line-through;
 }
 
 .file-node.git-renamed .file-name {
-  color: #6fb3d2;
+  color: var(--text-primary);
   font-style: italic;
 }
 
@@ -180,7 +180,7 @@
   font-size: 10px;
   line-height: 1;
   padding: 2px 5px;
-  background: #007acc;
+  background: var(--surface-2);
   border-radius: 3px;
   color: var(--text-inverse);
   font-weight: 600;
@@ -188,15 +188,15 @@
 }
 
 .file-node.git-deleted .git-status-badge {
-  background: #a1260d;
+  background: var(--status-danger-surface);
 }
 
 .file-node.git-untracked .git-status-badge {
-  background: #3a7c3a;
+  background: var(--surface-2);
 }
 
 .file-node.git-modified .git-status-badge {
-  background: #845d18;
+  background: var(--surface-2);
 }
 
 /* Scrollbar styling for dark theme */
@@ -209,10 +209,10 @@
 }
 
 .file-tree::-webkit-scrollbar-thumb {
-  background: #424242;
+  background: var(--surface-2);
   border-radius: 5px;
 }
 
 .file-tree::-webkit-scrollbar-thumb:hover {
-  background: #4e4e4e;
+  background: var(--surface-hover);
 }

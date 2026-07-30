@@ -1,11 +1,11 @@
 /* src/components/IaCCommandBlock.css */
 
 .iac-command-block {
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   margin-bottom: 1rem;
   background: var(--surface-terminal);
-  color: #d4d4d4;
+  color: var(--text-primary);
 }
 
 .iac-block-header {
@@ -13,8 +13,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  background: #2d2d2d;
-  border-bottom: 2px solid #3a3a3a;
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border-default);
 }
 
 .iac-header-left {
@@ -37,27 +37,27 @@
 }
 
 .iac-badge.exit-code.success {
-  background: #50c878;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
   color: white;
 }
 
 .iac-badge.exit-code.error {
-  background: #e94b3c;
+  background: var(--status-danger-surface);
   color: white;
 }
 
 .iac-badge.resources-changed {
-  background: #4a90e2;
+  background: var(--surface-2);
   color: white;
 }
 
 .iac-badge.resources-failed {
-  background: #f5a623;
+  background: var(--status-danger-surface);
   color: white;
 }
 
 .iac-badge.duration {
-  background: #6c757d;
+  background: var(--surface-2);
   color: white;
 }
 
@@ -68,8 +68,8 @@
 
 .iac-action-btn {
   background: transparent;
-  border: 1px solid #555;
-  color: #d4d4d4;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
   padding: 4px 8px;
   border-radius: 3px;
   cursor: pointer;
@@ -77,13 +77,13 @@
 }
 
 .iac-action-btn:hover {
-  background: #3a3a3a;
+  background: var(--surface-hover);
 }
 
 .iac-block-metadata {
   padding: 0.5rem 1rem;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
@@ -101,28 +101,28 @@
 
 .iac-resource-section {
   margin-bottom: 0.75rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
 }
 
 .iac-resource-section.color-green .iac-section-header {
-  background: #1e3a1e;
-  color: #50c878;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .iac-resource-section.color-blue .iac-section-header {
-  background: #1e2a3a;
-  color: #4a90e2;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .iac-resource-section.color-red .iac-section-header {
-  background: #3a1e1e;
-  color: #e94b3c;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .iac-resource-section.color-gray .iac-section-header {
-  background: #2a2a2a;
-  color: #9a9a9a;
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .iac-section-header {
@@ -163,19 +163,19 @@
 }
 
 .iac-resource-id {
-  color: #888;
+  color: var(--text-primary);
   font-size: 11px;
 }
 
 .iac-resource-error {
-  color: #e94b3c;
+  color: var(--status-danger);
   font-size: 11px;
 }
 
 .iac-command-block.loading {
   padding: 2rem;
   text-align: center;
-  color: #888;
+  color: var(--status-info);
 }
 
 .iac-output-section {
@@ -188,7 +188,7 @@
   font-family: var(--font-mono, 'SF Mono', Menlo, monospace);
   font-size: 12px;
   line-height: 1.45;
-  color: #cfd3dc;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 480px;
@@ -199,12 +199,12 @@
 .iac-output-section .iac-section-header {
   width: 100%;
   border: none;
-  background: #20242c;
-  color: #cfd3dc;
+  background: var(--surface-2);
+  color: var(--text-primary);
   text-align: left;
   font-family: inherit;
 }
 
 .iac-output-section .iac-section-header:hover {
-  background: #262b34;
+  background: var(--surface-hover);
 }

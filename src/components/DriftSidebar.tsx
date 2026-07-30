@@ -263,16 +263,16 @@ function ReportRow({
         <span>{new Date(report.captured_at * 1000).toLocaleTimeString()}</span>
         {report.diff_patch && (
           <>
-            <span style={{ color: "#80d090" }}>
+            <span style={{ color: "var(--text-primary)" }}>
               +{report.diff_patch.stats.additions}
             </span>
-            <span style={{ color: "#ff8a8a" }}>
+            <span style={{ color: "var(--text-primary)" }}>
               −{report.diff_patch.stats.deletions}
             </span>
           </>
         )}
         {report.error_msg && (
-          <span style={{ color: "#ff8a8a" }} title={report.error_msg}>
+          <span style={{ color: "var(--status-danger)" }} title={report.error_msg}>
             error
           </span>
         )}
@@ -330,7 +330,7 @@ function DiffView({
 
   if (report.error_msg) {
     return (
-      <div className="drift-empty" style={{ color: "#ff8a8a" }}>
+      <div className="drift-empty" style={{ color: "var(--text-primary)" }}>
         Error: {report.error_msg}
       </div>
     );

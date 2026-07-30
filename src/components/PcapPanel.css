@@ -50,8 +50,8 @@
 
 .pcap-panel-col-header {
   padding: 8px 12px;
-  background: #1a1d22;
-  color: #c4a85a;
+  background: var(--surface-2);
+  color: var(--text-primary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -66,7 +66,7 @@
 
 .pcap-panel-conn-picker {
   padding: 8px 12px;
-  border-bottom: 1px solid #232323;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -75,13 +75,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  color: #c4a85a;
+  color: var(--text-primary);
   font-size: 11px;
 }
 .pcap-panel-conn-picker select,
 .pcap-panel-conn-picker input {
-  background: #0e0e0e;
-  border: 1px solid #2d2d2d;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
   color: var(--text-primary);
   border-radius: 4px;
   padding: 4px 8px;
@@ -95,8 +95,8 @@
 .pcap-panel-error {
   margin: 8px 12px;
   padding: 6px 8px;
-  background: #4a2424;
-  color: #ffd0d0;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
   border-radius: 4px;
   font-size: 11px;
 }
@@ -121,7 +121,7 @@
 }
 .pcap-panel-empty {
   padding: 14px;
-  color: #8a8a8a;
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -132,18 +132,18 @@
   padding: 0;
   min-height: 0;
   overflow: auto;
-  border-top: 1px solid #232323;
+  border-top: 1px solid var(--border-default);
 }
 .pcap-panel-recent li {
   padding: 6px 12px;
-  border-bottom: 1px solid #232323;
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
 }
 .pcap-panel-recent li:hover {
-  background: #1a1d22;
+  background: var(--surface-hover);
 }
 .pcap-panel-recent li.selected {
-  background: #1f3a5a;
+  background: var(--surface-selected);
 }
 .pcap-panel-recent-row {
   display: flex;
@@ -152,7 +152,7 @@
 }
 .pcap-panel-recent-device {
   flex: 1;
-  color: #c8e3ff;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -161,6 +161,6 @@
   color: var(--text-secondary);
 }
 .pcap-panel-recent-size {
-  color: #8a8a8a;
+  color: var(--text-primary);
   font-size: 11px;
 }

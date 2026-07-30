@@ -15,8 +15,8 @@
   left: 8px;
   display: block;
   padding: 1px 5px;
-  color: #98c379;
-  background: rgb(33 37 43 / 92%);
+  color: var(--text-primary);
+  background: var(--surface-overlay);
   border-radius: 3px;
   font: 600 11px/18px "SFMono-Regular", Menlo, monospace;
   pointer-events: none;

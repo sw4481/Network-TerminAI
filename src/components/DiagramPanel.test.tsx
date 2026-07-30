@@ -4,6 +4,7 @@ import {
   DiagramPanel,
   isSafeDiagramUrl,
   buildViewerSrcDoc,
+  buildMarkmapSrcDoc,
   escapeHtmlAttr,
 } from "./DiagramPanel";
 import { useDiagramStore } from "../state/diagramStore";
@@ -12,6 +13,10 @@ import type { DiagramEvent } from "../lib/tauri";
 const openUrlMock = vi.fn(async () => {});
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: (url: string) => openUrlMock(url),
+}));
+
+vi.mock("../theme/AppearanceProvider", () => ({
+  useAppearance: () => ({ settings: { appTheme: "terminai-dark" } }),
 }));
 
 beforeEach(() => {
@@ -95,6 +100,13 @@ describe("buildViewerSrcDoc", () => {
     expect(doc).toContain("img-src &#39;self&#39; data:");
     // loads the vendored viewer by external src (CSP-safe)
     expect(doc).toContain('src="/drawio/viewer-static.min.js"');
+  });
+
+  it("injects resolved Dark, Grey, and Matrix values for isolated documents", () => {
+    expect(buildViewerSrcDoc("<x/>", "terminai-dark")).toContain("--app-canvas: #0f1114");
+    expect(buildViewerSrcDoc("<x/>", "slate-grey")).toContain("--app-canvas: #17191c");
+    expect(buildViewerSrcDoc("<x/>", "matrix")).toContain("--app-canvas: #030703");
+    expect(buildMarkmapSrcDoc("# map", "matrix")).toContain("--status-danger:#ff6b6b");
   });
 });
 

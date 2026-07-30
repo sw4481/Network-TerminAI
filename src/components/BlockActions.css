@@ -12,7 +12,7 @@
 .action-btn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   padding: 4px 8px;
@@ -21,19 +21,19 @@
 }
 
 .action-btn:hover {
-  background: #444;
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
 .action-btn.bookmarked {
-  color: #ffd700;
+  color: var(--text-primary);
 }
 
 /* Keep the share button visibly active while its popover is open so the
  * row doesn't fade out underneath it (the row is opacity:0 by default
  * and only fades in on .block-header:hover). */
 .action-btn.active {
-  background: #444;
+  background: var(--surface-selected);
   color: var(--text-primary);
 }
 .block-actions:has(.action-btn.active) {

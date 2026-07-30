@@ -13,7 +13,7 @@
 .terminal-appearance {
   margin-bottom: 36px;
   padding-bottom: 28px;
-  border-bottom: 1px solid var(--border-color, #333);
+  border-bottom: 1px solid var(--border-color, var(--border-default));
 }
 
 .terminal-appearance__heading {
@@ -25,7 +25,7 @@
 
 .terminal-appearance__heading p {
   margin: -12px 0 18px;
-  color: var(--text-secondary, #a7a7a7);
+  color: var(--text-secondary, var(--text-primary));
   font-size: 13px;
 }
 
@@ -34,14 +34,14 @@
   gap: 12px;
   margin: 18px 0;
   padding: 14px;
-  border: 1px solid var(--border-color, #333);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 8px;
 }
 
 .terminal-appearance__section legend { padding: 0 5px; color: var(--text-primary, var(--text-inverse)); }
 .terminal-appearance__presets, .terminal-appearance__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
 .terminal-appearance label { color: var(--text-primary, var(--text-inverse)); font-size: 13px; }
-.terminal-appearance input[type="color"], .terminal-appearance input[type="text"], .terminal-appearance input[type="number"], .terminal-appearance select { display: block; box-sizing: border-box; width: 100%; margin-top: 5px; min-height: 31px; background: var(--bg-secondary, var(--surface-terminal)); color: var(--text-primary, var(--text-inverse)); border: 1px solid var(--border-color, #333); border-radius: 4px; }
+.terminal-appearance input[type="color"], .terminal-appearance input[type="text"], .terminal-appearance input[type="number"], .terminal-appearance select { display: block; box-sizing: border-box; width: 100%; margin-top: 5px; min-height: 31px; background: var(--bg-secondary, var(--text-primary)); color: var(--text-primary, var(--text-inverse)); border: 1px solid var(--border-color, var(--text-primary)); border-radius: 4px; }
 .terminal-appearance input[type="color"] { padding: 2px; }
 .terminal-appearance input[type="checkbox"], .terminal-appearance input[type="radio"] { margin-right: 6px; }
 .terminal-appearance__preview { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px; background: var(--surface-terminal, var(--app-canvas)); border-radius: 5px; }
@@ -63,9 +63,9 @@
 .settings-group input[type="text"] {
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--border-color, #333);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 4px;
-  background-color: var(--bg-secondary, var(--surface-terminal));
+  background-color: var(--bg-secondary, var(--text-primary));
   color: var(--text-primary, var(--text-inverse));
   font-size: 14px;
 }
@@ -76,7 +76,7 @@
 
 .save-btn {
   padding: 10px 20px;
-  background-color: var(--accent-color, #3b82f6);
+  background-color: var(--accent-color, var(--text-primary));
   color: white;
   border: none;
   border-radius: 4px;
@@ -87,7 +87,7 @@
 }
 
 .save-btn:hover {
-  background-color: var(--accent-hover, #2563eb);
+  background-color: var(--accent-hover, var(--surface-hover));
 }
 
 .save-btn:disabled {
@@ -98,7 +98,7 @@
 .log-settings-section {
   margin-top: 36px;
   padding-top: 28px;
-  border-top: 1px solid var(--border-color, #333);
+  border-top: 1px solid var(--border-color, var(--border-default));
 }
 
 .log-settings-heading {
@@ -117,7 +117,7 @@
 .log-file-details p,
 .log-settings-status {
   margin: 0;
-  color: var(--text-secondary, #a7a7a7);
+  color: var(--text-secondary, var(--text-primary));
   font-size: 13px;
   line-height: 1.45;
 }
@@ -129,7 +129,7 @@
   justify-content: space-between;
   gap: 18px;
   padding: 14px;
-  border: 1px solid var(--border-color, #333);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   background: var(--bg-secondary, var(--surface-terminal));
 }
@@ -152,7 +152,7 @@
 .log-directory-row code,
 .log-file-details code {
   margin-top: 5px;
-  color: var(--text-secondary, #b8b8b8);
+  color: var(--text-secondary, var(--text-primary));
   font-size: 12px;
   overflow-wrap: anywhere;
   user-select: text;
@@ -178,11 +178,11 @@
 }
 
 .log-available {
-  color: var(--success-color, #4ade80);
+  color: var(--success-color, var(--status-success));
 }
 
 .log-pending {
-  color: var(--text-secondary, #a7a7a7);
+  color: var(--text-secondary, var(--status-warning));
 }
 
 .log-file-actions {
@@ -193,16 +193,16 @@
 
 .secondary-btn {
   padding: 7px 11px;
-  border: 1px solid var(--border-color, #444);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 5px;
-  background: var(--bg-tertiary, #292929);
+  background: var(--bg-tertiary, var(--surface-2));
   color: var(--text-primary, var(--text-inverse));
   cursor: pointer;
   white-space: nowrap;
 }
 
 .secondary-btn:hover:not(:disabled) {
-  border-color: var(--accent-color, #3b82f6);
+  border-color: var(--accent-color, var(--border-default));
 }
 
 .secondary-btn:disabled {
@@ -213,9 +213,9 @@
 .log-settings-error {
   margin: 0 0 12px;
   padding: 9px 11px;
-  border: 1px solid var(--error-color, #ef4444);
+  border: 1px solid var(--error-color, var(--status-danger));
   border-radius: 5px;
-  color: var(--error-color, #f87171);
+  color: var(--error-color, var(--status-danger));
   font-size: 13px;
 }
 

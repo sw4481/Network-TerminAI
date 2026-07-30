@@ -36,7 +36,7 @@
   font-family: inherit;
   font-size: 11px;
 }
-.fanout-groups-list-header button:hover { background: #3a6ba0; }
+.fanout-groups-list-header button:hover { background: var(--accent-subtle); }
 
 .fanout-new-group-form {
   display: flex;
@@ -47,9 +47,9 @@
 .fanout-new-group-form input {
   flex: 1;
   min-width: 0;
-  background: #11141a;
-  color: #e3e4e6;
-  border: 1px solid #3a3f4a;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 5px 8px;
   font-family: inherit;
@@ -70,24 +70,24 @@
 .fanout-new-group-form button[type="button"] {
   background: transparent;
   color: var(--text-secondary);
-  border: 1px solid #3a3f4a;
+  border: 1px solid var(--border-default);
 }
-.fanout-new-group-form button:hover { background: #3a6ba0; }
+.fanout-new-group-form button:hover { background: var(--accent-subtle); }
 .fanout-new-group-form button[type="button"]:hover {
   background: var(--surface-2);
-  color: #e3e4e6;
+  color: var(--text-primary);
 }
 
 .fanout-group-item {
   padding: 10px 12px;
   cursor: pointer;
-  border-bottom: 1px solid #1a1d22;
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 .fanout-group-item:hover { background: var(--surface-overlay); }
-.fanout-group-item.selected { background: #1d2530; border-left: 3px solid #56b6c2; padding-left: 9px; }
+.fanout-group-item.selected { background: var(--surface-2); border-left: 3px solid var(--surface-2); padding-left: 9px; }
 
 .fanout-group-name {
   font-size: 13px;
@@ -133,7 +133,7 @@
   gap: 6px;
 }
 .fanout-detail-actions button {
-  background: #1a1d22;
+  background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   padding: 4px 10px;
@@ -142,8 +142,8 @@
   font-family: inherit;
   font-size: 11px;
 }
-.fanout-detail-actions button:hover { background: #232830; }
-.fanout-detail-actions button.danger { color: #e06c75; border-color: #553030; }
+.fanout-detail-actions button:hover { background: var(--accent-subtle); }
+.fanout-detail-actions button.danger { color: var(--status-danger); border-color: var(--status-danger); }
 
 .fanout-members-list {
   flex: 1;
@@ -157,7 +157,7 @@
   gap: 8px;
   align-items: center;
   padding: 6px 8px;
-  border-bottom: 1px solid #1a1d22;
+  border-bottom: 1px solid var(--border-default);
   font-size: 12px;
 }
 
@@ -169,13 +169,13 @@
   text-align: center;
   font-weight: 500;
 }
-.fanout-kind-badge.ssh    { background: #1d3a5a; color: #a3c9ff; }
-.fanout-kind-badge.netconf { background: #3a2a5a; color: #c9a3ff; }
+.fanout-kind-badge.ssh    { background: var(--surface-2); color: var(--text-primary); }
+.fanout-kind-badge.netconf { background: var(--surface-2); color: var(--text-primary); }
 
 .fanout-member-remove {
   background: transparent;
   border: none;
-  color: #e06c75;
+  color: var(--status-danger);
   cursor: pointer;
   padding: 0;
   font-size: 14px;
@@ -184,8 +184,8 @@
 .fanout-cap-banner {
   margin: 8px 12px;
   padding: 8px 10px;
-  background: #4a3320;
-  color: #ffcc70;
+  background: var(--surface-2);
+  color: var(--text-primary);
   border-radius: 4px;
   font-size: 11px;
 }

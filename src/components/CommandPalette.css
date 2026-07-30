@@ -13,8 +13,8 @@
 }
 
 .palette-modal {
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
   width: 600px;
@@ -30,12 +30,12 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  border-bottom: 1px solid #3a3a3a;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .search-icon {
   font-size: 14px;
-  color: #888;
+  color: var(--text-primary);
 }
 
 .palette-search input {
@@ -49,7 +49,7 @@
 }
 
 .palette-search input::placeholder {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .palette-results {
@@ -62,11 +62,11 @@
 }
 
 .palette-results::-webkit-scrollbar-track {
-  background: #2a2a2a;
+  background: var(--surface-2);
 }
 
 .palette-results::-webkit-scrollbar-thumb {
-  background: #444;
+  background: var(--surface-2);
   border-radius: 4px;
 }
 
@@ -81,7 +81,7 @@
 
 .palette-item:hover,
 .palette-item.selected {
-  background: #353535;
+  background: var(--surface-selected);
 }
 
 .item-icon {
@@ -105,7 +105,7 @@
 
 .item-subtitle {
   font-size: 12px;
-  color: #888;
+  color: var(--text-primary);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -115,7 +115,7 @@
 .no-results {
   padding: 32px;
   text-align: center;
-  color: #666;
+  color: var(--text-primary);
   font-style: italic;
 }
 
@@ -123,15 +123,15 @@
   display: flex;
   gap: 4px;
   padding: 8px 12px;
-  border-bottom: 1px solid #3a3a3a;
-  background: #232323;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
 }
 
 .palette-scope [role="tab"] {
   padding: 4px 12px;
   border-radius: 6px;
   background: transparent;
-  color: #888;
+  color: var(--text-primary);
   border: 1px solid transparent;
   font-size: 12px;
   cursor: pointer;
@@ -142,14 +142,14 @@
 }
 
 .palette-scope [role="tab"]:hover {
-  background: #303030;
-  color: #cfcfcf;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .palette-scope [role="tab"][aria-selected="true"] {
   background: var(--accent-subtle);
   color: var(--text-inverse);
-  border-color: #3a6fa8;
+  border-color: var(--border-default);
 }
 
 .palette-scope-shortcut {
@@ -173,7 +173,7 @@
 
 .palette-item-kind {
   font-size: 10px;
-  color: #777;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding-left: 8px;
@@ -182,7 +182,7 @@
 
 .palette-item-meta {
   margin-left: 8px;
-  color: #888;
+  color: var(--text-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;

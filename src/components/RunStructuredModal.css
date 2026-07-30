@@ -57,11 +57,11 @@
 }
 
 .run-structured-error {
-  background: #3a1f1f;
-  border: 1px solid #c0392b;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
   border-radius: 4px;
   padding: 10px 12px;
-  color: #f08080;
+  color: var(--status-danger);
   margin-bottom: 12px;
   font-size: 13px;
 }

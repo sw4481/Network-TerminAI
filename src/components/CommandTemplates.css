@@ -25,7 +25,7 @@
 
 .templates-modal {
   background: var(--surface-2);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   width: 700px;
   max-width: 90vw;
@@ -52,7 +52,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #3a3d43;
+  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -91,7 +91,7 @@
   display: flex;
   gap: 4px;
   padding: 16px 20px 0;
-  border-bottom: 1px solid #3a3d43;
+  border-bottom: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -132,7 +132,7 @@
   gap: 6px;
   padding: 12px 16px;
   background: var(--app-canvas);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
@@ -159,7 +159,7 @@
   font-family: 'Menlo', 'SF Mono', Monaco, monospace;
   font-size: 12px;
   color: var(--accent);
-  background: rgba(92, 207, 230, 0.1);
+  background: var(--surface-2);
   padding: 4px 8px;
   border-radius: 3px;
   word-break: break-all;
@@ -167,13 +167,13 @@
 
 .template-description {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
 .templates-footer {
   padding: 12px 20px;
-  border-top: 1px solid #3a3d43;
+  border-top: 1px solid var(--border-default);
   flex-shrink: 0;
 }
 
@@ -193,10 +193,10 @@
 }
 
 .templates-list::-webkit-scrollbar-thumb {
-  background: #3a3d43;
+  background: var(--surface-2);
   border-radius: 4px;
 }
 
 .templates-list::-webkit-scrollbar-thumb:hover {
-  background: #4a5061;
+  background: var(--surface-hover);
 }

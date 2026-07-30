@@ -122,7 +122,7 @@ export function SelectorEditor({ value, onChange }: Props) {
       )}
 
       {value.tags.length > 0 && (
-        <p style={{ color: "#c8a45e", marginTop: 12 }}>
+        <p style={{ color: "var(--text-primary)", marginTop: 12 }}>
           This template used legacy tag selection ({value.tags.join(", ")}),
           which is no longer supported. Pick a group or connection above.
         </p>

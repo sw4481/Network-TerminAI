@@ -1,7 +1,7 @@
 .workflow-editor-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(var(--backdrop-rgb) / 0.7);
+  background: var(--surface-input);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,14 +10,14 @@
 
 .workflow-editor-modal {
   background: var(--vscode-editor-background, var(--surface-terminal));
-  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border: 1px solid var(--vscode-panel-border, var(--border-default));
   border-radius: 8px;
   width: 90%;
   max-width: 800px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
+  box-shadow: 0 8px 32px var(--surface-input);
 }
 
 .workflow-editor-header {
@@ -25,20 +25,20 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-bottom: 1px solid var(--vscode-panel-border, var(--border-default));
 }
 
 .workflow-editor-header h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vscode-editor-foreground, var(--text-primary));
 }
 
 .workflow-editor-close {
   background: none;
   border: none;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vscode-editor-foreground, var(--text-primary));
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -51,7 +51,7 @@
 }
 
 .workflow-editor-close:hover {
-  background: var(--vscode-list-hoverBackground, #2a2d2e);
+  background: var(--vscode-list-hoverBackground, var(--surface-hover));
 }
 
 .workflow-editor-content {
@@ -68,14 +68,14 @@
   margin: 0 0 12px 0;
   font-size: 14px;
   font-weight: 600;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vscode-editor-foreground, var(--text-primary));
 }
 
 .workflow-editor-section label {
   display: block;
   margin-bottom: 12px;
   font-size: 13px;
-  color: var(--vscode-input-foreground, #cccccc);
+  color: var(--vscode-input-foreground, var(--text-primary));
 }
 
 .workflow-editor-section label input,
@@ -84,17 +84,17 @@
   width: 100%;
   margin-top: 4px;
   padding: 8px;
-  background: var(--vscode-input-background, #3c3c3c);
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  background: var(--vscode-input-background, var(--surface-input));
+  border: 1px solid var(--vscode-input-border, var(--border-default));
   border-radius: 4px;
-  color: var(--vscode-input-foreground, #cccccc);
+  color: var(--vscode-input-foreground, var(--text-primary));
   font-size: 13px;
 }
 
 .workflow-editor-section label input:focus,
 .workflow-editor-section label select:focus {
   outline: none;
-  border-color: var(--vscode-focusBorder, #007acc);
+  border-color: var(--vscode-focusBorder, var(--focus-ring));
 }
 
 .workflow-editor-section-header {
@@ -106,7 +106,7 @@
 
 .workflow-editor-add-btn {
   padding: 6px 12px;
-  background: var(--vscode-button-background, #0e639c);
+  background: var(--vscode-button-background, var(--surface-input));
   border: none;
   border-radius: 4px;
   color: var(--vscode-button-foreground, var(--text-inverse));
@@ -115,12 +115,12 @@
 }
 
 .workflow-editor-add-btn:hover {
-  background: var(--vscode-button-hoverBackground, #1177bb);
+  background: var(--vscode-button-hoverBackground, var(--surface-hover));
 }
 
 .workflow-editor-empty {
   font-size: 13px;
-  color: var(--vscode-descriptionForeground, #717171);
+  color: var(--vscode-descriptionForeground, var(--text-primary));
   font-style: italic;
   margin: 12px 0;
 }
@@ -132,7 +132,7 @@
   align-items: center;
   margin-bottom: 8px;
   padding: 8px;
-  background: var(--vscode-input-background, #3c3c3c);
+  background: var(--vscode-input-background, var(--surface-input));
   border-radius: 4px;
 }
 
@@ -141,9 +141,9 @@
   flex: 1;
   padding: 6px 8px;
   background: var(--vscode-editor-background, var(--surface-terminal));
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, var(--border-default));
   border-radius: 4px;
-  color: var(--vscode-input-foreground, #cccccc);
+  color: var(--vscode-input-foreground, var(--text-primary));
   font-size: 13px;
 }
 
@@ -162,7 +162,7 @@
 
 .workflow-editor-step-number {
   font-weight: 600;
-  color: var(--vscode-editor-foreground, #d4d4d4);
+  color: var(--vscode-editor-foreground, var(--text-primary));
   min-width: 24px;
 }
 
@@ -170,36 +170,36 @@
   flex: 1;
   padding: 6px 8px;
   background: var(--vscode-editor-background, var(--surface-terminal));
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, var(--border-default));
   border-radius: 4px;
-  color: var(--vscode-input-foreground, #cccccc);
+  color: var(--vscode-input-foreground, var(--text-primary));
   font-size: 13px;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
 }
 
 .workflow-editor-remove-btn {
   padding: 6px 12px;
-  background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
-  border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  background: var(--vscode-inputValidation-errorBackground, var(--status-danger-surface));
+  border: 1px solid var(--vscode-inputValidation-errorBorder, var(--status-danger));
   border-radius: 4px;
-  color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-errorForeground, var(--status-danger));
   font-size: 12px;
   cursor: pointer;
 }
 
 .workflow-editor-remove-btn:hover {
-  background: var(--vscode-inputValidation-errorBorder, #be1100);
+  background: var(--vscode-inputValidation-errorBorder, var(--status-danger-surface));
   color: var(--text-inverse);
 }
 
 .workflow-editor-hint {
   font-size: 12px;
-  color: var(--vscode-descriptionForeground, #717171);
+  color: var(--vscode-descriptionForeground, var(--text-muted));
   margin: 8px 0 0 0;
 }
 
 .workflow-editor-hint code {
-  background: var(--vscode-textCodeBlock-background, #0a0a0a);
+  background: var(--vscode-textCodeBlock-background, var(--surface-input));
   padding: 2px 6px;
   border-radius: 3px;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
@@ -210,7 +210,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 20px;
-  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-top: 1px solid var(--vscode-panel-border, var(--border-default));
 }
 
 .workflow-editor-cancel,
@@ -223,21 +223,21 @@
 }
 
 .workflow-editor-cancel {
-  background: var(--vscode-button-secondaryBackground, #3a3d41);
-  color: var(--vscode-button-secondaryForeground, #cccccc);
+  background: var(--vscode-button-secondaryBackground, var(--surface-input));
+  color: var(--vscode-button-secondaryForeground, var(--text-primary));
 }
 
 .workflow-editor-cancel:hover {
-  background: var(--vscode-button-secondaryHoverBackground, #45494e);
+  background: var(--vscode-button-secondaryHoverBackground, var(--surface-hover));
 }
 
 .workflow-editor-save {
-  background: var(--vscode-button-background, #0e639c);
+  background: var(--vscode-button-background, var(--surface-input));
   color: var(--vscode-button-foreground, var(--text-inverse));
 }
 
 .workflow-editor-save:hover:not(:disabled) {
-  background: var(--vscode-button-hoverBackground, #1177bb);
+  background: var(--vscode-button-hoverBackground, var(--surface-hover));
 }
 
 .workflow-editor-save:disabled {

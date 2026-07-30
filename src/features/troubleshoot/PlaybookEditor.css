@@ -52,12 +52,12 @@
 }
 
 .tb-editor-gen-prompt::placeholder {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .tb-editor-gen-prompt:focus {
   outline: none;
-  border-color: #3d6e54;
+  border-color: var(--focus-ring);
 }
 
 .tb-editor-gen-prompt:disabled {
@@ -76,8 +76,8 @@
 }
 
 .tb-editor-btn:hover:not(:disabled) {
-  background: #1f242c;
-  border-color: #3a3f48;
+  background: var(--surface-hover);
+  border-color: var(--border-default);
 }
 
 .tb-editor-btn:disabled {
@@ -86,21 +86,21 @@
 }
 
 .tb-editor-btn.primary {
-  background: #2a4d3a;
-  border-color: #3d6e54;
+  background: var(--surface-input);
+  border-color: var(--border-default);
 }
 
 .tb-editor-btn.primary:hover:not(:disabled) {
-  background: #356247;
+  background: var(--surface-hover);
 }
 
 .tb-editor-btn.danger {
-  background: #4d2a2a;
-  border-color: #6e3d3d;
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
 }
 
 .tb-editor-btn.danger:hover:not(:disabled) {
-  background: #623535;
+  background: var(--status-danger-surface);
 }
 
 .tb-editor-toolbar-spacer {
@@ -114,17 +114,17 @@
 }
 
 .tb-editor-toolbar-status.error {
-  color: #e06c75;
+  color: var(--status-danger);
 }
 
 .tb-editor-toolbar-status.ok {
-  color: #98c379;
+  color: var(--text-primary);
 }
 
 .tb-editor-readonly-banner {
-  background: #2d2616;
-  border-bottom: 1px solid #4a3d20;
-  color: #d7c187;
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
   padding: 6px 12px;
   font-size: 11px;
 }
@@ -157,7 +157,7 @@
 .tb-editor-textarea-fallback {
   flex: 1;
   min-height: 0;
-  background: #0d1015;
+  background: var(--surface-input);
   color: var(--text-primary);
   border: none;
   outline: none;
@@ -180,27 +180,27 @@
   color: var(--text-secondary);
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-default);
-  background: #16191e;
+  background: var(--surface-input);
 }
 
 .tb-editor-preview-frozen {
   position: absolute;
   inset: 0;
-  background: rgba(20, 23, 28, 0.85);
+  background: var(--surface-input);
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   z-index: 5;
   font-size: 12px;
-  color: #d7c187;
+  color: var(--text-primary);
   padding: 16px;
   text-align: center;
 }
 
 .tb-editor-diagnostics {
   border-top: 1px solid var(--border-default);
-  background: #16191e;
+  background: var(--surface-input);
   max-height: 180px;
   display: flex;
   flex-direction: column;
@@ -220,7 +220,7 @@
 }
 
 .tb-editor-diagnostics-header.has-errors {
-  color: #e06c75;
+  color: var(--status-danger);
 }
 
 .tb-editor-diagnostics-list {
@@ -233,15 +233,15 @@
   font-size: 11px;
   padding: 4px 0;
   color: var(--text-primary);
-  border-bottom: 1px solid #1c2027;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .tb-editor-diagnostic-row.error {
-  color: #e06c75;
+  color: var(--status-danger);
 }
 
 .tb-editor-diagnostic-row.warn {
-  color: #d7c187;
+  color: var(--status-warning);
 }
 
 .tb-editor-diagnostic-where {

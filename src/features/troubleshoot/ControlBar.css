@@ -32,7 +32,7 @@
 }
 
 .tb-control-btn:hover:not(:disabled) {
-  border-color: #5a8fd6;
+  border-color: var(--border-default);
   color: var(--text-inverse);
 }
 
@@ -42,17 +42,17 @@
 }
 
 .tb-control-btn[data-variant="danger"] {
-  border-color: rgba(210,103,90,0.5);
-  color: #d2675a;
+  border-color: var(--status-danger);
+  color: var(--status-danger);
 }
 .tb-control-btn[data-variant="danger"]:hover:not(:disabled) {
-  background: rgba(210,103,90,0.15);
+  background: var(--status-danger-surface);
 }
 
 .tb-control-btn[data-variant="primary"] {
-  border-color: rgba(58,163,112,0.6);
-  color: #3aa370;
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 .tb-control-btn[data-variant="primary"]:hover:not(:disabled) {
-  background: rgba(58,163,112,0.12);
+  background: var(--surface-hover);
 }

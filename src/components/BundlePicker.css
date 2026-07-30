@@ -43,8 +43,8 @@
 }
 
 .bundle-item.selected {
-  background: #1a2530;
-  border-color: #4a90e2;
+  background: var(--surface-selected);
+  border-color: var(--border-default);
 }
 
 .bundle-item-header {
@@ -100,7 +100,7 @@
 }
 
 .bundle-action-btn.delete:hover {
-  background: #3d1f1f;
+  background: var(--status-danger-surface);
   border-color: var(--status-danger);
   color: var(--status-danger);
 }
@@ -117,5 +117,5 @@
 }
 
 .bundle-create-btn:hover {
-  background: #3d6a9c;
+  background: var(--surface-hover);
 }

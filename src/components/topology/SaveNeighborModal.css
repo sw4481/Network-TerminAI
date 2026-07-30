@@ -31,7 +31,7 @@
 .save-neighbor-kind .field-legend {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--color-text-secondary, #ccc);
+  color: var(--color-text-secondary, var(--text-primary));
 }
 
 .save-neighbor-kind .radio-row {

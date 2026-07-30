@@ -140,7 +140,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
               style={{
                 background: "transparent",
                 color: "var(--status-danger)",
-                border: "1px solid #3d2626",
+                border: "1px solid var(--border-default)",
                 borderRadius: 4,
                 padding: "6px 10px",
                 cursor: isConnected ? "not-allowed" : "pointer",
@@ -240,9 +240,9 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
                 color: "var(--status-danger)",
                 fontSize: 11,
                 padding: "6px 8px",
-                background: "#2a1a1a",
+                background: "var(--surface-2)",
                 borderRadius: 4,
-                border: "1px solid #3d2626",
+                border: "1px solid var(--border-default)",
               }}
             >
               {state.connection_error}
@@ -329,7 +329,7 @@ export function ConnectionPanel({ tabId, state, onConnect, onDisconnect }: Props
             style={{
               background: "transparent",
               color: "var(--status-danger)",
-              border: "1px solid #3d2626",
+              border: "1px solid var(--border-default)",
               borderRadius: 4,
               padding: "6px 10px",
               cursor: "pointer",

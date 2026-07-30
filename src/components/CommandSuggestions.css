@@ -7,11 +7,11 @@
   width: 600px;
   max-width: 90vw;
   background: var(--surface-2);
-  border: 1px solid #3a3d43;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   max-height: 300px;
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
+  box-shadow: 0 4px 20px var(--surface-2);
   z-index: 100;
   animation: slideUp 0.15s ease-out;
 }
@@ -34,8 +34,8 @@
   padding: 6px 12px;
   cursor: grab;
   user-select: none;
-  border-bottom: 1px solid #2a2d33;
-  background: #16181d;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
   border-radius: 6px 6px 0 0;
   position: sticky;
   top: 0;
@@ -53,7 +53,7 @@
 }
 
 .drag-label {
-  color: #9ca3af;
+  color: var(--text-primary);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -74,7 +74,7 @@
 }
 
 .suggestions-close-btn:hover {
-  background: rgb(var(--overlay-light-rgb) / 0.1);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -85,7 +85,7 @@
 .suggestion-loading {
   padding: 16px;
   text-align: center;
-  color: #9ca3af;
+  color: var(--status-info);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,11 +119,11 @@
 }
 
 .suggestion-item:hover {
-  background: rgba(92, 207, 230, 0.1);
+  background: var(--surface-hover);
 }
 
 .suggestion-item.selected {
-  background: rgba(92, 207, 230, 0.2);
+  background: var(--surface-selected);
 }
 
 .suggestion-command {
@@ -134,7 +134,7 @@
 }
 
 .suggestion-description {
-  color: #9ca3af;
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -152,7 +152,7 @@
 }
 
 .suggestion-category.history {
-  color: #a78bfa;
+  color: var(--text-primary);
 }
 
 .suggestion-category.history::before {

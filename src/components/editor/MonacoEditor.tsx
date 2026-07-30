@@ -609,11 +609,11 @@ export function MonacoEditor({
   }, [monaco, editorInstance, mode, onOpenResource]);
 
   if (error) {
-    return <div style={{ color: "#f87171", padding: "20px" }}>Editor failed to load: {error}</div>;
+    return <div style={{ color: "var(--status-danger)", padding: "20px" }}>Editor failed to load: {error}</div>;
   }
 
   if (!monaco) {
-    return <div style={{ color: "#888", padding: "20px" }}>Loading editor...</div>;
+    return <div style={{ color: "var(--status-info)", padding: "20px" }}>Loading editor...</div>;
   }
 
   return (

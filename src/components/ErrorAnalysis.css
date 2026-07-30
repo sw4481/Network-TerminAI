@@ -1,7 +1,7 @@
 .error-analysis {
   margin: 8px 0;
-  background: rgba(255, 59, 48, 0.1);
-  border: 1px solid rgba(255, 59, 48, 0.3);
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
   border-radius: 6px;
   overflow: hidden;
   animation: slideIn 0.2s ease;
@@ -23,8 +23,8 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(255, 59, 48, 0.15);
-  border-bottom: 1px solid rgba(255, 59, 48, 0.2);
+  background: var(--status-danger-surface);
+  border-bottom: 1px solid var(--status-danger);
 }
 
 .error-icon {
@@ -35,12 +35,12 @@
   flex: 1;
   font-size: 13px;
   font-weight: 600;
-  color: #ff6b6b;
+  color: var(--status-danger);
 }
 
 .error-analysis-content {
   padding: 12px;
-  color: var(--text-primary);
+  color: var(--status-danger);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -52,7 +52,7 @@
 .error-explanation strong {
   display: block;
   margin-bottom: 6px;
-  color: #ff8a80;
+  color: var(--status-danger);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -60,7 +60,7 @@
 
 .error-explanation p {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--status-danger);
 }
 
 .error-suggestions {
@@ -70,7 +70,7 @@
 .error-suggestions strong {
   display: block;
   margin-bottom: 8px;
-  color: #ff8a80;
+  color: var(--status-danger);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -88,16 +88,16 @@
   gap: 8px;
   padding: 8px;
   margin-bottom: 6px;
-  background: rgba(255, 59, 48, 0.08);
-  border: 1px solid rgba(255, 59, 48, 0.2);
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .error-suggestion:hover {
-  background: rgba(255, 59, 48, 0.15);
-  border-color: rgba(255, 59, 48, 0.4);
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
 }
 
 .error-suggestion:last-child {
@@ -105,7 +105,7 @@
 }
 
 .suggestion-icon {
-  color: #ff8a80;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -113,7 +113,7 @@
   flex: 1;
   font-family: 'SF Mono', Monaco, 'Courier New', monospace;
   font-size: 12px;
-  color: var(--text-primary);
+  color: var(--status-danger);
   background: transparent;
   padding: 0;
 }
@@ -136,5 +136,5 @@
 
 .error-failed {
   margin: 0;
-  color: #ff6b6b;
+  color: var(--status-danger);
 }

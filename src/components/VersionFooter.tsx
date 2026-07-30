@@ -17,7 +17,7 @@ export function VersionFooter() {
         bottom: "4px",
         left: "8px",
         fontSize: "10px",
-        color: "#4a4a4a",
+        color: "var(--text-primary)",
         userSelect: "none",
         pointerEvents: "none",
         zIndex: 1000,

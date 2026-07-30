@@ -3,7 +3,7 @@
   flex-direction: column;
   width: 280px;
   min-width: 220px;
-  border-left: 1px solid var(--border, #2a2a2a);
+  border-left: 1px solid var(--border, var(--border-default));
   background: var(--panel-bg, var(--surface-terminal));
   padding: 8px;
   gap: 8px;
@@ -14,16 +14,16 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted, #9aa0a6);
+  color: var(--text-muted, var(--text-primary));
 }
 .iac-ai-prompt {
   resize: vertical;
   font-family: inherit;
   font-size: 13px;
   padding: 6px;
-  background: var(--input-bg, #252526);
-  color: var(--text, #e8e8e8);
-  border: 1px solid var(--border, #2a2a2a);
+  background: var(--input-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
+  border: 1px solid var(--border, var(--border-default));
   border-radius: 4px;
 }
 .iac-ai-actions {
@@ -36,10 +36,10 @@
   padding: 6px 8px;
   font-size: 12px;
   cursor: pointer;
-  border: 1px solid var(--border, #2a2a2a);
+  border: 1px solid var(--border, var(--border-default));
   border-radius: 4px;
-  background: var(--button-bg, #2d2d2d);
-  color: var(--text, #e8e8e8);
+  background: var(--button-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
 }
 .iac-ai-actions button:disabled {
   opacity: 0.5;
@@ -50,24 +50,24 @@
 .iac-ai-actions-secondary {
   margin-top: 2px;
   padding-top: 8px;
-  border-top: 1px solid var(--border, #2a2a2a);
+  border-top: 1px solid var(--border, var(--border-default));
 }
 .iac-ai-explain {
   background: transparent;
-  color: var(--text-muted, #9aa0a6);
+  color: var(--text-muted, var(--text-primary));
   font-size: 11px;
 }
 .iac-ai-explain:hover:not(:disabled) {
-  color: var(--text, #e8e8e8);
+  color: var(--text, var(--text-primary));
 }
 .iac-ai-error {
-  color: var(--error, #f48771);
+  color: var(--error, var(--status-danger));
   font-size: 12px;
   white-space: pre-wrap;
 }
 .iac-ai-hint {
   font-size: 11px;
-  color: var(--text-muted, #9aa0a6);
+  color: var(--text-muted, var(--text-muted));
   margin: 0;
 }
 
@@ -87,7 +87,7 @@
   width: 80vw;
   height: 75vh;
   background: var(--panel-bg, var(--surface-terminal));
-  border: 1px solid var(--border, #2a2a2a);
+  border: 1px solid var(--border, var(--border-default));
   border-radius: 6px;
   overflow: hidden;
 }
@@ -96,20 +96,20 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border, #2a2a2a);
+  border-bottom: 1px solid var(--border, var(--border-default));
 }
 .iac-diff-title {
   font-weight: 600;
 }
 .iac-diff-validation {
   font-size: 12px;
-  color: var(--text-muted, #9aa0a6);
+  color: var(--text-muted, var(--status-success));
 }
 .iac-diff-explanation {
   margin: 0;
   padding: 6px 12px;
   font-size: 13px;
-  color: var(--text-muted, #cfcfcf);
+  color: var(--text-muted, var(--text-primary));
 }
 .iac-diff-body {
   flex: 1;
@@ -120,19 +120,19 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 8px 12px;
-  border-top: 1px solid var(--border, #2a2a2a);
+  border-top: 1px solid var(--border, var(--border-default));
 }
 .iac-diff-actions button {
   padding: 6px 16px;
   border-radius: 4px;
   cursor: pointer;
-  border: 1px solid var(--border, #2a2a2a);
+  border: 1px solid var(--border, var(--border-default));
 }
 .iac-diff-accept {
-  background: var(--accent, #0e639c);
+  background: var(--accent, var(--surface-2));
   color: var(--text-inverse);
 }
 .iac-diff-reject {
-  background: var(--button-bg, #2d2d2d);
-  color: var(--text, #e8e8e8);
+  background: var(--button-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
 }

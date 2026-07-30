@@ -4,7 +4,7 @@
   height: 100%;
   width: 100%;
   background: var(--surface-terminal);
-  color: #d4d4d4;
+  color: var(--text-primary);
 }
 
 .editor-toolbar {
@@ -12,8 +12,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: #252526;
-  border-bottom: 1px solid #3e3e42;
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .editor-file-info {
@@ -28,7 +28,7 @@
 }
 
 .file-path {
-  color: #858585;
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -49,23 +49,23 @@
   align-items: center;
   gap: 2px;
   padding: 0 5px;
-  border-right: 1px solid #3e3e42;
-  border-left: 1px solid #3e3e42;
+  border-right: 1px solid var(--border-default);
+  border-left: 1px solid var(--border-default);
 }
 
 .editor-actions .editor-debug-actions button {
   min-width: 25px;
   padding: 4px 6px;
-  background: #333337;
+  background: var(--surface-input);
 }
 
 .editor-actions .editor-debug-actions button:hover:not(:disabled) {
-  background: #4b4b50;
+  background: var(--surface-hover);
 }
 
 .editor-actions button {
   padding: 4px 12px;
-  background: #0e639c;
+  background: var(--surface-input);
   color: white;
   border: none;
   border-radius: 4px;
@@ -74,7 +74,7 @@
 }
 
 .editor-actions button:hover:not(:disabled) {
-  background: #1177bb;
+  background: var(--surface-hover);
 }
 
 .editor-actions button:disabled {
@@ -88,7 +88,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   background: var(--surface-terminal);
-  border-bottom: 1px solid #3e3e42;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .editor-buffer-tab {
@@ -96,10 +96,10 @@
   align-items: center;
   min-width: 110px;
   max-width: 220px;
-  border-right: 1px solid #333337;
+  border-right: 1px solid var(--border-default);
   border-top: 2px solid transparent;
-  background: #252526;
-  color: #a9a9a9;
+  background: var(--surface-input);
+  color: var(--text-primary);
   font-size: 12px;
 }
 
@@ -127,11 +127,11 @@
 .editor-buffer-tab:hover,
 .editor-buffer-tab:focus-within {
   color: var(--text-inverse);
-  background: #2d2d30;
+  background: var(--surface-input);
 }
 
 .editor-buffer-tab.active {
-  border-top-color: #4ea1d3;
+  border-top-color: var(--border-default);
   background: var(--surface-terminal);
   color: var(--text-inverse);
 }
@@ -142,7 +142,7 @@
   border: 0;
   border-radius: 3px;
   background: transparent;
-  color: #8f8f8f;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
@@ -150,13 +150,13 @@
 
 .editor-buffer-tab-close:hover,
 .editor-buffer-tab-close:focus-visible {
-  background: #46464b;
+  background: var(--surface-input);
   color: var(--text-inverse);
 }
 
 .editor-buffer-tab-dirty {
   margin-left: auto;
-  color: #d7ba7d;
+  color: var(--text-primary);
   font-size: 9px;
 }
 
@@ -182,7 +182,7 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  border-top: 1px solid #3e3e42;
+  border-top: 1px solid var(--border-default);
   background: var(--surface-terminal);
   position: relative;
 }
@@ -196,7 +196,7 @@
 }
 
 .editor-terminal-resize-handle:hover {
-  background: #007acc;
+  background: var(--surface-hover);
 }
 
 .editor-terminal-header {
@@ -204,8 +204,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 8px;
-  background: #252526;
-  border-bottom: 1px solid #3e3e42;
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .editor-terminal-tabs {
@@ -217,7 +217,7 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #999999;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 12px;
   padding: 6px 12px;
@@ -229,13 +229,13 @@
 
 .editor-terminal-tabs button.active {
   color: var(--text-inverse);
-  border-bottom-color: #007acc;
+  border-bottom-color: var(--border-default);
 }
 
 .editor-terminal-close-btn {
   background: none;
   border: none;
-  color: #cccccc;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 13px;
   padding: 0 4px;
@@ -253,9 +253,9 @@
 
 .error-banner {
   padding: 8px 12px;
-  background: #5a1d1d;
-  color: #f48771;
-  border-top: 1px solid #be1100;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-top: 1px solid var(--status-danger);
   font-size: 13px;
 }
 
@@ -264,7 +264,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px;
-  background: #007acc;
+  background: var(--surface-input);
   color: white;
   font-size: 12px;
   font-family: monospace;
@@ -273,16 +273,16 @@
 .editor-debug-status {
   padding: 1px 6px;
   border-radius: 8px;
-  background: rgb(0 0 0 / 20%);
+  background: var(--surface-input);
   text-transform: capitalize;
 }
 
 .editor-debug-status--paused {
-  background: #8a681f;
+  background: var(--surface-input);
 }
 
 .editor-debug-status--error {
-  background: #8c2d2d;
+  background: var(--status-danger-surface);
 }
 
 .zed-vim-status:empty {

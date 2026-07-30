@@ -93,7 +93,7 @@ export function HistoryPanel({ tabId, onLoad }: Props) {
           fontSize: 11,
           textTransform: "uppercase",
           letterSpacing: 0.5,
-          background: "#12141a",
+          background: "var(--surface-2)",
         }}
       >
         <span>History</span>

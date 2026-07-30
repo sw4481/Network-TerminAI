@@ -10,7 +10,7 @@
 
 .browser-url-modal {
   background: var(--bg-secondary, var(--surface-terminal));
-  border: 1px solid var(--border-color, #333);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   padding: 20px;
   width: 420px;
@@ -28,9 +28,9 @@
 .browser-url-modal input {
   width: 100%;
   padding: 9px 10px;
-  border: 1px solid var(--border-color, #333);
+  border: 1px solid var(--border-color, var(--border-default));
   border-radius: 4px;
-  background: var(--bg-primary, #121212);
+  background: var(--bg-primary, var(--surface-input));
   color: var(--text-primary, var(--text-inverse));
   font-size: 14px;
   font-family: 'Monaco', 'Menlo', monospace;
@@ -39,7 +39,7 @@
 
 .browser-url-modal input:focus {
   outline: none;
-  border-color: var(--accent-color, #3b82f6);
+  border-color: var(--accent-color, var(--focus-ring));
 }
 
 .browser-url-modal-actions {
@@ -52,16 +52,16 @@
 .browser-url-modal-actions button {
   padding: 7px 16px;
   border-radius: 4px;
-  border: 1px solid var(--border-color, #333);
-  background: var(--bg-primary, #121212);
+  border: 1px solid var(--border-color, var(--border-default));
+  background: var(--bg-primary, var(--surface-overlay));
   color: var(--text-primary, var(--text-inverse));
   cursor: pointer;
   font-size: 13px;
 }
 
 .browser-url-modal-actions button[type='submit'] {
-  background: var(--accent-color, #3b82f6);
-  border-color: var(--accent-color, #3b82f6);
+  background: var(--accent-color, var(--surface-overlay));
+  border-color: var(--accent-color, var(--border-default));
   font-weight: 600;
 }
 

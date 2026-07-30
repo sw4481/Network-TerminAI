@@ -36,16 +36,16 @@
   gap: 4px;
 }
 .rule-editor .rule-list-header button {
-  background: #1d222a;
+  background: var(--surface-input);
   color: var(--text-primary);
-  border: 1px solid #2a2f38;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 4px 10px;
   font-family: inherit;
   font-size: 11.5px;
   cursor: pointer;
 }
-.rule-editor .rule-list-header button:hover { background: #232831; }
+.rule-editor .rule-list-header button:hover { background: var(--accent-subtle); }
 .rule-editor .rule-list-header button.primary {
   background: var(--accent-subtle);
   color: var(--text-inverse);
@@ -77,14 +77,14 @@
 }
 .rule-editor .rule-list-items li {
   padding: 8px 12px;
-  border-bottom: 1px solid #1f232b;
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.rule-editor .rule-list-items li.selected { background: #1c2230; }
-.rule-editor .rule-list-items li:hover { background: #181c24; }
+.rule-editor .rule-list-items li.selected { background: var(--surface-2); }
+.rule-editor .rule-list-items li:hover { background: var(--surface-2); }
 .rule-editor .rule-list-items li.disabled { opacity: 0.5; }
 
 .rule-editor .badge {
@@ -94,12 +94,12 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.rule-editor .badge.builtin { background: #15252a; color: #8ec5d2; }
-.rule-editor .badge.user { background: #2c2c4a; color: #b3b3ff; }
-.rule-editor .badge.tier-0 { background: #14241a; color: #b3e8c0; }
-.rule-editor .badge.tier-1 { background: #3a3812; color: #e6c75c; }
-.rule-editor .badge.tier-2 { background: #4a2912; color: #e69f4c; }
-.rule-editor .badge.tier-3 { background: #5c1818; color: #ff7777; }
+.rule-editor .badge.builtin { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.user { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.tier-0 { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.tier-1 { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.tier-2 { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.tier-3 { background: var(--surface-2); color: var(--text-primary); }
 
 .rule-editor .rule-list-items .name {
   flex: 1;
@@ -156,8 +156,8 @@
 .rule-editor .rule-pattern textarea {
   width: 100%;
   min-height: 120px;
-  background: #0a0c10;
-  color: #d0c8aa;
+  background: var(--surface-input);
+  color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 8px;
@@ -167,10 +167,10 @@
   box-sizing: border-box;
 }
 .rule-editor .rule-pattern textarea.invalid {
-  border-color: #c45353;
+  border-color: var(--status-danger);
 }
 .rule-editor .rule-pattern .err {
-  color: #c45353;
+  color: var(--text-primary);
   font-size: 11.5px;
   margin-top: 4px;
 }
@@ -192,8 +192,8 @@
 .rule-editor .rule-tester textarea {
   width: 100%;
   min-height: 70px;
-  background: #0a0c10;
-  color: #d0c8aa;
+  background: var(--surface-input);
+  color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 8px;
@@ -205,9 +205,9 @@
 .rule-editor .rule-tester .result {
   font-size: 12px;
 }
-.rule-editor .rule-tester .result.match { color: #b3e8c0; }
-.rule-editor .rule-tester .result.no-match { color: #e69f4c; }
-.rule-editor .rule-tester .result.error { color: #c45353; }
+.rule-editor .rule-tester .result.match { color: var(--text-primary); }
+.rule-editor .rule-tester .result.no-match { color: var(--text-primary); }
+.rule-editor .rule-tester .result.error { color: var(--status-danger); }
 
 .rule-editor .rule-footer {
   padding: 8px 14px;
@@ -215,28 +215,28 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  background: #11141a;
+  background: var(--surface-input);
 }
 .rule-editor .rule-footer button {
-  background: #1d222a;
+  background: var(--surface-input);
   color: var(--text-primary);
-  border: 1px solid #2a2f38;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 6px 14px;
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
 }
-.rule-editor .rule-footer button:hover { background: #232831; }
+.rule-editor .rule-footer button:hover { background: var(--accent-subtle); }
 .rule-editor .rule-footer button.primary {
   background: var(--accent-subtle);
   color: var(--text-inverse);
   border-color: var(--accent-subtle);
 }
 .rule-editor .rule-footer button.danger {
-  background: #6b1f1f;
+  background: var(--status-danger-surface);
   color: var(--text-inverse);
-  border-color: #6b1f1f;
+  border-color: var(--status-danger);
 }
 .rule-editor .rule-footer button:disabled { opacity: 0.5; cursor: not-allowed; }
 

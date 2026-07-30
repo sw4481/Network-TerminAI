@@ -2,11 +2,11 @@
   position: absolute;
   top: 12px;
   right: 12px;
-  background: #252526;
-  border: 1px solid #3e3e42;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   padding: 10px;
-  box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.4);
+  box-shadow: 0 4px 12px var(--surface-2);
   z-index: 50;
   min-width: 360px;
   display: flex;
@@ -20,14 +20,14 @@
   align-items: center;
   font-size: 12px;
   font-weight: 600;
-  color: #d4d4d4;
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .close-button {
   background: transparent;
   border: none;
-  color: #858585;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
   padding: 0 4px;
@@ -47,9 +47,9 @@
 .find-replace-row input[type="text"] {
   flex: 1;
   padding: 5px 8px;
-  background: #3c3c3c;
-  color: #d4d4d4;
-  border: 1px solid #3e3e42;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
   font-size: 12px;
   font-family: inherit;
@@ -57,12 +57,12 @@
 
 .find-replace-row input[type="text"]:focus {
   outline: none;
-  border-color: #007acc;
+  border-color: var(--focus-ring);
 }
 
 .find-replace-row button {
   padding: 4px 9px;
-  background: #0e639c;
+  background: var(--surface-2);
   color: white;
   border: none;
   border-radius: 3px;
@@ -72,12 +72,12 @@
 }
 
 .find-replace-row button:hover {
-  background: #1177bb;
+  background: var(--surface-hover);
 }
 
 .match-count {
   font-size: 11px;
-  color: #858585;
+  color: var(--text-primary);
   padding: 0 4px;
   min-width: 64px;
   text-align: right;
@@ -87,7 +87,7 @@
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: #d4d4d4;
+  color: var(--text-primary);
   padding-top: 2px;
 }
 

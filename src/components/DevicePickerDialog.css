@@ -62,7 +62,7 @@
   font-size: 12px;
 }
 .device-picker-toolbar button {
-  background: #1a1d22;
+  background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-default);
   border-radius: 4px;
@@ -85,7 +85,7 @@
   font-size: 12px;
   cursor: pointer;
 }
-.device-picker-row:hover { background: #1a1d22; }
+.device-picker-row:hover { background: var(--surface-2); }
 .device-picker-row.is-member { opacity: 0.4; cursor: not-allowed; }
 
 .device-picker-footer {
@@ -119,8 +119,8 @@
 }
 .device-picker-warn {
   padding: 8px 14px;
-  background: #4a3320;
-  color: #ffcc70;
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
   font-size: 11px;
 }
 .csv-import-area {
@@ -146,8 +146,8 @@
   gap: 8px;
 }
 .csv-warnings {
-  background: #2a1f1f;
-  color: #e06c75;
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
   font-size: 11px;
   padding: 6px 8px;
   border-radius: 4px;

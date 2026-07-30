@@ -66,5 +66,5 @@
 }
 
 .delta-approve-btn:hover {
-  background: #3d6a9c;
+  background: var(--surface-hover);
 }

@@ -39,7 +39,7 @@ export function ScheduleEditor({ onSubmit, onCancel }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgb(var(--backdrop-rgb) / 0.6)",
+        background: "var(--surface-2) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -111,7 +111,7 @@ export function ScheduleEditor({ onSubmit, onCancel }: Props) {
               key={p.cron}
               onClick={() => setCron(p.cron)}
               style={{
-                background: "#1a1d22",
+                background: "var(--surface-2)",
                 color: "var(--text-primary)",
                 border: "1px solid var(--border-default)",
                 borderRadius: 4,
@@ -128,7 +128,7 @@ export function ScheduleEditor({ onSubmit, onCancel }: Props) {
         {error && (
           <div
             style={{
-              color: "#ff8a8a",
+              color: "var(--text-primary)",
               fontSize: 11,
               marginBottom: 8,
             }}

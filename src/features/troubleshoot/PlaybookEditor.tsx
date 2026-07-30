@@ -650,7 +650,7 @@ export function PlaybookEditor({ initialPlaybookId, onClose }: PlaybookEditorPro
         {!diagnosticsCollapsed && (
           <div className="tb-editor-diagnostics-list">
             {diagnostics.length === 0 ? (
-              <div className="tb-editor-diagnostic-row" style={{ color: "#98c379" }}>
+              <div className="tb-editor-diagnostic-row" style={{ color: "var(--text-primary)" }}>
                 No issues — playbook is valid.
               </div>
             ) : (

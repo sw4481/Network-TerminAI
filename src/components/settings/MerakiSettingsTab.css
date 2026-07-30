@@ -6,7 +6,7 @@
 .meraki-header h2 {
   margin: 0 0 0.5rem 0;
   font-size: 1.5rem;
-  color: #d4a857;
+  color: var(--text-primary);
 }
 
 .meraki-subtitle {
@@ -22,7 +22,7 @@
 .meraki-section h3 {
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .meraki-grid {
@@ -41,16 +41,16 @@
 .meraki-grid input[type='text'],
 .meraki-grid input[type='password'] {
   padding: 0.5rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-default);
   border-radius: 4px;
   background: var(--surface-terminal);
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.95rem;
 }
 
 .meraki-grid input:focus {
   outline: none;
-  border-color: #d4a857;
+  border-color: var(--focus-ring);
 }
 
 .meraki-checkbox-label {
@@ -93,21 +93,21 @@
 }
 
 .meraki-btn-primary {
-  background: #d4a857;
-  color: var(--surface-terminal);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .meraki-btn-primary:hover:not(:disabled) {
-  background: #e0b865;
+  background: var(--surface-hover);
 }
 
 .meraki-btn-secondary {
-  background: #3a3a3a;
-  color: #e0e0e0;
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .meraki-btn-secondary:hover:not(:disabled) {
-  background: #4a4a4a;
+  background: var(--surface-hover);
 }
 
 .meraki-btn-primary:disabled,
@@ -124,19 +124,19 @@
 }
 
 .meraki-status--ok {
-  background: rgba(76, 175, 80, 0.1);
-  border: 1px solid #4caf50;
-  color: #4caf50;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .meraki-status--err {
-  background: rgba(244, 67, 54, 0.1);
-  border: 1px solid #f44336;
-  color: #f44336;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
 }
 
 .meraki-status--info {
-  background: rgba(33, 150, 243, 0.1);
-  border: 1px solid #2196f3;
-  color: #2196f3;
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  border: 1px solid var(--focus-ring);
+  color: var(--status-info);
 }

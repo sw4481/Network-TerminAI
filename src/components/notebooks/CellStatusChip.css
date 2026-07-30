@@ -13,15 +13,15 @@
 }
 
 .cell-status-chip.status-pending {
-  background: #2a2a2a;
-  color: #888;
-  border-color: #3a3a3a;
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+  border-color: var(--status-warning);
 }
 
 .cell-status-chip.status-running {
-  background: #1d2d4a;
-  color: #8ba4f5;
-  border-color: #4a90e2;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+  border-color: var(--status-success);
   animation: cell-chip-pulse 1.2s ease-in-out infinite;
 }
 
@@ -31,26 +31,26 @@
 }
 
 .cell-status-chip.status-passed {
-  background: #1d3a25;
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
   color: var(--status-success);
-  border-color: #2f7a3a;
+  border-color: var(--status-success);
 }
 
 .cell-status-chip.status-failed {
-  background: #3a1d1d;
-  color: #ff6b6b;
-  border-color: #7a2f2f;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-color: var(--status-danger);
 }
 
 .cell-status-chip.status-skipped {
-  background: #232323;
-  color: #6a6a6a;
-  border-color: #333;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
   text-decoration: line-through;
 }
 
 .cell-status-chip.status-awaiting_approval {
-  background: #3a2e1d;
-  color: #f5c34c;
-  border-color: #7a5f2f;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
 }
