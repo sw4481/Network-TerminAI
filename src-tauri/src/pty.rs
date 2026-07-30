@@ -249,6 +249,8 @@ impl PtyHandle {
 ///             cwd: "/tmp".to_string(),
 ///             cols: 80,
 ///             rows: 24,
+///             pane_id: None,
+///             claude_config_dir: None,
 ///         },
 ///         tx,
 ///     ).await.unwrap();

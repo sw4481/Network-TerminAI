@@ -3,7 +3,7 @@ use crate::pane_context::{PaneActivity, PaneContextManager, NotificationState};
 /// Build pane context prompt section for agent system prompt.
 ///
 /// Format:
-/// ```
+/// ```text
 /// ## Current Terminal Context
 ///
 /// Layout: N panes - Pane X (focused), Pane Y (running), Pane Z (idle)
