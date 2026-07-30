@@ -243,6 +243,9 @@ function controlKeywordBefore(text, open) {
   while (previous >= 0 && /[A-Za-z0-9_$]/.test(text[previous])) previous -= 1;
   const wordSlice = text.slice(previous + 1, end);
   const word = Array.isArray(wordSlice) ? wordSlice.join("") : wordSlice;
+  let boundary = previous;
+  while (boundary >= 0 && /\s/.test(text[boundary])) boundary -= 1;
+  if (text[boundary] === ".") return false;
   if (CONTROL_CONDITION_KEYWORDS.has(word)) return true;
   return word === "await" && wordBefore(text, previous + 1) === "for";
 }

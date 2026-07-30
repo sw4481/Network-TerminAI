@@ -262,3 +262,33 @@ relaxed production build: passed (2,106 modules)
 CI and release workflow YAML parse: passed
 git diff --check: passed
 ```
+
+## Guard control-keyword member boundary repair — 2026-07-30
+
+The final parser review found that a member call whose property name matched a
+control keyword, such as `obj.if(x)` or `obj?.while(x)`, marked its closing
+parenthesis as a statement-condition closer. A following division slash was
+then treated as a regex opener and could mask a structural color later in the
+division expression.
+
+RED reproduced exactly two failures for direct and optional member calls while
+50 existing and control-statement characterizations stayed green. The
+characterization covers genuine `if`, `while`, `for`, `with`, `switch`, and
+`catch` statements.
+
+GREEN requires a recognized control keyword to have a non-member lexical
+boundary before recording its condition parenthesis. A preceding property
+access dot, including the dot in optional chaining, now keeps the closing
+parenthesis in ordinary-call/division context. No broader regex or declaration
+scanning behavior changed.
+
+Final verification:
+
+```text
+focused structural-color guard: 1 file / 52 tests passed
+full suite: 246 files / 1,875 tests passed
+full structural-color inventory: passed
+explicit-base structural-color guard (b8cec825...): passed
+relaxed production build: passed (2,106 modules)
+git diff --check: passed
+```

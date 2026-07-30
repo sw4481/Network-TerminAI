@@ -227,12 +227,36 @@ const style = { color: "#123456" };
     );
   });
 
+  it.each([
+    ["if", String.raw`if (ok) /{color:red}[/*]/.test(value);`],
+    ["while", String.raw`while (ok) /{color:red}[/*]/.test(value);`],
+    ["for", String.raw`for (; ok;) /{color:red}[/*]/.test(value);`],
+    ["with", String.raw`with (scope) /{color:red}[/*]/.test(value);`],
+    ["switch", String.raw`switch (value) { default: /{color:red}[/*]/.test(value); }`],
+    ["catch", String.raw`try { work(); } catch (error) { /{color:red}[/*]/.test(value); }`],
+  ])("keeps regex semantics in a genuine %s statement", (_keyword, statement) => {
+    const f = fixture(`${statement}
+const style = { color: "var(--text-primary)" };
+`);
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
+  });
+
   it("does not treat division after an ordinary call as a regex", () => {
     const f = fixture(`const ratio = fn() / divisor; // color: red
 const style = { color: "#123456" };
 `);
     expect(check(f.file, f.allowlistFile)).toThrow(
       /GuardFixture\.tsx:2 #123456 property=color/,
+    );
+  });
+
+  it.each([
+    ["member", `const ratio = obj.if(x) / ({ color: "#123456" }).value / divisor;`],
+    ["optional member", `const ratio = obj?.while(x) / ({ color: "#123456" }).value / divisor;`],
+  ])("does not treat division after a %s call named like a control keyword as a regex", (_kind, source) => {
+    const f = fixture(`${source}\n`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:1 #123456 property=color/,
     );
   });
 
