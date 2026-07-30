@@ -197,3 +197,34 @@ relaxed production build: passed (2,106 modules)
 CI and release workflow YAML parse: passed
 git diff --check: passed
 ```
+
+## Guard lexer-context repair — 2026-07-30
+
+The follow-up RED pass added ten fixtures while retaining the existing 29:
+regex literals containing escaped protocol slashes, character classes, and
+comment-like sequences; division followed by a real line comment; CSS
+declarations assigned through `.style.cssText` and
+`setAttribute("style", ...)`; multiline production-shaped templates; dynamic
+template interpolations; and escaped CSS `url()` closing parentheses. All ten
+new fixtures initially failed while the existing 29 remained green.
+
+GREEN adds regex-aware TSX comment masking, position-preserving discovery of
+CSS-bearing quoted strings and templates, interpolation masking that keeps
+source offsets intact, and escape-aware CSS function balancing. Diagnostics
+from embedded CSS map back to the original TSX line, property, value, and
+context. Color-like text inside regex literals, template expressions, and
+escaped `url()` content is ignored, while a real literal after the actual URL
+close is still reported.
+
+Final verification:
+
+```text
+focused structural-color guard: 1 file / 39 tests passed
+production-related focused suite: 2 files / 9 tests passed
+full suite: 246 files / 1,862 tests passed
+full structural-color inventory: passed
+explicit-base structural-color guard: passed
+relaxed production build: passed (2,106 modules)
+CI and release workflow YAML parse: passed
+git diff --check: passed
+```

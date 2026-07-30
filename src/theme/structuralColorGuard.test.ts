@@ -184,6 +184,120 @@ const style = { backgroundImage: "url('https://example.test/red/#123456.png')" }
   });
 
   it.each([
+    [
+      "escaped protocol slashes",
+      String.raw`const re = /https?:\/\//; const style = { color: "#123456" };`,
+    ],
+    [
+      "comment-like character class",
+      String.raw`const re = /[/*][^/]*\/\/value/gi; const style = { color: "#123456" };`,
+    ],
+  ])("keeps scanning real style code after regex %s", (_kind, source) => {
+    const f = fixture(`${source}\n`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:1 #123456 property=color/,
+    );
+  });
+
+  it("does not scan declaration-like text inside a regex and preserves division comments", () => {
+    const regex = fixture(String.raw`const re = /{color:red}[/*]/;
+const style = { color: "var(--text-primary)" };
+`);
+    expect(check(regex.file, regex.allowlistFile)).not.toThrow();
+
+    const division = fixture(`const ratio = total / count; // color: red
+const style = { color: "#123456" };
+`);
+    expect(check(division.file, division.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:2 #123456 property=color/,
+    );
+  });
+
+  it.each([
+    [
+      "hex",
+      `statusDiv.style.cssText = "position: fixed; background: #123456; color: var(--text-primary)";`,
+      /GuardFixture\.tsx:1 #123456 property=background/,
+    ],
+    [
+      "named",
+      `statusDiv.style.cssText = "position: fixed; color: red";`,
+      /GuardFixture\.tsx:1 red property=color/,
+    ],
+    [
+      "modern",
+      `statusDiv.style.cssText = "position: fixed; color: hwb(120 0% 0%)";`,
+      /GuardFixture\.tsx:1 hwb\(120 0% 0%\) property=color/,
+    ],
+    [
+      "setAttribute style",
+      `statusDiv.setAttribute("style", "position: fixed; background: #123456");`,
+      /GuardFixture\.tsx:1 #123456 property=background/,
+    ],
+  ])("scans %s literals in a CSS-bearing TSX string", (_kind, source, expected) => {
+    const f = fixture(`${source}\n`);
+    expect(check(f.file, f.allowlistFile)).toThrow(expected);
+  });
+
+  it("scans a multiline cssText template matching the production pattern", () => {
+    const f = fixture(`const statusDiv = document.createElement("div");
+statusDiv.style.cssText = \`
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid #123456;
+  color: color-mix(
+    in srgb,
+    var(--text-primary),
+    lab(50% 20 30)
+  );
+\`;
+`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:5 #123456 property=border/,
+    );
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:9 color-mix\([\s\S]*property=color/,
+    );
+  });
+
+  it("masks cssText template interpolations but keeps scanning CSS after them", () => {
+    const semantic = fixture(`statusDiv.style.cssText = \`
+  background: \${surface};
+  color: rgb(\${channel} 0 0 / \${alpha});
+  border-color: var(--border-default);
+\`;
+`);
+    expect(check(semantic.file, semantic.allowlistFile)).not.toThrow();
+
+    const literal = fixture(`statusDiv.style.cssText = \`
+  background: \${surface};
+  color: red;
+\`;
+`);
+    expect(check(literal.file, literal.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:3 red property=color/,
+    );
+  });
+
+  it("honors escaped CSS url terminators and still scans after the true close", () => {
+    const semantic = fixture(String.raw`.x {
+  background: url(https://example.test/foo\)red#123456.png);
+  color: var(--text-primary);
+}
+`, { entries: [] }, "GuardFixture.css");
+    expect(check(semantic.file, semantic.allowlistFile)).not.toThrow();
+
+    const literal = fixture(String.raw`.x {
+  background: url(https://example.test/foo\)red#123456.png);
+  color: #abcdef;
+}
+`, { entries: [] }, "GuardFixture.css");
+    expect(check(literal.file, literal.allowlistFile)).toThrow(
+      /GuardFixture\.css:3 #abcdef property=color/,
+    );
+  });
+
+  it.each([
     ".x { color: transparent; }",
     ".x { color: currentColor; }",
     ".x { color: var(--text-primary); }",
