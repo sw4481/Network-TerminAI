@@ -165,3 +165,35 @@ advanced with version `0.0.1`, and the rendered footer chip showed
 
 The native Dark/Grey/Matrix screenshot and operator matrix remains intentionally
 deferred to interactive acceptance; no screenshot result is claimed here.
+
+## Guard parser completeness repair — 2026-07-30
+
+Review found that the prior line-local regular expressions could stop a
+declaration at its first comma, miss later or multiline gradient stops, omit
+`hwb()`, and interpret color-like text in TSX comments or unrelated strings as
+real declarations.
+
+RED reproduced six parser failures: `hwb()`, multiline linear and radial
+gradients, multiline `color-mix()` with a modern literal input, TSX line
+comments, and URL/string false positives. GREEN replaces the line-local path
+with a small position-preserving lexical/declaration scanner. It masks CSS,
+JSX, and TSX comments without shifting line offsets; scans complete declaration
+values with balanced functions, strings, and delimiters; recognizes named,
+hex, RGB/HSL/HWB, Lab/LCH/OKLab/OKLCH, `color()`, and literal `color-mix()`
+inputs; and masks `url()` plus semantic `var()`/`env()` content. Diff mode now
+scans each complete current file and filters findings to added lines, retaining
+merge-base, staged, unstaged, untracked, and zero-base behavior. Diagnostics
+and allowlisting remain exact by file, line, normalized value, property,
+context, and role.
+
+Round verification:
+
+```text
+focused structural-color guard: 1 file / 29 tests passed
+full suite: 246 files / 1,852 tests passed
+full structural-color inventory: passed
+explicit-base structural-color guard: passed
+relaxed production build: passed (2,106 modules)
+CI and release workflow YAML parse: passed
+git diff --check: passed
+```

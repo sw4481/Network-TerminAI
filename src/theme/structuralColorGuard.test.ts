@@ -7,10 +7,14 @@ import { afterEach, describe, expect, it } from "vitest";
 const created: string[] = [];
 const guard = join(process.cwd(), "scripts/check-structural-colors.mjs");
 
-function fixture(source: string, allowlist = { entries: [] }) {
+function fixture(
+  source: string,
+  allowlist = { entries: [] },
+  filename = "GuardFixture.tsx",
+) {
   const directory = mkdtempSync(join(process.cwd(), "src/components/.color-guard-"));
   created.push(directory);
-  const file = join(directory, "GuardFixture.tsx");
+  const file = join(directory, filename);
   const allowlistFile = join(directory, "allowlist.json");
   writeFileSync(file, source);
   writeFileSync(allowlistFile, JSON.stringify(allowlist));
@@ -63,6 +67,8 @@ describe("structural color guard", () => {
 
   it.each([
     ["named", "const style = { backgroundColor: 'white' };", /white property=backgroundColor/],
+    ["quoted property", "const style = { 'color': 'red' };", /red property=color/],
+    ["hwb", "const style = { backgroundColor: 'hwb(120 0% 0%)' };", /hwb\(120 0% 0%\) property=backgroundColor/],
     ["lab", "const style = { color: 'lab(50% 20 30)' };", /lab\(50% 20 30\) property=color/],
     ["lch", "const style = { color: 'lch(50% 20 30)' };", /lch\(50% 20 30\) property=color/],
     ["oklab", "const style = { color: 'oklab(50% .1 .1)' };", /oklab\(50% \.1 \.1\) property=color/],
@@ -72,6 +78,109 @@ describe("structural color guard", () => {
   ])("rejects %s structural color syntax", (_kind, source, expected) => {
     const f = fixture(`${source}\n`);
     expect(check(f.file, f.allowlistFile)).toThrow(expected);
+  });
+
+  it.each([
+    [
+      "linear",
+      `.x {
+  background: linear-gradient(
+    var(--surface-1),
+    red 50%
+  );
+}
+`,
+      /GuardFixture\.css:4 red property=background/,
+    ],
+    [
+      "radial",
+      `.x {
+  background-image: radial-gradient(
+    var(--surface-1),
+    #123456 80%
+  );
+}
+`,
+      /GuardFixture\.css:4 #123456 property=background-image/,
+    ],
+  ])("rejects a disallowed %s-gradient stop after the first comma", (_kind, source, expected) => {
+    const f = fixture(source, { entries: [] }, "GuardFixture.css");
+    expect(check(f.file, f.allowlistFile)).toThrow(expected);
+  });
+
+  it("rejects a multiline color-mix containing a multiline modern literal", () => {
+    const f = fixture(`.x {
+  color: color-mix(
+    in srgb,
+    var(--text-primary) 70%,
+    lab(
+      50% 20 30
+    )
+  );
+}
+`, { entries: [] }, "GuardFixture.css");
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.css:6 color-mix\([\s\S]*property=color/,
+    );
+  });
+
+  it.each([
+    [
+      "CSS block",
+      `/* .fake { color: red; background: #123456; } */
+.x { color: var(--text-primary); }
+`,
+      "GuardFixture.css",
+    ],
+    [
+      "TSX line",
+      `const icon = "🎨"; // const fake = { color: "red", background: "#123456" };
+const style = { color: "var(--text-primary)" };
+`,
+      "GuardFixture.tsx",
+    ],
+    [
+      "JSX block",
+      `{/* <div style={{ color: "red", background: "#123456" }} /> */}
+const style = { color: "var(--text-primary)" };
+`,
+      "GuardFixture.tsx",
+    ],
+  ])("ignores color-like text in %s comments", (_kind, source, filename) => {
+    const f = fixture(source, { entries: [] }, filename);
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
+  });
+
+  it.each([
+    [
+      "CSS block",
+      `/* .fake { color: red; } */ .real {
+  color: #123456;
+}
+`,
+      "GuardFixture.css",
+      /GuardFixture\.css:2 #123456 property=color/,
+    ],
+    [
+      "TSX line",
+      `// const fake = { color: "red" };
+const real = { color: "#123456" };
+`,
+      "GuardFixture.tsx",
+      /GuardFixture\.tsx:2 #123456 property=color/,
+    ],
+  ])("keeps scanning real code after a %s comment", (_kind, source, filename, expected) => {
+    const f = fixture(source, { entries: [] }, filename);
+    expect(check(f.file, f.allowlistFile)).toThrow(expected);
+  });
+
+  it("ignores URLs and strings that merely contain declaration-like color text", () => {
+    const f = fixture(`
+const documentation = "color: red; background: #123456";
+const endpoint = "https://example.test/red/#123456";
+const style = { backgroundImage: "url('https://example.test/red/#123456.png')" };
+`);
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
   });
 
   it.each([
@@ -114,6 +223,31 @@ describe("structural color guard", () => {
       encoding: "utf8",
       stdio: "pipe",
     })).toThrow(new RegExp(`${f.logicalFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:1 #123456`));
+  });
+
+  it("checks an added later line using its complete tracked declaration", () => {
+    const { directory, allowlistFile } = repoFixture();
+    const gradient = join(directory, "src/components/Gradient.css");
+    writeFileSync(gradient, `.x {
+  background: linear-gradient(
+    var(--surface-1),
+    var(--surface-2)
+  );
+}
+`);
+    git(directory, "add", ".");
+    git(directory, "commit", "-m", "semantic gradient");
+    writeFileSync(gradient, `.x {
+  background: linear-gradient(
+    var(--surface-1),
+    var(--surface-2),
+    red
+  );
+}
+`);
+    expect(runGuard(directory, allowlistFile, "--base", "HEAD")).toThrow(
+      /Gradient\.css:5 red property=background/,
+    );
   });
 
   it("uses a real diverged merge-base and checks staged, unstaged, and untracked files", () => {
