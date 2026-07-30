@@ -40,7 +40,7 @@ export function UpdateNotification() {
         borderRadius: "8px",
         padding: "16px",
         maxWidth: "400px",
-        boxShadow: "0 4px 12px var(--surface-2) / 0.3)",
+        boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.3)",
         zIndex: 9999,
       }}
     >
@@ -71,7 +71,7 @@ export function UpdateNotification() {
                 background: "var(--surface-2)",
                 border: "none",
                 borderRadius: "4px",
-                color: "white",
+                color: "var(--text-inverse)",
                 padding: "6px 12px",
                 fontSize: "12px",
                 fontWeight: 500,

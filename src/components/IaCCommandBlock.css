@@ -38,27 +38,27 @@
 
 .iac-badge.exit-code.success {
   background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
-  color: white;
+  color: var(--text-inverse);
 }
 
 .iac-badge.exit-code.error {
   background: var(--status-danger-surface);
-  color: white;
+  color: var(--text-inverse);
 }
 
 .iac-badge.resources-changed {
   background: var(--surface-2);
-  color: white;
+  color: var(--text-inverse);
 }
 
 .iac-badge.resources-failed {
   background: var(--status-danger-surface);
-  color: white;
+  color: var(--text-inverse);
 }
 
 .iac-badge.duration {
   background: var(--surface-2);
-  color: white;
+  color: var(--text-inverse);
 }
 
 .iac-header-right {
@@ -106,23 +106,23 @@
 }
 
 .iac-resource-section.color-green .iac-section-header {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--iac-created-surface);
+  color: var(--iac-created);
 }
 
 .iac-resource-section.color-blue .iac-section-header {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--iac-modified-surface);
+  color: var(--iac-modified);
 }
 
 .iac-resource-section.color-red .iac-section-header {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--iac-destroyed-surface);
+  color: var(--iac-destroyed);
 }
 
 .iac-resource-section.color-gray .iac-section-header {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--iac-skipped-surface);
+  color: var(--iac-skipped);
 }
 
 .iac-section-header {

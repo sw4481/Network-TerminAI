@@ -153,7 +153,7 @@ export function CredentialsPanel({
         left: 0,
         right: 0,
         bottom: 0,
-        background: "var(--surface-2) / 0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

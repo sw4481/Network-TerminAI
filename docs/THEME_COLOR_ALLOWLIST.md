@@ -17,6 +17,11 @@ variable, or inline-style object for that meaning:
 - Topology and charts: node/edge types, graph series, and link health.
 - Vendor identities: Cisco, Meraki, NetBox, Grafana, and other integration marks.
 
+The current machine-readable entries are the seven `IaCCommandBlock` action
+group identifiers. Their `color` strings select semantic CSS classes; they are
+not rendered as CSS color values. Each action/value pair is listed separately
+so the same word cannot be reused in unrelated chrome.
+
 Do not use a domain literal for a panel background, ordinary text, border,
 input, hover, modal, selection, or focus treatment. If a domain color needs a
 theme-aware surface, add a named semantic token instead.

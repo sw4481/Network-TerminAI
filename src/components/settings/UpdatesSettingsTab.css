@@ -47,7 +47,7 @@
   background: var(--accent, var(--surface-2));
   border: none;
   border-radius: 4px;
-  color: white;
+  color: var(--text-inverse);
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 500;

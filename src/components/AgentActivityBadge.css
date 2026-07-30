@@ -14,17 +14,17 @@
 }
 
 .agent-activity-badge.agent-active {
-  background-color: var(--surface-selected); /* blue */
+  background-color: var(--agent-active-surface); /* blue */
   animation: pulse-blue 2s ease-in-out infinite;
 }
 
 .agent-activity-badge.agent-waiting {
-  -colorbackground: var(--surface-2); /* orange */
+  background-color: var(--agent-waiting-surface); /* orange */
   animation: pulse-orange 1.5s ease-in-out infinite;
 }
 
 .agent-activity-badge svg {
-  color: white;
+  color: var(--text-inverse);
 }
 
 @keyframes pulse-blue {

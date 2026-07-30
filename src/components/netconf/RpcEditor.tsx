@@ -313,7 +313,7 @@ export function RpcEditor({
           style={{
             position: "fixed",
             inset: 0,
-            background: "var(--surface-2) / 0.7)",
+            background: "rgb(var(--backdrop-rgb) / 0.7)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

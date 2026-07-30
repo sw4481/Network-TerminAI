@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: var(--surface-input);
+  background: var(--surface-editor-tab);
   border-bottom: 1px solid var(--border-default);
 }
 
@@ -66,7 +66,7 @@
 .editor-actions button {
   padding: 4px 12px;
   background: var(--surface-input);
-  color: white;
+  color: var(--text-inverse);
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -98,7 +98,7 @@
   max-width: 220px;
   border-right: 1px solid var(--border-default);
   border-top: 2px solid transparent;
-  background: var(--surface-input);
+  background: var(--surface-editor-tab);
   color: var(--text-primary);
   font-size: 12px;
 }
@@ -265,7 +265,7 @@
   justify-content: space-between;
   padding: 4px 12px;
   background: var(--surface-input);
-  color: white;
+  color: var(--text-inverse);
   font-size: 12px;
   font-family: monospace;
 }

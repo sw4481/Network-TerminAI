@@ -11,17 +11,21 @@ import { useDiagramStore } from "../state/diagramStore";
 import type { DiagramEvent } from "../lib/tauri";
 
 const openUrlMock = vi.fn(async () => {});
+const appearance = vi.hoisted(() => ({
+  appTheme: "terminai-dark" as "terminai-dark" | "slate-grey" | "matrix",
+}));
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: (url: string) => openUrlMock(url),
 }));
 
 vi.mock("../theme/AppearanceProvider", () => ({
-  useAppearance: () => ({ settings: { appTheme: "terminai-dark" } }),
+  useAppearance: () => ({ settings: { appTheme: appearance.appTheme } }),
 }));
 
 beforeEach(() => {
   useDiagramStore.setState({ diagrams: [], selectedId: null });
   openUrlMock.mockClear();
+  appearance.appTheme = "terminai-dark";
 });
 
 function addXmlDiagram(): void {
@@ -125,6 +129,24 @@ describe("DiagramPanel", () => {
       "allow-scripts allow-same-origin",
     );
     expect(frame.getAttribute("srcdoc")).toContain("data-mxgraph");
+  });
+
+  it("regenerates iframe srcDoc when the provider changes Dark to Grey to Matrix", () => {
+    addXmlDiagram();
+    const view = render(<DiagramPanel />);
+    const srcDoc = () => (screen.getByTestId("diagram-iframe") as HTMLIFrameElement)
+      .getAttribute("srcdoc") ?? "";
+
+    expect(srcDoc()).toContain("--app-canvas: #0f1114");
+    appearance.appTheme = "slate-grey";
+    view.rerender(<DiagramPanel />);
+    expect(srcDoc()).toContain("--app-canvas: #17191c");
+    expect(srcDoc()).not.toContain("--app-canvas: #0f1114");
+
+    appearance.appTheme = "matrix";
+    view.rerender(<DiagramPanel />);
+    expect(srcDoc()).toContain("--app-canvas: #030703");
+    expect(srcDoc()).not.toContain("--app-canvas: #17191c");
   });
 
   it("shows the fallback (no iframe) for mermaid diagrams", () => {

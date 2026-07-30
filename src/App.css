@@ -8,7 +8,7 @@
 html, body, #root {
   margin: 0;
   height: 100%;
-  background: var(--surface-2);
+  background: var(--app-canvas);
   color: var(--text-primary);
 }
 
@@ -1801,7 +1801,7 @@ button.secondary:hover {
   width: 14px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--control-knob);
   transition: 0.3s;
   border-radius: 50%;
 }
@@ -3353,17 +3353,17 @@ input:checked + .slider:before {
   color: var(--text-primary);
 }
 .status-pill.running {
-  color: var(--status-success);
-  border-color: var(--status-success);
-  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--tftp-running);
+  border-color: var(--tftp-running-border);
+  background: var(--tftp-running-surface);
 }
 .status-pill.stopped {
   color: var(--text-primary);
 }
 .status-pill.error {
-  color: var(--status-danger);
-  border-color: var(--status-danger);
-  background: var(--status-danger-surface);
+  color: var(--tftp-error);
+  border-color: var(--tftp-error-border);
+  background: var(--tftp-error-surface);
 }
 .status-dot {
   width: 6px;
@@ -3372,12 +3372,12 @@ input:checked + .slider:before {
   background: var(--surface-2);
 }
 .status-pill.running .status-dot {
-  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
-  box-shadow: 0 0 6px color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  background: var(--tftp-running);
+  box-shadow: 0 0 6px var(--tftp-running);
 }
 .status-pill.error .status-dot {
-  background: var(--status-danger-surface);
-  box-shadow: 0 0 6px var(--status-danger-surface);
+  background: var(--tftp-error);
+  box-shadow: 0 0 6px var(--tftp-error);
 }
 .status-label { font-family: Menlo, monospace; }
 
@@ -3510,26 +3510,26 @@ html, body, #root { background: var(--app-canvas); color: var(--text-primary); }
 .tabbar, .settings-header, .settings-tabs, .agent-input { background: var(--surface-2); border-color: var(--border-default); }
 .tab, .terminal-mode-toggle, .tool-approval-modal { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
 .settings-window { background: var(--app-canvas); border-color: var(--border-default); color: var(--text-primary); }
-.tab-active, .settings-tabs button.active, .settings-tabs button.tab-active { background: var(--surface-selected); color: var(--accent-subtle); }
+.tab-active, .settings-tabs button.active, .settings-tabs button.tab-active { background: var(--surface-selected); color: var(--text-primary); }
 .tab, .tab-new, .tab-new-chooser, .settings-tabs button, .close-btn, .muted { color: var(--text-secondary); }
 .tab-chooser-popover { background: var(--surface-2); border-color: var(--border-default); }
 .blocks-col, .agent-panel { background: var(--surface-2); border-color: var(--border-default); }
-.tab-chooser-item:hover, .settings-tabs button:hover, .close-btn:hover { background: var(--surface-hover); color: var(--accent-subtle); }
+.tab-chooser-item:hover, .settings-tabs button:hover, .close-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
 .terminal-wrapper, .blocks-overlay { background: var(--surface-terminal); }
 .resize-handle:hover, .resize-handle:active { background: var(--accent); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 input, select, textarea { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-default); }
-button.primary, .fix-button, .agent-input button, .tool-approval-btn-approve { background: var(--accent-subtle); color: var(--accent-subtle); }
+button.primary, .fix-button, .agent-input button, .tool-approval-btn-approve { background: var(--accent-subtle); color: var(--text-primary); }
 button.primary:hover:not(:disabled), .fix-button:hover, .agent-input button:hover:not(:disabled), .tool-approval-btn-approve:hover:not(:disabled) { background: var(--accent-hover); }
 .modal-content, .modal-card, .search-container, .status-popover { background: var(--app-canvas); border-color: var(--border-default); color: var(--text-primary); }
 .modal-header, .modal-footer, .status-popover-header, .search-header { border-color: var(--border-default); }
-.json-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--accent-subtle); }
-button.secondary:hover, .search-filters button:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--accent-subtle); }
-.search-filters button.filter-active { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--accent-subtle); }
+.json-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
+button.secondary:hover, .search-filters button:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.search-filters button.filter-active { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-primary); }
 .status-footer { background: var(--surface-chrome); border-color: var(--border-default); }
 .status-popover-header { background: var(--surface-2); border-color: var(--border-default); }
 .status-pill { border-color: var(--border-default); color: var(--text-secondary); }
-.status-pill:hover { border-color: var(--border-strong); color: var(--border-default); }
-.status-pill.running { color: var(--status-success); border-color: var(--status-success); background: color-mix(in srgb, var(--status-success) 14%, transparent); }
-.status-pill.error, .status-popover-error { color: var(--status-danger); border-color: var(--status-danger); background: color-mix(in srgb, var(--status-danger) 14%, transparent); }
-* { scrollbar-color: var(--border-strong) var(--text-primary); }
+.status-pill:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.status-pill.running { color: var(--tftp-running); border-color: var(--tftp-running-border); background: var(--tftp-running-surface); }
+.status-pill.error, .status-popover-error { color: var(--tftp-error); border-color: var(--tftp-error-border); background: var(--tftp-error-surface); }
+* { scrollbar-color: var(--border-strong) var(--surface-1); }

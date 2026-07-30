@@ -116,7 +116,7 @@
 
 .editor-settings-panel .settings-footer button.primary {
   background: var(--surface-input);
-  color: white;
+  color: var(--text-inverse);
   border-color: var(--border-default);
 }
 

@@ -169,7 +169,7 @@ export function CommandPalette({ tabId, open, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "var(--surface-2) / 0.6)",
+        background: "rgb(var(--backdrop-rgb) / 0.6)",
         zIndex: 40,
         display: "flex",
         alignItems: "flex-start",

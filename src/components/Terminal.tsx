@@ -624,7 +624,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       color: var(--text-primary);
       font-size: 14px;
       z-index: 10001;
-      box-shadow: 0 4px 12px var(--surface-2) / 0.5);
+      box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.5);
     `;
     statusDiv.textContent = '🗺️ Ingesting topology...';
     document.body.appendChild(statusDiv);
@@ -983,7 +983,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
             background: "var(--surface-2)",
             border: "1px solid var(--border-default)",
             borderRadius: "6px",
-            boxShadow: "0 4px 12px var(--surface-2) / 0.5)",
+            boxShadow: "0 4px 12px rgb(var(--backdrop-rgb) / 0.5)",
             padding: "4px",
             zIndex: 10000,
             minWidth: "200px",

@@ -116,3 +116,52 @@ bun run build:relaxed
 ruby -e 'require "yaml"; %w[.github/workflows/ci.yml .github/workflows/release.yml].each { |f| YAML.load_file(f) }'
 git diff --check
 ```
+
+## Recovery repair — 2026-07-30
+
+The recovery began with failing tests for malformed token-alpha syntax,
+flattened status and domain colors, missing exact Dark values, incomplete
+literal detection, permissive allowlisting, diverged-branch/staged/untracked
+Git behavior, a zero push-event base SHA, and DiagramPanel theme regeneration.
+Those RED fixtures are now GREEN.
+
+The repair restores exact Dark role values for editor/modal chrome, Git and
+debugger states, IaC/diff/topology/troubleshooting, gNMI, TFTP, recording
+failure, notification, and agent activity treatments. Grey and Matrix receive
+role-equivalent values. Common structural fallbacks were also repaired so
+surfaces, text, borders, overlays, and integration-button contrast no longer
+collapse onto unrelated status or text colors. The malformed
+`-colorbackground` declarations and all malformed token-alpha expressions are
+gone from the full CSS/TSX tree.
+
+The structural-color guard now recognizes the supported CSS color syntaxes,
+including named colors, modern functional forms, `color()` spaces, and
+`color-mix()`. Allowlist entries are machine-readable and exact by file, value,
+property, context, and role. Tests exercise a real diverged repository with
+committed, staged, unstaged, and untracked findings. An all-zero explicit base
+falls through to a meaningful local comparison instead of silently accepting
+the current tree, covering tag-push behavior without a workflow change.
+
+Final automated verification:
+
+```text
+focused recovery suite: 3 files / 40 tests passed
+full suite: 246 files / 1,840 tests passed
+full structural-color inventory: passed
+explicit-base structural-color guard: passed
+relaxed production build: passed (2,106 modules)
+CI and release workflow YAML parse: passed
+git diff --check: passed
+live `./run.sh` validation via the shared Cargo target: passed
+```
+
+The live check ran
+`CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' ./run.sh`
+to avoid duplicating build artifacts. The shared `target/debug/TerminAI`
+process launched a child `python -m ccie_sidecar` loading modules from the
+preserved `sidecar/.venv`; the warmup ping succeeded, `sidecar_status.last_seen`
+advanced with version `0.0.1`, and the rendered footer chip showed
+`Sidecar: v0.0.1` instead of `starting`.
+
+The native Dark/Grey/Matrix screenshot and operator matrix remains intentionally
+deferred to interactive acceptance; no screenshot result is claimed here.

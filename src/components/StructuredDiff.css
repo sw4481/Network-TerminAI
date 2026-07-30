@@ -25,15 +25,15 @@
 }
 
 .structured-table tbody td.diff-added {
-  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  background: var(--diff-added-surface);
 }
 
 .structured-table tbody td.diff-removed {
-  background: var(--status-danger-surface);
+  background: var(--diff-removed-surface);
 }
 
 .structured-table tbody td.diff-changed {
-  background: var(--surface-2);
+  background: var(--diff-changed-surface);
 }
 
 .structured-table tbody td.diff-unchanged {
@@ -48,13 +48,13 @@
 }
 
 .diff-old {
-  color: var(--text-primary);
+  color: var(--diff-old);
   text-decoration: line-through;
   margin-right: 6px;
 }
 
 .diff-new {
-  color: var(--text-primary);
+  color: var(--diff-new);
 }
 
 .diff-arrow {

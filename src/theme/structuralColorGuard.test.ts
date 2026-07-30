@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -23,6 +24,33 @@ function check(file: string, allowlistFile: string) {
   });
 }
 
+function git(cwd: string, ...args: string[]) {
+  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+}
+
+function repoFixture() {
+  const directory = mkdtempSync(join(tmpdir(), "terminai-color-guard-"));
+  created.push(directory);
+  mkdirSync(join(directory, "src/components"), { recursive: true });
+  const allowlistFile = join(directory, "allowlist.json");
+  writeFileSync(allowlistFile, '{"entries":[]}');
+  git(directory, "init", "-b", "main");
+  git(directory, "config", "user.email", "guard@example.test");
+  git(directory, "config", "user.name", "Color Guard");
+  writeFileSync(join(directory, "README.md"), "base\n");
+  git(directory, "add", ".");
+  git(directory, "commit", "-m", "base");
+  return { directory, allowlistFile };
+}
+
+function runGuard(cwd: string, allowlistFile: string, ...args: string[]) {
+  return () => execFileSync("node", [guard, ...args, "--allowlist", allowlistFile], {
+    cwd,
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+}
+
 afterEach(() => {
   while (created.length) rmSync(created.pop()!, { recursive: true, force: true });
 });
@@ -31,6 +59,29 @@ describe("structural color guard", () => {
   it("rejects arbitrary CSS/TSX literals with file, line, property, and value", () => {
     const f = fixture('const style = { background: "#123456" };\n');
     expect(check(f.file, f.allowlistFile)).toThrow(/GuardFixture\.tsx:1 #123456 property=background/);
+  });
+
+  it.each([
+    ["named", "const style = { backgroundColor: 'white' };", /white property=backgroundColor/],
+    ["lab", "const style = { color: 'lab(50% 20 30)' };", /lab\(50% 20 30\) property=color/],
+    ["lch", "const style = { color: 'lch(50% 20 30)' };", /lch\(50% 20 30\) property=color/],
+    ["oklab", "const style = { color: 'oklab(50% .1 .1)' };", /oklab\(50% \.1 \.1\) property=color/],
+    ["oklch", "const style = { color: 'oklch(50% .1 30)' };", /oklch\(50% \.1 30\) property=color/],
+    ["color", "const style = { color: 'color(display-p3 1 0 0)' };", /color\(display-p3 1 0 0\) property=color/],
+    ["literal color-mix", ".x { color: color-mix(in srgb, red 20%, #123456); }", /color-mix\(in srgb, red 20%, #123456\) property=color/],
+  ])("rejects %s structural color syntax", (_kind, source, expected) => {
+    const f = fixture(`${source}\n`);
+    expect(check(f.file, f.allowlistFile)).toThrow(expected);
+  });
+
+  it.each([
+    ".x { color: transparent; }",
+    ".x { color: currentColor; }",
+    ".x { color: var(--text-primary); }",
+    ".x { color: color-mix(in srgb, var(--status-danger) 15%, transparent); }",
+  ])("accepts semantic/non-literal color expression: %s", (source) => {
+    const f = fixture(`${source}\n`);
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
   });
 
   it("accepts only an exact machine-readable topology domain entry", () => {
@@ -65,10 +116,43 @@ describe("structural color guard", () => {
     })).toThrow(new RegExp(`${f.logicalFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}:1 #123456`));
   });
 
-  it("uses merge-base semantics for an explicit diverged-base revision", () => {
-    expect(() => execFileSync("node", [guard, "--base", "origin/main"], {
-      encoding: "utf8",
-      stdio: "pipe",
-    })).not.toThrow();
+  it("uses a real diverged merge-base and checks staged, unstaged, and untracked files", () => {
+    const { directory, allowlistFile } = repoFixture();
+    git(directory, "switch", "-c", "feature");
+    writeFileSync(join(directory, "feature.txt"), "feature\n");
+    git(directory, "add", ".");
+    git(directory, "commit", "-m", "feature");
+    git(directory, "switch", "main");
+    writeFileSync(join(directory, "main.txt"), "main\n");
+    git(directory, "add", ".");
+    git(directory, "commit", "-m", "main");
+    git(directory, "switch", "feature");
+
+    writeFileSync(join(directory, "src/components/Staged.css"), ".x { color: red; }\n");
+    git(directory, "add", "src/components/Staged.css");
+    writeFileSync(join(directory, "src/components/Unstaged.tsx"), "const x = { color: 'oklch(50% .1 30)' };\n");
+    git(directory, "add", "src/components/Unstaged.tsx");
+    git(directory, "commit", "-m", "tracked");
+    writeFileSync(join(directory, "src/components/Unstaged.tsx"), "const x = { color: 'blue' };\n");
+    writeFileSync(join(directory, "src/components/StagedOnly.css"), ".x { color: orange; }\n");
+    git(directory, "add", "src/components/StagedOnly.css");
+    writeFileSync(join(directory, "src/components/Untracked.css"), ".x { color: #123456; }\n");
+
+    expect(runGuard(directory, allowlistFile, "--base", "main")).toThrow(
+      /Staged\.css[\s\S]*StagedOnly\.css[\s\S]*Unstaged\.tsx[\s\S]*Untracked\.css/,
+    );
+  });
+
+  it("treats a tag-push all-zero explicit base as unresolved and falls back safely", () => {
+    const { directory, allowlistFile } = repoFixture();
+    writeFileSync(join(directory, "src/components/New.css"), ".x { color: red; }\n");
+    git(directory, "add", ".");
+    git(directory, "commit", "-m", "new color");
+    expect(runGuard(
+      directory,
+      allowlistFile,
+      "--base",
+      "0000000000000000000000000000000000000000",
+    )).toThrow(/New\.css:1 red property=color/);
   });
 });

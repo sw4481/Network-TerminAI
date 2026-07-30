@@ -1,6 +1,6 @@
 .zed-debug-breakpoint {
   box-sizing: border-box;
-  border: 2px solid var(--border-default);
+  border: 2px solid var(--debug-breakpoint);
   border-radius: 50%;
   height: 12px !important;
   margin-left: 3px;
@@ -9,7 +9,7 @@
 }
 
 .zed-debug-breakpoint--verified {
-  background: var(--surface-2);
+  background: var(--debug-breakpoint);
 }
 
 .zed-debug-breakpoint--requested {
@@ -17,15 +17,15 @@
 }
 
 .zed-debug-breakpoint--rejected {
-  background: var(--surface-2);
-  border-color: var(--border-default);
+  background: var(--debug-pending);
+  border-color: var(--debug-pending);
   opacity: 0.8;
 }
 
 .zed-debug-current-line {
-  background: var(--surface-selected);
-  border-top: 1px solid var(--border-default);
-  border-bottom: 1px solid var(--border-default);
+  background: var(--debug-current-line);
+  border-top: 1px solid var(--debug-current-line-border);
+  border-bottom: 1px solid var(--debug-current-line-border);
 }
 
 .zed-debug-current-line-glyph {
@@ -35,5 +35,5 @@
   margin-top: 3px;
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-left: 9px solid var(--border-default);
+  border-left: 9px solid var(--debug-pending);
 }

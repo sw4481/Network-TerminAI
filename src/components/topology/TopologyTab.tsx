@@ -380,13 +380,13 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
               top: 20px;
               right: 20px;
               background: var(--surface-2);
-              border: 1px solid var(--border-default);
+              border: 1px solid var(--topology-success);
               border-radius: 8px;
               padding: 12px 16px;
-              color: var(--text-primary);
+              color: var(--topology-success-text);
               font-size: 14px;
               z-index: 10001;
-              box-shadow: 0 4px 12px var(--surface-2) / 0.5);
+              box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.5);
             `;
             statusDiv.innerHTML = `
               ✅ Discovery complete!<br/>
@@ -410,13 +410,13 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
             top: 20,
             right: 20,
             background: 'var(--surface-2)',
-            border: '1px solid var(--border-default)',
+            border: '1px solid var(--topology-success)',
             borderRadius: 8,
             padding: '12px 16px',
-            color: 'var(--text-primary)',
+            color: 'var(--topology-success-text)',
             fontSize: 14,
             zIndex: 10001,
-            boxShadow: '0 4px 12px var(--surface-2) / 0.5)',
+            boxShadow: '0 4px 12px rgb(var(--backdrop-rgb) / 0.5)',
           }}
         >
           🔍 Discovering devices... ({discoveryProgress.current}/{discoveryProgress.total})

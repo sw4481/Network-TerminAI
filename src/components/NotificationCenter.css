@@ -23,8 +23,8 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  -colorbackground: var(--surface-2);
-  color: white;
+  background-color: var(--notification-badge-surface);
+  color: var(--text-inverse);
   border-radius: 10px;
   padding: 2px 6px;
   font-size: 11px;
@@ -38,10 +38,10 @@
   top: 100%;
   right: 0;
   margin-top: 8px;
-  background-color: var(--bg-secondary, var(--text-primary));
+  background-color: var(--bg-secondary, var(--surface-terminal));
   border: 1px solid var(--border-color, var(--border-default));
   border-radius: 8px;
-  box-shadow: 0 4px 12px var(--surface-2);
+  box-shadow: 0 4px 12px var(--notification-shadow);
   width: 320px;
   max-height: 400px;
   display: flex;

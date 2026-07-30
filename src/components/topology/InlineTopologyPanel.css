@@ -93,7 +93,7 @@
 
 /* Custom node — the vendor-coloured ring + label cluster. */
 .neighbor-node {
-  --neighbor-vendor-color: var(--text-primary);
+  --neighbor-vendor-color: var(--topology-vendor-default);
   position: relative;
   display: inline-flex;
   flex-direction: column;

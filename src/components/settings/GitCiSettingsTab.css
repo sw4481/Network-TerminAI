@@ -82,12 +82,12 @@
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s;
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
 }
 
 .gitci-btn-primary:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--integration-primary-hover);
 }
 
 .gitci-btn-primary:disabled {

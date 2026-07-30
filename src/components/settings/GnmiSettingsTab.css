@@ -93,12 +93,12 @@
 }
 
 .gnmi-btn-primary {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
 }
 
 .gnmi-btn-primary:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--integration-primary-hover);
 }
 
 .gnmi-btn-secondary {
@@ -124,21 +124,21 @@
 }
 
 .gnmi-status--ok {
-  background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
+  background: var(--status-gnmi-success-surface);
+  border: 1px solid var(--status-gnmi-success);
+  color: var(--status-gnmi-success);
 }
 
 .gnmi-status--err {
-  background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
+  background: var(--status-gnmi-danger-surface);
+  border: 1px solid var(--status-gnmi-danger);
+  color: var(--status-gnmi-danger);
 }
 
 .gnmi-status--info {
-  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
-  border: 1px solid var(--focus-ring);
-  color: var(--status-info);
+  background: var(--status-gnmi-info-surface);
+  border: 1px solid var(--status-gnmi-info);
+  color: var(--status-gnmi-info);
 }
 
 .gnmi-empty {

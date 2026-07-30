@@ -50,7 +50,7 @@
 .tb-step-node-chip[data-status="passed"]  { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: var(--status-success); border-color: var(--status-success); }
 .tb-step-node-chip[data-status="failed"]  { background: var(--status-danger-surface); color: var(--status-danger); border-color: var(--status-danger); }
 .tb-step-node-chip[data-status="skipped"] { color: var(--text-secondary); opacity: 0.6; }
-.tb-step-node-chip[data-status="running"] { background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1)); color: var(--status-info); border-color: var(--status-info); animation: tb-pulse 1.4s ease-in-out infinite; }
+.tb-step-node-chip[data-status="running"] { background: var(--troubleshoot-running-surface); color: var(--troubleshoot-running); border-color: var(--troubleshoot-running-border); animation: tb-pulse 1.4s ease-in-out infinite; }
 .tb-step-node-chip[data-status="awaiting_user"] {
   background: var(--surface-2);
   color: var(--text-primary);

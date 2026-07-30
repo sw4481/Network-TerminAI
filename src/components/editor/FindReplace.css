@@ -63,7 +63,7 @@
 .find-replace-row button {
   padding: 4px 9px;
   background: var(--surface-2);
-  color: white;
+  color: var(--text-inverse);
   border: none;
   border-radius: 3px;
   cursor: pointer;

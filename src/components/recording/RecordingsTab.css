@@ -107,5 +107,5 @@
 .rec-btn-danger {
   background: var(--status-danger-surface);
   border-color: var(--status-danger);
-  color: white;
+  color: var(--text-inverse);
 }

@@ -111,7 +111,7 @@
   font-size: 10px;
   cursor: pointer;
 }
-.fanout-row-actions button:hover { background: var(--accent-subtle); color: var(--accent-subtle); }
+.fanout-row-actions button:hover { background: var(--surface-fanout-action-hover); color: var(--text-primary); }
 
 .fanout-tabs {
   display: flex;

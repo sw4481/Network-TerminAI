@@ -37,7 +37,7 @@
   cursor: pointer;
   font-family: inherit;
 }
-.tb-narration-toggle:hover { border-color: var(--border-default); color: var(--border-default); }
+.tb-narration-toggle:hover { border-color: var(--troubleshoot-attention); color: var(--text-primary); }
 
 .tb-narration-collapsed-rail {
   flex: 1 1 auto;

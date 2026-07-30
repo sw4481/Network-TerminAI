@@ -55,7 +55,7 @@ export function RemediationDialog({ report, onClose }: Props) {
       style={{
         position: "fixed",
         inset: 0,
-        background: "var(--surface-2) / 0.6)",
+        background: "var(--surface-modal-backdrop-60)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

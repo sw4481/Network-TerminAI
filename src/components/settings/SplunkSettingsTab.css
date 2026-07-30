@@ -94,12 +94,12 @@
 }
 
 .splunk-btn-primary {
-  background: var(--surface-2);
-  color: var(--text-primary);
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
 }
 
 .splunk-btn-primary:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--integration-primary-hover);
 }
 
 .splunk-btn-secondary {

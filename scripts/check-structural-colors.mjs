@@ -7,7 +7,37 @@ import { pathToFileURL } from "node:url";
 
 const SOURCE_ROOT = "src";
 const DEFAULT_ALLOWLIST = "src/theme/color-literal-allowlist.json";
-const COLOR = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\((?!var\()[^)]*\)/g;
+const SIMPLE_COLOR = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\([^()]*\)|(?:lab|lch|oklab|oklch)\(\s*(?:from\s+|[-+.\d]|calc\()[^()]*\)|color\(\s*(?:from\s+\S+\s+)?(?:srgb(?:-linear)?|display-p3|a98-rgb|prophoto-rgb|rec2020|xyz(?:-d50|-d65)?)\s+[^()]*\)/gi;
+const COLOR_MIX = /color-mix\([^;}"']+\)/gi;
+const NAMED_COLORS = new Set([
+  "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque",
+  "black", "blanchedalmond", "blue", "blueviolet", "brown", "burlywood",
+  "cadetblue", "chartreuse", "chocolate", "coral", "cornflowerblue", "cornsilk",
+  "crimson", "cyan", "darkblue", "darkcyan", "darkgoldenrod", "darkgray",
+  "darkgreen", "darkgrey", "darkkhaki", "darkmagenta", "darkolivegreen",
+  "darkorange", "darkorchid", "darkred", "darksalmon", "darkseagreen",
+  "darkslateblue", "darkslategray", "darkslategrey", "darkturquoise",
+  "darkviolet", "deeppink", "deepskyblue", "dimgray", "dimgrey", "dodgerblue",
+  "firebrick", "floralwhite", "forestgreen", "fuchsia", "gainsboro",
+  "ghostwhite", "gold", "goldenrod", "gray", "green", "greenyellow", "grey",
+  "honeydew", "hotpink", "indianred", "indigo", "ivory", "khaki", "lavender",
+  "lavenderblush", "lawngreen", "lemonchiffon", "lightblue", "lightcoral",
+  "lightcyan", "lightgoldenrodyellow", "lightgray", "lightgreen", "lightgrey",
+  "lightpink", "lightsalmon", "lightseagreen", "lightskyblue", "lightslategray",
+  "lightslategrey", "lightsteelblue", "lightyellow", "lime", "limegreen",
+  "linen", "magenta", "maroon", "mediumaquamarine", "mediumblue",
+  "mediumorchid", "mediumpurple", "mediumseagreen", "mediumslateblue",
+  "mediumspringgreen", "mediumturquoise", "mediumvioletred", "midnightblue",
+  "mintcream", "mistyrose", "moccasin", "navajowhite", "navy", "oldlace",
+  "olive", "olivedrab", "orange", "orangered", "orchid", "palegoldenrod",
+  "palegreen", "paleturquoise", "palevioletred", "papayawhip", "peachpuff",
+  "peru", "pink", "plum", "powderblue", "purple", "rebeccapurple", "red",
+  "rosybrown", "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen",
+  "seashell", "sienna", "silver", "skyblue", "slateblue", "slategray",
+  "slategrey", "snow", "springgreen", "steelblue", "tan", "teal", "thistle",
+  "tomato", "turquoise", "violet", "wheat", "white", "whitesmoke", "yellow",
+  "yellowgreen",
+]);
 
 function git(args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
@@ -45,12 +75,33 @@ export function findingsForText(file, text, entries = []) {
   if (!isSourceFile(file)) return [];
   const findings = [];
   for (const [offset, source] of text.split("\n").entries()) {
-    for (const match of source.matchAll(COLOR)) {
+    const semanticSource = source.replace(/\/\*.*?\*\//g, "");
+    const property = propertyFor(semanticSource);
+    const matches = [...semanticSource.matchAll(SIMPLE_COLOR)];
+    for (const mix of semanticSource.matchAll(COLOR_MIX)) {
+      const literalInput = [...mix[0].matchAll(SIMPLE_COLOR)].length > 0
+        || mix[0].toLowerCase().split(/[^a-z]+/).some((word) => NAMED_COLORS.has(word));
+      if (literalInput) matches.push(mix);
+    }
+    if (property !== "unknown") {
+      const declaration = semanticSource.match(/\b(?:background(?:Color)?|color|border(?:\w+)?|outline|boxShadow|textShadow|fill|stroke)\s*:/);
+      const colon = declaration?.index == null
+        ? -1
+        : declaration.index + declaration[0].lastIndexOf(":");
+      const valueSource = colon >= 0
+        ? semanticSource.slice(colon + 1).split(/[;,}]/, 1)[0]
+        : "";
+      for (const match of valueSource.matchAll(/(?<![-.\w])([a-z]+)(?![-\w])/gi)) {
+        if (NAMED_COLORS.has(match[1].toLowerCase())) matches.push(match);
+      }
+    }
+    const unique = new Map(matches.map((match) => [match[0].toLowerCase(), match]));
+    for (const match of unique.values()) {
       const finding = {
         file,
         line: offset + 1,
         value: match[0].toLowerCase(),
-        property: propertyFor(source),
+        property,
         source,
       };
       if (!allowed(finding, entries)) findings.push(finding);
@@ -60,20 +111,37 @@ export function findingsForText(file, text, entries = []) {
 }
 
 export function resolveBase(requested) {
-  const candidates = requested ? [requested] : [
+  const explicitWasInvalid = !!requested
+    && (/^0{40}$/.test(requested) || !canResolve(requested));
+  const candidates = [
+    ...(!explicitWasInvalid && requested ? [requested] : []),
     process.env.STRUCTURAL_COLOR_BASE,
     "origin/main",
     "main",
     "HEAD~1",
-  ].filter(Boolean);
+  ].filter((candidate, index, all) => candidate && !/^0{40}$/.test(candidate)
+    && all.indexOf(candidate) === index);
   for (const candidate of candidates) {
     try {
-      return git(["merge-base", candidate, "HEAD"]);
+      const base = git(["merge-base", candidate, "HEAD"]);
+      if (explicitWasInvalid && base === git(["rev-parse", "HEAD"]) && candidate !== "HEAD~1") {
+        continue;
+      }
+      return base;
     } catch {
       // A shallow/local checkout may not have origin/main. Try the next base.
     }
   }
   throw new Error("Unable to resolve a structural-color base; pass --base <revision>.");
+}
+
+function canResolve(revision) {
+  try {
+    git(["rev-parse", "--verify", `${revision}^{commit}`]);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function changedTrackedLines(base, entries) {
