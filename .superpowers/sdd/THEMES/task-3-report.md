@@ -68,3 +68,36 @@ change colors and font metrics in a real Tauri window while preserving visible
 scrollback/selection, shell history, an active SSH connection, a split, and a
 restored session. Task 3.6 deliberately remains unchecked until that observation
 is performed.
+
+## Review repair — ANSI reset, pinned setter fixture, and preview seam
+
+### Delivered
+
+- Added a dedicated **Reset ANSI palette** control. It restores the currently
+  resolved named/follow-app palette and retains custom semantics when core
+  colors have diverged: core colors, selection alpha, typography, cursor,
+  editor, effects, and all unrelated appearance fields remain untouched.
+- Selection now has an explicit native **Selection opacity** control. The color
+  picker preserves the existing alpha suffix, so the Dark `#FFFFFF4D` default
+  is no longer silently converted to opaque white.
+- Added an offline, minimal `xterm55OptionsFixture.ts` with provenance and the
+  SHA-256 of TerminAI's exact `@xterm/xterm@5.5.0` CDN bundle. The adapter test
+  calls the production `applyTerminalOptions()` path through its copied 5.5
+  public-option setter contract, covers every mutable appearance key, verifies
+  theme replacement, and proves neither `cols` nor `rows` is assigned.
+- AppearanceProvider tests now mock the registry seam and prove a pre-save
+  preview reaches `applyAppearanceSettings()` without backend persistence.
+  Registry coverage also proves a new terminal inherits the current approved
+  appearance snapshot.
+
+### RED/GREEN repair evidence
+
+- RED: `bun run test -- --run src/components/TerminalSettingsTab.test.tsx src/lib/terminalAppearance.test.ts src/lib/terminalRegistry.test.ts src/theme/AppearanceProvider.test.tsx` failed as expected because the pinned fixture, selection-opacity control, and ANSI reset control did not exist.
+- GREEN focused: `bun run test -- --run src/lib/terminalAppearance.test.ts src/components/TerminalSettingsTab.test.tsx src/theme/AppearanceProvider.test.tsx src/lib/terminalRegistry.test.ts src/hooks/usePty.test.tsx` passed: 5 files, 41 tests.
+- GREEN full frontend: `bun run test -- --dir src` passed: 239 files, 1766
+  tests. The two baseline navigation diagnostics remain.
+- GREEN build: `bun run build:relaxed` passed; existing Vite chunk/import
+  warnings remain. `git diff --check` passed.
+
+Native operator invariants remain intentionally deferred, and Task 3.6 remains
+unchecked.

@@ -15,6 +15,7 @@ import { createDefaultAppearanceSettings } from "../theme/defaults";
 import { APP_THEME_PRESETS } from "../theme/presets";
 import type { TerminalAnsiPalette, TerminalPresetId } from "../theme/types";
 import { APPEARANCE_LIMITS, normalizeHexColor } from "../theme/validation";
+import { terminalSettingsForPreset } from "../lib/terminalAppearance";
 import "./TerminalSettingsTab.css";
 
 const ANSI_FIELDS: Array<[keyof TerminalAnsiPalette, string]> = [
@@ -31,6 +32,26 @@ function clamp(value: string, limits: { min: number; max: number }): number {
   const number = Number(value);
   if (!Number.isFinite(number)) return limits.min;
   return Math.min(limits.max, Math.max(limits.min, number));
+}
+
+function colorWithPreservedAlpha(color: string, existing: string): string {
+  const normalized = normalizeHexColor(color);
+  if (!normalized) return existing;
+  return existing.length === 9 ? `${normalized.slice(0, 7)}${existing.slice(7)}` : normalized;
+}
+
+function selectionOpacity(color: string): number {
+  if (color.length !== 9) return 1;
+  return Math.round((Number.parseInt(color.slice(7), 16) / 255) * 100) / 100;
+}
+
+function selectionWithOpacity(color: string, opacity: number): string {
+  const normalized = normalizeHexColor(color)?.slice(0, 7) ?? color.slice(0, 7);
+  const alpha = Math.round(Math.min(1, Math.max(0, opacity)) * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `${normalized}${alpha}`;
 }
 
 const TerminalSettingsTab: React.FC = () => {
@@ -121,6 +142,17 @@ const TerminalSettingsTab: React.FC = () => {
     updateTerminal({ cursorStyle: defaults.cursorStyle, cursorBlink: defaults.cursorBlink });
   };
 
+  const resetAnsiPalette = () => {
+    const preset = terminalDraft.terminal.preset === "custom"
+      ? "follow-app"
+      : terminalDraft.terminal.preset;
+    const resolved = terminalSettingsForPreset({
+      ...terminalDraft,
+      terminal: { ...terminalDraft.terminal, preset },
+    });
+    updateTerminal({ ansi: { ...resolved.ansi } }, true);
+  };
+
   const loadPreferences = async () => {
     try {
       const loaded = await getNotificationPreferences();
@@ -203,10 +235,11 @@ const TerminalSettingsTab: React.FC = () => {
             {([
               ["foreground", "Foreground color"], ["background", "Background color"],
               ["cursor", "Cursor color"], ["cursorAccent", "Cursor accent color"],
-              ["selectionBackground", "Selection color"],
             ] as const).map(([key, label]) => (
               <label key={key}>{label}<input aria-label={label} type="color" value={terminalDraft.terminal[key].slice(0, 7)} onChange={(event) => updateTerminal({ [key]: normalizeHexColor(event.target.value) ?? terminalDraft.terminal[key] }, true)} /></label>
             ))}
+            <label>Selection color<input aria-label="Selection color" type="color" value={terminalDraft.terminal.selectionBackground.slice(0, 7)} onChange={(event) => updateTerminal({ selectionBackground: colorWithPreservedAlpha(event.target.value, terminalDraft.terminal.selectionBackground) }, true)} /></label>
+            <label>Selection opacity<input aria-label="Selection opacity" type="number" min="0" max="1" step="0.01" value={selectionOpacity(terminalDraft.terminal.selectionBackground)} onChange={(event) => updateTerminal({ selectionBackground: selectionWithOpacity(terminalDraft.terminal.selectionBackground, Number(event.target.value)) }, true)} /></label>
           </div>
           <button type="button" className="secondary-btn" onClick={resetColors}>Reset colors</button>
         </fieldset>
@@ -222,6 +255,7 @@ const TerminalSettingsTab: React.FC = () => {
             <strong>ANSI preview</strong>
             <code style={{ color: terminalDraft.terminal.ansi.red }}>red</code><code style={{ color: terminalDraft.terminal.ansi.green }}>green</code><code style={{ color: terminalDraft.terminal.ansi.yellow }}>yellow</code><code style={{ color: terminalDraft.terminal.ansi.blue }}>blue</code><code style={{ color: terminalDraft.terminal.ansi.brightMagenta }}>magenta</code><code style={{ color: terminalDraft.terminal.ansi.brightCyan }}>cyan</code>
           </div>
+          <button type="button" className="secondary-btn" onClick={resetAnsiPalette}>Reset ANSI palette</button>
         </fieldset>
 
         <fieldset className="terminal-appearance__section">

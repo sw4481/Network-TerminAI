@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   emit: vi.fn(),
   listen: vi.fn(),
   unlisten: vi.fn(),
+  applyAppearanceSettings: vi.fn(),
 }));
 
 vi.mock("../lib/tauri", () => ({
@@ -19,6 +20,10 @@ vi.mock("../lib/tauri", () => ({
 vi.mock("@tauri-apps/api/event", () => ({
   emit: mocks.emit,
   listen: mocks.listen,
+}));
+
+vi.mock("../lib/terminalRegistry", () => ({
+  applyAppearanceSettings: mocks.applyAppearanceSettings,
 }));
 
 import {
@@ -70,6 +75,7 @@ describe("AppearanceProvider", () => {
     mocks.set.mockReset().mockImplementation(async (value) => value);
     mocks.emit.mockReset().mockResolvedValue(undefined);
     mocks.unlisten.mockReset();
+    mocks.applyAppearanceSettings.mockReset();
     mocks.listen.mockReset().mockImplementation(
       async (_name: string, handler: (event: { payload: AppearanceSettingsV1 }) => void) => {
         deliverEvent = handler;
@@ -187,6 +193,19 @@ describe("AppearanceProvider", () => {
     expect(document.documentElement).toHaveAttribute("data-theme", "slate-grey");
     expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("terminai-dark");
     expect(mount).toHaveBeenCalledTimes(1);
+    expect(mocks.set).not.toHaveBeenCalled();
+  });
+
+  it("sends a pre-save preview to the live registry seam before persistence", async () => {
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(mocks.get).toHaveBeenCalled());
+    mocks.applyAppearanceSettings.mockClear();
+
+    screen.getByRole("button", { name: "preview grey" }).click();
+
+    expect(mocks.applyAppearanceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ appTheme: "slate-grey" }),
+    );
     expect(mocks.set).not.toHaveBeenCalled();
   });
 });

@@ -131,6 +131,19 @@ describe('terminalRegistry lifecycle', () => {
 });
 
 describe('terminalRegistry live appearance updates', () => {
+  it('uses the latest approved appearance snapshot for a newly created terminal', async () => {
+    const settings = (await import('../theme/defaults')).createDefaultAppearanceSettings();
+    settings.terminal = { ...settings.terminal, preset: 'custom', foreground: '#ABCDEF', fontSize: 18 };
+    reg.applyAppearanceSettings(settings);
+
+    const entry = reg.getOrCreate('t-new-snapshot', OPTS);
+
+    expect(entry.xterm.options).toMatchObject({
+      fontSize: 18,
+      theme: { foreground: '#ABCDEF' },
+    });
+  });
+
   it('updates existing xterm options in place without creating, killing, or reconnecting the PTY', async () => {
     const entry = reg.getOrCreate('t-live', OPTS);
     await Promise.resolve();

@@ -167,4 +167,43 @@ describe("TerminalSettingsTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset cursor" }));
     expect(appearance.previewSettings.mock.calls.length).toBeGreaterThanOrEqual(5);
   });
+
+  it("resets only ANSI colors to the resolved preset and preserves selection alpha", async () => {
+    appearance.settings = {
+      ...createDefaultAppearanceSettings(),
+      appTheme: "matrix",
+      editorTheme: "zed-one-dark",
+      effects: { matrixScanlines: true, matrixGlow: true, motion: "reduced" },
+      terminal: {
+        ...createDefaultAppearanceSettings().terminal,
+        preset: "custom",
+        background: "#123456",
+        fontSize: 17,
+        cursorStyle: "bar",
+        selectionBackground: "#FFFFFF4D",
+        ansi: { ...createDefaultAppearanceSettings().terminal.ansi, brightGreen: "#111111" },
+      },
+    };
+    render(<TerminalSettingsTab />);
+
+    expect(screen.getByLabelText("Selection opacity")).toHaveValue(0.3);
+    fireEvent.change(screen.getByLabelText("Selection color"), { target: { value: "#abcdef" } });
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ terminal: expect.objectContaining({ selectionBackground: "#ABCDEF4D" }) }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reset ANSI palette" }));
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        terminal: expect.objectContaining({
+          preset: "custom",
+          background: "#123456",
+          fontSize: 17,
+          cursorStyle: "bar",
+          ansi: expect.objectContaining({ brightGreen: "#8DFF9A" }),
+        }),
+        editorTheme: "zed-one-dark",
+        effects: { matrixScanlines: true, matrixGlow: true, motion: "reduced" },
+      }),
+    );
+  });
 });
