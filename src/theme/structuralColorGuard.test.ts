@@ -213,6 +213,29 @@ const style = { color: "#123456" };
     );
   });
 
+  it("recognizes regex expressions after control-condition closing parentheses", () => {
+    const commentLike = fixture(String.raw`if (ok) /{color:red}[/*]/.test(value);
+const style = { color: "var(--text-primary)" };
+`);
+    expect(check(commentLike.file, commentLike.allowlistFile)).not.toThrow();
+
+    const nested = fixture(String.raw`if ((ok && fn(value))) /https?:\/\//.test(value);
+const style = { color: "#123456" };
+`);
+    expect(check(nested.file, nested.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:2 #123456 property=color/,
+    );
+  });
+
+  it("does not treat division after an ordinary call as a regex", () => {
+    const f = fixture(`const ratio = fn() / divisor; // color: red
+const style = { color: "#123456" };
+`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:2 #123456 property=color/,
+    );
+  });
+
   it.each([
     [
       "hex",
@@ -277,6 +300,62 @@ statusDiv.style.cssText = \`
     expect(check(literal.file, literal.allowlistFile)).toThrow(
       /GuardFixture\.tsx:3 red property=color/,
     );
+  });
+
+  it("reports each literal color branch in a multiline cssText interpolation", () => {
+    const f = fixture(`statusDiv.style.cssText = \`
+  color: \${condition
+    ? "red"
+    : "blue"};
+\`;
+`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:3 red property=color/,
+    );
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:4 blue property=color/,
+    );
+  });
+
+  it("reports exact nested interpolation colors without flagging escaped prose", () => {
+    const f = fixture(`statusDiv.setAttribute("style", \`
+  background-color: \${nested
+    ? "#123456"
+    : choose ? "hwb(120 0% 0%)" : "say \\"red\\" here"};
+\`);
+`);
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:3 #123456 property=background-color/,
+    );
+    expect(check(f.file, f.allowlistFile)).toThrow(
+      /GuardFixture\.tsx:4 hwb\(120 0% 0%\) property=background-color/,
+    );
+    writeFileSync(f.allowlistFile, JSON.stringify({ entries: [
+      {
+        path: f.logicalFile,
+        value: "#123456",
+        property: "background-color",
+        context: '"#123456"',
+        role: "test nested interpolation hex",
+      },
+      {
+        path: f.logicalFile,
+        value: "hwb(120 0% 0%)",
+        property: "background-color",
+        context: '"hwb(120 0% 0%)"',
+        role: "test nested interpolation modern color",
+      },
+    ] }));
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
+  });
+
+  it("ignores interpolation identifiers and unrelated prose", () => {
+    const f = fixture(`statusDiv.style.cssText = \`
+  color: \${redVariable};
+  background: \${condition ? "alert red text" : palette.blue};
+\`;
+`);
+    expect(check(f.file, f.allowlistFile)).not.toThrow();
   });
 
   it("honors escaped CSS url terminators and still scans after the true close", () => {

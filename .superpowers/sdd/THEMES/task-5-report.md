@@ -228,3 +228,37 @@ relaxed production build: passed (2,106 modules)
 CI and release workflow YAML parse: passed
 git diff --check: passed
 ```
+
+## Guard statement-context and interpolation repair — 2026-07-30
+
+The final re-review identified two remaining lexical contexts. RED added five
+tests and failed in exactly three places while 41 cases stayed green: a regex
+expression following a nested control-condition closing parenthesis, literal
+named-color branches inside a multiline `.cssText` interpolation, and nested
+hex/modern-color branches inside a `setAttribute("style", ...)` interpolation.
+The new division and identifier/prose exclusions were already green.
+
+GREEN tracks the parenthesis stack while masking TSX comments and regexes, marks
+closers introduced by `if`, `while`, `for`, `with`, `switch`, and `catch`, and
+permits a regex expression after only those statement-condition closers.
+Ordinary call results followed by division retain division semantics.
+
+CSS-bearing templates retain their position-preserving declaration mask, but
+their interpolation expressions are now analyzed separately. Exact color
+strings in nested expression branches are reported against the containing CSS
+property at their original source lines. Quoted hex, named, and modern
+functional values are covered; variable identifiers and longer escaped prose
+strings are not treated as CSS color values.
+
+Final verification:
+
+```text
+focused structural-color guard: 1 file / 44 tests passed
+production-related focused suite: 2 files / 46 tests passed
+full suite: 246 files / 1,867 tests passed
+full structural-color inventory: passed
+explicit-base structural-color guard: passed
+relaxed production build: passed (2,106 modules)
+CI and release workflow YAML parse: passed
+git diff --check: passed
+```

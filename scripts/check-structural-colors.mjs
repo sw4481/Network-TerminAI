@@ -11,6 +11,9 @@ const COLOR_FUNCTIONS = new Set([
   "rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch",
   "color", "color-mix",
 ]);
+const CONTROL_CONDITION_KEYWORDS = new Set([
+  "if", "while", "for", "with", "switch", "catch",
+]);
 const INTERPOLATION_SENTINEL = "\uE000";
 const NAMED_COLORS = new Set([
   "aliceblue", "antiquewhite", "aqua", "aquamarine", "azure", "beige", "bisque",
@@ -98,17 +101,20 @@ export function findingsForText(file, text, entries = []) {
     displayText: text,
     offset: 0,
     css: file.endsWith(".css"),
+    interpolations: [],
   }];
   if (!file.endsWith(".css")) {
     for (const range of cssBearingRanges(semanticText)) {
       const displayText = text.slice(range.contentStart, range.contentEnd);
       let scanText = semanticText.slice(range.contentStart, range.contentEnd);
-      if (range.template) scanText = maskTemplateInterpolations(scanText);
+      const interpolations = range.template ? templateInterpolationRanges(displayText) : [];
+      if (range.template) scanText = maskTemplateInterpolations(scanText, interpolations);
       groups.push({
         scanText: maskComments(scanText, false),
         displayText,
         offset: range.contentStart,
         css: true,
+        interpolations,
       });
     }
   }
@@ -116,7 +122,11 @@ export function findingsForText(file, text, entries = []) {
     for (const declaration of declarationsIn(group.scanText, group.css)) {
       const scanValue = group.scanText.slice(declaration.valueStart, declaration.valueEnd);
       const displayValue = group.displayText.slice(declaration.valueStart, declaration.valueEnd);
-      for (const match of literalColorsIn(scanValue, displayValue)) {
+      const matches = [
+        ...literalColorsIn(scanValue, displayValue),
+        ...interpolationLiteralColorsIn(group.displayText, declaration, group.interpolations),
+      ];
+      for (const match of matches) {
         const absoluteOffset = group.offset + declaration.valueStart + match.reportOffset;
         const absoluteProperty = group.offset + declaration.propertyStart;
         const absoluteValueEnd = group.offset + declaration.valueEnd;
@@ -142,6 +152,8 @@ export function findingsForText(file, text, entries = []) {
 /** Replace comments with spaces while preserving every character offset/newline. */
 function maskComments(text, lineComments = true) {
   const output = text.split("");
+  const parentheses = [];
+  const controlConditionClosers = new Set();
   let quote = "";
   let escaped = false;
   for (let index = 0; index < text.length; index += 1) {
@@ -188,31 +200,60 @@ function maskComments(text, lineComments = true) {
       index -= 1;
       continue;
     }
-    if (lineComments && char === "/" && canStartRegex(text, index)) {
+    if (lineComments && char === "/" && canStartRegex(output, index, controlConditionClosers)) {
       const end = regexEnd(text, index);
       if (end > index) {
         for (let offset = index; offset <= end; offset += 1) {
           if (output[offset] !== "\n") output[offset] = " ";
         }
         index = end;
+        continue;
       }
+    }
+    if (char === "(") {
+      parentheses.push(controlKeywordBefore(output, index));
+    } else if (char === ")") {
+      if (parentheses.pop()) controlConditionClosers.add(index);
     }
   }
   return output.join("");
 }
 
-function canStartRegex(text, slash) {
+function canStartRegex(text, slash, controlConditionClosers = new Set()) {
   let previous = slash - 1;
   while (previous >= 0 && /\s/.test(text[previous])) previous -= 1;
   if (previous < 0) return true;
   if ("([{:;,=!?&|+-*%^~<>".includes(text[previous])) return true;
+  if (text[previous] === ")" && controlConditionClosers.has(previous)) return true;
   if (!/[A-Za-z0-9_$]/.test(text[previous])) return false;
   let start = previous;
   while (start >= 0 && /[A-Za-z0-9_$]/.test(text[start])) start -= 1;
+  const tokenSlice = text.slice(start + 1, previous + 1);
+  const token = Array.isArray(tokenSlice) ? tokenSlice.join("") : tokenSlice;
   return new Set([
     "await", "case", "delete", "do", "else", "in", "instanceof", "new", "of",
     "return", "throw", "typeof", "void", "yield",
-  ]).has(text.slice(start + 1, previous + 1));
+  ]).has(token);
+}
+
+function controlKeywordBefore(text, open) {
+  let previous = open - 1;
+  while (previous >= 0 && /\s/.test(text[previous])) previous -= 1;
+  const end = previous + 1;
+  while (previous >= 0 && /[A-Za-z0-9_$]/.test(text[previous])) previous -= 1;
+  const wordSlice = text.slice(previous + 1, end);
+  const word = Array.isArray(wordSlice) ? wordSlice.join("") : wordSlice;
+  if (CONTROL_CONDITION_KEYWORDS.has(word)) return true;
+  return word === "await" && wordBefore(text, previous + 1) === "for";
+}
+
+function wordBefore(text, before) {
+  let previous = before - 1;
+  while (previous >= 0 && /\s/.test(text[previous])) previous -= 1;
+  const end = previous + 1;
+  while (previous >= 0 && /[A-Za-z0-9_$]/.test(text[previous])) previous -= 1;
+  const slice = text.slice(previous + 1, end);
+  return Array.isArray(slice) ? slice.join("") : slice;
 }
 
 function regexEnd(text, open) {
@@ -306,18 +347,108 @@ function quotedContentRange(text, quote) {
   };
 }
 
-function maskTemplateInterpolations(text) {
-  const output = text.split("");
+function templateInterpolationRanges(text) {
+  const ranges = [];
   for (let index = 0; index < text.length - 1; index += 1) {
     if (text[index] !== "$" || text[index + 1] !== "{" || isEscaped(text, index)) continue;
     const end = matchingBraceEnd(text, index + 1);
-    output[index] = INTERPOLATION_SENTINEL;
-    for (let offset = index + 1; offset <= end; offset += 1) {
-      if (output[offset] !== "\n") output[offset] = " ";
-    }
+    ranges.push({
+      start: index,
+      end,
+      expressionStart: index + 2,
+      expressionEnd: end,
+    });
     index = end;
   }
+  return ranges;
+}
+
+function maskTemplateInterpolations(text, ranges = templateInterpolationRanges(text)) {
+  const output = text.split("");
+  for (const range of ranges) {
+    output[range.start] = INTERPOLATION_SENTINEL;
+    for (let offset = range.start + 1; offset <= range.end; offset += 1) {
+      if (output[offset] !== "\n") output[offset] = " ";
+    }
+  }
   return output.join("");
+}
+
+function interpolationLiteralColorsIn(text, declaration, interpolations) {
+  const matches = [];
+  for (const interpolation of interpolations) {
+    if (interpolation.start < declaration.valueStart
+      || interpolation.end > declaration.valueEnd) continue;
+    for (const literal of literalStringColorsInExpression(
+      text,
+      interpolation.expressionStart,
+      interpolation.expressionEnd,
+    )) {
+      matches.push({
+        value: literal.value,
+        reportOffset: literal.offset - declaration.valueStart,
+      });
+    }
+  }
+  return matches;
+}
+
+function literalStringColorsInExpression(text, start, end) {
+  const expression = text.slice(start, end);
+  const semantic = maskComments(expression, true);
+  const matches = [];
+  for (let index = 0; index < semantic.length;) {
+    const quote = semantic[index];
+    if (quote !== "'" && quote !== '"' && quote !== "`") {
+      index += 1;
+      continue;
+    }
+    const close = quotedEnd(semantic, index);
+    const contentStart = index + 1;
+    const contentEnd = Math.min(close, semantic.length);
+    if (quote === "`") {
+      const nested = templateInterpolationRanges(expression.slice(contentStart, contentEnd));
+      if (nested.length === 0) {
+        const literal = exactColorLiteral(expression.slice(contentStart, contentEnd));
+        if (literal) {
+          matches.push({
+            value: literal.value,
+            offset: start + contentStart + literal.offset,
+          });
+        }
+      } else {
+        for (const interpolation of nested) {
+          matches.push(...literalStringColorsInExpression(
+            expression,
+            contentStart + interpolation.expressionStart,
+            contentStart + interpolation.expressionEnd,
+          ).map((match) => ({
+            value: match.value,
+            offset: start + match.offset,
+          })));
+        }
+      }
+    } else {
+      const literal = exactColorLiteral(expression.slice(contentStart, contentEnd));
+      if (literal) {
+        matches.push({
+          value: literal.value,
+          offset: start + contentStart + literal.offset,
+        });
+      }
+    }
+    index = Math.max(close + 1, index + 1);
+  }
+  return matches;
+}
+
+function exactColorLiteral(content) {
+  const leading = content.search(/\S/);
+  if (leading < 0) return null;
+  const value = content.trim();
+  const matches = literalColorsIn(value);
+  if (!matches.some((match) => match.value === value)) return null;
+  return { value, offset: leading };
 }
 
 function matchingBraceEnd(text, open) {
