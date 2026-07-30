@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import TerminalSettingsTab from "./TerminalSettingsTab";
 import * as paneActivityLib from "../lib/paneActivity";
 import * as tauri from "../lib/tauri";
@@ -144,6 +147,37 @@ describe("TerminalSettingsTab", () => {
     expect(screen.getByLabelText("Cursor style")).toHaveValue("block");
     expect(screen.getByRole("checkbox", { name: "Blinking cursor" })).toBeChecked();
     expect(screen.getByText("ANSI preview")).toBeVisible();
+  });
+
+  it("gives every native color picker a unique screen-reader name and keyboard focus", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TerminalSettingsTab />);
+    await screen.findByLabelText(/Minimum duration/i);
+
+    const colorPickers = Array.from(
+      container.querySelectorAll<HTMLInputElement>('.terminal-appearance input[type="color"]'),
+    );
+    expect(colorPickers).toHaveLength(21);
+    const accessibleNames = colorPickers.map((picker) => picker.getAttribute("aria-label"));
+    expect(new Set(accessibleNames).size).toBe(colorPickers.length);
+    for (const picker of colorPickers) expect(picker).toHaveAccessibleName();
+
+    colorPickers[0].focus();
+    for (const expected of colorPickers.slice(1, 5)) {
+      await user.tab();
+      expect(expected).toHaveFocus();
+    }
+  });
+
+  it("uses contrasted control boundaries and button text in terminal settings", () => {
+    const css = readFileSync(resolve("src/components/TerminalSettingsTab.css"), "utf8");
+
+    expect(css).toMatch(
+      /\.terminal-appearance input\[type="color"\][\s\S]*?border:\s*1px solid var\(--focus-control\)/,
+    );
+    expect(css).toMatch(
+      /\.save-btn\s*\{[^}]*background-color:\s*var\(--accent-color,[^}]*color:\s*var\(--text-on-strong-accent\)/,
+    );
   });
 
   it("normalizes terminal editing through the provider, persists it, and resets each section", async () => {

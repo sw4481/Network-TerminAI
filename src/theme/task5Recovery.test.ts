@@ -162,7 +162,7 @@ describe("Task 5 theme recovery", () => {
       "background-color: var(--bg-secondary, var(--surface-terminal));",
     );
     expect(source("src/components/TerminalSettingsTab.css")).toContain(
-      "background: var(--bg-secondary, var(--surface-terminal)); color: var(--text-primary, var(--text-inverse)); border: 1px solid var(--border-color, var(--border-terminal-control));",
+      "background: var(--bg-secondary, var(--surface-terminal)); color: var(--text-primary, var(--text-inverse)); border: 1px solid var(--focus-control);",
     );
 
     for (const file of [

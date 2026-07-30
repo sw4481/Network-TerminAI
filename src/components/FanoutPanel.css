@@ -73,12 +73,12 @@
   font-weight: 500;
   text-transform: uppercase;
 }
-.fanout-status-chip.pending   { background: var(--status-warning-surface); color: var(--text-secondary); }
-.fanout-status-chip.running   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); }
-.fanout-status-chip.success   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); }
-.fanout-status-chip.failed    { background: var(--status-danger-surface); color: var(--status-danger-surface); }
-.fanout-status-chip.timeout   { background: var(--surface-2); color: var(--text-primary); }
-.fanout-status-chip.cancelled { background: var(--surface-2); color: var(--text-primary); }
+.fanout-status-chip.pending   { background: var(--status-warning-surface); color: var(--status-warning); }
+.fanout-status-chip.running   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: var(--status-success); }
+.fanout-status-chip.success   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: var(--status-success); }
+.fanout-status-chip.failed    { background: var(--status-danger-surface); color: var(--status-danger); }
+.fanout-status-chip.timeout   { background: var(--surface-2); color: var(--status-warning); }
+.fanout-status-chip.cancelled { background: var(--surface-2); color: var(--status-neutral); }
 
 .fanout-progress-bar {
   height: 6px;
@@ -88,14 +88,14 @@
 }
 .fanout-progress-bar > div {
   height: 100%;
-  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  background: var(--status-info);
   width: 0%;
   transition: width 0.2s ease;
 }
-.fanout-progress-bar.success > div { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); width: 100% !important; }
-.fanout-progress-bar.failed  > div { background: var(--status-danger-surface); width: 100% !important; }
-.fanout-progress-bar.timeout > div { background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1)); width: 100% !important; }
-.fanout-progress-bar.cancelled > div { background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1)); width: 100% !important; }
+.fanout-progress-bar.success > div { background: var(--status-success); width: 100% !important; }
+.fanout-progress-bar.failed  > div { background: var(--status-danger); width: 100% !important; }
+.fanout-progress-bar.timeout > div { background: var(--status-warning); width: 100% !important; }
+.fanout-progress-bar.cancelled > div { background: var(--status-neutral); width: 100% !important; }
 
 .fanout-row-actions {
   display: flex;

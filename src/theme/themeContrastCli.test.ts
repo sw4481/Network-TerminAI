@@ -24,6 +24,8 @@ const accessibleTokens = {
   "--text-muted": "#FFFFFF",
   "--text-recording": "#FFFFFF",
   "--text-recording-muted": "#FFFFFF",
+  "--accent": "#FFFFFF",
+  "--text-on-strong-accent": "#000000",
   "--status-info": "#FFFFFF",
   "--status-success": "#FFFFFF",
   "--status-warning": "#FFFFFF",
@@ -93,6 +95,22 @@ describe("theme contrast release checker", () => {
     expect(result.stderr).toContain("terminai-dark");
     expect(result.stderr).toContain("--text-muted on --surface-3");
     expect(result.stderr).toMatch(/ratio \d+\.\d{2}, requires 4\.50/);
+  });
+
+  it("rejects unreadable ordinary text on strong action accents", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--css",
+        fixture(themeFixture({ "--text-on-strong-accent": "#FFFFFF" })),
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--text-on-strong-accent on --accent");
+    expect(result.stderr).toContain("requires 4.50");
   });
 
   it("passes the repository's three shipped application themes", () => {

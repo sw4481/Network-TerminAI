@@ -24,6 +24,12 @@ function formatTime(ms?: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function progressForStatus(status: DeviceRunState["status"]): number {
+  if (status === "pending") return 0;
+  if (status === "running") return 60;
+  return 100;
+}
+
 export function FanoutPanel() {
   useFanoutEvents();
   const { groups, refreshGroups } = useFanoutStore();
@@ -280,7 +286,15 @@ export function FanoutPanel() {
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                   {d.displayName}
                 </span>
-                <div className={`fanout-progress-bar ${d.status}`}>
+                <div
+                  className={`fanout-progress-bar ${d.status}`}
+                  role="progressbar"
+                  aria-label={`${d.displayName} progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progressForStatus(d.status)}
+                  aria-valuetext={d.status}
+                >
                   <div
                     style={{
                       width: d.status === "running" ? "60%" : undefined,
@@ -453,4 +467,3 @@ function DeviceRawView({
   }, [blockId, onError]);
   return <pre className="fanout-raw">{raw}</pre>;
 }
-

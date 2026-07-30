@@ -66,9 +66,12 @@ export function SidecarStatusChip() {
     <div
       className={`status-pill ${running ? "running" : starting ? "starting" : "stopped"}`}
       title={title}
+      role="status"
+      aria-label="Sidecar status"
+      aria-live="polite"
       style={{ cursor: "default" }}
     >
-      <span className="status-dot" />
+      <span className="status-dot" aria-hidden="true" />
       <span className="status-label">
         Sidecar: {starting ? "starting" : running ? `v${status?.version ?? "?"}` : "down"}
       </span>

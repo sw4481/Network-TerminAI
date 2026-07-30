@@ -79,4 +79,21 @@ describe("SidecarStatusChip", () => {
       expect(screen.getByText(/Sidecar:/)).toHaveTextContent(/v0\.0\.1/);
     });
   });
+
+  it("announces textual sidecar state changes without relying on the status dot", async () => {
+    (invoke as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      running: true,
+      last_seen: 1_700_000_000,
+      version: "0.0.1",
+      pid: 12345,
+      now: 1_700_000_005,
+    });
+
+    render(<SidecarStatusChip />);
+
+    const status = await screen.findByRole("status", { name: "Sidecar status" });
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Sidecar: v0.0.1");
+    expect(status.querySelector(".status-dot")).toHaveAttribute("aria-hidden", "true");
+  });
 });

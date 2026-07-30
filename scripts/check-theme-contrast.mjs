@@ -31,6 +31,7 @@ const NORMAL_TEXT_PAIRS = [
   ["--text-recording-muted", "--surface-recording-inset"],
   ["--text-recording-muted", "--surface-recording-control"],
   ["--text-recording-muted", "--surface-recording-hover"],
+  ["--text-on-strong-accent", "--accent"],
   ["--status-info", "--surface-1"],
   ["--status-success", "--surface-1"],
   ["--status-warning", "--status-warning-surface"],
