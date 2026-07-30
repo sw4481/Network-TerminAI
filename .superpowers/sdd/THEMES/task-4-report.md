@@ -50,4 +50,4 @@ DAP test suites pass under the full frontend regression run.
   and continued LSP/DAP sessions while changing themes. No native app was
   launched because Task 4 itself does not change the sidecar, Tauri commands,
   packaging, or dependencies.
-- Commit: pending final atomic commit.
+- Commit: `bcf7139d57420a38f79a00f91f4aae6186a2a4b2` (`feat(editor): apply appearance themes to Monaco`).
