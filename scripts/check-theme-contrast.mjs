@@ -3,10 +3,11 @@
  * Deterministic WCAG contrast gate for TerminAI's semantic theme contract and
  * the foreground/background combinations that active source CSS actually uses.
  *
- * Source discovery intentionally audits rules that directly paint both `color`
- * and a flat `background`/`background-color`. Inherited or transparent colors
- * and image/gradient backgrounds do not define a self-contained contrast pair,
- * so they are counted as explicit exclusions instead of silently disappearing.
+ * Source discovery audits rules that directly paint both `color` and a flat
+ * `background`/`background-color`, plus conservative interactive-state pairs
+ * derived from an identical base selector. Inherited or transparent colors,
+ * image/gradient backgrounds, and unpaired state declarations are counted as
+ * explicit exclusions instead of silently disappearing.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
@@ -38,6 +39,7 @@ const NORMAL_TEXT_PAIRS = [
   ["--text-recording-muted", "--surface-recording-control"],
   ["--text-recording-muted", "--surface-recording-hover"],
   ["--text-on-strong-accent", "--accent"],
+  ["--text-on-accent-hover", "--accent-hover"],
   ["--status-info", "--surface-1"],
   ["--status-success", "--surface-1"],
   ["--status-warning", "--status-warning-surface"],
@@ -287,6 +289,166 @@ function normalizedSelector(selector) {
   return selector.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ").trim();
 }
 
+const INTERACTIVE_STATE_PSEUDOS = new Set([
+  "active",
+  "checked",
+  "disabled",
+  "focus",
+  "focus-visible",
+  "focus-within",
+  "hover",
+]);
+
+const STATE_ATTRIBUTES = new Set([
+  "aria-busy",
+  "aria-checked",
+  "aria-current",
+  "aria-disabled",
+  "aria-expanded",
+  "aria-hidden",
+  "aria-invalid",
+  "aria-pressed",
+  "aria-selected",
+  "checked",
+  "data-active",
+  "data-checked",
+  "data-disabled",
+  "data-open",
+  "data-selected",
+  "data-state",
+  "data-status",
+  "disabled",
+  "open",
+  "selected",
+]);
+
+function matchingTokenEnd(text, open, opening, closing) {
+  let depth = 1;
+  let quote = "";
+  let escaped = false;
+  for (let index = open + 1; index < text.length; index += 1) {
+    const character = text[index];
+    if (quote) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === "'" || character === '"') quote = character;
+    else if (character === opening) depth += 1;
+    else if (character === closing && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function isStateAttribute(attributeSelector) {
+  const name = attributeSelector.trim().match(/^([a-z_][\w:-]*)/i)?.[1]?.toLowerCase();
+  return name != null && STATE_ATTRIBUTES.has(name);
+}
+
+function isSupportedStateAtom(selector) {
+  const trimmed = selector.trim();
+  const pseudo = trimmed.match(/^:([a-z-]+)$/i)?.[1]?.toLowerCase();
+  if (pseudo && INTERACTIVE_STATE_PSEUDOS.has(pseudo)) return true;
+  return trimmed.startsWith("[")
+    && trimmed.endsWith("]")
+    && isStateAttribute(trimmed.slice(1, -1));
+}
+
+function containsInteractiveState(selector) {
+  return /:(?:active|checked|disabled|focus(?:-visible|-within)?|hover)\b/i.test(selector)
+    || /\[\s*(?:aria-(?:busy|checked|current|disabled|expanded|hidden|invalid|pressed|selected)|data-(?:active|checked|disabled|open|selected|state|status)|checked|disabled|open|selected)\b/i
+      .test(selector);
+}
+
+/**
+ * Reduce a supported state selector to the exact non-state selector it extends.
+ * Functional selector syntax other than a single-state `:not(...)` is left
+ * unresolved rather than approximated as a browser selector engine.
+ */
+function analyzeStateSelector(selector) {
+  let base = "";
+  let stateful = false;
+  let unresolved = false;
+
+  for (let index = 0; index < selector.length;) {
+    const character = selector[index];
+    if (character === "[") {
+      const close = matchingTokenEnd(selector, index, "[", "]");
+      if (close < 0) {
+        unresolved = true;
+        break;
+      }
+      const token = selector.slice(index, close + 1);
+      if (isStateAttribute(token.slice(1, -1))) {
+        stateful = true;
+      } else {
+        base += token;
+      }
+      index = close + 1;
+      continue;
+    }
+    if (character === ":" && selector[index + 1] !== ":") {
+      const nameMatch = selector.slice(index + 1).match(/^([a-z-]+)/i);
+      const name = nameMatch?.[1]?.toLowerCase();
+      if (name && INTERACTIVE_STATE_PSEUDOS.has(name)) {
+        stateful = true;
+        index += name.length + 1;
+        continue;
+      }
+      if (name === "not" && selector[index + name.length + 1] === "(") {
+        const open = index + name.length + 1;
+        const close = matchingTokenEnd(selector, open, "(", ")");
+        if (close < 0) {
+          unresolved = true;
+          break;
+        }
+        const token = selector.slice(index, close + 1);
+        if (isSupportedStateAtom(selector.slice(open + 1, close))) {
+          stateful = true;
+        } else {
+          if (containsInteractiveState(token)) {
+            stateful = true;
+            unresolved = true;
+          }
+          base += token;
+        }
+        index = close + 1;
+        continue;
+      }
+      if (name) {
+        const afterName = index + name.length + 1;
+        if (selector[afterName] === "(") {
+          const close = matchingTokenEnd(selector, afterName, "(", ")");
+          if (close < 0) {
+            unresolved = true;
+            break;
+          }
+          const token = selector.slice(index, close + 1);
+          if (containsInteractiveState(token)) {
+            stateful = true;
+            unresolved = true;
+          }
+          base += token;
+          index = close + 1;
+          continue;
+        }
+      }
+    }
+    base += character;
+    index += 1;
+  }
+
+  const baseSelector = normalizedSelector(base)
+    .replace(/\s*([>+~])\s*/g, " $1 ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return {
+    stateful,
+    baseSelector: unresolved || !baseSelector ? null : baseSelector,
+  };
+}
+
 function cssRules(css) {
   const text = maskCssComments(css);
   const rules = [];
@@ -500,6 +662,17 @@ function finalDeclaration(rule, properties) {
   return rule.declarations.findLast(({ property }) => properties.includes(property));
 }
 
+function cascadedRule(baseEntries, stateEntries) {
+  return {
+    declarations: [...baseEntries, ...stateEntries].flatMap((entry) => (
+      entry.declarations.map((declaration) => ({
+        ...declaration,
+        sourceRule: entry.ruleIndex,
+      }))
+    )),
+  };
+}
+
 function directPairThreshold(rule) {
   const fontSizeDeclaration = finalDeclaration(rule, ["font-size"]);
   const fontWeightDeclaration = finalDeclaration(rule, ["font-weight"]);
@@ -532,41 +705,138 @@ export function discoverCssContrastUsages(sourceRoot) {
   const root = resolve(sourceRoot);
   const usages = [];
   const exclusions = [];
+  const cascadeExclusions = [];
   for (const path of cssFiles(root)) {
     const css = readFileSync(path, "utf8");
     const parsed = cssRules(css);
     const file = relative(root, path).split(sep).join("/");
-    for (const rule of parsed.rules) {
+    const branches = [];
+    for (const [ruleIndex, rule] of parsed.rules.entries()) {
       const foreground = finalDeclaration(rule, ["color"]);
       const background = finalDeclaration(rule, ["background", "background-color"]);
-      if (!foreground || !background) continue;
-      const exclusion = exclusionReason(foreground.value, background.value);
+      if (foreground && background) {
+        const exclusion = exclusionReason(foreground.value, background.value);
+        const context = {
+          file,
+          line: lineAt(parsed.text, rule.offset),
+          selector: rule.selector,
+        };
+        if (exclusion) {
+          exclusions.push({ ...context, reason: exclusion });
+        } else {
+          usages.push({
+            ...context,
+            source: "direct",
+            foreground: foreground.value,
+            background: background.value,
+            minimum: directPairThreshold(rule),
+            localTokens: new Map(
+              rule.declarations
+                .filter(({ property }) => property.startsWith("--"))
+                .map(({ property, value }) => [property, value]),
+            ),
+          });
+        }
+      }
+
+      for (const selector of splitTopLevel(rule.selector, ",")
+        .map((branch) => normalizedSelector(branch))
+        .filter(Boolean)) {
+        const analysis = analyzeStateSelector(selector);
+        branches.push({
+          ruleIndex,
+          rule,
+          selector,
+          ...analysis,
+          paintsContrastSide: Boolean(foreground || background),
+        });
+      }
+    }
+
+    const baseEntries = new Map();
+    const stateEntries = new Map();
+    for (const branch of branches) {
+      if (!branch.stateful) {
+        const entries = baseEntries.get(branch.selector) ?? [];
+        entries.push({ ruleIndex: branch.ruleIndex, declarations: branch.rule.declarations });
+        baseEntries.set(branch.selector, entries);
+        continue;
+      }
+      if (!branch.paintsContrastSide) continue;
+      if (!branch.baseSelector) {
+        cascadeExclusions.push({
+          file,
+          line: lineAt(parsed.text, branch.rule.offset),
+          selector: branch.selector,
+          reason: "unsupported interactive-state selector",
+        });
+        continue;
+      }
+      const key = `${branch.baseSelector}\u0000${branch.selector}`;
+      const group = stateEntries.get(key) ?? {
+        baseSelector: branch.baseSelector,
+        selector: branch.selector,
+        entries: [],
+      };
+      group.entries.push({
+        ruleIndex: branch.ruleIndex,
+        declarations: branch.rule.declarations,
+        offset: branch.rule.offset,
+      });
+      stateEntries.set(key, group);
+    }
+
+    for (const group of stateEntries.values()) {
+      const base = baseEntries.get(group.baseSelector) ?? [];
+      const combined = cascadedRule(base, group.entries);
+      const foreground = finalDeclaration(combined, ["color"]);
+      const background = finalDeclaration(combined, ["background", "background-color"]);
+      const contextEntry = group.entries.at(-1);
       const context = {
         file,
-        line: lineAt(parsed.text, rule.offset),
-        selector: rule.selector,
+        line: lineAt(parsed.text, contextEntry.offset),
+        selector: group.selector,
       };
+      if (!foreground || !background) {
+        cascadeExclusions.push({
+          ...context,
+          reason: `unresolved cascaded ${!foreground ? "foreground" : "background"}`,
+        });
+        continue;
+      }
+
+      // A state rule that directly supplies the final pair was already audited
+      // above. Add only pairs assembled across base/state declarations.
+      if (foreground.sourceRule === background.sourceRule
+        && group.entries.some(({ ruleIndex }) => ruleIndex === foreground.sourceRule)) {
+        continue;
+      }
+      const exclusion = exclusionReason(foreground.value, background.value);
       if (exclusion) {
         exclusions.push({ ...context, reason: exclusion });
         continue;
       }
       usages.push({
         ...context,
+        source: "derived-state",
         foreground: foreground.value,
         background: background.value,
-        minimum: directPairThreshold(rule),
+        minimum: directPairThreshold(combined),
         localTokens: new Map(
-          rule.declarations
+          combined.declarations
             .filter(({ property }) => property.startsWith("--"))
             .map(({ property, value }) => [property, value]),
         ),
       });
     }
   }
-  return { usages, exclusions };
+  return { usages, exclusions, cascadeExclusions };
 }
 
-export function auditThemeContrast(css, discovery = { usages: [], exclusions: [] }) {
+export function auditThemeContrast(
+  css,
+  discovery = { usages: [], exclusions: [], cascadeExclusions: [] },
+) {
   const themes = parseThemeTokens(css);
   const findings = [];
   const unsupportedUsages = new Set();
@@ -647,8 +917,11 @@ export function auditThemeContrast(css, discovery = { usages: [], exclusions: []
     stats: {
       semanticPairs: CONTRAST_PAIRS.length,
       discoveredUsages: discovery.usages.length,
+      directUsages: discovery.usages.filter(({ source }) => source !== "derived-state").length,
+      derivedStateUsages: discovery.usages.filter(({ source }) => source === "derived-state").length,
       unsupportedUsages: unsupportedUsages.size,
       excludedNonFlatUsages: discovery.exclusions.length,
+      cascadeExclusions: discovery.cascadeExclusions?.length ?? 0,
     },
   };
 }
@@ -667,6 +940,22 @@ function printFinding(finding) {
     + ` (ratio ${finding.ratio.toFixed(2)}, requires ${finding.minimum.toFixed(2)})`;
 }
 
+function counted(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function discoverySummary(stats) {
+  return `${counted(stats.discoveredUsages, "discovered rule-level usage")}`
+    + ` (${counted(stats.directUsages, "direct rule-level usage")};`
+    + ` ${counted(stats.derivedStateUsages, "derived state usage")}),`
+    + ` ${counted(stats.unsupportedUsages, "unsupported usage", "unsupported")},`
+    + ` ${counted(
+      stats.excludedNonFlatUsages,
+      "explicitly excluded non-flat/inherited usage",
+    )},`
+    + ` ${counted(stats.cascadeExclusions, "cascade exclusion")}.`;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const cssIndex = args.indexOf("--css");
@@ -676,25 +965,21 @@ function main() {
   const sourceRoot = resolve(sourceIndex >= 0 ? args[sourceIndex + 1] : "src");
   const discovery = shouldDiscoverUsage
     ? discoverCssContrastUsages(sourceRoot)
-    : { usages: [], exclusions: [] };
+    : { usages: [], exclusions: [], cascadeExclusions: [] };
   const { findings, stats } = auditThemeContrast(readFileSync(cssPath, "utf8"), discovery);
   if (findings.length) {
     console.error("Theme contrast check failed:");
     for (const finding of findings) console.error(`  ${printFinding(finding)}`);
     console.error(
       `Audit summary: ${THEME_IDS.length} themes, ${stats.semanticPairs} semantic pairs,`
-      + ` ${stats.discoveredUsages} discovered rule-level usages,`
-      + ` ${stats.unsupportedUsages} unsupported,`
-      + ` ${stats.excludedNonFlatUsages} explicitly excluded non-flat/inherited usages.`,
+      + ` ${discoverySummary(stats)}`,
     );
     process.exitCode = 1;
     return;
   }
   console.log(
     `Theme contrast check passed: ${THEME_IDS.length} themes, ${stats.semanticPairs} semantic pairs,`
-    + ` ${stats.discoveredUsages} discovered rule-level usage${stats.discoveredUsages === 1 ? "" : "s"},`
-    + ` ${stats.unsupportedUsages} unsupported,`
-    + ` ${stats.excludedNonFlatUsages} explicitly excluded non-flat/inherited usages.`,
+    + ` ${discoverySummary(stats)}`,
   );
 }
 

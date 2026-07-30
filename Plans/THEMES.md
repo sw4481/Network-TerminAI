@@ -544,17 +544,20 @@ validation.
 
 ## Phase 6 — AUTOMATED IMPLEMENTATION COMPLETE; OPERATOR ACCEPTANCE PENDING 2026-07-30
 
-Deterministic WCAG checks retain 41 semantic foreground/background contracts in
-Dark, Grey, and Matrix and also discover 671 active flat rule-level text
-usages directly from source CSS. Normal and small text requires 4.5:1; only
-WCAG-large text and non-text control boundaries use 3:1. The audit currently
-has zero unsupported flat expressions and explicitly reports 140 inherited,
-transparent, or image/gradient cases that do not define a self-contained flat
-pair. Focus treatment, 21 uniquely named terminal color controls, locked
-pending-save behavior, and textual fan-out and sidecar statuses are covered by
-automated tests. TerminAI Dark remains the complete default and universal
-fallback; narrowly scoped contrast corrections deliberately supersede strict
-pixel parity for affected small text, status badges, and focus controls.
+Deterministic WCAG checks retain 42 semantic foreground/background contracts in
+Dark, Grey, and Matrix and discover 674 direct flat rule-level text usages plus
+162 active pairs derived conservatively from compatible base and interactive
+state selectors. Normal and small text requires 4.5:1; only WCAG-large text and
+non-text control boundaries use 3:1. The audit currently has zero unsupported
+flat expressions, explicitly reports 183 inherited, transparent, or
+image/gradient cases that do not define a self-contained flat pair, and counts
+61 unresolved one-sided state rules as cascade exclusions instead of silently
+omitting them. Focus treatment, 21 uniquely named terminal color controls,
+locked pending-save behavior, and textual fan-out and sidecar statuses are
+covered by automated tests. TerminAI Dark remains the complete default and
+universal fallback; narrowly scoped contrast corrections deliberately
+supersede strict pixel parity for affected small text, status badges, focus
+controls, and stateful action text.
 
 Tasks 6.3 and 6.6 remain intentionally unchecked for Shaun's native
 Dark/Grey/Matrix operator matrix. Task 6.4 remains unchecked because the

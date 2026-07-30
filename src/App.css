@@ -3520,7 +3520,7 @@ html, body, #root { background: var(--app-canvas); color: var(--text-primary); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 input, select, textarea { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-default); }
 button.primary, .fix-button, .agent-input button, .tool-approval-btn-approve { background: var(--accent-subtle); color: var(--text-primary); }
-button.primary:hover:not(:disabled), .fix-button:hover, .agent-input button:hover:not(:disabled), .tool-approval-btn-approve:hover:not(:disabled) { background: var(--accent-hover); }
+button.primary:hover:not(:disabled), .fix-button:hover, .agent-input button:hover:not(:disabled), .tool-approval-btn-approve:hover:not(:disabled) { background: var(--accent-hover); color: var(--text-on-accent-hover); }
 .modal-content, .modal-card, .search-container, .status-popover { background: var(--app-canvas); border-color: var(--border-default); color: var(--text-primary); }
 .modal-header, .modal-footer, .status-popover-header, .search-header { border-color: var(--border-default); }
 .json-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }

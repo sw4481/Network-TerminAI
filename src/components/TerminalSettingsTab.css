@@ -88,6 +88,7 @@
 
 .save-btn:hover {
   background-color: var(--accent-hover, var(--surface-hover));
+  color: var(--text-on-accent-hover);
 }
 
 .save-btn:disabled {

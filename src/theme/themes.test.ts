@@ -26,7 +26,7 @@ describe("semantic application themes", () => {
       "--surface-overlay", "--surface-hover", "--surface-selected",
       "--text-primary", "--text-secondary", "--text-muted", "--text-inverse",
       "--border-subtle", "--border-default", "--border-strong", "--accent",
-      "--accent-hover", "--accent-subtle", "--focus-ring", "--selection",
+      "--accent-hover", "--text-on-accent-hover", "--accent-subtle", "--focus-ring", "--selection",
       "--status-info", "--status-success", "--status-warning", "--status-danger",
       "--status-neutral", "--terminal-background", "--terminal-foreground",
       "--editor-background", "--editor-foreground",

@@ -33,7 +33,7 @@
 
 .tb-control-btn:hover:not(:disabled) {
   border-color: var(--border-default);
-  color: var(--text-inverse);
+  color: var(--text-primary);
 }
 
 .tb-control-btn:disabled {

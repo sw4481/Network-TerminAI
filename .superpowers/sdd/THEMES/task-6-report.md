@@ -4,13 +4,15 @@ Date: 2026-07-30
 
 ## Delivered
 
-- Added a deterministic WCAG contrast release gate for 41 named semantic
-  foreground/background pairs in each of Dark, Grey, and Matrix, plus 671
-  active flat foreground/background usages discovered directly from source
-  CSS. Normal/small text requires 4.5:1; only WCAG-large text and non-text
-  control boundaries use 3:1. The current audit has zero unsupported flat
-  expressions and explicitly counts 140 inherited, transparent, or
-  image/gradient cases that do not define a self-contained flat pair.
+- Added a deterministic WCAG contrast release gate for 42 named semantic
+  foreground/background pairs in each of Dark, Grey, and Matrix, plus 674
+  direct active flat foreground/background usages and 162 compatible
+  interactive-state pairs derived from source CSS. Normal/small text requires
+  4.5:1; only WCAG-large text and non-text control boundaries use 3:1. The
+  current audit has zero unsupported flat expressions, explicitly counts 183
+  inherited, transparent, or image/gradient cases that do not define a
+  self-contained flat pair, and reports 61 unresolved state cascades as
+  exclusions instead of silently omitting them.
 - Wired the contrast gate into `bun run test`, alongside the existing
   structural-color guard.
 - Corrected low-contrast text/control tokens. The initial deliberate
@@ -20,7 +22,9 @@ Date: 2026-07-30
   The source-derived audit added narrowly scoped corrections for notification
   badges and IaC modified/destroyed labels, and distinguishes text on dark
   surfaces (`--text-primary`) from text on strong bright accents
-  (`--text-on-strong-accent`). Grey also uses
+  (`--text-on-strong-accent`). A per-theme `--text-on-accent-hover` token keeps
+  the established `--accent-hover` identity while making hover actions readable
+  in Dark, Grey, and Matrix. Grey also uses
   `--text-muted: #99a0a9`, `--focus-control: #6b7581`, and the slightly
   brighter `--status-danger: #d18f8f`.
 - Hardened Appearance controls with visible card focus, all Matrix-only
@@ -59,7 +63,7 @@ correctly identifies semantic and discovered source pairs, comments, nested
 var fallbacks, color-mix, unsupported expressions, and non-flat exclusions
 terminal color controls: 21 inputs, 21 unique accessible names
 bun run test: contrast gate passed for 3 themes x 41 semantic pairs and
-671 discovered rule-level usages; 0 unsupported; 140 explicit exclusions
+671 direct rule-level usages; 0 unsupported; 140 explicit exclusions
 ```
 
 ### Review recovery
@@ -78,6 +82,30 @@ source contrast audit: 671 discovered usages / 0 unsupported /
   140 explicit non-flat or inherited exclusions
 Appearance: theme/effect/motion/reset/save controls locked while saving
 Fanout: running is indeterminate; failed terminal state reports 100
+```
+
+### Cascaded-state contrast recovery
+
+RED fixtures proved that a base rule with both colors and a later `:hover`
+background override was counted only once at the base. The active state pair
+disappeared because the scanner required `color` and `background` in the same
+rule. Additional fixtures covered comma-aligned selectors, `:hover:not`,
+`:focus`, `:focus-visible`, `:focus-within`, `:active`, `:disabled`, `:checked`,
+state attributes, later state overrides, unrelated selectors, and unpaired
+state declarations.
+
+GREEN uses a deliberately limited model: comma branches are split, enumerated
+interactive states are removed to find an identical base selector, and only
+that base plus the exact state selector participate in the local declaration
+cascade. It does not claim to be a browser selector engine. Unsupported or
+unpaired one-sided states remain visible as cascade exclusions.
+
+```text
+focused contrast/theme contract: 2 files / 21 tests passed
+source contrast audit: 42 semantic pairs
+  674 direct usages / 162 derived state usages / 0 unsupported
+  183 non-flat or inherited exclusions / 61 cascade exclusions
+real state-pair findings: 17 before semantic repair / 0 after
 ```
 
 ### Rust release gate
@@ -136,10 +164,11 @@ bun run check:structural-colors -- --inventory
 
 bun run test
   structural guard passed
-  contrast passed: 3 themes, 41 semantic pairs,
-    671 discovered rule-level usages, 0 unsupported,
-    140 explicitly excluded non-flat/inherited usages
-  247 files / 1,895 tests passed
+  contrast passed: 3 themes, 42 semantic pairs,
+    674 direct usages + 162 derived state usages, 0 unsupported,
+    183 explicitly excluded non-flat/inherited usages,
+    61 cascade exclusions
+  247 files / 1,902 tests passed
 
 CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' \
   cargo test --manifest-path src-tauri/Cargo.toml
@@ -147,7 +176,7 @@ CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' \
   doctests 7 passed
 
 bun run build:relaxed
-  exit 0; 2,106 modules transformed; built in 4.91s
+  exit 0; 2,106 modules transformed; built in 4.69s
 
 bun test e2e/unit/tauri-driver.test.ts
   3 passed / 0 failed

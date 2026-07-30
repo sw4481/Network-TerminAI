@@ -26,7 +26,9 @@ const accessibleTokens = {
   "--text-recording-muted": "#FFFFFF",
   "--text-inverse": "#FFFFFF",
   "--accent": "#FFFFFF",
+  "--accent-hover": "#FFFFFF",
   "--text-on-strong-accent": "#000000",
+  "--text-on-accent-hover": "#000000",
   "--status-info": "#FFFFFF",
   "--status-success": "#FFFFFF",
   "--status-warning": "#FFFFFF",
@@ -125,6 +127,22 @@ describe("theme contrast release checker", () => {
     expect(result.stderr).toContain("requires 4.50");
   });
 
+  it("rejects unreadable ordinary text on hover accents", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--css",
+        fixture(themeFixture({ "--text-on-accent-hover": "#FFFFFF" })),
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("--text-on-accent-hover on --accent-hover");
+    expect(result.stderr).toContain("requires 4.50");
+  });
+
   it("does not satisfy required theme tokens with declarations inside comments", () => {
     const css = themeFixture().replace(
       "  --text-muted: #FFFFFF;",
@@ -203,7 +221,7 @@ describe("theme contrast release checker", () => {
     );
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("41 semantic pairs");
+    expect(result.stdout).toContain("42 semantic pairs");
     expect(result.stdout).toContain("1 discovered rule-level usage");
   });
 
@@ -270,6 +288,166 @@ describe("theme contrast release checker", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("0 discovered rule-level usages");
     expect(result.stdout).toContain("1 explicitly excluded non-flat/inherited usage");
+  });
+
+  it("audits a hover background against the foreground inherited from its base rule", () => {
+    const sourceRoot = sourceFixture({
+      "State.css": `
+.action {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.action:hover:not(:disabled) {
+  background: var(--text-primary);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("State.css:6 .action:hover:not(:disabled)");
+    expect(result.stderr).toContain("--text-primary on --text-primary");
+    expect(result.stderr).toContain("1 derived state usage");
+  });
+
+  it("splits comma selectors and pairs each state branch with only its compatible base", () => {
+    const sourceRoot = sourceFixture({
+      "Aligned.css": `
+.alpha,
+.beta {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.alpha:hover,
+.beta:focus-visible {
+  background: var(--text-primary);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Aligned.css:7 .alpha:hover");
+    expect(result.stderr).toContain("Aligned.css:7 .beta:focus-visible");
+    expect(result.stderr).not.toContain(".alpha:hover, .beta:focus-visible:");
+    expect(result.stderr).toContain("2 derived state usages");
+  });
+
+  it("recognizes supported interactive pseudo-classes and state attributes", () => {
+    const sourceRoot = sourceFixture({
+      "Interactive.css": `
+.control,
+.group .control {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.control:hover:not(:disabled),
+.control:focus,
+.control:focus-visible,
+.group:focus-within .control,
+.control:active,
+.control:disabled,
+.control:checked,
+.control[aria-pressed="true"] {
+  background: var(--surface-2);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("8 derived state usages");
+    expect(result.stdout).toContain("0 cascade exclusions");
+  });
+
+  it("uses the final compatible state declarations for foreground and background", () => {
+    const sourceRoot = sourceFixture({
+      "Overrides.css": `
+.color-shift,
+.background-shift {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.color-shift:hover {
+  background: var(--text-primary);
+}
+.background-shift:focus {
+  color: var(--surface-2);
+}
+.color-shift:hover {
+  color: var(--surface-2);
+}
+.background-shift:focus {
+  background: var(--text-primary);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("2 derived state usages");
+  });
+
+  it("honors a later state background-color over an earlier background shorthand", () => {
+    const sourceRoot = sourceFixture({
+      "Shorthand.css": `
+.action {
+  color: var(--text-primary);
+  background-color: var(--surface-2);
+  background: var(--surface-2);
+}
+.action:hover {
+  background-color: var(--text-primary);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Shorthand.css:7 .action:hover");
+    expect(result.stderr).toContain("--text-primary on --text-primary");
+  });
+
+  it("does not merge unrelated selectors and explicitly counts an unpaired state", () => {
+    const sourceRoot = sourceFixture({
+      "Unpaired.css": `
+.alpha {
+  color: var(--text-primary);
+}
+.beta:hover {
+  background: var(--surface-2);
+}
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("0 derived state usages");
+    expect(result.stdout).toContain("1 cascade exclusion");
   });
 
   it("passes the repository's three shipped application themes", () => {

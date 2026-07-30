@@ -35,6 +35,7 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --text-recording-muted: #99a0a9;
   --text-inverse: #ffffff;
   --text-on-strong-accent: #1e1e1e;
+  --text-on-accent-hover: #ffffff;
   --integration-primary: #d4a857;
   --integration-primary-hover: #e0b865;
   --agent-active-surface: rgb(59 130 246 / 90%);
@@ -140,6 +141,7 @@ html[data-theme="slate-grey"] {
   --text-recording-muted: #aeb4bc;
   --text-inverse: #ffffff;
   --text-on-strong-accent: #17191c;
+  --text-on-accent-hover: #17191c;
   --integration-primary: #b9a56f;
   --integration-primary-hover: #c9b77f;
   --agent-active-surface: rgb(91 132 173 / 90%);
@@ -245,6 +247,7 @@ html[data-theme="matrix"] {
   --text-recording-muted: #8dff9a;
   --text-inverse: #030703;
   --text-on-strong-accent: #030703;
+  --text-on-accent-hover: #030703;
   --integration-primary: #d9ff6a;
   --integration-primary-hover: #e6ff99;
   --agent-active-surface: rgb(114 216 255 / 90%);
