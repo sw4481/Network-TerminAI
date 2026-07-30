@@ -14,6 +14,7 @@ pub mod editor;
 pub mod editor_windows;
 pub mod lsp;
 pub mod git;
+pub mod logs;
 pub mod palette;
 pub mod parsers;
 pub mod sidecar_status;

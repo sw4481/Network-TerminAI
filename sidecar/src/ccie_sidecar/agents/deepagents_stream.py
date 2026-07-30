@@ -12,6 +12,8 @@ from typing import Any, AsyncIterator, Callable, Optional, Protocol
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
 
+from ccie_sidecar.agents.model_recovery import classify_model_exception
+
 
 def _extract_action_requests(interrupt_payload: Any) -> list[dict]:
     """Pull ActionRequest dicts out of an interrupt_on (__interrupt__) payload.
@@ -272,7 +274,10 @@ async def run_and_stream(
         return_on_interrupt: If True, return when graph interrupts instead of waiting
 
     Returns:
-        Dict with "interrupted": bool, "thread_id": str (if interrupted)
+        Structured execution outcome. Existing ``interrupted`` and
+        ``thread_id`` keys are preserved alongside ``final_emitted``, ``steps``,
+        ``error_kind``, ``error_type``, ``recovery_attempts``, and
+        ``fallback_mode``.
 
     Events emitted to on_event:
         - thought_start: {"type": "thought_start", "thought": str, "step": int}
@@ -287,6 +292,11 @@ async def run_and_stream(
     final_text_seen = False
     interrupted = False
     thread_id = config.get("configurable", {}).get("thread_id", "default")
+    error_kind: str | None = None
+    error_type: str | None = None
+    recovery_attempts = 0
+    fallback_mode: str | None = None
+    tool_call_names: dict[str, str] = {}
 
     try:
         # Stream with all three modes:
@@ -344,7 +354,16 @@ async def run_and_stream(
                     )
                     if emitted:
                         interrupted = True
-                        return {"interrupted": True, "thread_id": thread_id}
+                        return {
+                            "interrupted": True,
+                            "thread_id": thread_id,
+                            "final_emitted": final_text_seen,
+                            "steps": step,
+                            "error_kind": None,
+                            "error_type": None,
+                            "recovery_attempts": recovery_attempts,
+                            "fallback_mode": fallback_mode,
+                        }
                     continue
 
                 for node_name, node_output in payload.items():
@@ -389,6 +408,9 @@ async def run_and_stream(
                             for tool_call in msg.tool_calls:
                                 tool_name = tool_call.get("name", "unknown")
                                 tool_args = tool_call.get("args", {})
+                                tool_call_id = tool_call.get("id")
+                                if tool_call_id:
+                                    tool_call_names[str(tool_call_id)] = tool_name
 
                                 # The RubricMiddleware grader is a response_format
                                 # tool: its verdict (result/criteria) arrives as the
@@ -399,6 +421,7 @@ async def run_and_stream(
                                     if g is not None:
                                         on_event({
                                             "type": "tool_result",
+                                            "name": tool_name,
                                             "success": g["verdict"] != "failed",
                                             "result": _format_grader_status(g),
                                             "grader": g,
@@ -438,13 +461,19 @@ async def run_and_stream(
                             # structured verdict into a readable status + metrics
                             # instead of surfacing the raw "Returning structured
                             # response: result=..." blob.
-                            tool_name = getattr(msg, "name", "") or ""
+                            tool_call_id = getattr(msg, "tool_call_id", "") or ""
+                            tool_name = (
+                                getattr(msg, "name", "")
+                                or tool_call_names.get(str(tool_call_id))
+                                or "unknown"
+                            )
                             grader = None
                             if tool_name == "GraderResponse" or "Returning structured response" in result:
                                 grader = _parse_grader_result(result)
                             if grader is not None:
                                 on_event({
                                     "type": "tool_result",
+                                    "name": tool_name,
                                     "success": grader["verdict"] != "failed",
                                     "result": _format_grader_status(grader),
                                     "grader": grader,  # structured metrics for the UI
@@ -452,6 +481,7 @@ async def run_and_stream(
                             else:
                                 on_event({
                                     "type": "tool_result",
+                                    "name": tool_name,
                                     "success": success,
                                     "result": result,
                                 })
@@ -508,7 +538,11 @@ async def run_and_stream(
                 "\"apply the terraform in <dir>\" — or check that any required "
                 "CLI tools are installed."
             ),
+            "kind": "step_limit",
+            "error_type": type(e).__name__,
         })
+        error_kind = "step_limit"
+        error_type = type(e).__name__
 
     except Exception as e:
         # Check if this is an interrupt exception
@@ -525,12 +559,34 @@ async def run_and_stream(
             detail = str(e) or repr(e)
             tb = traceback.format_exc()
             print(f"[run_and_stream] EXCEPTION:\n{tb}", file=sys.stderr)
+            error_kind = (
+                getattr(e, "error_kind", None)
+                or classify_model_exception(e)
+            )
+            error_type = getattr(e, "final_error_type", type(e).__name__)
+            recovery_attempts = int(getattr(e, "recovery_attempts", 0) or 0)
+            fallback_mode = getattr(e, "fallback_mode", None)
             on_event({
                 "type": "error",
                 "message": f"DeepAgents runtime error: {type(e).__name__}: {detail}",
+                "kind": error_kind,
+                "error_type": error_type,
+                "recovery_attempts": recovery_attempts,
+                "fallback_mode": fallback_mode,
+                "initial_error_type": getattr(e, "first_error_type", None),
+                "fallback_error_type": getattr(e, "fallback_error_type", None),
             })
 
-    return {"interrupted": interrupted, "thread_id": thread_id}
+    return {
+        "interrupted": interrupted,
+        "thread_id": thread_id,
+        "final_emitted": final_text_seen,
+        "steps": step,
+        "error_kind": error_kind,
+        "error_type": error_type,
+        "recovery_attempts": recovery_attempts,
+        "fallback_mode": fallback_mode,
+    }
 
 
 async def run_and_stream_code_exec(

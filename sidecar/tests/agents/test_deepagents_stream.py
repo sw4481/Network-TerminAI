@@ -2,8 +2,15 @@
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.tools import ToolException
 
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
+
+
+class DirectStatusError(RuntimeError):
+    def __init__(self, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 @pytest.mark.asyncio
@@ -254,7 +261,7 @@ async def test_react_stream_thought_and_tool_call():
     mock_graph.astream = mock_astream
 
     events = []
-    await run_and_stream(mock_graph, {}, {}, events.append)
+    outcome = await run_and_stream(mock_graph, {}, {}, events.append)
 
     # Should have: thought_start, tool_call, tool_result, final
     assert len(events) == 4
@@ -271,12 +278,25 @@ async def test_react_stream_thought_and_tool_call():
 
     # tool_result
     assert events[2]["type"] == "tool_result"
+    # ToolMessage omitted .name; the stream bridge retains provenance by
+    # matching its tool_call_id to the preceding model tool call.
+    assert events[2]["name"] == "meraki_organizations_list"
     assert events[2]["success"] is True
     assert "MyOrg" in events[2]["result"]
 
     # final
     assert events[3]["type"] == "final"
     assert "MyOrg" in events[3]["response"]
+    assert outcome == {
+        "interrupted": False,
+        "thread_id": "default",
+        "final_emitted": True,
+        "steps": 1,
+        "error_kind": None,
+        "error_type": None,
+        "recovery_attempts": 0,
+        "fallback_mode": None,
+    }
 
 
 @pytest.mark.asyncio
@@ -306,6 +326,10 @@ async def test_graph_recursion_error_surfaces_clean_message():
 
     # Not flagged as an interrupt (it's a genuine failure, not a HITL pause).
     assert result["interrupted"] is False
+    assert result["final_emitted"] is False
+    assert result["steps"] == 1
+    assert result["error_kind"] == "step_limit"
+    assert result["error_type"] == "GraphRecursionError"
 
     error_events = [e for e in events if e["type"] == "error"]
     assert len(error_events) == 1
@@ -313,6 +337,137 @@ async def test_graph_recursion_error_surfaces_clean_message():
     # Clean, user-facing language — no raw exception class name leaking through.
     assert "GraphRecursionError" not in msg
     assert "stuck" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_runtime_protocol_error_has_structured_outcome():
+    """A malformed response that survives middleware is typed for heartbeats."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+        raise RuntimeError("Unknown role: final")
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    outcome = await run_and_stream(mock_graph, {}, {}, events.append)
+
+    assert outcome["final_emitted"] is False
+    assert outcome["steps"] == 0
+    assert outcome["error_kind"] == "model_protocol"
+    assert outcome["error_type"] == "RuntimeError"
+    assert events[-1]["type"] == "error"
+    assert events[-1]["kind"] == "model_protocol"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "expected_kind"),
+    [
+        (DirectStatusError("unauthorized", 401), "authentication"),
+        (DirectStatusError("model not found", 404), "configuration"),
+        (DirectStatusError("generic bad request", 400), "client_error"),
+        (DirectStatusError("request timeout", 408), "timeout"),
+        (DirectStatusError("too many requests", 429), "rate_limit"),
+        (ValueError("maximum context length exceeded"), "context_overflow"),
+        (TimeoutError("model timed out"), "timeout"),
+        (ToolException("tool failed"), "tool"),
+    ],
+)
+async def test_direct_permanent_error_keeps_structured_category(
+    error,
+    expected_kind,
+):
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+        raise error
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    outcome = await run_and_stream(mock_graph, {}, {}, events.append)
+
+    assert outcome["error_kind"] == expected_kind
+    assert outcome["error_type"] == type(error).__name__
+    assert outcome["recovery_attempts"] == 0
+    assert events[-1]["kind"] == expected_kind
+
+
+@pytest.mark.asyncio
+async def test_failed_nonstream_recovery_has_structured_outcome():
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+    from ccie_sidecar.agents.model_recovery import ModelProtocolRecoveryError
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+        first = RuntimeError("Unknown role: final")
+        fallback = RuntimeError("failed to decode response")
+        raise ModelProtocolRecoveryError(first, fallback) from fallback
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    outcome = await run_and_stream(mock_graph, {}, {}, events.append)
+
+    assert outcome["error_kind"] == "model_protocol"
+    assert outcome["error_type"] == "RuntimeError"
+    assert outcome["recovery_attempts"] == 1
+    assert outcome["fallback_mode"] == "non_streaming_model_call"
+    assert events[-1]["recovery_attempts"] == 1
+    assert events[-1]["fallback_mode"] == "non_streaming_model_call"
+    assert events[-1]["initial_error_type"] == "RuntimeError"
+    assert events[-1]["fallback_error_type"] == "RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_failed_recovery_outcome_uses_fallback_final_category():
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+    from ccie_sidecar.agents.model_recovery import ModelProtocolRecoveryError
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+        first = RuntimeError("Unknown role: final")
+        fallback = TimeoutError("model timed out")
+        raise ModelProtocolRecoveryError(first, fallback) from fallback
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    outcome = await run_and_stream(mock_graph, {}, {}, events.append)
+
+    assert outcome["error_kind"] == "timeout"
+    assert outcome["error_type"] == "TimeoutError"
+    assert outcome["recovery_attempts"] == 1
+    assert events[-1]["kind"] == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_empty_stream_is_explicitly_not_final():
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+
+    outcome = await run_and_stream(mock_graph, {}, {}, lambda event: None)
+
+    assert outcome["final_emitted"] is False
+    assert outcome["error_kind"] is None
+    assert outcome["steps"] == 0
 
 
 def test_describe_tool_calls_summarizes_code():
@@ -507,6 +662,7 @@ async def test_run_and_stream_grader_from_toolcall_args():
     assert len(grader_events) == 1
     assert grader_events[0]["grader"]["verdict"] == "satisfied"
     assert grader_events[0]["grader"]["passed"] == 2
+    assert grader_events[0]["name"] == "GraderResponse"
     assert "Grading passed" in grader_events[0]["result"]
     # It must NOT also emit a bare tool_call named GraderResponse.
     assert not any(e.get("type") == "tool_call" and e.get("name") == "GraderResponse"

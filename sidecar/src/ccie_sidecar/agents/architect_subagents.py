@@ -23,6 +23,10 @@ from langchain_core.tools import StructuredTool
 
 from ccie_sidecar.agents.deepagents_tools import create_execute_python_code_tool
 from ccie_sidecar.agents.react_code import _build_client_section
+from ccie_sidecar.agents.tool_output import (
+    TOOL_OUTPUT_GUIDANCE,
+    install_tool_output_policy,
+)
 
 
 def _cfg(getter_module: str, getter_name: str) -> bool:
@@ -643,7 +647,10 @@ def build_architect_direct_tool(
 
     # Meraki SDK env vars (key from Settings) so re-instantiation also works.
     env_overrides = _build_env_overrides({})
-
+    output_policy, tool_output = install_tool_output_policy(
+        sandbox_globals,
+        sensitive_values=env_overrides.values(),
+    )
     def execute_python_code(code: str) -> str:
         result = _execute_code_with_timeout(
             code=code,
@@ -652,10 +659,7 @@ def build_architect_direct_tool(
             timeout=30,
             label="network-architect",
         )
-        if result.get("success"):
-            out = result.get("output", "")
-            return out if out else "(no output)"
-        return f"Error: {result.get('error', 'Unknown error')}"
+        return output_policy.format_execution_result(result, tool_output)
 
     # Concatenate each vendor's client-section so the model knows how to drive
     # every bound helper from this one sandbox.
@@ -743,6 +747,7 @@ def build_architect_direct_tool(
         "requests directly.\n\n"
         f"{UTILITY_SANDBOX_BLURB}\n\n"
         f"{SANDBOX_SHAPE_DISCIPLINE_BLURB}\n\n"
+        f"{TOOL_OUTPUT_GUIDANCE}\n\n"
         f"{_mem_line}"
         f"{_facts_line}"
         f"CONFIGURED PLATFORMS & how to call each:\n\n{helpers_doc}"

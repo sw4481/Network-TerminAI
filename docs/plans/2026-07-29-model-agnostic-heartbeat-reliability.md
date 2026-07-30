@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-29
 
-**Status:** Ready for implementation
+**Status:** Implemented and live-canary validated on 2026-07-30
 
 **Source diagnosis:** `/Users/shaunwhi/Documents/Shauns-Remote-Vault/wiki/questions/why-terminai-heartbeats-fail-with-tuned-gpt-oss-120b.md`
 
@@ -107,11 +107,19 @@ application scheduling semantics.
 - Add
   `sidecar/src/ccie_sidecar/agents/tool_output.py`.
 - Modify
+  `sidecar/src/ccie_sidecar/agents/code_exec.py`.
+- Modify
   `sidecar/src/ccie_sidecar/agents/deepagents_tools.py`.
+- Modify
+  `sidecar/src/ccie_sidecar/agents/architect_subagents.py`.
 - Modify the universal heartbeat guidance in
   `sidecar/src/ccie_sidecar/agents/heartbeat_executor.py`.
 - Add
   `sidecar/tests/agents/test_tool_output.py`.
+- Add
+  `sidecar/tests/agents/test_architect_tool_output.py`.
+- Extend
+  `sidecar/tests/agents/test_code_exec.py`.
 - Extend
   `sidecar/tests/test_heartbeat_execute.py`.
 
@@ -132,7 +140,8 @@ application scheduling semantics.
    `execute_python_code()` returns to LangChain:
    - store the raw stdout in `tool_output`;
    - return it unchanged when it is below the budget;
-   - otherwise try JSON or NDJSON parsing;
+   - otherwise try JSON, NDJSON, or delimited-table parsing while the complete
+     retained result is at most 2 MiB;
    - for flat records, emit record count, columns, and a compact deterministic
      sample using `ccie_sidecar.serialize.graph_compact` directly, independent
      of the optional context-graph feature flag;
@@ -151,6 +160,24 @@ application scheduling semantics.
 6. Keep the built-in `read_file` tool available to heartbeat agents. Do not add
    a host `FilesystemBackend`, shared temp directory, or new filesystem
    permission.
+7. Coordinate code execution at the process-global seam because Python's
+   `redirect_stdout` and `os.environ` are process-global:
+   - serialize executions across all sandboxes without charging queue time to
+     the code watchdog;
+   - retain ownership until a timed-out worker really exits and restores the
+     environment;
+   - quarantine queued and new executions with a bounded, explicit error while
+     that overrun is still alive;
+   - clear quarantine only when that exact worker has restored process state.
+
+### Accepted Safety Deviation
+
+Outputs above the 2 MiB raw-retention ceiling are not reparsed as complete
+JSON/NDJSON/CSV. They receive exact byte/character/line statistics plus bounded
+head/tail retention. This deliberately trades complete structural recovery for
+bounded CPU and memory use on adversarial tool output. Results at or below the
+ceiling retain the planned structured counts, schema, samples, and query
+operations.
 
 ### Tests
 
@@ -480,7 +507,7 @@ cd sidecar
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml --lib
 cargo check --manifest-path src-tauri/Cargo.toml
-bun test
+bunx vitest run --dir src
 bun run build:relaxed
 git diff --check
 ```
@@ -517,6 +544,56 @@ formatter while unrelated work is present.
 
 Do not call the work complete until the full TerminAI sidecar release invariant
 passes.
+
+## Validation Record — 2026-07-30
+
+### Automated
+
+- Focused Python reliability tests: `160 passed, 1 skipped`.
+- Broad sidecar suite with context-graph injection disabled and the legacy
+  live-LLM planner file separated: `876 passed, 30 skipped`.
+- Legacy planner diagnostic: `36 passed, 3 failed`. The three unchanged tests
+  call the configured live model with an empty request and assert vendor words
+  in its generated prompt; the model correctly returned "no action" text.
+  These failures do not execute the heartbeat runtime.
+- Rust library: `417 passed, 6 ignored`.
+- Rust heartbeat scheduler/run gate: `21 passed, 1 live-sidecar test ignored`.
+- Frontend Vitest: `233 files, 1728 tests passed`.
+- `cargo check`, `bun run build:relaxed`, Python compilation, and
+  `git diff --check` passed.
+- Independent integration review found no blocking defect; 12/12
+  cross-sandbox stdout/environment race probes passed.
+
+### Reversible Live Canary
+
+- Backed up the SQLite database with integrity checks and temporarily disabled
+  WhatsApp notifications.
+- Persisted the same due epoch for the existing 39-minute Meraki and 30-minute
+  PyATS heartbeats, then launched through `./run.sh` with local concurrency one.
+- Exactly one execution was active at every observation:
+  - Meraki ran first and completed in 182 seconds with a final summary and four
+    real findings.
+  - PyATS started at the exact Meraki completion timestamp and completed in 39
+    seconds with one honest error finding. Its generated Python treated the
+    documented dictionary envelope as text; this was a tool-usage error, not a
+    response parser, output-eviction, recursion, timeout, or concurrency error.
+- Both future phases advanced before execution and remained exact:
+  `+2340 seconds` for Meraki and `+1800 seconds` for PyATS.
+- The canary log slice contained no `/large_tool_results` `FileNotFoundError`,
+  malformed response header/role, `GraphRecursionError`, timeout, or recovery
+  loop signature.
+- Restored the complete pre-canary database through SQLite backup/restore:
+  original table counts, notification setting, history, and schedule anchors
+  all matched; both canary execution IDs were absent afterward.
+- Relaunched normally through `./run.sh`. `target/debug/TerminAI` owns a child
+  `python -m ccie_sidecar` loading `sidecar/.venv`; warmup ping succeeded,
+  `sidecar_status.last_seen` advanced on consecutive 30-second ticks, and the
+  footer visibly showed `Sidecar: v0.0.1`.
+- The endpoint remained healthy and identified
+  `openai/gpt-oss-120b`; a real chat completion returned non-empty final text.
+  No model-server recipe, launch argument, provider setting, or `run.sh` file
+  was changed. SSH access was unavailable, so the remote process argument was
+  not independently re-read.
 
 ## Acceptance Criteria
 

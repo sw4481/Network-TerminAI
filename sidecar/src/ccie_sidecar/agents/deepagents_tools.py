@@ -6,6 +6,11 @@ from typing import Any, Callable
 from langchain_core.tools import StructuredTool
 from langgraph.store.base import BaseStore
 
+from ccie_sidecar.agents.tool_output import (
+    TOOL_OUTPUT_GUIDANCE,
+    install_tool_output_policy,
+)
+
 
 def create_execute_python_code_tool(
     cli_package: str | None,
@@ -38,7 +43,13 @@ def create_execute_python_code_tool(
     # Build sandbox once (reused across tool calls in the same session)
     sandbox_globals = _build_sandbox_globals(cli_package, vault_secrets, emit=emit_callback)
     env_overrides = _build_env_overrides(vault_secrets)
-
+    output_policy, tool_output = install_tool_output_policy(
+        sandbox_globals,
+        sensitive_values=(
+            *vault_secrets.values(),
+            *env_overrides.values(),
+        ),
+    )
     def execute_python_code(code: str) -> str:
         """
         Execute Python code in the sandbox and return stdout.
@@ -49,7 +60,8 @@ def create_execute_python_code_tool(
         Returns:
             String output from the code execution (stdout + stderr)
         """
-        # Execute with timeout (returns a dict: success/output/error)
+        # The shared code-exec seam serializes process-global stdout/env state;
+        # its queue wait occurs before this 30-second execution budget starts.
         result = _execute_code_with_timeout(
             code=code,
             globals_dict=sandbox_globals,
@@ -57,12 +69,7 @@ def create_execute_python_code_tool(
             timeout=30,
             label=cli_package or "deepagents",
         )
-
-        if result.get("success"):
-            output = result.get("output", "")
-            return output if output else "(no output)"
-        else:
-            return f"Error: {result.get('error', 'Unknown error')}"
+        return output_policy.format_execution_result(result, tool_output)
 
     # Build tool description showing what's pre-loaded. Memory-first line goes
     # FIRST (same channel as the vendor "your ONLY way" lines) so the agent
@@ -76,6 +83,8 @@ def create_execute_python_code_tool(
         "- json, datetime, collections, os (stdlib)",
         "- pd (pandas)",
         "- requests (HTTP client)",
+        "- tool_output: inspect the latest oversized execute_python_code result "
+        "with stats(), head(), tail(), grep(...), or json().",
         "- drawio: render draw.io diagrams. drawio.diagram(xml=..., title=...) "
         "for mxGraph/draw.io XML (previews inline in the app); "
         "drawio.from_mermaid(mermaid=..., title=...); drawio.from_csv(csv=..., title=...). "
@@ -133,7 +142,8 @@ def create_execute_python_code_tool(
         "Execute Python code to answer questions. "
         "Use for calculations, data analysis, or to query infrastructure. "
         "Only print() output is visible to you.\n\n"
-        f"Pre-loaded in the sandbox:\n{preloaded}"
+        f"Pre-loaded in the sandbox:\n{preloaded}\n\n"
+        f"{TOOL_OUTPUT_GUIDANCE}"
     )
     if discovery_hint:
         tool_description += f"\n\n{discovery_hint}"

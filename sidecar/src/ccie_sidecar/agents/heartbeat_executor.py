@@ -87,20 +87,24 @@ FEW executions, not many. To stay in budget:
   it in variables, and assemble the final report from what you already have.
 - When you have the data, WRITE THE FINAL ANSWER as text. Do not keep calling
   the tool to re-verify or re-format.
+- If TerminAI says execute_python_code stdout was summarized and retained, use
+  the sandbox-local `tool_output` helper in your next Python block:
+  tool_output.stats(), tool_output.head(), tool_output.tail(),
+  tool_output.grep(...), or tool_output.json(). It holds the latest stdout and
+  is NOT a file or path, so do not pass it to `read_file`.
+- If DeepAgents says a large tool result was saved under
+  `/large_tool_results/...`, inspect it ONLY with the built-in `read_file`
+  tool. That path belongs to DeepAgents' virtual filesystem and cannot be
+  opened with Python, pathlib, or execute_python_code.
 """
 
 
 # Timeout for agent execution. Kept just under the Rust runner's cap
 # (src-tauri/src/heartbeat/runner.rs) so the Python side returns a clean
-# "timeout" finding before Rust force-aborts the call. The slow path is LLM
-# latency: a model like NVIDIA gpt-oss-120b makes several sequential
-# round-trips (list orgs → networks → device statuses → summarize).
-#
-# MEASURED 2026-06-30: a full org-wide Meraki health check is 8 steps and each
-# LLM round-trip on hosted gpt-oss-120b is 40-70s (the Meraki API calls
-# themselves are <1s), so a real run reaches FINAL at ~300s + grader at ~312s.
-# The old 280s cap killed it 20s before the answer landed. Give ~2x headroom
-# for slow days. Keep this < the Rust runner cap (600s) < bridge idle (720s).
+# "timeout" finding before Rust force-aborts the call. Multi-step agent runs
+# can require several sequential remote-model round-trips even when the vendor
+# API itself is fast, so this is a provider/model-neutral safety ceiling. Keep
+# this < the Rust runner cap (600s) < bridge idle (720s).
 AGENT_TIMEOUT_SECONDS = 540
 
 
@@ -201,6 +205,7 @@ async def _execute_agent(
     `cli_package` client (e.g. a `meraki` DashboardAPI) from Settings creds.
     """
     from ccie_sidecar.agents.deepagents_runtime import deepagents_react_code_loop
+    from ccie_sidecar.agents.model_recovery import AgentExecutionPolicy
     from ccie_sidecar.agent import get_saved_config
 
     # Get the configured LLM provider from Settings (not hardcoded to Anthropic)
@@ -305,11 +310,12 @@ async def _execute_agent(
 
     # Run the agent using the code-exec deep agents loop (single tool).
     try:
-        await deepagents_react_code_loop(
+        outcome = await deepagents_react_code_loop(
             agent_def=agent_def,
             user_msg=prompt,
             ctx={"history": []},
-            on_event=collect_event
+            on_event=collect_event,
+            execution_policy=AgentExecutionPolicy.from_environment(),
         )
     except Exception as e:
         return {
@@ -324,14 +330,15 @@ async def _execute_agent(
         }
 
     # Parse agent output into findings
-    findings = _parse_agent_output(agent_id, events, check_id)
-    return {"findings": findings}
+    findings = _parse_agent_output(agent_id, events, check_id, outcome=outcome)
+    return {"findings": findings, "execution": outcome}
 
 
 def _parse_agent_output(
     agent_id: str,
     events: list[dict[str, Any]],
-    check_id: str
+    check_id: str,
+    outcome: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Parse agent events into structured findings.
 
@@ -344,31 +351,96 @@ def _parse_agent_output(
     # streaming). Collect whichever is present. We also keep the last few
     # tool_result payloads as a FALLBACK: the model occasionally ends a turn
     # without a final text message even though its tool calls returned real
-    # data — in that case we summarize from the tool output rather than
-    # reporting a misleading "no output" error.
+    # data — in that case we may surface a successful execute_python_code data
+    # payload as degraded output. Planning, grading, and filesystem results are
+    # not health data and never qualify for this fallback.
+    has_structured_outcome = outcome is not None
+    outcome = outcome or {}
+    execution_metadata = {
+        "final_emitted": bool(outcome.get("final_emitted")),
+        "steps": int(outcome.get("steps") or 0),
+        "error_kind": outcome.get("error_kind"),
+        "error_type": outcome.get("error_type"),
+        "recovery_attempts": int(outcome.get("recovery_attempts") or 0),
+        "fallback_mode": outcome.get("fallback_mode"),
+    }
+
     text_output = ""
     tool_result_texts: list[str] = []
+    runtime_errors: list[dict[str, Any]] = []
+    saw_final_event = False
     for event in events:
         etype = event.get("type")
         if etype == "final":
             # Deep agents: the complete response lives in `response`
+            saw_final_event = True
             text_output += event.get("response", "") or ""
         elif etype == "token":
             # Legacy streaming: incremental text in `data`
             text_output += event.get("data", "") or ""
         elif etype == "tool_result":
-            if event.get("success"):
-                tool_result_texts.append(str(event.get("result", "")))
+            # Only the heartbeat's execute_python_code result contains vendor
+            # check data. Planning/grader/built-in tool successes are workflow
+            # metadata and must never be presented as a degraded health result.
+            if event.get("success") and event.get("name") == "execute_python_code":
+                result = str(event.get("result", ""))
+                normalized_result = result.strip()
+                if (
+                    normalized_result
+                    and normalized_result not in {"No matches found", "(no output)"}
+                    and not result.lstrip().startswith("Error:")
+                ):
+                    tool_result_texts.append(result)
         elif etype == "error":
-            # Agent raised an error
-            return [
-                {
-                    "severity": "error",
-                    "title": "Agent error",
-                    "message": event.get("message", "Unknown error"),
-                    "metadata": {"check_id": check_id, "agent_id": agent_id}
-                }
-            ]
+            runtime_errors.append(event)
+
+    if not has_structured_outcome:
+        execution_metadata["final_emitted"] = saw_final_event
+
+    # A runtime failure is never converted into a clean check merely because a
+    # partial final/tool result was emitted before the exception.
+    if runtime_errors or execution_metadata["error_kind"]:
+        event = runtime_errors[-1] if runtime_errors else {}
+        error_kind = (
+            execution_metadata["error_kind"]
+            or event.get("kind")
+            or "runtime"
+        )
+        error_type = execution_metadata["error_type"] or event.get("error_type")
+        title = {
+            "model_protocol": "Model response protocol error",
+            "authentication": "Model authentication error",
+            "configuration": "Model configuration error",
+            "client_error": "Model request rejected",
+            "rate_limit": "Model rate limit reached",
+            "context_overflow": "Model context limit exceeded",
+            "timeout": "Model request timeout",
+            "tool": "Agent tool error",
+            "step_limit": "Agent step limit reached",
+        }.get(error_kind, "Agent runtime error")
+        metadata = {
+            "check_id": check_id,
+            "agent_id": agent_id,
+            "kind": error_kind,
+            "degraded": False,
+            **execution_metadata,
+        }
+        metadata["error_kind"] = error_kind
+        metadata["error_type"] = error_type
+        for key in ("initial_error_type", "fallback_error_type"):
+            if event.get(key):
+                metadata[key] = event[key]
+        return [
+            {
+                "severity": "error",
+                "title": title,
+                "message": event.get(
+                    "message",
+                    f"Agent '{agent_id}' ended with a {error_kind} error.",
+                ),
+                "metadata": metadata,
+            }
+        ]
 
     # No final text but tool calls returned data → summarize from the tool
     # results so a successful data pull isn't reported as a failure.
@@ -383,7 +455,13 @@ def _parse_agent_output(
                         "The agent gathered data but did not produce a final "
                         "summary. Raw tool results:\n\n" + joined[:3500]
                     ),
-                    "metadata": {"check_id": check_id, "agent_id": agent_id, "kind": "tool_fallback"}
+                    "metadata": {
+                        "check_id": check_id,
+                        "agent_id": agent_id,
+                        "kind": "tool_fallback",
+                        "degraded": True,
+                        **execution_metadata,
+                    },
                 }
             ]
 
@@ -394,7 +472,14 @@ def _parse_agent_output(
                 "severity": "error",
                 "title": "No agent output",
                 "message": f"Agent '{agent_id}' produced no output.",
-                "metadata": {"check_id": check_id, "agent_id": agent_id}
+                "metadata": {
+                    "check_id": check_id,
+                    "agent_id": agent_id,
+                    "kind": "empty_final",
+                    "degraded": False,
+                    **execution_metadata,
+                    "error_kind": "empty_final",
+                },
             }
         ]
 
@@ -449,7 +534,13 @@ def _parse_agent_output(
         "severity": summary_severity,
         "title": f"{agent_id.title()} check summary",
         "message": summary_msg,
-        "metadata": {"check_id": check_id, "agent_id": agent_id, "kind": "summary"}
+        "metadata": {
+            "check_id": check_id,
+            "agent_id": agent_id,
+            "kind": "summary",
+            "degraded": False,
+            **execution_metadata,
+        },
     }
 
     return [summary_finding] + specific

@@ -14,13 +14,104 @@ Instead, the LLM generates Python code that uses these pre-loaded modules.
 import json
 import datetime
 import collections
+import hashlib
 import os
 import signal
+import sys
 import threading
+import time
 import traceback
+import uuid
 from io import StringIO
 from contextlib import redirect_stdout
 from typing import Any, Callable, Dict, List, Optional
+
+
+_SIDECAR_RECYCLE_EXIT_CODE = 75
+_DEFAULT_CANCEL_GRACE_SECONDS = 0.5
+_DEFAULT_RECYCLE_DELAY_SECONDS = 1.0
+
+
+def _sandbox_temporarily_unavailable_error(incident_id: str | None) -> str:
+    suffix = f" Incident ID: {incident_id}." if incident_id else ""
+    return (
+        "Sandbox executor temporarily unavailable while TerminAI recovers from "
+        "a previous timed-out execution. No new sandbox code was started; the "
+        "sidecar will recycle automatically if the worker cannot stop."
+        f"{suffix} Do not retry this tool in the current turn."
+    )
+
+
+class _SandboxExecutionCoordinator:
+    """Exclusive, overrun-aware ownership of process-global execution state."""
+
+    def __init__(self) -> None:
+        self._condition = threading.Condition()
+        self._owner: object | None = None
+        self._quarantined_owner: object | None = None
+        self._quarantine_incident_id: str | None = None
+        self._quarantine_rejections = 0
+
+    def acquire(self, owner: object) -> bool:
+        """Wait for normal ownership, or fail fast while an overrun owns it."""
+        with self._condition:
+            while self._owner is not None:
+                if self._quarantined_owner is not None:
+                    self._quarantine_rejections += 1
+                    return False
+                self._condition.wait()
+            if self._quarantined_owner is not None:
+                self._quarantine_rejections += 1
+                return False
+            self._owner = owner
+            return True
+
+    def mark_overrun(self, owner: object, incident_id: str) -> bool:
+        """Quarantine only if this exact worker still owns execution."""
+        with self._condition:
+            if self._owner is not owner:
+                return False
+            self._quarantined_owner = owner
+            self._quarantine_incident_id = incident_id
+            self._quarantine_rejections = 0
+            # Wake already-queued calls so they return an explicit error
+            # instead of waiting behind an execution that may never finish.
+            self._condition.notify_all()
+            return True
+
+    def current_incident_id(self) -> str | None:
+        with self._condition:
+            return self._quarantine_incident_id
+
+    def quarantine_snapshot(self, owner: object) -> tuple[bool, int]:
+        with self._condition:
+            return (
+                self._quarantined_owner is owner,
+                self._quarantine_rejections,
+            )
+
+    def release(self, owner: object) -> None:
+        """Release ownership and clear quarantine for this exact owner."""
+        with self._condition:
+            if self._owner is not owner:
+                return
+            if self._quarantined_owner is owner:
+                self._quarantined_owner = None
+                self._quarantine_incident_id = None
+                self._quarantine_rejections = 0
+            self._owner = None
+            self._condition.notify_all()
+
+
+# ``redirect_stdout`` and ``os.environ`` are process-global even though each
+# agent owns a distinct sandbox globals dict. All code-exec paths therefore
+# share one coordinator at the seam where those globals are touched.
+#
+# Worker-path ownership is acquired by the actual daemon worker (not its
+# waiting parent), so an over-time worker retains exclusive ownership until its
+# code really exits. Once reported as over-time, quarantine makes queued and
+# new calls fail fast; the exact worker clears quarantine after restoration.
+_SANDBOX_EXECUTION_COORDINATOR = _SandboxExecutionCoordinator()
 
 
 # Tiny prompt addition for sandbox agents. Discovery is on-demand (help/search),
@@ -154,6 +245,102 @@ def graph_sandbox_blurb_suffix(user_msg: str = "") -> str:
 class TimeoutException(Exception):
     """Raised when code execution exceeds timeout limit."""
     pass
+
+
+class _WorkerExecutionCancelled(BaseException):
+    """Private BaseException used to escape LLM-generated ``except Exception``."""
+
+
+def _positive_env_float(name: str, default: float) -> float:
+    try:
+        value = float(os.environ.get(name, str(default)))
+        return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _cancel_grace_seconds() -> float:
+    return _positive_env_float(
+        "CCIE_SANDBOX_CANCEL_GRACE_SECONDS",
+        _DEFAULT_CANCEL_GRACE_SECONDS,
+    )
+
+
+def _recycle_delay_seconds() -> float:
+    return _positive_env_float(
+        "CCIE_SANDBOX_RECYCLE_DELAY_SECONDS",
+        _DEFAULT_RECYCLE_DELAY_SECONDS,
+    )
+
+
+def _log_sandbox_incident(
+    *,
+    event: str,
+    incident_id: str,
+    label: Optional[str],
+    **details: Any,
+) -> None:
+    try:
+        from ccie_sidecar.exec_log import log_sandbox_incident
+
+        log_sandbox_incident(
+            event=event,
+            incident_id=incident_id,
+            label=label,
+            **details,
+        )
+    except Exception:
+        pass
+
+
+def _schedule_sidecar_recycle(
+    owner: object,
+    incident_id: str,
+    label: Optional[str],
+) -> None:
+    """Exit only if the same uninterruptible worker still owns quarantine.
+
+    The Rust ``SidecarSupervisor`` detects the child exit and lazily spawns a
+    clean child on the next request. The reserved exit code makes the recovery
+    distinguishable in diagnostics. This is intentionally a process recycle:
+    Python cannot safely kill a thread that remains blocked in native code,
+    while allowing another sandbox to overlap its redirected stdout/environment
+    would corrupt both executions.
+    """
+    delay = _recycle_delay_seconds()
+
+    def _recycle_if_still_owned() -> None:
+        quarantined, rejections = (
+            _SANDBOX_EXECUTION_COORDINATOR.quarantine_snapshot(owner)
+        )
+        if not quarantined:
+            _log_sandbox_incident(
+                event="sandbox_sidecar_recycle_cancelled",
+                incident_id=incident_id,
+                label=label,
+                reason="worker_released_before_recycle",
+                quarantine_rejections=rejections,
+            )
+            return
+
+        _log_sandbox_incident(
+            event="sandbox_sidecar_recycle",
+            incident_id=incident_id,
+            label=label,
+            reason="worker_still_running",
+            recovery_action="process_exit_for_clean_respawn",
+            exit_code=_SIDECAR_RECYCLE_EXIT_CODE,
+            quarantine_rejections=rejections,
+        )
+        try:
+            sys.stderr.flush()
+        finally:
+            os._exit(_SIDECAR_RECYCLE_EXIT_CODE)
+
+    timer = threading.Timer(delay, _recycle_if_still_owned)
+    timer.daemon = True
+    timer.name = f"sandbox-recycle-{incident_id[:8]}"
+    timer.start()
 
 
 def _build_sandbox_globals(
@@ -658,7 +845,13 @@ def _execute_code_with_timeout(
     ):
         result = _execute_with_sigalrm(code, globals_dict, timeout, env_overrides)
     else:
-        result = _execute_in_worker_thread(code, globals_dict, timeout, env_overrides)
+        result = _execute_in_worker_thread(
+            code,
+            globals_dict,
+            timeout,
+            env_overrides,
+            label=label,
+        )
     try:
         from ccie_sidecar.exec_log import log_execution
         log_execution(
@@ -710,80 +903,127 @@ def _execute_with_sigalrm(
     env_overrides: Optional[Dict[str, str]],
 ) -> Dict[str, Any]:
     """Main-thread execution path: SIGALRM-based timeout (legacy behavior)."""
-    output_buffer = StringIO()
-    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-
-    saved_env = _apply_env_overrides(env_overrides)
-
+    # Coordinator acquisition happens before signal.alarm(), so queue time
+    # never consumes the caller's execution budget.
+    owner = object()
+    if not _SANDBOX_EXECUTION_COORDINATOR.acquire(owner):
+        return {
+            "success": False,
+            "output": "",
+            "error": _sandbox_temporarily_unavailable_error(
+                _SANDBOX_EXECUTION_COORDINATOR.current_incident_id()
+            ),
+        }
     try:
-        signal.alarm(timeout)
-        _run_code_capture(code, globals_dict, output_buffer)
-        signal.alarm(0)
+        output_buffer = StringIO()
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        saved_env = _apply_env_overrides(env_overrides)
 
-        return {
-            "success": True,
-            "output": output_buffer.getvalue(),
-            "error": "",
-        }
+        try:
+            signal.alarm(timeout)
+            _run_code_capture(code, globals_dict, output_buffer)
+            signal.alarm(0)
 
-    except TimeoutException:
-        signal.alarm(0)
-        return {
-            "success": False,
-            "output": output_buffer.getvalue(),
-            "error": f"Code execution timed out after {timeout} seconds",
-        }
+            return {
+                "success": True,
+                "output": output_buffer.getvalue(),
+                "error": "",
+            }
 
-    except SystemExit as e:
-        # Agent-generated code frequently calls sys.exit()/exit()/quit().
-        # SystemExit derives from BaseException, NOT Exception, so without this
-        # it would propagate out of exec() and KILL THE WHOLE SIDECAR PROCESS.
-        # Contain it as an ordinary failed execution.
-        signal.alarm(0)
-        return {
-            "success": False,
-            "output": output_buffer.getvalue(),
-            "error": f"Code called sys.exit({e.code!r}); treated as end of this "
-                     f"execution. Do not call sys.exit()/exit()/quit() in the "
-                     f"sandbox — just stop writing code or print your result.",
-        }
+        except TimeoutException:
+            signal.alarm(0)
+            return {
+                "success": False,
+                "output": output_buffer.getvalue(),
+                "error": f"Code execution timed out after {timeout} seconds",
+            }
 
-    except Exception as e:
-        signal.alarm(0)
-        return {
-            "success": False,
-            "output": output_buffer.getvalue(),
-            "error": f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}",
-        }
+        except SystemExit as e:
+            # Agent-generated code frequently calls sys.exit()/exit()/quit().
+            # SystemExit derives from BaseException, NOT Exception, so without this
+            # it would propagate out of exec() and KILL THE WHOLE SIDECAR PROCESS.
+            # Contain it as an ordinary failed execution.
+            signal.alarm(0)
+            return {
+                "success": False,
+                "output": output_buffer.getvalue(),
+                "error": f"Code called sys.exit({e.code!r}); treated as end of this "
+                         f"execution. Do not call sys.exit()/exit()/quit() in the "
+                         f"sandbox — just stop writing code or print your result.",
+            }
 
+        except Exception as e:
+            signal.alarm(0)
+            return {
+                "success": False,
+                "output": output_buffer.getvalue(),
+                "error": f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}",
+            }
+
+        finally:
+            signal.signal(signal.SIGALRM, old_handler)
+            _restore_env(saved_env)
     finally:
-        signal.signal(signal.SIGALRM, old_handler)
-        _restore_env(saved_env)
+        _SANDBOX_EXECUTION_COORDINATOR.release(owner)
 
 
 def _execute_in_worker_thread(
     code: str,
     globals_dict: Dict[str, Any],
-    timeout: int,
+    timeout: float,
     env_overrides: Optional[Dict[str, str]],
+    *,
+    label: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Worker-thread execution path (e.g. DeepAgents tool calls).
 
-    SIGALRM is unavailable off the main thread, so run the code in a daemon
-    thread and join with the timeout. If it overruns, report a timeout — the
-    daemon thread is abandoned (it cannot be force-killed in CPython), which
-    matches the best-effort guarantee the sandbox already makes.
+    Generated code runs in a daemon with a cooperative trace cancellation hook.
+    Ordinary Python loops therefore stop inside the owning worker and restore
+    process-global stdout/environment state before this function returns.
+
+    If native I/O prevents cancellation within a short grace window, the worker
+    keeps quarantine ownership and a bounded sidecar recycle is scheduled. The
+    Rust supervisor lazily spawns a clean child on the next request, so a
+    permanent quarantine is never the terminal state.
     """
     output_buffer = StringIO()
-    saved_env = _apply_env_overrides(env_overrides)
-
     result: Dict[str, Any] = {}
+    coordinator_acquired = threading.Event()
+    cancel_execution = threading.Event()
+    execution_started = [0.0]
+    owner = object()
 
     def _target() -> None:
+        # The worker itself owns the coordinator. If its parent times out and
+        # returns, ownership remains active until user code and restoration both
+        # finish. Quarantined admission can also reject this queued worker.
+        if not _SANDBOX_EXECUTION_COORDINATOR.acquire(owner):
+            result["success"] = False
+            result["error"] = _sandbox_temporarily_unavailable_error(
+                _SANDBOX_EXECUTION_COORDINATOR.current_incident_id()
+            )
+            coordinator_acquired.set()
+            return
+        saved_env: Dict[str, Optional[str]] = {}
+        previous_trace = sys.gettrace()
+        execution_started[0] = time.monotonic()
+        coordinator_acquired.set()
+
+        def _cancel_trace(frame, event, arg):
+            del frame, event, arg
+            if cancel_execution.is_set():
+                raise _WorkerExecutionCancelled()
+            return _cancel_trace
+
         try:
+            saved_env = _apply_env_overrides(env_overrides)
+            sys.settrace(_cancel_trace)
             _run_code_capture(code, globals_dict, output_buffer)
             result["success"] = True
             result["error"] = ""
+        except _WorkerExecutionCancelled:
+            result["success"] = False
+            result["error"] = f"Code execution timed out after {timeout} seconds"
         except SystemExit as e:
             # sys.exit()/exit()/quit() raise SystemExit (a BaseException, NOT an
             # Exception). Uncaught here it would tear down this worker thread and
@@ -796,27 +1036,84 @@ def _execute_in_worker_thread(
             )
         except Exception as e:  # noqa: BLE001 - surface any user-code error
             result["success"] = False
-            result["error"] = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+            result["error"] = (
+                f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+            )
+        finally:
+            try:
+                sys.settrace(previous_trace)
+                _restore_env(saved_env)
+            finally:
+                _SANDBOX_EXECUTION_COORDINATOR.release(owner)
 
-    worker = threading.Thread(target=_target, daemon=True)
-    try:
-        worker.start()
-        worker.join(timeout)
+    worker = threading.Thread(
+        target=_target,
+        daemon=True,
+        name=f"sandbox-exec-{(label or 'unknown')[:24]}",
+    )
+    worker.start()
 
-        if worker.is_alive():
-            return {
-                "success": False,
-                "output": output_buffer.getvalue(),
-                "error": f"Code execution timed out after {timeout} seconds",
-            }
+    # Wait for ownership before starting the watchdog. A prior sandbox may
+    # still own the process-global stdout/environment seam; that queue time is
+    # intentionally outside this execution's timeout.
+    while not coordinator_acquired.wait(timeout=0.05):
+        if not worker.is_alive():
+            break
+    worker.join(timeout)
 
+    if worker.is_alive():
+        incident_id = uuid.uuid4().hex
+        cancel_execution.set()
+        worker.join(_cancel_grace_seconds())
+        worker_stopped = not worker.is_alive()
+        recycle_delay = _recycle_delay_seconds()
+        quarantined = False
+        recovery_action = "cooperative_cancel"
+
+        if not worker_stopped:
+            quarantined = _SANDBOX_EXECUTION_COORDINATOR.mark_overrun(
+                owner,
+                incident_id,
+            )
+            if quarantined:
+                recovery_action = "sidecar_recycle_scheduled"
+                _schedule_sidecar_recycle(owner, incident_id, label)
+            else:
+                # It released between the grace join and ownership check.
+                worker_stopped = True
+
+        _log_sandbox_incident(
+            event="sandbox_execution_timeout",
+            incident_id=incident_id,
+            label=label,
+            timeout_seconds=timeout,
+            elapsed_ms=int(
+                (time.monotonic() - execution_started[0]) * 1000
+            ),
+            code_sha256=hashlib.sha256(code.encode("utf-8")).hexdigest(),
+            code_chars=len(code),
+            code_lines=len(code.splitlines()),
+            worker_name=worker.name,
+            worker_ident=worker.ident,
+            worker_stopped=worker_stopped,
+            executor_quarantined=quarantined,
+            recovery_action=recovery_action,
+            recycle_delay_seconds=recycle_delay if quarantined else 0,
+        )
         return {
-            "success": result.get("success", False),
+            "success": False,
             "output": output_buffer.getvalue(),
-            "error": result.get("error", ""),
+            "error": (
+                f"Code execution timed out after {timeout} seconds. "
+                f"Incident ID: {incident_id}. Recovery: {recovery_action}."
+            ),
         }
-    finally:
-        _restore_env(saved_env)
+
+    return {
+        "success": result.get("success", False),
+        "output": output_buffer.getvalue(),
+        "error": result.get("error", ""),
+    }
 
 
 # ---------------------------------------------------------------------------

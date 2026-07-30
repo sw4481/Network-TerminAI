@@ -13,6 +13,10 @@ pub struct CheckInput {
     pub sort_order: i32,
 }
 
+fn require_scheduler<T>(scheduler: Option<T>) -> Result<T, String> {
+    scheduler.ok_or_else(|| "Heartbeat scheduler not initialized".to_string())
+}
+
 #[tauri::command]
 pub async fn heartbeat_create(
     name: String,
@@ -22,10 +26,23 @@ pub async fn heartbeat_create(
     checks: Vec<CheckInput>,
     state: State<'_, AppState>,
 ) -> Result<Heartbeat, String> {
+    // An enabled heartbeat without a scheduler would be persisted but never
+    // execute. Fail before creating the row or checks.
+    let scheduler = {
+        let lock = state.heartbeat_scheduler.lock();
+        require_scheduler(lock.clone())?
+    };
+
     let heartbeat = {
         let conn = state.db.lock();
-        HeartbeatRepo::create_heartbeat(&conn, &name, &description, interval_minutes, retention_days)
-            .map_err(|e| e.to_string())?
+        HeartbeatRepo::create_heartbeat(
+            &conn,
+            &name,
+            &description,
+            interval_minutes,
+            retention_days,
+        )
+        .map_err(|e| e.to_string())?
     };
 
     // Add checks
@@ -43,16 +60,10 @@ pub async fn heartbeat_create(
     }
 
     // Register with scheduler
-    let scheduler = {
-        let lock = state.heartbeat_scheduler.lock();
-        lock.clone()
-    };
-    if let Some(scheduler) = scheduler {
-        scheduler
-            .add_heartbeat(&heartbeat)
-            .await
-            .map_err(|e| e.to_string())?;
-    }
+    scheduler
+        .add_heartbeat(&heartbeat)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Re-fetch heartbeat to get updated next_run_at from scheduler registration
     let updated_heartbeat = {
@@ -91,10 +102,37 @@ pub async fn heartbeat_update(
     retention_days: u32,
     state: State<'_, AppState>,
 ) -> Result<Heartbeat, String> {
+    // Enabled rows must remain schedulable. Check before mutating so an
+    // unavailable scheduler cannot silently accept an update that will never
+    // execute. Paused heartbeat metadata remains editable without a scheduler.
+    let scheduler = {
+        let currently_enabled = {
+            let conn = state.db.lock();
+            HeartbeatRepo::get_heartbeat(&conn, &id)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Heartbeat not found".to_string())?
+                .enabled
+        };
+
+        if currently_enabled {
+            let lock = state.heartbeat_scheduler.lock();
+            Some(require_scheduler(lock.clone())?)
+        } else {
+            None
+        }
+    };
+
     {
         let conn = state.db.lock();
-        HeartbeatRepo::update_heartbeat(&conn, &id, &name, &description, interval_minutes, retention_days)
-            .map_err(|e| e.to_string())?;
+        HeartbeatRepo::update_heartbeat(
+            &conn,
+            &id,
+            &name,
+            &description,
+            interval_minutes,
+            retention_days,
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Re-register with scheduler (updated interval)
@@ -106,17 +144,31 @@ pub async fn heartbeat_update(
     };
 
     if heartbeat.enabled {
-        let scheduler = {
-            let lock = state.heartbeat_scheduler.lock();
-            lock.clone()
+        // The row may have been resumed concurrently after the initial state
+        // check, so validate again before accepting an enabled result.
+        let scheduler = match scheduler {
+            Some(scheduler) => scheduler,
+            None => {
+                let lock = state.heartbeat_scheduler.lock();
+                require_scheduler(lock.clone())?
+            }
         };
-        if let Some(scheduler) = scheduler {
-            scheduler.pause(&id).await.map_err(|e| e.to_string())?;
-            scheduler.resume(&id).await.map_err(|e| e.to_string())?;
-        }
+        scheduler
+            .add_heartbeat(&heartbeat)
+            .await
+            .map_err(|e| e.to_string())?;
     }
 
-    Ok(heartbeat)
+    // Registration writes the new phase to next_run_at. Return a fresh row so
+    // the edit modal/store never receives the pre-registration timestamp.
+    let updated_heartbeat = {
+        let conn = state.db.lock();
+        HeartbeatRepo::get_heartbeat(&conn, &id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Heartbeat not found".to_string())?
+    };
+
+    Ok(updated_heartbeat)
 }
 
 #[tauri::command]
@@ -319,4 +371,20 @@ pub async fn heartbeat_import(
         state,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::require_scheduler;
+
+    #[test]
+    fn scheduler_requirement_rejects_uninitialized_state_with_clear_error() {
+        let error = require_scheduler::<()>(None).unwrap_err();
+        assert_eq!(error, "Heartbeat scheduler not initialized");
+    }
+
+    #[test]
+    fn scheduler_requirement_returns_initialized_value() {
+        assert_eq!(require_scheduler(Some(42)).unwrap(), 42);
+    }
 }

@@ -21,12 +21,15 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
 _OFF = ("0", "false", "no", "off")
 _MAX_OUTPUT_CHARS = 4000  # clip huge stdout so the log stays readable
+_WRITE_LOCK = threading.Lock()
 
 
 def _enabled(name: str, default: bool = True) -> bool:
@@ -46,8 +49,25 @@ def _config_dir() -> Path:
     return base
 
 
+def _log_dir() -> Path:
+    """Return the shared app log directory.
+
+    The Rust parent passes ``CCIE_LOG_DIR`` to every managed sidecar so all
+    platforms use one authoritative directory. Keep the historical standalone
+    fallback for direct ``python -m ccie_sidecar`` launches.
+    """
+    configured = os.environ.get("CCIE_LOG_DIR", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return _config_dir() / "logs"
+
+
 def _log_path() -> Path:
-    return _config_dir() / "logs" / "agent_exec.jsonl"
+    return _log_dir() / "agent_exec.jsonl"
+
+
+def _sandbox_incident_log_path() -> Path:
+    return _log_dir() / "sandbox_incidents.jsonl"
 
 
 def _max_bytes() -> int:
@@ -105,10 +125,11 @@ def log_execution(
         if _enabled("CCIE_EXEC_LOG"):
             path = _log_path()
             try:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                _rotate_if_needed(path)
-                with path.open("a", encoding="utf-8") as f:
-                    f.write(line + "\n")
+                with _WRITE_LOCK:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    _rotate_if_needed(path)
+                    with path.open("a", encoding="utf-8") as f:
+                        f.write(line + "\n")
             except Exception:
                 pass
 
@@ -126,4 +147,49 @@ def log_execution(
                       file=sys.stderr, flush=True)
     except Exception:
         # Logging must never affect an agent run.
+        pass
+
+
+def log_sandbox_incident(
+    *,
+    event: str,
+    incident_id: str,
+    label: Optional[str],
+    **details: Any,
+) -> None:
+    """Write one structured sandbox timeout/recovery incident.
+
+    Callers deliberately pass metadata rather than raw generated code or
+    environment values. This gives operators enough forensic detail to
+    correlate a failure (hash, size, timeout, worker and recovery outcome)
+    without duplicating credentials into a second diagnostic file.
+
+    Best-effort by design: diagnostics must never break recovery.
+    """
+    try:
+        entry = {
+            "ts": time.time(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "event": event,
+            "incident_id": incident_id,
+            "label": label or "unknown",
+            **details,
+        }
+        line = json.dumps(entry, default=str, sort_keys=True)
+        path = _sandbox_incident_log_path()
+        with _WRITE_LOCK:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            _rotate_if_needed(path)
+            with path.open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
+
+        recovery = entry.get("recovery_action") or entry.get("reason") or ""
+        print(
+            "[sandbox_incident] "
+            f"event={event} incident_id={incident_id} "
+            f"label={entry['label']} recovery={recovery}",
+            file=sys.stderr,
+            flush=True,
+        )
+    except Exception:
         pass

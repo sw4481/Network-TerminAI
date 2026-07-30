@@ -61,6 +61,11 @@ from ccie_sidecar.agents.deepagents_tools import create_execute_python_code_tool
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
 from ccie_sidecar.agents.deepagents_hitl import tier_for_tool, should_interrupt
 from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddleware
+from ccie_sidecar.agents.model_recovery import (
+    AgentExecutionPolicy,
+    ModelProtocolRecoveryMiddleware,
+    ModelRecoveryTelemetry,
+)
 
 
 # Hard backstop on graph steps. DeepAgents defaults recursion_limit to 9_999,
@@ -69,6 +74,17 @@ from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddlewar
 # Each ReAct cycle is ~2 graph steps, so 60 ≈ 30 tool calls — ample for the
 # multi-step Meraki flows, tight enough to stop a loop fast.
 RECURSION_LIMIT = 60
+
+
+def _resolve_react_code_execution_policy(
+    policy: AgentExecutionPolicy | None,
+) -> AgentExecutionPolicy:
+    """Keep interactive recovery opt-in while allowing explicit run policies."""
+
+    if policy is not None:
+        return policy
+    return AgentExecutionPolicy(protocol_recovery_enabled=False)
+
 
 # Self-evaluation rubric passed on invocation state. RubricMiddleware grades the
 # agent's final answer against this and, if unsatisfied, loops back to the model
@@ -451,7 +467,8 @@ async def deepagents_react_code_loop(
     user_msg: str,
     ctx: dict,
     on_event: Callable[[dict], None],
-) -> None:
+    execution_policy: AgentExecutionPolicy | None = None,
+) -> dict[str, Any]:
     """
     DeepAgents implementation of react_code_loop.
 
@@ -462,6 +479,8 @@ async def deepagents_react_code_loop(
         user_msg: User's query
         ctx: Additional context
         on_event: Callback to emit events
+        execution_policy: Optional run policy. Interactive callers default to
+            recovery disabled; unattended heartbeats opt in explicitly.
 
     Events emitted (ReactEvent contract):
         - thought_start
@@ -474,6 +493,16 @@ async def deepagents_react_code_loop(
     from ccie_sidecar.agent import get_saved_config
     from langgraph.store.memory import InMemoryStore
 
+    recovery_telemetries: list[ModelRecoveryTelemetry] = []
+    outcome: dict[str, Any] | None = None
+
+    def new_recovery_middleware(
+        policy: AgentExecutionPolicy,
+    ) -> ModelProtocolRecoveryMiddleware:
+        telemetry = ModelRecoveryTelemetry()
+        recovery_telemetries.append(telemetry)
+        return ModelProtocolRecoveryMiddleware(policy=policy, telemetry=telemetry)
+
     try:
         # 1. Load provider config
         config = get_saved_config() or {}
@@ -485,6 +514,11 @@ async def deepagents_react_code_loop(
 
         # 2. Build chat model
         chat_model = build_chat_model(config)
+        # Interactive callers retain their existing one-call behavior. The
+        # unattended heartbeat path opts into the canary recovery policy
+        # explicitly; widening it later requires only passing the same policy.
+        execution_policy = _resolve_react_code_execution_policy(execution_policy)
+        primary_recovery = new_recovery_middleware(execution_policy)
 
         # 3. Build sandbox and tool
         tool_def = agent_def.get("attached_tools", [{}])[0] if agent_def.get("attached_tools") else {}
@@ -518,7 +552,23 @@ async def deepagents_react_code_loop(
             execute_code_tool, _arch_ids = build_architect_direct_tool(
                 emit=emit_custom, user_msg=user_msg,
             )
-            graph_kwargs["subagents"] = build_vendor_subagents(emit=emit_custom)
+            # Declarative DeepAgents subagents have their own middleware stacks;
+            # explicitly add the same provider-neutral recovery policy so both
+            # delegated vendor calls and the architect's inline path are covered.
+            vendor_subagents = []
+            for subagent in build_vendor_subagents(emit=emit_custom):
+                vendor_subagents.append(
+                    SubAgent(
+                        **{
+                            **subagent,
+                            "middleware": [
+                                *(subagent.get("middleware") or []),
+                                new_recovery_middleware(execution_policy),
+                            ],
+                        }
+                    )
+                )
+            graph_kwargs["subagents"] = vendor_subagents
             arch_configured_ids = _arch_ids
             # Fix #2: deterministic vendor hint — nudge the model toward the
             # platform the question names, before it anchors on the prior turn.
@@ -589,7 +639,12 @@ async def deepagents_react_code_loop(
             tools=tools,
             system_prompt=system_prompt,
             store=InMemoryStore(),
-            middleware=[ToolCallSanitizerMiddleware(), _rubric_middleware(config), *extra_middleware],
+            middleware=[
+                primary_recovery,
+                ToolCallSanitizerMiddleware(),
+                _rubric_middleware(config),
+                *extra_middleware,
+            ],
             **graph_kwargs,
         )
 
@@ -621,7 +676,7 @@ async def deepagents_react_code_loop(
         # Byte-identical event stream; no-op when the flag is off.
         wrapped_on_event = LessonObserver(on_event)
 
-        await run_and_stream(
+        outcome = await run_and_stream(
             graph=graph,
             input_data=input_data,
             config={
@@ -633,6 +688,13 @@ async def deepagents_react_code_loop(
         # Post-final: distill a lesson if this turn recovered from an error.
         # The user's answer already streamed, so this adds no answer latency.
         distill_and_store(wrapped_on_event, lessons_scope, user_msg)
+        recovery_attempts = sum(
+            telemetry.recovery_attempts for telemetry in recovery_telemetries
+        )
+        outcome["recovery_attempts"] = recovery_attempts
+        if recovery_attempts:
+            outcome["fallback_mode"] = "non_streaming_model_call"
+        return outcome
 
     except Exception as e:
         import sys
@@ -642,4 +704,31 @@ async def deepagents_react_code_loop(
         on_event({
             "type": "error",
             "message": f"DeepAgents react_code error: {str(e)}\n{tb}",
+            "kind": "runtime",
+            "error_type": type(e).__name__,
         })
+        recovery_attempts = sum(
+            telemetry.recovery_attempts for telemetry in recovery_telemetries
+        )
+        failed_outcome = {
+            "interrupted": False,
+            "thread_id": "default",
+            "final_emitted": False,
+            "steps": 0,
+            "error_kind": None,
+            "error_type": None,
+            "recovery_attempts": 0,
+            "fallback_mode": None,
+            **(outcome or {}),
+        }
+        failed_outcome.update(
+            {
+                "error_kind": "runtime",
+                "error_type": type(e).__name__,
+                "recovery_attempts": recovery_attempts,
+                "fallback_mode": (
+                    "non_streaming_model_call" if recovery_attempts else None
+                ),
+            }
+        )
+        return failed_outcome

@@ -44,6 +44,34 @@ export async function getSidecarStatus(): Promise<SidecarStatus> {
   return invoke<SidecarStatus>("get_sidecar_status");
 }
 
+export type LogFileLocation = {
+  id: string;
+  label: string;
+  description: string;
+  path: string;
+  exists: boolean;
+};
+
+export type LogLocations = {
+  directory: string;
+  files: LogFileLocation[];
+};
+
+/** Return the backend-authoritative TerminAI diagnostic log locations. */
+export async function getLogLocations(): Promise<LogLocations> {
+  return invoke<LogLocations>("get_log_locations");
+}
+
+/** Open a known log (or the log directory) with the operating system viewer. */
+export async function openLogLocation(id: string): Promise<void> {
+  return invoke<void>("open_log_location", { id });
+}
+
+/** Reveal a known log in Finder/Explorer without accepting an arbitrary path. */
+export async function revealLogLocation(id: string): Promise<void> {
+  return invoke<void>("reveal_log_location", { id });
+}
+
 /**
  * Spawn a new PTY (pseudo-terminal) session.
  *

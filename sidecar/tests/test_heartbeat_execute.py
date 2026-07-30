@@ -7,6 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from ccie_sidecar.agents.heartbeat_executor import (
+    _HEARTBEAT_EFFICIENCY_DIRECTIVE,
+    _execute_agent,
+    _parse_agent_output,
     execute_check,
     _parse_pyats_output,
     _parse_meraki_output,
@@ -64,8 +67,12 @@ class TestExecuteCheck:
             "attached_tools": [{"id": "test-tool"}]
         }
 
-        # Mock asyncio.run to return empty findings
-        mock_asyncio_run.return_value = {"findings": []}
+        # Close the coroutine because the mocked asyncio.run will not await it.
+        def fake_run(coro):
+            coro.close()
+            return {"findings": []}
+
+        mock_asyncio_run.side_effect = fake_run
 
         result = execute_check("test-agent", "Check status", "check-003")
 
@@ -82,17 +89,22 @@ class TestExecuteCheck:
             "attached_tools": [{"id": "test-tool"}]
         }
 
-        # Mock asyncio.run to return a timeout result (as if _run_agent_with_timeout caught it)
-        mock_asyncio_run.return_value = {
-            "findings": [
-                {
-                    "severity": "error",
-                    "title": "Check execution timeout",
-                    "message": "The agent 'test-agent' did not complete within 120 seconds.",
-                    "metadata": {"check_id": "check-004", "agent_id": "test-agent", "timeout_seconds": 120}
-                }
-            ]
-        }
+        # Mock asyncio.run as if _run_agent_with_timeout caught the timeout.
+        # Close the coroutine because this mock does not await it.
+        def fake_run(coro):
+            coro.close()
+            return {
+                "findings": [
+                    {
+                        "severity": "error",
+                        "title": "Check execution timeout",
+                        "message": "The agent 'test-agent' did not complete within 120 seconds.",
+                        "metadata": {"check_id": "check-004", "agent_id": "test-agent", "timeout_seconds": 120}
+                    }
+                ]
+            }
+
+        mock_asyncio_run.side_effect = fake_run
 
         result = execute_check("test-agent", "Check status", "check-004")
 
@@ -506,3 +518,303 @@ class TestEdgeCases:
         # Should pick the highest severity
         assert len(findings) > 0
         assert any(f["severity"] == "critical" for f in findings)
+
+
+class TestHeartbeatExecutionOutcomes:
+    """Heartbeat findings must distinguish final, degraded, and failed runs."""
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_explicitly_opts_into_recovery_policy(self, monkeypatch):
+        monkeypatch.delenv("CCIE_MODEL_PROTOCOL_RECOVERY", raising=False)
+        run_outcome = {
+            "final_emitted": False,
+            "steps": 0,
+            "error_kind": None,
+            "error_type": None,
+            "recovery_attempts": 0,
+            "fallback_mode": None,
+        }
+        loop = AsyncMock(return_value=run_outcome)
+        agent = {
+            "id": "pyats",
+            "system_prompt": "Check the lab.",
+            "attached_tools": [{"id": "pyats"}],
+        }
+
+        with (
+            patch(
+                "ccie_sidecar.agent.get_saved_config",
+                return_value={"provider": "test"},
+            ),
+            patch(
+                "ccie_sidecar.agents.deepagents_runtime.deepagents_react_code_loop",
+                loop,
+            ),
+        ):
+            await _execute_agent(
+                agent=agent,
+                agent_id="pyats",
+                prompt="Check device health",
+                check_id="check-policy",
+            )
+
+        policy = loop.await_args.kwargs["execution_policy"]
+        assert policy.protocol_recovery_enabled is True
+
+    def test_normal_final_preserves_recovery_telemetry(self):
+        outcome = {
+            "final_emitted": True,
+            "steps": 2,
+            "error_kind": None,
+            "error_type": None,
+            "recovery_attempts": 1,
+            "fallback_mode": "non_streaming_model_call",
+        }
+
+        findings = _parse_agent_output(
+            "meraki",
+            [{"type": "final", "response": "All 3 devices are online. No alerts."}],
+            "check-final",
+            outcome=outcome,
+        )
+
+        assert findings[0]["severity"] == "ok"
+        assert findings[0]["metadata"]["kind"] == "summary"
+        assert findings[0]["metadata"]["degraded"] is False
+        assert findings[0]["metadata"]["recovery_attempts"] == 1
+        assert findings[0]["metadata"]["fallback_mode"] == "non_streaming_model_call"
+
+    def test_tool_data_without_final_is_explicitly_degraded(self):
+        outcome = {
+            "final_emitted": False,
+            "steps": 1,
+            "error_kind": None,
+            "error_type": None,
+            "recovery_attempts": 0,
+            "fallback_mode": None,
+        }
+
+        findings = _parse_agent_output(
+            "pyats",
+            [
+                {
+                    "type": "tool_result",
+                    "name": "execute_python_code",
+                    "success": True,
+                    "result": "SW1 reachable; interfaces healthy",
+                }
+            ],
+            "check-fallback",
+            outcome=outcome,
+        )
+
+        assert findings[0]["severity"] == "info"
+        assert findings[0]["metadata"]["kind"] == "tool_fallback"
+        assert findings[0]["metadata"]["degraded"] is True
+        assert "Raw tool results" in findings[0]["message"]
+
+    @pytest.mark.parametrize(
+        ("tool_name", "result"),
+        [
+            ("write_todos", "Updated todo list"),
+            ("GraderResponse", "✓ Grading passed"),
+            ("read_file", "virtual filesystem content"),
+            ("unknown", "unattributed result"),
+        ],
+    )
+    def test_non_data_tool_success_is_not_a_degraded_health_result(
+        self,
+        tool_name,
+        result,
+    ):
+        findings = _parse_agent_output(
+            "meraki",
+            [
+                {
+                    "type": "tool_result",
+                    "name": tool_name,
+                    "success": True,
+                    "result": result,
+                }
+            ],
+            "check-provenance",
+            outcome={
+                "final_emitted": False,
+                "steps": 1,
+                "error_kind": None,
+                "error_type": None,
+                "recovery_attempts": 0,
+                "fallback_mode": None,
+            },
+        )
+
+        assert findings[0]["severity"] == "error"
+        assert findings[0]["metadata"]["kind"] == "empty_final"
+
+    def test_execute_python_error_text_is_not_degraded_data(self):
+        findings = _parse_agent_output(
+            "meraki",
+            [
+                {
+                    "type": "tool_result",
+                    "name": "execute_python_code",
+                    "success": True,
+                    "result": "Error: API request failed",
+                }
+            ],
+            "check-tool-error",
+            outcome={
+                "final_emitted": False,
+                "steps": 1,
+                "error_kind": None,
+                "error_type": None,
+                "recovery_attempts": 0,
+                "fallback_mode": None,
+            },
+        )
+
+        assert findings[0]["metadata"]["kind"] == "empty_final"
+
+    def test_execute_python_no_output_sentinel_is_empty_final(self):
+        findings = _parse_agent_output(
+            "meraki",
+            [
+                {
+                    "type": "tool_result",
+                    "name": "execute_python_code",
+                    "success": True,
+                    "result": "(no output)",
+                }
+            ],
+            "check-no-output",
+            outcome={
+                "final_emitted": False,
+                "steps": 1,
+                "error_kind": None,
+                "error_type": None,
+                "recovery_attempts": 0,
+                "fallback_mode": None,
+            },
+        )
+
+        assert findings[0]["severity"] == "error"
+        assert findings[0]["metadata"]["kind"] == "empty_final"
+
+    def test_runtime_error_cannot_be_reported_as_clean_final(self):
+        outcome = {
+            "final_emitted": True,
+            "steps": 3,
+            "error_kind": "model_protocol",
+            "error_type": "APIError",
+            "recovery_attempts": 1,
+            "fallback_mode": "non_streaming_model_call",
+        }
+
+        findings = _parse_agent_output(
+            "meraki",
+            [
+                {"type": "final", "response": "Partial answer"},
+                {
+                    "type": "error",
+                    "message": "DeepAgents runtime error: APIError: Unknown role: final",
+                    "kind": "model_protocol",
+                    "error_type": "APIError",
+                },
+            ],
+            "check-error",
+            outcome=outcome,
+        )
+
+        assert len(findings) == 1
+        assert findings[0]["severity"] == "error"
+        assert findings[0]["title"] == "Model response protocol error"
+        assert findings[0]["metadata"]["error_kind"] == "model_protocol"
+        assert findings[0]["metadata"]["degraded"] is False
+
+    @pytest.mark.parametrize(
+        ("error_kind", "expected_title"),
+        [
+            ("model_protocol", "Model response protocol error"),
+            ("authentication", "Model authentication error"),
+            ("configuration", "Model configuration error"),
+            ("client_error", "Model request rejected"),
+            ("rate_limit", "Model rate limit reached"),
+            ("context_overflow", "Model context limit exceeded"),
+            ("timeout", "Model request timeout"),
+            ("tool", "Agent tool error"),
+            ("step_limit", "Agent step limit reached"),
+            ("runtime", "Agent runtime error"),
+        ],
+    )
+    def test_failed_recovery_title_uses_final_error_category(
+        self,
+        error_kind,
+        expected_title,
+    ):
+        findings = _parse_agent_output(
+            "meraki",
+            [
+                {
+                    "type": "error",
+                    "message": "Recovery failed",
+                    "kind": error_kind,
+                    "error_type": "FinalError",
+                    "initial_error_type": "ProtocolError",
+                    "fallback_error_type": "FinalError",
+                }
+            ],
+            "check-category",
+            outcome={
+                "final_emitted": False,
+                "steps": 0,
+                "error_kind": error_kind,
+                "error_type": "FinalError",
+                "recovery_attempts": 1,
+                "fallback_mode": "non_streaming_model_call",
+            },
+        )
+
+        assert findings[0]["title"] == expected_title
+        assert findings[0]["metadata"]["error_kind"] == error_kind
+        assert findings[0]["metadata"]["initial_error_type"] == "ProtocolError"
+        assert findings[0]["metadata"]["fallback_error_type"] == "FinalError"
+
+    def test_no_final_or_tool_data_is_empty_final_error(self):
+        findings = _parse_agent_output(
+            "meraki",
+            [],
+            "check-empty",
+            outcome={
+                "final_emitted": False,
+                "steps": 0,
+                "error_kind": None,
+                "error_type": None,
+                "recovery_attempts": 0,
+                "fallback_mode": None,
+            },
+        )
+
+        assert findings[0]["severity"] == "error"
+        assert findings[0]["metadata"]["kind"] == "empty_final"
+        assert findings[0]["metadata"]["error_kind"] == "empty_final"
+
+    def test_large_virtual_result_guidance_uses_builtin_read_file(self):
+        assert "/large_tool_results/..." in _HEARTBEAT_EFFICIENCY_DIRECTIVE
+        assert "built-in `read_file`" in _HEARTBEAT_EFFICIENCY_DIRECTIVE
+        assert "cannot be" in _HEARTBEAT_EFFICIENCY_DIRECTIVE
+        assert "execute_python_code" in _HEARTBEAT_EFFICIENCY_DIRECTIVE
+
+    def test_summarized_stdout_guidance_uses_sandbox_local_tool_output(self):
+        directive = _HEARTBEAT_EFFICIENCY_DIRECTIVE
+        assert "sandbox-local `tool_output`" in directive
+        assert "tool_output.stats()" in directive
+        assert "tool_output.head()" in directive
+        assert "tool_output.tail()" in directive
+        assert "tool_output.grep(...)" in directive
+        assert "tool_output.json()" in directive
+        assert "latest stdout" in directive
+        assert "NOT a file or path" in directive
+        # The two recovery mechanisms are deliberately distinct.
+        assert directive.index("sandbox-local `tool_output`") < directive.index(
+            "/large_tool_results/..."
+        )
