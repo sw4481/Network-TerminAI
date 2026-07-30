@@ -26,11 +26,13 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --backdrop-rgb: 0 0 0;
   --overlay-light-rgb: 255 255 255;
   --text-primary: #e6e1cf;
-  --text-secondary: #8a8d94;
+  /* Accessibility exception to strict legacy parity: small secondary/muted
+     copy must remain readable on the lightest Dark surfaces. */
+  --text-secondary: #9299a4;
   --text-body: #d0d3da;
-  --text-muted: #6c7380;
+  --text-muted: #8b929e;
   --text-recording: #c9d1d9;
-  --text-recording-muted: #8b949e;
+  --text-recording-muted: #99a0a9;
   --text-inverse: #ffffff;
   --text-on-strong-accent: #1e1e1e;
   --integration-primary: #d4a857;
@@ -47,7 +49,7 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --accent-hover: #3d6a9c;
   --accent-subtle: #2d5a8c;
   --focus-ring: #5ccfe6;
-  --focus-control: #3e4451;
+  --focus-control: #626a77;
   --selection: #264f78;
   --status-info: #5ccfe6;
   --status-success: #6bd968;
@@ -132,7 +134,7 @@ html[data-theme="slate-grey"] {
   --text-primary: #d7d9dd;
   --text-secondary: #aeb4bc;
   --text-body: #c7cbd0;
-  --text-muted: #858c96;
+  --text-muted: #99a0a9;
   --text-recording: #d7d9dd;
   --text-recording-muted: #aeb4bc;
   --text-inverse: #ffffff;
@@ -151,7 +153,7 @@ html[data-theme="slate-grey"] {
   --accent-hover: #b5ccdc;
   --accent-subtle: #455c70;
   --focus-ring: #c4d6e4;
-  --focus-control: #59626e;
+  --focus-control: #6b7581;
   --selection: #46505b;
   --status-info: #9bb8ce;
   --status-success: #98b98f;

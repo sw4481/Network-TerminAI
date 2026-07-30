@@ -12,26 +12,42 @@ function withTheme(settings: AppearanceSettingsV1, appTheme: AppThemeId): Appear
 export function AppearanceSettingsTab() {
   const { settings, error, previewSettings, setSettings } = useAppearance();
   const [draft, setDraft] = useState(settings);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
 
   useEffect(() => setDraft(settings), [settings]);
 
   const preview = (next: AppearanceSettingsV1) => {
     setDraft(next);
+    setSaveStatus("idle");
     previewSettings(next);
   };
 
   const save = async () => {
+    setSaveStatus("saving");
     try {
       await setSettings(draft);
+      setSaveStatus("saved");
     } catch {
       // The provider keeps the non-fatal error visible in this tab.
+      setSaveStatus("failed");
     }
   };
 
   const reset = () => preview(createDefaultAppearanceSettings());
+  const matrixEffectsAvailable = draft.appTheme === "matrix";
+  const saveMessage = {
+    idle: "",
+    saving: "Saving appearance…",
+    saved: "Appearance saved.",
+    failed: "Appearance was not saved.",
+  }[saveStatus];
 
   return (
-    <section className="appearance-settings tab-content" aria-labelledby="appearance-heading">
+    <section
+      className="appearance-settings tab-content"
+      aria-labelledby="appearance-heading"
+      aria-busy={saveStatus === "saving"}
+    >
       <header className="appearance-settings__header">
         <div>
           <h2 id="appearance-heading">Appearance</h2>
@@ -63,10 +79,16 @@ export function AppearanceSettingsTab() {
 
       <fieldset className="appearance-settings__effects">
         <legend>Matrix effects</legend>
-        <p className="muted">These static overlays only apply to Matrix and automatically turn off when reduced motion is requested.</p>
+        <p className="muted" id="matrix-effects-description">
+          {matrixEffectsAvailable
+            ? "These static overlays automatically turn off when reduced motion is requested."
+            : "Select Matrix to enable these effects. They automatically turn off when reduced motion is requested."}
+        </p>
         <label>
           <input
             type="checkbox"
+            disabled={!matrixEffectsAvailable}
+            aria-describedby="matrix-effects-description"
             checked={draft.effects.matrixScanlines}
             onChange={(event) => preview({ ...draft, effects: { ...draft.effects, matrixScanlines: event.target.checked } })}
           />
@@ -75,6 +97,8 @@ export function AppearanceSettingsTab() {
         <label>
           <input
             type="checkbox"
+            disabled={!matrixEffectsAvailable}
+            aria-describedby="matrix-effects-description"
             checked={draft.effects.matrixGlow}
             onChange={(event) => preview({ ...draft, effects: { ...draft.effects, matrixGlow: event.target.checked } })}
           />
@@ -94,9 +118,25 @@ export function AppearanceSettingsTab() {
       </fieldset>
 
       <div className="appearance-settings__actions">
-        <button type="button" className="primary" onClick={() => void save()}>Save appearance</button>
+        <button
+          type="button"
+          className="primary"
+          disabled={saveStatus === "saving"}
+          onClick={() => void save()}
+        >
+          Save appearance
+        </button>
         <button type="button" onClick={reset}>Reset appearance</button>
       </div>
+      {saveMessage && (
+        <p
+          className={`appearance-settings__save-status appearance-settings__save-status--${saveStatus}`}
+          role={saveStatus === "failed" ? "alert" : "status"}
+          aria-live={saveStatus === "failed" ? "assertive" : "polite"}
+        >
+          {saveMessage}
+        </p>
+      )}
     </section>
   );
 }

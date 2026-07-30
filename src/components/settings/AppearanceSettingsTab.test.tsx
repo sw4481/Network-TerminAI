@@ -62,4 +62,61 @@ describe("AppearanceSettingsTab", () => {
     expect(screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /Enable Matrix glow/i })).toBeInTheDocument();
   });
+
+  it("disables Matrix-only effects until Matrix is selected and explains why", async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+
+    const scanlines = screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i });
+    const glow = screen.getByRole("checkbox", { name: /Enable Matrix glow/i });
+    expect(scanlines).toBeDisabled();
+    expect(glow).toBeDisabled();
+    expect(scanlines).toHaveAccessibleDescription(/Select Matrix/i);
+
+    await user.click(screen.getByRole("radio", { name: /Matrix/i }));
+    expect(scanlines).toBeEnabled();
+    expect(glow).toBeEnabled();
+  });
+
+  it("disables duplicate saves and announces progress and success in text", async () => {
+    let finishSave: (() => void) | undefined;
+    appearance.setSettings.mockImplementation(
+      () => new Promise<void>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+
+    const save = screen.getByRole("button", { name: "Save appearance" });
+    await user.click(save);
+    expect(save).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Saving appearance");
+
+    finishSave?.();
+    await screen.findByText("Appearance saved.");
+    expect(save).toBeEnabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Appearance saved.");
+  });
+
+  it("keeps every appearance control keyboard reachable when Matrix is active", async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSettingsTab />);
+    await user.click(screen.getByRole("radio", { name: /Matrix/i }));
+
+    const controls = [
+      screen.getByRole("radio", { name: /TerminAI Dark/i }),
+      screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i }),
+      screen.getByRole("checkbox", { name: /Enable Matrix glow/i }),
+      screen.getByRole("combobox", { name: /Matrix motion preference/i }),
+      screen.getByRole("button", { name: "Save appearance" }),
+      screen.getByRole("button", { name: "Reset appearance" }),
+    ];
+
+    controls[0].focus();
+    for (const expected of controls.slice(1)) {
+      await user.tab();
+      expect(expected).toHaveFocus();
+    }
+  });
 });
