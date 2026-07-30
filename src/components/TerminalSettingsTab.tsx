@@ -213,7 +213,7 @@ const TerminalSettingsTab: React.FC = () => {
             <h2 id="terminal-appearance-heading">Terminal appearance</h2>
             <p>Preview changes in every open terminal, then save them for new and restored sessions.</p>
           </div>
-          <button type="button" className="secondary-btn" onClick={() => void setSettings(terminalDraft)}>
+          <button type="button" className="secondary-btn" onClick={() => void setSettings(terminalDraft).catch(() => {})}>
             Save terminal appearance
           </button>
         </div>

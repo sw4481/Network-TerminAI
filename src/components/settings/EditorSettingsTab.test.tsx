@@ -88,4 +88,11 @@ describe("EditorSettingsTab", () => {
       expect.objectContaining({ editorTheme: "matrix", appTheme: "terminai-dark" }),
     ));
   });
+
+  it("displays an appearance save failure returned by the provider", async () => {
+    state.setSettings.mockRejectedValueOnce(new Error("write failed"));
+    render(<EditorSettingsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("write failed");
+  });
 });

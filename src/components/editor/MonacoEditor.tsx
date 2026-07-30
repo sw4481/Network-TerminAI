@@ -92,7 +92,7 @@ async function loadMonaco(): Promise<typeof Monaco> {
   if (monacoLoading) return monacoLoading;
 
   monacoLoading = (async () => {
-    const monaco = await import("monaco-editor");
+    const monaco = await import("monaco-editor/esm/vs/editor/editor.main.js");
     monacoModule = monaco;
     return monaco;
   })();

@@ -51,3 +51,17 @@ DAP test suites pass under the full frontend regression run.
   launched because Task 4 itself does not change the sidecar, Tauri commands,
   packaging, or dependencies.
 - Commit: `bcf7139d57420a38f79a00f91f4aae6186a2a4b2` (`feat(editor): apply appearance themes to Monaco`).
+
+## Review repair evidence
+
+- RED/GREEN: provider failure/retry, detached failed/pending/ready gating,
+  complete 3x5x2 resolver matrix, provider-driven Monaco lifecycle, and Editor
+  Settings rejection tests were added and pass (61 focused tests).
+- `authoritativeState` distinguishes a successful stored/event snapshot from
+  fallback Dark. Detached editors remain non-interactive on failure and expose
+  a retry action; retry is tested against the real provider state.
+- `setSettings` now rethrows after recording its non-fatal provider error.
+  Appearance and Terminal callers consume that rejection, while Editor Settings
+  displays it.
+- Final repair verification: full frontend suite 241 files / 1805 tests and
+  relaxed build pass; existing Vite warnings remain.

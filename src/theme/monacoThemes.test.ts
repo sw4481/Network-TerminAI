@@ -12,18 +12,29 @@ import {
 } from "./monacoThemes";
 
 describe("Monaco appearance themes", () => {
-  it.each([
-    ["terminai-dark", "follow-app", "monaco", CLASSIC_MONACO_THEME_ID],
-    ["terminai-dark", "follow-app", "zed", ZED_ONE_DARK_THEME_ID],
-    ["slate-grey", "follow-app", "monaco", SLATE_GREY_MONACO_THEME_ID],
-    ["slate-grey", "follow-app", "zed", SLATE_GREY_MONACO_THEME_ID],
-    ["matrix", "follow-app", "monaco", MATRIX_MONACO_THEME_ID],
-    ["matrix", "follow-app", "zed", MATRIX_MONACO_THEME_ID],
-    ["matrix", "classic-dark", "zed", CLASSIC_MONACO_THEME_ID],
-    ["slate-grey", "zed-one-dark", "monaco", ZED_ONE_DARK_THEME_ID],
-    ["terminai-dark", "slate-grey", "zed", SLATE_GREY_MONACO_THEME_ID],
-    ["terminai-dark", "matrix", "monaco", MATRIX_MONACO_THEME_ID],
-  ] as const)(
+  const expected = {
+    "follow-app": {
+      "terminai-dark": { monaco: CLASSIC_MONACO_THEME_ID, zed: ZED_ONE_DARK_THEME_ID },
+      "slate-grey": { monaco: SLATE_GREY_MONACO_THEME_ID, zed: SLATE_GREY_MONACO_THEME_ID },
+      matrix: { monaco: MATRIX_MONACO_THEME_ID, zed: MATRIX_MONACO_THEME_ID },
+    },
+    "classic-dark": { monaco: CLASSIC_MONACO_THEME_ID, zed: CLASSIC_MONACO_THEME_ID },
+    "zed-one-dark": { monaco: ZED_ONE_DARK_THEME_ID, zed: ZED_ONE_DARK_THEME_ID },
+    "slate-grey": { monaco: SLATE_GREY_MONACO_THEME_ID, zed: SLATE_GREY_MONACO_THEME_ID },
+    matrix: { monaco: MATRIX_MONACO_THEME_ID, zed: MATRIX_MONACO_THEME_ID },
+  } as const;
+  const completeMatrix = (["terminai-dark", "slate-grey", "matrix"] as const).flatMap((appTheme) =>
+    (["follow-app", "classic-dark", "zed-one-dark", "slate-grey", "matrix"] as const).flatMap((editorTheme) =>
+      (["monaco", "zed"] as const).map((mode) => {
+        const resolved = editorTheme === "follow-app"
+          ? expected[editorTheme][appTheme][mode]
+          : expected[editorTheme][mode];
+        return [appTheme, editorTheme, mode, resolved] as const;
+      }),
+    ),
+  );
+
+  it.each(completeMatrix)(
     "resolves %s application + %s override in %s mode to %s",
     (appTheme, editorTheme, mode, expected) => {
       const settings = createDefaultAppearanceSettings();

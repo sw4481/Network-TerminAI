@@ -21,7 +21,11 @@ export function AppearanceSettingsTab() {
   };
 
   const save = async () => {
-    await setSettings(draft);
+    try {
+      await setSettings(draft);
+    } catch {
+      // The provider keeps the non-fatal error visible in this tab.
+    }
   };
 
   const reset = () => preview(createDefaultAppearanceSettings());

@@ -41,18 +41,19 @@ let deliverEvent:
   | undefined;
 
 function Probe() {
-  const { settings, hydrated, error, setSettings, previewSettings } = useAppearance();
+  const { settings, hydrated, authoritativeState, error, setSettings, previewSettings, retryAuthoritativeSettings } = useAppearance();
   return (
     <>
       <output data-testid="theme">{settings.appTheme}</output>
       <output data-testid="hydrated">{String(hydrated)}</output>
+      <output data-testid="authoritative-state">{authoritativeState}</output>
       <output data-testid="error">{error ?? ""}</output>
       <button
         onClick={() =>
           void setSettings({
             ...settings,
             appTheme: "matrix",
-          })
+          }).catch(() => {})
         }
       >
         matrix
@@ -62,6 +63,7 @@ function Probe() {
       >
         preview grey
       </button>
+      <button onClick={() => void retryAuthoritativeSettings().catch(() => {})}>retry appearance</button>
     </>
   );
 }
@@ -131,6 +133,21 @@ describe("AppearanceProvider", () => {
       expect(screen.getByTestId("hydrated")).toHaveTextContent("true");
       expect(screen.getByTestId("theme")).toHaveTextContent("terminai-dark");
       expect(screen.getByTestId("error")).toHaveTextContent("database unavailable");
+      expect(screen.getByTestId("authoritative-state")).toHaveTextContent("failed");
+    });
+  });
+
+  it("does not treat fallback Dark as authoritative and retries into the stored theme", async () => {
+    mocks.get
+      .mockRejectedValueOnce(new Error("database unavailable"))
+      .mockResolvedValueOnce({ ...DEFAULT_APPEARANCE_SETTINGS, appTheme: "matrix" });
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("failed"));
+
+    screen.getByRole("button", { name: "retry appearance" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready");
+      expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
     });
   });
 

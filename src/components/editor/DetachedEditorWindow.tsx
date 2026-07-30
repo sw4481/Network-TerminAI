@@ -20,6 +20,7 @@ import { EditorBufferSyncClient } from "./editorBufferSync";
 import { EditorPane } from "./EditorPane";
 import { useZedMode } from "./ZedModeProvider";
 import { useAppearance } from "../../theme/AppearanceProvider";
+import { resolveMonacoTheme } from "../../theme/monacoThemes";
 import type { EditorPaneLeaf } from "./editorPaneLayout";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
@@ -50,7 +51,12 @@ function bufferFromSnapshot(
 export function DetachedEditorWindow() {
   const { settings } = useEditorSettings();
   const { mode, hydrated } = useZedMode();
-  const { hydrated: appearanceHydrated } = useAppearance();
+  const {
+    settings: appearanceSettings,
+    authoritativeState,
+    error: appearanceError,
+    retryAuthoritativeSettings,
+  } = useAppearance();
   const [metadata, setMetadata] = useState<DetachedEditorWindowInfo | null>(
     null,
   );
@@ -266,8 +272,18 @@ export function DetachedEditorWindow() {
   // Do not create a detached Monaco editor from a transient default. The
   // provider applies the mirrored app theme before React and waits here for
   // the validated cross-window snapshot before the pane becomes interactive.
-  if (!appearanceHydrated) {
+  if (authoritativeState === "pending") {
     return <main className="detached-editor-state">Loading editor appearance…</main>;
+  }
+  if (authoritativeState === "failed") {
+    return (
+      <main className="detached-editor-state">
+        <div role="alert">Unable to load editor appearance: {appearanceError ?? "unknown error"}</div>
+        <button type="button" onClick={() => void retryAuthoritativeSettings().catch(() => {})}>
+          Retry appearance
+        </button>
+      </main>
+    );
   }
 
   const pane: EditorPaneLeaf = {
@@ -283,6 +299,7 @@ export function DetachedEditorWindow() {
     <main
       className="detached-editor-window"
       data-testid="detached-editor-window"
+      data-editor-theme={resolveMonacoTheme(appearanceSettings, mode)}
     >
       <header className="detached-editor-toolbar">
         <div className="detached-editor-title">

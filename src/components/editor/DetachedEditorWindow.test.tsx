@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createDefaultAppearanceSettings } from "../../theme/defaults";
 
 const mocks = vi.hoisted(() => ({
   getCurrent: vi.fn(),
@@ -28,8 +29,10 @@ const mocks = vi.hoisted(() => ({
     | undefined,
   mode: "zed" as "zed" | "monaco",
   hydrated: true,
-  appearanceHydrated: true,
-  appTheme: "terminai-dark",
+  appearanceState: "ready" as "pending" | "ready" | "failed",
+  appearanceError: null as string | null,
+  retryAppearance: vi.fn(),
+  appearanceSettings: { appTheme: "terminai-dark", editorTheme: "follow-app" } as any,
 }));
 
 vi.mock("../../lib/tauri", () => ({
@@ -67,8 +70,10 @@ vi.mock("./ZedModeProvider", () => ({
 
 vi.mock("../../theme/AppearanceProvider", () => ({
   useAppearance: () => ({
-    hydrated: mocks.appearanceHydrated,
-    settings: { appTheme: mocks.appTheme },
+    authoritativeState: mocks.appearanceState,
+    error: mocks.appearanceError,
+    retryAuthoritativeSettings: mocks.retryAppearance,
+    settings: mocks.appearanceSettings,
   }),
 }));
 
@@ -168,8 +173,10 @@ describe("DetachedEditorWindow", () => {
     mocks.syncOptions = undefined;
     mocks.mode = "zed";
     mocks.hydrated = true;
-    mocks.appearanceHydrated = true;
-    mocks.appTheme = "terminai-dark";
+    mocks.appearanceState = "ready";
+    mocks.appearanceError = null;
+    mocks.retryAppearance.mockReset().mockResolvedValue(undefined);
+    mocks.appearanceSettings = createDefaultAppearanceSettings();
   });
 
   it("hydrates metadata and one authoritative editor pane", async () => {
@@ -315,14 +322,33 @@ describe("DetachedEditorWindow", () => {
   });
 
   it("waits for the authoritative appearance snapshot before mounting an interactive pane", async () => {
-    mocks.appearanceHydrated = false;
+    mocks.appearanceState = "pending";
     const view = render(<DetachedEditorWindow />);
     expect(await screen.findByText("Loading editor appearance…")).toBeInTheDocument();
     expect(screen.queryByTestId("detached-editor-pane")).not.toBeInTheDocument();
 
-    mocks.appearanceHydrated = true;
-    mocks.appTheme = "matrix";
+    mocks.appearanceState = "ready";
+    mocks.appearanceSettings = { ...createDefaultAppearanceSettings(), appTheme: "matrix" };
     view.rerender(<DetachedEditorWindow />);
     expect(await screen.findByTestId("detached-editor-pane")).toBeInTheDocument();
+    expect(screen.getByTestId("detached-editor-window")).toHaveAttribute("data-editor-theme", "ccie-matrix");
+  });
+
+  it("keeps the pane non-interactive after authoritative appearance failure and retries", async () => {
+    mocks.appearanceState = "failed";
+    mocks.appearanceError = "database unavailable";
+    render(<DetachedEditorWindow />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("database unavailable");
+    expect(screen.queryByTestId("detached-editor-pane")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry appearance" }));
+    expect(mocks.retryAppearance).toHaveBeenCalledOnce();
+  });
+
+  it("uses an explicit editor override for the detached Monaco path", async () => {
+    mocks.mode = "zed";
+    mocks.appearanceSettings = { ...createDefaultAppearanceSettings(), appTheme: "matrix", editorTheme: "classic-dark" };
+    render(<DetachedEditorWindow />);
+    const window = await screen.findByTestId("detached-editor-window");
+    expect(window).toHaveAttribute("data-editor-theme", "vs-dark");
   });
 });

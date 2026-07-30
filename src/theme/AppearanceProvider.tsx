@@ -20,9 +20,11 @@ export const APPEARANCE_THEME_MIRROR_KEY = "ccie.appearance.theme.v1";
 type AppearanceContextValue = {
   settings: AppearanceSettingsV1;
   hydrated: boolean;
+  authoritativeState: "pending" | "ready" | "failed";
   error: string | null;
   previewSettings: (settings: AppearanceSettingsV1) => void;
   setSettings: (settings: AppearanceSettingsV1) => Promise<void>;
+  retryAuthoritativeSettings: () => Promise<void>;
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | undefined>(undefined);
@@ -76,6 +78,7 @@ function errorMessage(error: unknown): string {
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const [settings, setSettingsState] = useState<AppearanceSettingsV1>(initialSettings);
   const [hydrated, setHydrated] = useState(false);
+  const [authoritativeState, setAuthoritativeState] = useState<"pending" | "ready" | "failed">("pending");
   const [error, setError] = useState<string | null>(null);
 
   const applyPreview = useCallback((next: AppearanceSettingsV1) => {
@@ -107,6 +110,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
             receivedLiveEvent = true;
             applyAuthoritativeSettings(normalizeAppearanceSettings(event.payload));
             setError(null);
+            setAuthoritativeState("ready");
             setHydrated(true);
           },
         );
@@ -121,11 +125,13 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
         if (!disposed && !receivedLiveEvent) {
           applyAuthoritativeSettings(normalizeAppearanceSettings(stored));
           setError(null);
+          setAuthoritativeState("ready");
         }
       } catch (loadError) {
         if (!disposed) {
           applyPreview(createDefaultAppearanceSettings());
           setError(errorMessage(loadError));
+          setAuthoritativeState("failed");
         }
       } finally {
         if (!disposed) setHydrated(true);
@@ -144,7 +150,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       const message = "Invalid appearance settings";
       applyPreview(createDefaultAppearanceSettings());
       setError(message);
-      return;
+      throw new Error(message);
     }
     try {
       const stored = await appearanceSettingsSet(validated);
@@ -154,7 +160,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, normalized);
     } catch (saveError) {
       applyPreview(createDefaultAppearanceSettings());
-      setError(errorMessage(saveError));
+      const message = errorMessage(saveError);
+      setError(message);
+      throw saveError instanceof Error ? saveError : new Error(message);
     }
   }, [applyAuthoritativeSettings, applyPreview]);
 
@@ -168,9 +176,28 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     setError(null);
   }, [applyPreview]);
 
+  const retryAuthoritativeSettings = useCallback(async () => {
+    setAuthoritativeState("pending");
+    setError(null);
+    try {
+      const stored = await appearanceSettingsGet();
+      const normalized = normalizeAppearanceSettings(stored);
+      applyAuthoritativeSettings(normalized);
+      setAuthoritativeState("ready");
+    } catch (loadError) {
+      applyPreview(createDefaultAppearanceSettings());
+      const message = errorMessage(loadError);
+      setError(message);
+      setAuthoritativeState("failed");
+      throw loadError instanceof Error ? loadError : new Error(message);
+    } finally {
+      setHydrated(true);
+    }
+  }, [applyAuthoritativeSettings, applyPreview]);
+
   const value = useMemo<AppearanceContextValue>(
-    () => ({ settings, hydrated, error, previewSettings, setSettings }),
-    [settings, hydrated, error, previewSettings, setSettings],
+    () => ({ settings, hydrated, authoritativeState, error, previewSettings, setSettings, retryAuthoritativeSettings }),
+    [settings, hydrated, authoritativeState, error, previewSettings, setSettings, retryAuthoritativeSettings],
   );
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
