@@ -4,7 +4,7 @@
  * Utilities for launching and controlling the Tauri app in E2E tests
  */
 import { spawn, ChildProcess } from 'child_process';
-import { BrowserContext, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import { Page } from '@playwright/test';
 import path from 'path';
 import { platform } from 'os';
 
@@ -17,20 +17,26 @@ export interface TauriApp {
 /**
  * Get the path to the built Tauri binary
  */
-function getBinaryPath(): string {
-  const root = process.cwd();
-  const plat = platform();
-
-  if (plat === 'darwin') {
-    // macOS: .app bundle
-    return path.join(root, 'src-tauri/target/debug/bundle/macos/CCIE Terminal.app/Contents/MacOS/ccie-terminal');
-  } else if (plat === 'win32') {
-    // Windows: .exe
-    return path.join(root, 'src-tauri/target/debug/ccie-terminal.exe');
-  } else {
-    // Linux: AppImage or binary
-    return path.join(root, 'src-tauri/target/debug/ccie-terminal');
+export function resolveTauriBinaryPath({
+  cwd = process.cwd(),
+  platform: targetPlatform = platform(),
+  env = process.env,
+}: {
+  cwd?: string;
+  platform?: NodeJS.Platform;
+  env?: Record<string, string | undefined>;
+} = {}): string {
+  const explicitBinary = env.E2E_TAURI_BIN?.trim();
+  if (explicitBinary) {
+    return path.resolve(cwd, explicitBinary);
   }
+
+  const targetDir = env.CARGO_TARGET_DIR?.trim()
+    ? path.resolve(cwd, env.CARGO_TARGET_DIR)
+    : path.join(cwd, 'src-tauri', 'target');
+  const executableName = targetPlatform === 'win32' ? 'TerminAI.exe' : 'TerminAI';
+
+  return path.join(targetDir, 'debug', executableName);
 }
 
 /**
@@ -44,7 +50,7 @@ function getBinaryPath(): string {
  * with it via accessibility APIs or window title detection.
  */
 export async function launchTauriApp(): Promise<TauriApp> {
-  const binaryPath = getBinaryPath();
+  const binaryPath = resolveTauriBinaryPath();
 
   console.log(`Launching Tauri app: ${binaryPath}`);
 

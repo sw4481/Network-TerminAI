@@ -12,10 +12,11 @@ async function globalSetup() {
   console.log('🔨 Building Tauri app for E2E tests...');
 
   try {
-    // Build the Tauri app in debug mode
-    // The binary will be in src-tauri/target/debug/bundle/
-    // Note: This requires a full build which can take several minutes
-    const { stdout, stderr } = await execAsync('bun tauri build -d', {
+    // Build the Tauri executable in debug mode. Smoke tests do not consume
+    // installers or updater archives, so bundling would unnecessarily require
+    // release-signing credentials on developer machines.
+    // Note: This requires a full build which can take several minutes.
+    const { stdout, stderr } = await execAsync('bun tauri build -d --no-bundle', {
       cwd: process.cwd(),
       env: {
         ...process.env,
