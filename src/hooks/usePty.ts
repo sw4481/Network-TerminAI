@@ -6,6 +6,12 @@ import { useIacStateStore } from "../state/iacStateStore";
 import { useBlocksStore } from "../state/blocksStore";
 import { useSshPasswordStore } from "../state/sshPasswordStore";
 import type { PtyEvent } from "../lib/types";
+import { useAppearance } from "../theme/AppearanceProvider";
+import {
+  applyTerminalOptions,
+  createTerminalOptions,
+  terminalMetricsChanged,
+} from "../lib/terminalAppearance";
 
 // Use xterm from CDN (loaded via script tags in index.html)
 declare global {
@@ -55,6 +61,7 @@ export function usePty(
   cwd: string,
   skipTabRegistration?: boolean,
 ): PtyHandle | null {
+  const { settings: appearance } = useAppearance();
   const [handle, setHandle] = useState<PtyHandle | null>(null);
   const boundRef = useRef(false);
   const { addTab, removeTab, setCwd } = useTabs();
@@ -71,6 +78,23 @@ export function usePty(
   const passwordSentRef = useRef<boolean>(false); // Prevent password loop
   const inRemoteSessionRef = useRef<boolean>(false); // Track if in SSH/telnet session
   const liveCwdRef = useRef<string>(cwd); // Live cwd, updated by the shell's OSC 7
+  const appearanceRef = useRef(appearance);
+
+  useEffect(() => {
+    if (!handle) return;
+    const before = createTerminalOptions(appearanceRef.current);
+    const after = createTerminalOptions(appearance);
+    appearanceRef.current = appearance;
+    applyTerminalOptions(handle.term, after);
+    if (!terminalMetricsChanged(before, after)) return;
+    try {
+      handle.fit();
+      handle.term.refresh(0, Math.max(0, (handle.term.rows ?? 24) - 1));
+      ptyResize(handle.tabId, handle.term.cols, handle.term.rows).catch(console.error);
+    } catch {
+      /* a terminal hidden during a layout transition keeps its live PTY */
+    }
+  }, [appearance, handle]);
 
   useEffect(() => {
     if (!container) return;
@@ -89,23 +113,7 @@ export function usePty(
       return;
     }
 
-    const term = new XTerm({
-      convertEol: true,
-      fontFamily: 'Menlo, "SF Mono", Monaco, monospace',
-      fontSize: 13,
-      theme: {
-        background: "#0f1114",
-        foreground: "#e6e1cf",
-        cursor: "#5ccfe6",
-        cursorAccent: "#000000",
-      },
-      rightClickSelectsWord: true,
-      cursorBlink: true,
-      cursorStyle: 'block',
-      // Disable local echo - let PTY handle all terminal state
-      // This allows the shell's readline to work properly
-      allowProposedApi: true,
-    });
+    const term = new XTerm(createTerminalOptions(appearanceRef.current));
 
     const fit = new FitAddon();
     const clipboard = new ClipboardAddon();

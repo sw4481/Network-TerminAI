@@ -5,6 +5,13 @@ import { useTabs } from '../state/tabsStore';
 import { useIacStateStore } from '../state/iacStateStore';
 import { useBlocksStore } from '../state/blocksStore';
 import { useSshPasswordStore } from '../state/sshPasswordStore';
+import { createDefaultAppearanceSettings } from '../theme/defaults';
+import type { AppearanceSettingsV1 } from '../theme/types';
+import {
+  applyTerminalOptions,
+  createTerminalOptions,
+  terminalMetricsChanged,
+} from './terminalAppearance';
 
 export interface CreateOpts {
   shell: string;
@@ -39,6 +46,7 @@ export interface TerminalEntry {
 }
 
 const registry = new Map<string, TerminalEntry>();
+let currentAppearance = createDefaultAppearanceSettings();
 
 // Commands queued to run in a terminal that isn't live yet. Keyed by the
 // registry terminalId (which, for a freshly-spawned terminal tab, equals the
@@ -109,21 +117,7 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
   el.style.width = '100%';
   el.style.height = '100%';
 
-  const xterm = new XTerm({
-    convertEol: true,
-    fontFamily: 'Menlo, "SF Mono", Monaco, monospace',
-    fontSize: 13,
-    theme: {
-      background: '#0f1114',
-      foreground: '#e6e1cf',
-      cursor: '#5ccfe6',
-      cursorAccent: '#000000',
-    },
-    rightClickSelectsWord: true,
-    cursorBlink: true,
-    cursorStyle: 'block',
-    allowProposedApi: true,
-  });
+  const xterm = new XTerm(createTerminalOptions(currentAppearance));
   const fitAddon = new FitAddonCtor();
   xterm.loadAddon(fitAddon);
   if (WebLinksCtor) xterm.loadAddon(new WebLinksCtor());
@@ -178,6 +172,30 @@ export function detach(terminalId: string): void {
   const entry = registry.get(terminalId);
   if (!entry) return;
   entry.el.remove(); // detach DOM node; KEEP the entry alive
+}
+
+/** Apply an approved appearance snapshot without touching PTY/session state. */
+export function applyAppearanceSettings(settings: AppearanceSettingsV1): void {
+  const nextOptions = createTerminalOptions(settings);
+  const previousOptions = createTerminalOptions(currentAppearance);
+  currentAppearance = settings;
+  const metricsChanged = terminalMetricsChanged(previousOptions, nextOptions);
+
+  for (const entry of registry.values()) {
+    if (entry.disposed) continue;
+    applyTerminalOptions(entry.xterm, nextOptions);
+    if (!metricsChanged) continue;
+    try {
+      entry.fitAddon.fit();
+      const rows = entry.xterm.rows ?? 24;
+      entry.xterm.refresh(0, Math.max(0, rows - 1));
+      if (entry.ptyTabId) {
+        ptyResize(entry.ptyTabId, entry.xterm.cols, entry.xterm.rows).catch(() => {});
+      }
+    } catch {
+      /* detached or zero-size terminals safely retain their existing session */
+    }
+  }
 }
 
 export function dispose(terminalId: string): void {
@@ -540,4 +558,5 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
 
 export function __resetForTest(): void {
   registry.clear();
+  currentAppearance = createDefaultAppearanceSettings();
 }

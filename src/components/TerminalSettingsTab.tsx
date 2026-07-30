@@ -10,9 +10,32 @@ import {
   revealLogLocation,
   type LogLocations,
 } from "../lib/tauri";
+import { useAppearance } from "../theme/AppearanceProvider";
+import { createDefaultAppearanceSettings } from "../theme/defaults";
+import { APP_THEME_PRESETS } from "../theme/presets";
+import type { TerminalAnsiPalette, TerminalPresetId } from "../theme/types";
+import { APPEARANCE_LIMITS, normalizeHexColor } from "../theme/validation";
 import "./TerminalSettingsTab.css";
 
+const ANSI_FIELDS: Array<[keyof TerminalAnsiPalette, string]> = [
+  ["black", "ANSI black"], ["red", "ANSI red"], ["green", "ANSI green"],
+  ["yellow", "ANSI yellow"], ["blue", "ANSI blue"], ["magenta", "ANSI magenta"],
+  ["cyan", "ANSI cyan"], ["white", "ANSI white"], ["brightBlack", "ANSI bright black"],
+  ["brightRed", "ANSI bright red"], ["brightGreen", "ANSI bright green"],
+  ["brightYellow", "ANSI bright yellow"], ["brightBlue", "ANSI bright blue"],
+  ["brightMagenta", "ANSI bright magenta"], ["brightCyan", "ANSI bright cyan"],
+  ["brightWhite", "ANSI bright white"],
+];
+
+function clamp(value: string, limits: { min: number; max: number }): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return limits.min;
+  return Math.min(limits.max, Math.max(limits.min, number));
+}
+
 const TerminalSettingsTab: React.FC = () => {
+  const { settings: appearanceSettings, previewSettings, setSettings } = useAppearance();
+  const [terminalDraft, setTerminalDraft] = useState(appearanceSettings);
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [logLocations, setLogLocations] = useState<LogLocations | null>(null);
@@ -23,6 +46,80 @@ const TerminalSettingsTab: React.FC = () => {
     void loadPreferences();
     void loadLogLocations();
   }, []);
+
+  useEffect(() => setTerminalDraft(appearanceSettings), [appearanceSettings]);
+
+  const previewTerminal = (next: typeof terminalDraft) => {
+    setTerminalDraft(next);
+    previewSettings(next);
+  };
+
+  const selectTerminalPreset = (preset: TerminalPresetId) => {
+    if (preset === "follow-app") {
+      previewTerminal({
+        ...terminalDraft,
+        terminal: { ...terminalDraft.terminal, preset },
+      });
+      return;
+    }
+    if (preset === "custom") {
+      previewTerminal({ ...terminalDraft, terminal: { ...terminalDraft.terminal, preset } });
+      return;
+    }
+    const theme = APP_THEME_PRESETS.find((candidate) => candidate.id === preset)?.terminal;
+    if (!theme) return;
+    previewTerminal({
+      ...terminalDraft,
+      terminal: {
+        ...theme,
+        preset,
+        fontFamily: terminalDraft.terminal.fontFamily,
+        fontSize: terminalDraft.terminal.fontSize,
+        fontWeight: terminalDraft.terminal.fontWeight,
+        lineHeight: terminalDraft.terminal.lineHeight,
+        cursorStyle: terminalDraft.terminal.cursorStyle,
+        cursorBlink: terminalDraft.terminal.cursorBlink,
+      },
+    });
+  };
+
+  const updateTerminal = (updates: Partial<typeof terminalDraft.terminal>, custom = false) => {
+    previewTerminal({
+      ...terminalDraft,
+      terminal: {
+        ...terminalDraft.terminal,
+        ...updates,
+        ...(custom ? { preset: "custom" as const } : {}),
+      },
+    });
+  };
+
+  const resetColors = () => {
+    const defaults = createDefaultAppearanceSettings().terminal;
+    updateTerminal({
+      foreground: defaults.foreground,
+      background: defaults.background,
+      cursor: defaults.cursor,
+      cursorAccent: defaults.cursorAccent,
+      selectionBackground: defaults.selectionBackground,
+      ansi: { ...defaults.ansi },
+    }, true);
+  };
+
+  const resetTypography = () => {
+    const defaults = createDefaultAppearanceSettings().terminal;
+    updateTerminal({
+      fontFamily: defaults.fontFamily,
+      fontSize: defaults.fontSize,
+      fontWeight: defaults.fontWeight,
+      lineHeight: defaults.lineHeight,
+    });
+  };
+
+  const resetCursor = () => {
+    const defaults = createDefaultAppearanceSettings().terminal;
+    updateTerminal({ cursorStyle: defaults.cursorStyle, cursorBlink: defaults.cursorBlink });
+  };
 
   const loadPreferences = async () => {
     try {
@@ -78,6 +175,74 @@ const TerminalSettingsTab: React.FC = () => {
 
   return (
     <div className="terminal-settings-tab">
+      <section className="terminal-appearance" aria-labelledby="terminal-appearance-heading">
+        <div className="terminal-appearance__heading">
+          <div>
+            <h2 id="terminal-appearance-heading">Terminal appearance</h2>
+            <p>Preview changes in every open terminal, then save them for new and restored sessions.</p>
+          </div>
+          <button type="button" className="secondary-btn" onClick={() => void setSettings(terminalDraft)}>
+            Save terminal appearance
+          </button>
+        </div>
+
+        <fieldset className="terminal-appearance__section">
+          <legend>Terminal palette</legend>
+          <div className="terminal-appearance__presets" role="radiogroup" aria-label="Terminal preset">
+            <label><input type="radio" name="terminal-preset" checked={terminalDraft.terminal.preset === "follow-app"} onChange={() => selectTerminalPreset("follow-app")} /> Follow application theme</label>
+            {APP_THEME_PRESETS.map((preset) => (
+              <label key={preset.id}><input type="radio" name="terminal-preset" checked={terminalDraft.terminal.preset === preset.id} onChange={() => selectTerminalPreset(preset.id)} /> {preset.label}</label>
+            ))}
+            <label><input type="radio" name="terminal-preset" checked={terminalDraft.terminal.preset === "custom"} onChange={() => selectTerminalPreset("custom")} /> Custom</label>
+          </div>
+        </fieldset>
+
+        <fieldset className="terminal-appearance__section">
+          <legend>Core colors</legend>
+          <div className="terminal-appearance__grid">
+            {([
+              ["foreground", "Foreground color"], ["background", "Background color"],
+              ["cursor", "Cursor color"], ["cursorAccent", "Cursor accent color"],
+              ["selectionBackground", "Selection color"],
+            ] as const).map(([key, label]) => (
+              <label key={key}>{label}<input aria-label={label} type="color" value={terminalDraft.terminal[key].slice(0, 7)} onChange={(event) => updateTerminal({ [key]: normalizeHexColor(event.target.value) ?? terminalDraft.terminal[key] }, true)} /></label>
+            ))}
+          </div>
+          <button type="button" className="secondary-btn" onClick={resetColors}>Reset colors</button>
+        </fieldset>
+
+        <fieldset className="terminal-appearance__section">
+          <legend>ANSI palette</legend>
+          <div className="terminal-appearance__grid terminal-appearance__ansi">
+            {ANSI_FIELDS.map(([key, label]) => (
+              <label key={key}>{label}<input aria-label={label} type="color" value={terminalDraft.terminal.ansi[key].slice(0, 7)} onChange={(event) => updateTerminal({ ansi: { ...terminalDraft.terminal.ansi, [key]: normalizeHexColor(event.target.value) ?? terminalDraft.terminal.ansi[key] } }, true)} /></label>
+            ))}
+          </div>
+          <div className="terminal-appearance__preview" aria-label="ANSI preview">
+            <strong>ANSI preview</strong>
+            <code style={{ color: terminalDraft.terminal.ansi.red }}>red</code><code style={{ color: terminalDraft.terminal.ansi.green }}>green</code><code style={{ color: terminalDraft.terminal.ansi.yellow }}>yellow</code><code style={{ color: terminalDraft.terminal.ansi.blue }}>blue</code><code style={{ color: terminalDraft.terminal.ansi.brightMagenta }}>magenta</code><code style={{ color: terminalDraft.terminal.ansi.brightCyan }}>cyan</code>
+          </div>
+        </fieldset>
+
+        <fieldset className="terminal-appearance__section">
+          <legend>Typography</legend>
+          <div className="terminal-appearance__grid">
+            <label>Font family<input aria-label="Font family" type="text" value={terminalDraft.terminal.fontFamily} onChange={(event) => updateTerminal({ fontFamily: event.target.value.trim() || createDefaultAppearanceSettings().terminal.fontFamily })} /></label>
+            <label>Font size<input aria-label="Font size" type="number" min={APPEARANCE_LIMITS.fontSize.min} max={APPEARANCE_LIMITS.fontSize.max} value={terminalDraft.terminal.fontSize} onChange={(event) => updateTerminal({ fontSize: clamp(event.target.value, APPEARANCE_LIMITS.fontSize) })} /></label>
+            <label>Font weight<input aria-label="Font weight" type="number" min={APPEARANCE_LIMITS.fontWeight.min} max={APPEARANCE_LIMITS.fontWeight.max} value={terminalDraft.terminal.fontWeight} onChange={(event) => updateTerminal({ fontWeight: clamp(event.target.value, APPEARANCE_LIMITS.fontWeight) })} /></label>
+            <label>Line height<input aria-label="Line height" type="number" min={APPEARANCE_LIMITS.lineHeight.min} max={APPEARANCE_LIMITS.lineHeight.max} step="0.05" value={terminalDraft.terminal.lineHeight} onChange={(event) => updateTerminal({ lineHeight: clamp(event.target.value, APPEARANCE_LIMITS.lineHeight) })} /></label>
+          </div>
+          <button type="button" className="secondary-btn" onClick={resetTypography}>Reset typography</button>
+        </fieldset>
+
+        <fieldset className="terminal-appearance__section">
+          <legend>Cursor</legend>
+          <label>Cursor style<select aria-label="Cursor style" value={terminalDraft.terminal.cursorStyle} onChange={(event) => updateTerminal({ cursorStyle: event.target.value as typeof terminalDraft.terminal.cursorStyle })}><option value="block">Block</option><option value="bar">Bar</option><option value="underline">Underline</option></select></label>
+          <label><input type="checkbox" checked={terminalDraft.terminal.cursorBlink} onChange={(event) => updateTerminal({ cursorBlink: event.target.checked })} /> Blinking cursor</label>
+          <button type="button" className="secondary-btn" onClick={resetCursor}>Reset cursor</button>
+        </fieldset>
+      </section>
+
       <h2>Notification Settings</h2>
 
       {!prefs ? (

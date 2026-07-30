@@ -3,6 +3,18 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import TerminalSettingsTab from "./TerminalSettingsTab";
 import * as paneActivityLib from "../lib/paneActivity";
 import * as tauri from "../lib/tauri";
+import { createDefaultAppearanceSettings } from "../theme/defaults";
+import type { AppearanceSettingsV1 } from "../theme/types";
+
+const appearance = vi.hoisted(() => ({
+  settings: null as unknown as AppearanceSettingsV1,
+  previewSettings: vi.fn(),
+  setSettings: vi.fn(),
+}));
+
+vi.mock("../theme/AppearanceProvider", () => ({
+  useAppearance: () => appearance,
+}));
 
 const logLocations: tauri.LogLocations = {
   directory: "/Users/test/Library/Application Support/ccie-terminal/logs",
@@ -42,6 +54,9 @@ describe("TerminalSettingsTab", () => {
     vi.spyOn(tauri, "getLogLocations").mockResolvedValue(logLocations);
     vi.spyOn(tauri, "openLogLocation").mockResolvedValue();
     vi.spyOn(tauri, "revealLogLocation").mockResolvedValue();
+    appearance.settings = createDefaultAppearanceSettings();
+    appearance.previewSettings.mockReset();
+    appearance.setSettings.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -68,7 +83,7 @@ describe("TerminalSettingsTab", () => {
     const input = screen.getByLabelText(/Minimum duration/i);
     fireEvent.change(input, { target: { value: "60" } });
 
-    const saveBtn = screen.getByText(/Save/i);
+    const saveBtn = screen.getByRole("button", { name: "Save", exact: true });
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
@@ -110,5 +125,46 @@ describe("TerminalSettingsTab", () => {
     await waitFor(() => {
       expect(tauri.revealLogLocation).toHaveBeenCalledWith("application");
     });
+  });
+
+  it("previews saved terminal presets and exposes labelled native appearance controls", async () => {
+    render(<TerminalSettingsTab />);
+
+    expect(await screen.findByRole("heading", { name: "Terminal appearance" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: /Follow application theme/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "TerminAI Dark" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Slate Grey" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Matrix" }));
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ terminal: expect.objectContaining({ preset: "matrix" }) }),
+    );
+    expect(screen.getByLabelText("Foreground color")).toHaveAttribute("type", "color");
+    expect(screen.getByLabelText("ANSI bright white")).toHaveAttribute("type", "color");
+    expect(screen.getByLabelText("Font family")).toHaveValue('Menlo, "SF Mono", Monaco, monospace');
+    expect(screen.getByLabelText("Cursor style")).toHaveValue("block");
+    expect(screen.getByRole("checkbox", { name: "Blinking cursor" })).toBeChecked();
+    expect(screen.getByText("ANSI preview")).toBeVisible();
+  });
+
+  it("normalizes terminal editing through the provider, persists it, and resets each section", async () => {
+    render(<TerminalSettingsTab />);
+
+    fireEvent.change(screen.getByLabelText("Font size"), { target: { value: "999" } });
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ terminal: expect.objectContaining({ fontSize: 32 }) }),
+    );
+    fireEvent.change(screen.getByLabelText("Foreground color"), { target: { value: "#abcdef" } });
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ terminal: expect.objectContaining({ preset: "custom", foreground: "#ABCDEF" }) }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save terminal appearance" }));
+    await waitFor(() => expect(appearance.setSettings).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Reset typography" }));
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({ terminal: expect.objectContaining({ fontSize: 13 }) }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Reset colors" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset cursor" }));
+    expect(appearance.previewSettings.mock.calls.length).toBeGreaterThanOrEqual(5);
   });
 });

@@ -4,10 +4,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const ptySpawn = vi.fn(async (_arg?: any) => 'pty-1');
 const ptyKill = vi.fn(async (_arg?: any) => {});
 const ptyWrite = vi.fn(async (_id?: any, _bytes?: any) => {});
+const ptyResize = vi.fn(async (_id?: any, _cols?: any, _rows?: any) => {});
 vi.mock('./tauri', () => ({
   ptySpawn: (arg?: any) => ptySpawn(arg),
   ptyKill: (arg?: any) => ptyKill(arg),
-  ptyResize: vi.fn(async () => {}),
+  ptyResize: (id?: any, cols?: any, rows?: any) => ptyResize(id, cols, rows),
   ptyWrite: (id?: any, bytes?: any) => ptyWrite(id, bytes),
 }));
 
@@ -30,7 +31,8 @@ function installFakeXterm() {
     write = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     getSelection = vi.fn(() => '');
-    constructor() { made.push(this); }
+    options: Record<string, unknown> = {};
+    constructor(options: Record<string, unknown>) { this.options = options; made.push(this); }
   };
   (window as any).FitAddon = { FitAddon: class { fit = vi.fn(); } };
   (window as any).WebLinksAddon = { WebLinksAddon: class {} };
@@ -45,12 +47,20 @@ beforeEach(() => {
   ptySpawn.mockClear();
   ptyKill.mockClear();
   ptyWrite.mockClear();
+  ptyResize.mockClear();
   installFakeXterm();
 });
 
 const OPTS = { shell: '/bin/zsh', cwd: '/home' };
 
 describe('terminalRegistry lifecycle', () => {
+  it('constructs every registry xterm through the shared terminal options adapter', () => {
+    const entry = reg.getOrCreate('t-options', OPTS);
+    expect(entry.xterm.options).toMatchObject({
+      fontFamily: 'Menlo, "SF Mono", Monaco, monospace',
+      theme: { background: '#0F1114', brightWhite: '#EEEEEC' },
+    });
+  });
   it('getOrCreate spawns one PTY and reuses the entry on second call', () => {
     const a = reg.getOrCreate('t1', OPTS);
     const b = reg.getOrCreate('t1', OPTS);
@@ -117,6 +127,50 @@ describe('terminalRegistry lifecycle', () => {
     reg.dispose('t1'); // no throw, no extra calls
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(ptyKill).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('terminalRegistry live appearance updates', () => {
+  it('updates existing xterm options in place without creating, killing, or reconnecting the PTY', async () => {
+    const entry = reg.getOrCreate('t-live', OPTS);
+    await Promise.resolve();
+    const originalXterm = entry.xterm;
+    const originalPtyId = entry.ptyTabId;
+    const settings = (await import('../theme/defaults')).createDefaultAppearanceSettings();
+    settings.terminal = { ...settings.terminal, preset: 'custom', foreground: '#ABCDEF' };
+
+    reg.applyAppearanceSettings(settings);
+
+    expect(entry.xterm).toBe(originalXterm);
+    expect(entry.ptyTabId).toBe(originalPtyId);
+    expect(entry.xterm.options).toMatchObject({ theme: { foreground: '#ABCDEF' } });
+    expect(ptySpawn).toHaveBeenCalledTimes(1);
+    expect(ptyKill).not.toHaveBeenCalled();
+  });
+
+  it('fits, refreshes, and resizes the existing PTY only when font metrics change', async () => {
+    const entry = reg.getOrCreate('t-metrics', OPTS);
+    await Promise.resolve();
+    const settings = (await import('../theme/defaults')).createDefaultAppearanceSettings();
+    settings.terminal = { ...settings.terminal, fontSize: 16 };
+
+    reg.applyAppearanceSettings(settings);
+
+    expect(entry.fitAddon.fit).toHaveBeenCalled();
+    expect(entry.xterm.refresh).toHaveBeenCalledWith(0, entry.xterm.rows - 1);
+    expect(ptyResize).toHaveBeenCalledWith('pty-1', entry.xterm.cols, entry.xterm.rows);
+  });
+
+  it('does not resize when only terminal colors change', async () => {
+    reg.getOrCreate('t-colors', OPTS);
+    await Promise.resolve();
+    ptyResize.mockClear();
+    const settings = (await import('../theme/defaults')).createDefaultAppearanceSettings();
+    settings.terminal = { ...settings.terminal, preset: 'custom', background: '#111111' };
+
+    reg.applyAppearanceSettings(settings);
+
+    expect(ptyResize).not.toHaveBeenCalled();
   });
 });
 

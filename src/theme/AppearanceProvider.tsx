@@ -12,6 +12,7 @@ import { appearanceSettingsGet, appearanceSettingsSet } from "../lib/tauri";
 import { createDefaultAppearanceSettings } from "./defaults";
 import type { AppearanceSettingsV1, AppThemeId } from "./types";
 import { normalizeAppearanceSettings, parseAppearanceSettings } from "./validation";
+import { applyAppearanceSettings } from "../lib/terminalRegistry";
 
 export const APPEARANCE_SETTINGS_CHANGED_EVENT = "appearance-settings-changed";
 export const APPEARANCE_THEME_MIRROR_KEY = "ccie.appearance.theme.v1";
@@ -80,6 +81,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   const applyPreview = useCallback((next: AppearanceSettingsV1) => {
     setSettingsState(next);
     applyAppearanceToDocument(next);
+    applyAppearanceSettings(next);
   }, []);
 
   const applyAuthoritativeSettings = useCallback((next: AppearanceSettingsV1) => {

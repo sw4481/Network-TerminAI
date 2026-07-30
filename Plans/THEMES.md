@@ -347,18 +347,18 @@ Acceptance gate:
 
 ### Task 3 — Phase 3: Live terminal customization
 
-- [ ] **3.1 — SEQUENTIAL:** Record the actual runtime contract for the CDN
+- [x] **3.1 — SEQUENTIAL:** Record the actual runtime contract for the CDN
   xterm 5.5.0 build. Add adapter tests before relying on mutable options. Do not
   upgrade xterm as part of this phase.
-- [ ] **3.2 — SEQUENTIAL:** Extract one `createTerminalOptions()` resolver and
+- [x] **3.2 — SEQUENTIAL:** Extract one `createTerminalOptions()` resolver and
   use it from both `terminalRegistry.ts` and the legacy `usePty.ts` path,
   removing their duplicated literals.
-- [ ] **3.3 — SEQUENTIAL:** Add a registry update API that applies theme and
+- [x] **3.3 — SEQUENTIAL:** Add a registry update API that applies theme and
   font options to every live xterm instance, runs fit/refresh after font metric
   changes, and propagates any new rows/columns to `ptyResize`.
-- [ ] **3.4 — SEQUENTIAL:** Add the corresponding live update effect to the
+- [x] **3.4 — SEQUENTIAL:** Add the corresponding live update effect to the
   legacy PTY path so the rollback switch remains functional.
-- [ ] **3.5 — SEQUENTIAL:** Extend the existing Terminal Settings tab with:
+- [x] **3.5 — SEQUENTIAL:** Extend the existing Terminal Settings tab with:
   - Follow application theme.
   - Dark, Grey, Matrix, and Custom terminal presets.
   - Basic colors: font/foreground, background, cursor, and selection.
@@ -382,6 +382,13 @@ Acceptance gate:
 - Existing terminals update live; new terminals start with the saved settings.
 - No appearance change recreates, kills, or reconnects a PTY.
 - ANSI applications remain legible in every preset.
+
+Task 3 completion evidence: focused adapter, registry, legacy, provider, and
+settings tests prove in-place option updates and PTY lifecycle call invariants;
+the full frontend suite and relaxed build pass. Task 3.6 remains unchecked
+until native operator observation verifies retained scrollback, selection,
+history, SSH state, split attachment, and restored-session behavior in a real
+xterm/Tauri window.
 
 ### Task 4 — Phase 4: Monaco/editor appearance integration
 
