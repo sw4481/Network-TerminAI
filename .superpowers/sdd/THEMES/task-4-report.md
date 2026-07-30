@@ -73,3 +73,38 @@ DAP test suites pass under the full frontend regression run.
 - A single generation counter now invalidates stale initial fetches, retries,
   live events, and saves. `MonacoEditor` uses the public Monaco import again;
   the Vite test alias maps only the test resolver to Monaco's browser entry.
+
+## Final detached provider-to-Monaco recovery evidence
+
+- RED: `bun run test -- --run
+  src/components/editor/DetachedEditorWindow.appearance.integration.test.tsx`
+  failed before the test resolver repair: `monaco-vim` could not resolve its
+  extensionless `monaco-editor/esm/vs/editor/editor.api` browser import under
+  Vitest. No test ran, so the real detached provider-to-Monaco boundary was
+  not previously executable.
+- GREEN focused: `bun run test -- --run
+  src/theme/AppearanceProvider.test.tsx
+  src/components/editor/DetachedEditorWindow.test.tsx
+  src/components/editor/DetachedEditorWindow.appearance.integration.test.tsx
+  src/components/editor/MonacoEditor.appearance.test.tsx
+  src/components/editor/MonacoEditor.lifecycle.test.ts
+  src/components/editor/EditorPane.test.tsx
+  src/components/editor/useVimMode.test.tsx
+  src/theme/monacoThemes.test.ts
+  src/components/editor/themes/zed-one-dark.test.ts` passed: 9 files, 73
+  tests.
+- The new integration mounts the real `AppearanceProvider`, `ZedModeProvider`,
+  `DetachedEditorWindow`, `EditorPane`, and `MonacoEditor`. It delivers the
+  captured real `appearance-settings-changed` listener with Matrix settings,
+  verifies Monaco receives `defineTheme` and `setTheme` for `ccie-matrix`, and
+  verifies no editor/model create or dispose, or LSP start/stop/open/close,
+  runs after the event.
+- The Vite Monaco aliases and `monaco-vim` transform are now gated by
+  `mode === "test"`; production builds retain normal public-package Monaco
+  resolution. `bun run build:relaxed` passed with the existing dynamic-import
+  and chunk-size warnings.
+- GREEN full frontend: `bun run test -- --dir src` passed: 242 files, 1808
+  tests. The existing jsdom navigation notices remained; Vitest also reports
+  an upstream missing `marked.umd.js.map` source-map file while transforming
+  `monaco-vim` for the integration harness.
+- GREEN hygiene: `git diff --check` passed.

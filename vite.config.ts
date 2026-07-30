@@ -6,8 +6,40 @@ import { fileURLToPath, URL } from "node:url";
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(({ mode }) => {
+  const testMode = mode === "test";
+
+  return {
   plugins: [react()],
+
+  ...(testMode
+    ? {
+        resolve: {
+          alias: [
+            {
+              find: "monaco-editor/esm/vs/editor/common/commands/shiftCommand",
+              replacement: fileURLToPath(
+                new URL("../../node_modules/monaco-editor/esm/vs/editor/common/commands/shiftCommand.js", import.meta.url),
+              ),
+            },
+            {
+              find: "monaco-editor/esm/vs/editor/editor.api",
+              replacement: fileURLToPath(
+                new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.api.js", import.meta.url),
+              ),
+            },
+            {
+              // Test-only: production retains the public package import and
+              // Vite's normal browser resolver.
+              find: "monaco-editor",
+              replacement: fileURLToPath(
+                new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.main.js", import.meta.url),
+              ),
+            },
+          ],
+        },
+      }
+    : {}),
 
   optimizeDeps: {
     include: [
@@ -44,21 +76,28 @@ export default defineConfig(async () => ({
       ignored: ["**/src-tauri/**"],
     },
   },
-  test: {
-    globals: true,
-    environment: "jsdom",
-    setupFiles: ['./src/test-setup.ts'],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/e2e/**',
-      '**/.{idea,git,cache,output,temp}/**',
-      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*'
-    ],
-    alias: {
-      // Monaco's published package has no Node test entry; production still
-      // resolves its public package import through Vite's browser resolver.
-      "monaco-editor": fileURLToPath(new URL("../../node_modules/monaco-editor/esm/vs/editor/editor.main.js", import.meta.url)),
-    },
-  },
-}));
+  ...(testMode
+    ? {
+        test: {
+          globals: true,
+          environment: "jsdom",
+          setupFiles: ["./src/test-setup.ts"],
+          server: {
+            deps: {
+              // Monaco-vim's published browser entry must be transformed for
+              // its extensionless Monaco imports to use these test aliases.
+              inline: ["monaco-vim"],
+            },
+          },
+          exclude: [
+            "**/node_modules/**",
+            "**/dist/**",
+            "**/e2e/**",
+            "**/.{idea,git,cache,output,temp}/**",
+            "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
+          ],
+        },
+      }
+    : {}),
+  };
+});
