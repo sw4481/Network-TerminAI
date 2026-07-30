@@ -157,6 +157,7 @@ describe("AppearanceProvider", () => {
     expect(mocks.set.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.emit.mock.invocationCallOrder[0],
     );
+    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("matrix");
   });
 
   it("falls back to Dark and reports a non-fatal error when saving fails", async () => {
@@ -180,8 +181,11 @@ describe("AppearanceProvider", () => {
     render(<AppearanceProvider><StableProbe /></AppearanceProvider>);
     await waitFor(() => expect(mocks.get).toHaveBeenCalled());
 
+    localStorage.setItem(APPEARANCE_THEME_MIRROR_KEY, "terminai-dark");
+
     screen.getByRole("button", { name: "preview grey" }).click();
     expect(document.documentElement).toHaveAttribute("data-theme", "slate-grey");
+    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("terminai-dark");
     expect(mount).toHaveBeenCalledTimes(1);
     expect(mocks.set).not.toHaveBeenCalled();
   });

@@ -3,6 +3,21 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const themesCss = readFileSync(resolve(import.meta.dirname, "themes.css"), "utf8");
+const appCss = readFileSync(resolve(import.meta.dirname, "../App.css"), "utf8");
+
+function firstRule(selector: string): string {
+  const start = appCss.indexOf(`${selector} {`);
+  if (start < 0) throw new Error(`missing ${selector}`);
+  const end = appCss.indexOf("}", start);
+  return appCss.slice(start, end + 1);
+}
+
+function lastRule(selector: string): string {
+  const start = appCss.lastIndexOf(`${selector} {`);
+  if (start < 0) throw new Error(`missing ${selector}`);
+  const end = appCss.indexOf("}", start);
+  return appCss.slice(start, end + 1);
+}
 
 describe("semantic application themes", () => {
   it("defines the full semantic contract and preserves TerminAI Dark's shell values", () => {
@@ -34,5 +49,23 @@ describe("semantic application themes", () => {
     expect(matrix).toMatch(/--status-danger:\s*#[0-9a-f]{6}/i);
     expect(matrix).toContain("pointer-events: none");
     expect(matrix).toContain("prefers-reduced-motion: reduce");
+  });
+
+  it("keeps Dark structural values exact while core higher-specificity selectors stay theme-responsive", () => {
+    expect(themesCss).toMatch(/--surface-overlay:\s*#14171c/i);
+    expect(themesCss).toMatch(/--surface-terminal:\s*#1e1e1e/i);
+    expect(themesCss).toMatch(/--surface-chrome:\s*#0a0c0f/i);
+
+    expect(appCss).toMatch(/\.tab-chooser-popover\s*\{[\s\S]*?background:\s*var\(--surface-overlay\)/);
+    expect(appCss).toMatch(/\.terminal-wrapper\s*\{[\s\S]*?background:\s*var\(--surface-terminal\)/);
+    expect(appCss).toMatch(/\.status-footer\s*\{[\s\S]*?background:\s*var\(--surface-chrome\)/);
+    expect(appCss).toMatch(/\.tab-chooser-item\s*\{[\s\S]*?color:\s*var\(--text-body\)/);
+    expect(appCss).toMatch(/\.tab-chooser-item:hover\s*\{[\s\S]*?background:\s*var\(--surface-hover\)/);
+    expect(appCss).toMatch(/\.json-input:focus\s*\{[\s\S]*?border-color:\s*var\(--focus-ring\)/);
+    expect(appCss).toMatch(/\.status-popover-error\s*\{[\s\S]*?color:\s*var\(--status-danger\)/);
+    expect(lastRule(".settings-tabs button:hover")).toContain("background: var(--surface-hover)");
+    expect(lastRule(".settings-tabs button.active")).toContain("background: var(--surface-selected)");
+    expect(firstRule(".modal-card.recently-closed")).toContain("background: var(--surface-overlay)");
+    expect(firstRule(".status-popover-error")).toContain("color: var(--status-danger)");
   });
 });

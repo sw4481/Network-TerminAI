@@ -9,10 +9,12 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --surface-2: #1a1d23;
   --surface-3: #262a33;
   --surface-overlay: #14171c;
+  --surface-terminal: #1e1e1e;
   --surface-hover: #1f232b;
   --surface-selected: #262a33;
   --text-primary: #e6e1cf;
   --text-secondary: #8a8d94;
+  --text-body: #d0d3da;
   --text-muted: #6c7380;
   --text-inverse: #ffffff;
   --border-subtle: #1f232b;
@@ -41,10 +43,12 @@ html[data-theme="slate-grey"] {
   --surface-2: #25292e;
   --surface-3: #31363d;
   --surface-overlay: #21252a;
+  --surface-terminal: #202326;
   --surface-hover: #2d3238;
   --surface-selected: #3a4048;
   --text-primary: #d7d9dd;
   --text-secondary: #aeb4bc;
+  --text-body: #c7cbd0;
   --text-muted: #858c96;
   --text-inverse: #ffffff;
   --border-subtle: #2c3138;
@@ -73,10 +77,12 @@ html[data-theme="matrix"] {
   --surface-2: #0b1b0c;
   --surface-3: #123116;
   --surface-overlay: #091509;
+  --surface-terminal: #030703;
   --surface-hover: #133a19;
   --surface-selected: #164b20;
   --text-primary: #b8ffb8;
   --text-secondary: #8dff9a;
+  --text-body: #a5f5ae;
   --text-muted: #6dbd73;
   --text-inverse: #030703;
   --border-subtle: #123116;

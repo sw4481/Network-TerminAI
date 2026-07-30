@@ -22,8 +22,8 @@ html, body, #root {
   display: flex;
   gap: 4px;
   padding: 6px 10px 0;
-  background: #0a0c0f;
-  border-bottom: 1px solid #262a33;
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .tab {
@@ -31,16 +31,16 @@ html, body, #root {
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
-  background: #1a1d23;
+  background: var(--surface-2);
   border-radius: 6px 6px 0 0;
   cursor: pointer;
-  color: #8a8d94;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .tab-active {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-selected);
+  color: var(--text-primary);
 }
 
 .tab-close, .tab-new, .tab-new-chooser {
@@ -61,32 +61,32 @@ html, body, #root {
 
 .tab-new-group:hover,
 .tab-new-group-open {
-  background: #1a1d23;
+  background: var(--surface-2);
 }
 
 .tab-new {
   padding: 4px 10px;
   font-size: 16px;
   line-height: 1;
-  color: #8a8d94;
+  color: var(--text-secondary);
   border-radius: 6px 0 0 6px;
 }
 
 .tab-new:hover {
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .tab-new-chooser {
   padding: 4px 6px;
   font-size: 10px;
-  color: #6c7380;
-  border-left: 1px solid #262a33;
+  color: var(--text-muted);
+  border-left: 1px solid var(--border-default);
   border-radius: 0 6px 6px 0;
 }
 
 .tab-new-chooser:hover,
 .tab-new-group-open .tab-new-chooser {
-  color: #5ccfe6;
+  color: var(--accent);
 }
 
 .tab-chooser-popover {
@@ -96,8 +96,8 @@ html, body, #root {
   z-index: 50;
   min-width: 220px;
   padding: 6px;
-  background: #14171c;
-  border: 1px solid #262a33;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   box-shadow:
     0 12px 24px rgba(0, 0, 0, 0.55),
@@ -117,7 +117,7 @@ html, body, #root {
 }
 
 .tab-chooser-section + .tab-chooser-section {
-  border-top: 1px solid #1f232b;
+  border-top: 1px solid var(--border-subtle);
   margin-top: 4px;
   padding-top: 4px;
 }
@@ -126,7 +126,7 @@ html, body, #root {
   font-size: 9px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #6c7380;
+  color: var(--text-muted);
   padding: 4px 8px 2px;
 }
 
@@ -138,15 +138,15 @@ html, body, #root {
   background: transparent;
   border: none;
   border-radius: 4px;
-  color: #d0d3da;
+  color: var(--text-body);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
 
 .tab-chooser-item:hover {
-  background: #1f232b;
-  color: #e6e1cf;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .tab-chooser-badge {
@@ -265,7 +265,7 @@ html, body, #root {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   position: relative;
 }
 
@@ -280,7 +280,7 @@ html, body, #root {
   bottom: 0;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  background: var(--surface-terminal);
   z-index: 2;
 }
 
@@ -288,8 +288,8 @@ html, body, #root {
   display: flex;
   gap: 8px;
   padding: 8px 12px;
-  background: #1a1d23;
-  border-bottom: 1px solid #262a33;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .mode-btn {
@@ -1564,15 +1564,15 @@ button.secondary:hover {
 
 /* Recently Closed tabs modal */
 .modal-card.recently-closed {
-  background: #14171c;
-  border: 1px solid #2a2f37;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   padding: 16px 18px;
   min-width: 320px;
   max-width: 480px;
   max-height: 60vh;
   overflow-y: auto;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 .modal-card.recently-closed h3 { margin: 0 0 10px; font-size: 14px; }
 .modal-card.recently-closed .empty { opacity: 0.6; font-size: 13px; }
@@ -1591,7 +1591,7 @@ button.secondary:hover {
   text-align: left;
   font-size: 13px;
 }
-.recently-closed .closed-row:hover { background: #1e232b; }
+.recently-closed .closed-row:hover { background: var(--surface-hover); }
 .recently-closed .closed-row .cwd { opacity: 0.55; font-family: Menlo, monospace; }
 
 /* Settings Window */
@@ -1609,8 +1609,8 @@ button.secondary:hover {
 }
 
 .settings-window {
-  background: #0f1114;
-  border: 1px solid #262a33;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   width: 90%;
   max-width: 900px;
@@ -1626,20 +1626,20 @@ button.secondary:hover {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #262a33;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .settings-header h1,
 .settings-header h2 {
   margin: 0;
   font-size: 18px;
-  color: #e6e1cf;
+  color: var(--text-primary);
 }
 
 .close-btn {
   background: transparent;
   border: none;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 24px;
   padding: 0;
@@ -1652,8 +1652,8 @@ button.secondary:hover {
 }
 
 .close-btn:hover {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .settings-body {
@@ -1667,8 +1667,8 @@ button.secondary:hover {
   flex-direction: column;
   gap: 2px;
   padding: 12px;
-  background: #0a0c0f;
-  border-right: 1px solid #262a33;
+  background: var(--surface-chrome);
+  border-right: 1px solid var(--border-default);
   min-width: 140px;
   overflow-y: auto;
 }
@@ -1677,7 +1677,7 @@ button.secondary:hover {
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: #8a8d94;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
   text-align: left;
@@ -1686,14 +1686,14 @@ button.secondary:hover {
 }
 
 .settings-tabs button:hover {
-  background: #161a20;
-  color: #e6e1cf;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .settings-tabs button.tab-active,
 .settings-tabs button.active {
-  background: #262a33;
-  color: #e6e1cf;
+  background: var(--surface-selected);
+  color: var(--text-primary);
 }
 
 .settings-content {
@@ -1717,7 +1717,7 @@ button.secondary:hover {
 .tab-panel h3,
 .tab-content h2 {
   margin: 0 0 16px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
@@ -1728,8 +1728,8 @@ button.secondary:hover {
 }
 
 .server-item {
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   padding: 12px;
 }
@@ -1748,15 +1748,15 @@ button.secondary:hover {
 }
 
 .server-name strong {
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .transport-badge {
   display: inline-block;
   padding: 2px 8px;
-  background: #262a33;
-  color: #8a8d94;
+  background: var(--surface-3);
+  color: var(--text-secondary);
   font-size: 10px;
   text-transform: uppercase;
   border-radius: 3px;
@@ -1789,7 +1789,7 @@ button.secondary:hover {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #3e4451;
+  background-color: var(--border-strong);
   transition: 0.3s;
   border-radius: 20px;
 }
@@ -1807,7 +1807,7 @@ button.secondary:hover {
 }
 
 input:checked + .slider {
-  background-color: #6bd968;
+  background-color: var(--status-success);
 }
 
 input:checked + .slider:before {
@@ -1817,8 +1817,8 @@ input:checked + .slider:before {
 .delete-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid #f28779;
-  color: #f28779;
+  border: 1px solid var(--status-danger);
+  color: var(--status-danger);
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
@@ -1826,7 +1826,7 @@ input:checked + .slider:before {
 }
 
 .delete-btn:hover {
-  background: #3d1f1f;
+  background: color-mix(in srgb, var(--status-danger) 16%, transparent);
 }
 
 .server-details {
@@ -1917,10 +1917,10 @@ input:checked + .slider:before {
   width: 100%;
   min-height: 300px;
   padding: 12px;
-  background: #161a20;
-  border: 1px solid #262a33;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
   border-radius: 4px;
-  color: #e6e1cf;
+  color: var(--text-primary);
   font-family: Menlo, monospace;
   font-size: 12px;
   resize: vertical;
@@ -1928,7 +1928,7 @@ input:checked + .slider:before {
 }
 
 .json-input:focus {
-  border-color: #3e4451;
+  border-color: var(--focus-ring);
 }
 
 .button-row {
@@ -3431,10 +3431,10 @@ input:checked + .slider:before {
 }
 .status-popover-error {
   padding: 6px 12px;
-  background: #3d1a1a;
-  color: #f87171;
+  background: color-mix(in srgb, var(--status-danger) 16%, transparent);
+  color: var(--status-danger);
   font-size: 11px;
-  border-bottom: 1px solid #4b1f1f;
+  border-bottom: 1px solid var(--status-danger);
 }
 
 .status-popover-body {
@@ -3512,9 +3512,10 @@ html, body, #root { background: var(--app-canvas); color: var(--text-primary); }
 .settings-window { background: var(--app-canvas); border-color: var(--border-default); color: var(--text-primary); }
 .tab-active, .settings-tabs button.active, .settings-tabs button.tab-active { background: var(--surface-selected); color: var(--text-primary); }
 .tab, .tab-new, .tab-new-chooser, .settings-tabs button, .close-btn, .muted { color: var(--text-secondary); }
-.tab-chooser-popover, .blocks-col, .agent-panel { background: var(--surface-1); border-color: var(--border-default); }
+.tab-chooser-popover { background: var(--surface-overlay); border-color: var(--border-default); }
+.blocks-col, .agent-panel { background: var(--surface-1); border-color: var(--border-default); }
 .tab-chooser-item:hover, .settings-tabs button:hover, .close-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
-.terminal-wrapper, .blocks-overlay { background: var(--terminal-background); }
+.terminal-wrapper, .blocks-overlay { background: var(--surface-terminal); }
 .resize-handle:hover, .resize-handle:active { background: var(--accent); }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 input, select, textarea { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-default); }
@@ -3525,7 +3526,7 @@ button.primary:hover:not(:disabled), .fix-button:hover, .agent-input button:hove
 .json-input, .search-input, .search-filters button, button.secondary { background: var(--surface-2); border-color: var(--border-default); color: var(--text-primary); }
 button.secondary:hover, .search-filters button:hover { background: var(--surface-hover); border-color: var(--border-strong); color: var(--text-primary); }
 .search-filters button.filter-active { background: var(--accent-subtle); border-color: var(--accent-subtle); color: var(--text-primary); }
-.status-footer, .status-popover-header { background: var(--surface-1); border-color: var(--border-default); }
+.status-footer, .status-popover-header { background: var(--surface-chrome); border-color: var(--border-default); }
 .status-pill { border-color: var(--border-default); color: var(--text-secondary); }
 .status-pill:hover { border-color: var(--border-strong); color: var(--text-primary); }
 .status-pill.running { color: var(--status-success); border-color: var(--status-success); background: color-mix(in srgb, var(--status-success) 14%, transparent); }

@@ -77,11 +77,15 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const applySettings = useCallback((next: AppearanceSettingsV1) => {
+  const applyPreview = useCallback((next: AppearanceSettingsV1) => {
     setSettingsState(next);
     applyAppearanceToDocument(next);
-    writeThemeMirror(next.appTheme);
   }, []);
+
+  const applyAuthoritativeSettings = useCallback((next: AppearanceSettingsV1) => {
+    applyPreview(next);
+    writeThemeMirror(next.appTheme);
+  }, [applyPreview]);
 
   useEffect(() => {
     applyAppearanceToDocument(settings);
@@ -99,7 +103,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
           (event) => {
             if (disposed) return;
             receivedLiveEvent = true;
-            applySettings(normalizeAppearanceSettings(event.payload));
+            applyAuthoritativeSettings(normalizeAppearanceSettings(event.payload));
             setError(null);
             setHydrated(true);
           },
@@ -113,12 +117,12 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       try {
         const stored = await appearanceSettingsGet();
         if (!disposed && !receivedLiveEvent) {
-          applySettings(normalizeAppearanceSettings(stored));
+          applyAuthoritativeSettings(normalizeAppearanceSettings(stored));
           setError(null);
         }
       } catch (loadError) {
         if (!disposed) {
-          applySettings(createDefaultAppearanceSettings());
+          applyPreview(createDefaultAppearanceSettings());
           setError(errorMessage(loadError));
         }
       } finally {
@@ -130,27 +134,27 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       disposed = true;
       unlisten?.();
     };
-  }, [applySettings]);
+  }, [applyAuthoritativeSettings, applyPreview]);
 
   const setSettings = useCallback(async (candidate: AppearanceSettingsV1) => {
     const validated = parseAppearanceSettings(candidate);
     if (!validated) {
       const message = "Invalid appearance settings";
-      applySettings(createDefaultAppearanceSettings());
+      applyPreview(createDefaultAppearanceSettings());
       setError(message);
       return;
     }
     try {
       const stored = await appearanceSettingsSet(validated);
       const normalized = normalizeAppearanceSettings(stored);
-      applySettings(normalized);
+      applyAuthoritativeSettings(normalized);
       setError(null);
       await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, normalized);
     } catch (saveError) {
-      applySettings(createDefaultAppearanceSettings());
+      applyPreview(createDefaultAppearanceSettings());
       setError(errorMessage(saveError));
     }
-  }, [applySettings]);
+  }, [applyAuthoritativeSettings, applyPreview]);
 
   const previewSettings = useCallback((candidate: AppearanceSettingsV1) => {
     const validated = parseAppearanceSettings(candidate);
@@ -158,9 +162,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       setError("Invalid appearance settings");
       return;
     }
-    applySettings(validated);
+    applyPreview(validated);
     setError(null);
-  }, [applySettings]);
+  }, [applyPreview]);
 
   const value = useMemo<AppearanceContextValue>(
     () => ({ settings, hydrated, error, previewSettings, setSettings }),
