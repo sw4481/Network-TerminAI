@@ -184,6 +184,7 @@ describe("TerminalSettingsTab", () => {
     })) {
       expect(saveButton).toBeDisabled();
     }
+    expect(screen.getByRole("button", { name: "Retry loading appearance settings" })).toBeVisible();
   });
 
   it("locks notification inputs while the captured Terminal-tab save is pending", async () => {

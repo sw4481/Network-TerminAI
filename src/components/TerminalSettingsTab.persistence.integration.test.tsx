@@ -158,4 +158,58 @@ describe("TerminalSettingsTab persistence integration", () => {
       }
     });
   });
+
+  it("retries failed appearance hydration before enabling Terminal-tab persistence", async () => {
+    let resolveRetry!: (settings: AppearanceSettingsV1 & { revision: number }) => void;
+    const retriedTerminal = {
+      ...createDefaultAppearanceSettings(),
+      revision: 2,
+      terminal: {
+        ...createDefaultAppearanceSettings().terminal,
+        preset: "custom" as const,
+        fontSize: 19,
+      },
+    };
+    mocks.appearanceSettingsGet.mockReset()
+      .mockRejectedValueOnce(new Error("appearance database unavailable"))
+      .mockImplementationOnce(
+        () => new Promise<AppearanceSettingsV1 & { revision: number }>((resolve) => {
+          resolveRetry = resolve;
+        }),
+      );
+
+    renderTerminalSettings();
+    await screen.findByLabelText(/Minimum duration/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent("appearance database unavailable");
+    for (const saveButton of screen.getAllByRole("button", {
+      name: "Save terminal settings",
+      exact: true,
+    })) {
+      expect(saveButton).toBeDisabled();
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry loading appearance settings" }));
+
+    await waitFor(() => expect(mocks.appearanceSettingsGet).toHaveBeenCalledTimes(2));
+    for (const saveButton of screen.getAllByRole("button", {
+      name: "Save terminal settings",
+      exact: true,
+    })) {
+      expect(saveButton).toBeDisabled();
+    }
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await act(async () => resolveRetry(retriedTerminal));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Font size")).toHaveValue(19);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      for (const saveButton of screen.getAllByRole("button", {
+        name: "Save terminal settings",
+        exact: true,
+      })) {
+        expect(saveButton).toBeEnabled();
+      }
+    });
+  });
 });

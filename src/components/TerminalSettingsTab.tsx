@@ -76,6 +76,7 @@ const TerminalSettingsTab: React.FC = () => {
     authoritativeState: appearanceAuthoritativeState,
     isSaving: appearanceSaving,
     previewSettings,
+    retryAuthoritativeSettings,
     saveSettingsPatch,
   } = useAppearance();
   const [terminalDraft, setTerminalDraft] = useState(appearanceSettings);
@@ -102,6 +103,14 @@ const TerminalSettingsTab: React.FC = () => {
     setTerminalDraft(next);
     setAppearanceSaveError("");
     previewSettings(next);
+  };
+
+  const retryAppearanceSettings = async () => {
+    try {
+      await retryAuthoritativeSettings();
+    } catch {
+      // The provider retains the authoritative failure state and error message.
+    }
   };
 
   const selectTerminalPreset = (preset: TerminalPresetId) => {
@@ -273,6 +282,15 @@ const TerminalSettingsTab: React.FC = () => {
           <p className="terminal-appearance__error" role="alert">
             {appearanceSaveError || appearanceProviderError}
           </p>
+        )}
+        {appearanceAuthoritativeState === "failed" && (
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => void retryAppearanceSettings()}
+          >
+            Retry loading appearance settings
+          </button>
         )}
 
         <fieldset className="terminal-appearance__section" disabled={!terminalAppearanceReady || terminalSettingsSaving}>
