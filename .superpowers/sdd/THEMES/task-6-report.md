@@ -5,7 +5,7 @@ Date: 2026-07-30
 ## Delivered
 
 - Added a deterministic WCAG contrast release gate for 42 named semantic
-  foreground/background pairs in each of Dark, Grey, and Matrix, plus 674
+  foreground/background pairs in each of Dark, Grey, and Matrix, plus 669
   direct active flat foreground/background usages and 162 compatible
   interactive-state pairs derived from source CSS. Normal/small text requires
   4.5:1; only WCAG-large text and non-text control boundaries use 3:1. The
@@ -13,6 +13,10 @@ Date: 2026-07-30
   inherited, transparent, or image/gradient cases that do not define a
   self-contained flat pair, and reports 61 unresolved state cascades as
   exclusions instead of silently omitting them.
+- Added a declarative non-text visual-state contract for 15 paints across four
+  operational groups. Tab activity and Drift states must remain at least 3:1
+  against their real adjacent tab surfaces; Blast Radius modal and rule tiers
+  must also resolve to distinct paints in every shipped theme.
 - Wired the contrast gate into `bun run test`, alongside the existing
   structural-color guard.
 - Corrected low-contrast text/control tokens. The initial deliberate
@@ -156,6 +160,35 @@ This is the repository's documented infrastructure limitation:
 connection to the native WKWebView. No skip or false-green result was added.
 Task 6.4 therefore remains unchecked.
 
+### Final semantic review recovery
+
+RED fixtures established six failures across 31 passing tests:
+
+- Drift destructive status had no accessible name.
+- Maintenance selection had no `aria-selected`.
+- Ambiguous guardrail decisions rendered as Tier 2.
+- Missing operational selectors, collapsed tier paints, and a sub-3:1 activity
+  dot all escaped the contrast checker.
+
+GREEN:
+
+```text
+focused semantic recovery: 3 files / 37 tests passed
+theme contrast audit:
+  3 themes / 42 semantic pairs
+  669 direct + 162 derived rule-level usages
+  15 visual-state paints / 4 contract groups
+  0 unsupported / 183 explicit non-flat exclusions / 61 cascade exclusions
+```
+
+Drift now combines semantic color, shape, accessible names, distinct
+insert/delete treatments, and a neutral paused schedule state. Blast Radius
+uses dedicated risk tokens for auto/Tier 1/Tier 2/Tier 3/Ambiguous, exposes
+listbox selection semantics, and labels Ambiguous truthfully. Recording,
+attention, and running indicators retain full-opacity contrast throughout
+motion, use shape where needed, and honor reduced motion. Opaque text-colored
+popover and pulse shadows were replaced with backdrop/semantic alpha shadows.
+
 ## Final automated release evidence
 
 ```text
@@ -165,10 +198,11 @@ bun run check:structural-colors -- --inventory
 bun run test
   structural guard passed
   contrast passed: 3 themes, 42 semantic pairs,
-    674 direct usages + 162 derived state usages, 0 unsupported,
+    669 direct usages + 162 derived state usages, 0 unsupported,
     183 explicitly excluded non-flat/inherited usages,
-    61 cascade exclusions
-  247 files / 1,902 tests passed
+    61 cascade exclusions,
+    15 visual-state paints across 4 contract groups
+  247 files / 1,917 tests passed
 
 CARGO_TARGET_DIR='/Users/shaunwhi/CCIE Terminal/src-tauri/target' \
   cargo test --manifest-path src-tauri/Cargo.toml
@@ -185,6 +219,11 @@ bun test e2e/unit/tauri-driver.test.ts
 Existing non-fatal output remains: two jsdom navigation notices, Monaco's
 missing upstream `marked.umd.js.map`, Vite dynamic/static import advisories,
 large-chunk warnings, and existing Rust unused-import/variable warnings.
+
+The first full frontend run hit the existing ArrayTableView 10k-row timing
+threshold under suite contention (8.38s versus 5s). Its isolated suite passed
+9/9 in 2.10s, and an immediate rerun of the exact `bun run test` gate passed all
+1,917 tests. No product change was made for that timing-only result.
 
 ## Live `./run.sh` release-invariant evidence
 
@@ -227,3 +266,4 @@ complete the definition of done.
 - `81e14f6` — `fix(theme): expose accessible status and color controls`
 - `87646b8` — `docs(rust): repair release doctests`
 - `dc71fa6` — `fix(e2e): target current TerminAI smoke harness`
+- `7810155` — `fix(themes): restore operational state semantics`

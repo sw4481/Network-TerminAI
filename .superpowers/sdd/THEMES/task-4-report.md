@@ -139,3 +139,31 @@ DAP test suites pass under the full frontend regression run.
   an upstream missing `marked.umd.js.map` source-map file while transforming
   `monaco-vim` for the integration harness.
 - GREEN hygiene: `git diff --check` passed.
+
+## Final review recovery
+
+- Scoped Appearance, Editor, and Terminal saves now share one synchronous save
+  lock and merge only their owned field against the latest authoritative
+  snapshot. Per-field revisions keep older persistence responses from
+  overwriting newer previews or cross-window updates.
+- A persistence failure restores only the failed scope's prior authoritative
+  value. A post-persistence event-emission failure keeps the committed UI and
+  mirror, exposes a warning, and does not fabricate a rollback.
+- RED provider/tab coverage exposed stale full-snapshot writes, overlapping
+  saves, lost unrelated previews, and unreported terminal errors. GREEN focused
+  coverage passed 4 files / 44 tests.
+- RED terminal coverage proved Follow application and Matrix controls displayed
+  stale stored custom colors. GREEN passed 2 files / 17 tests after controls,
+  ANSI preview, Custom materialization, and reset behavior all used the resolved
+  preset palette.
+- RED detached coverage mounted Monaco with transient `vs-dark` before editor
+  mode hydrated. GREEN passed 2 files / 15 tests after the interactive pane was
+  gated on authoritative appearance plus editor-mode hydration.
+- Final frontend regression passed 247 files / 1,917 tests. The relaxed
+  production build transformed 2,106 modules and passed with the existing Vite
+  import/chunk warnings.
+- Commits: `94c3d7b`, `ac83e53`, and `721c840`.
+
+Native first-frame appearance, live split/detach/reattach behavior, and active
+Git/LSP/DAP continuity remain intentionally reserved for Shaun's final operator
+matrix under Task 4.6.

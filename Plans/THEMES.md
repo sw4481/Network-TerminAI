@@ -394,19 +394,19 @@ xterm/Tauri window.
 
 ### Task 4 — Phase 4: Monaco/editor appearance integration
 
-- [ ] **4.1 — SEQUENTIAL:** Move Monaco palette resolution behind
+- [x] **4.1 — SEQUENTIAL:** Move Monaco palette resolution behind
   `src/theme/monacoThemes.ts`; retain `zed-one-dark.ts` as a compatibility
   export until callers and tests are migrated.
-- [ ] **4.2 — SEQUENTIAL:** Define Grey and Matrix Monaco themes, including
+- [x] **4.2 — SEQUENTIAL:** Define Grey and Matrix Monaco themes, including
   syntax, gutter, selection, widgets, diagnostics, Git decorations, debugger
   controls, and terminal-panel boundaries.
-- [ ] **4.3 — SEQUENTIAL:** Update `MonacoEditor` to resolve its theme from
+- [x] **4.3 — SEQUENTIAL:** Update `MonacoEditor` to resolve its theme from
   Appearance + Editor Mode and update live without recreating its model or
   editor instance.
-- [ ] **4.4 — SEQUENTIAL:** Add **Follow application theme** and explicit theme
+- [x] **4.4 — SEQUENTIAL:** Add **Follow application theme** and explicit theme
   overrides to the existing Editor Settings tab. Preserve the separate Zed
   Mode and Vim controls.
-- [ ] **4.5 — SEQUENTIAL:** Verify detached editor windows receive the same
+- [x] **4.5 — SEQUENTIAL:** Verify detached editor windows receive the same
   appearance event and render the correct theme before the editor becomes
   interactive.
 - [ ] **4.6 — Regression:** Exercise classic Monaco and Zed Mode under all
@@ -417,6 +417,14 @@ Acceptance gate:
 - Switching themes does not dispose Monaco models, interrupt LSP/DAP, or lose
   editor view state.
 - Zed Mode remains a behavior mode, not a hard-coded color choice.
+
+Task 4 automated implementation is complete. Resolver, provider-to-Monaco,
+same-model lifecycle, settings save/error, and detached hydration tests cover
+Dark, Grey, Matrix, explicit overrides, and Zed independence. Detached windows
+now wait for both authoritative appearance and editor-mode hydration before
+mounting Monaco, preventing a transient classic theme from becoming
+interactive. Task 4.6 remains unchecked for Shaun's native split,
+detach/reattach, Git/LSP/DAP, view-state, and first-frame acceptance.
 
 ### Task 5 — Phase 5: Feature-area migration and enforcement
 
@@ -545,10 +553,14 @@ validation.
 ## Phase 6 — AUTOMATED IMPLEMENTATION COMPLETE; OPERATOR ACCEPTANCE PENDING 2026-07-30
 
 Deterministic WCAG checks retain 42 semantic foreground/background contracts in
-Dark, Grey, and Matrix and discover 674 direct flat rule-level text usages plus
+Dark, Grey, and Matrix and discover 669 direct flat rule-level text usages plus
 162 active pairs derived conservatively from compatible base and interactive
-state selectors. Normal and small text requires 4.5:1; only WCAG-large text and
-non-text control boundaries use 3:1. The audit currently has zero unsupported
+state selectors. A declarative non-text contract additionally verifies 15
+operational paints across tab activity, Drift report states, Blast Radius modal
+tiers, and rule tiers: each must retain 3:1 against its real adjacent surfaces,
+and state groups that represent different meanings must resolve distinctly.
+Normal and small text requires 4.5:1; only WCAG-large text and non-text control
+boundaries use 3:1. The audit currently has zero unsupported
 flat expressions, explicitly reports 183 inherited, transparent, or
 image/gradient cases that do not define a self-contained flat pair, and counts
 61 unresolved one-sided state rules as cascade exclusions instead of silently
@@ -558,6 +570,16 @@ covered by automated tests. TerminAI Dark remains the complete default and
 universal fallback; narrowly scoped contrast corrections deliberately
 supersede strict pixel parity for affected small text, status badges, focus
 controls, and stateful action text.
+
+Final review recovery also serializes scoped Appearance, Editor, and Terminal
+saves; merges each patch against the latest authoritative snapshot; prevents
+older responses from overwriting newer previews; and preserves committed
+cross-window state on persistence or event-emission failure. Follow-application
+terminal controls now edit the resolved active palette by materializing Custom,
+and detached editors wait for editor-mode hydration before mounting Monaco.
+The final exact frontend run passed 247 files / 1,917 tests, the structural
+inventory and relaxed build passed, and Playwright still discovers 18 smoke
+tests in 11 files.
 
 Tasks 6.3 and 6.6 remain intentionally unchecked for Shaun's native
 Dark/Grey/Matrix operator matrix. Task 6.4 remains unchecked because the
