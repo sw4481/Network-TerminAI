@@ -18,6 +18,7 @@
 pub mod agent_bridge;
 pub mod agents;
 pub mod api_runner;
+mod app_lifecycle;
 pub mod bridge;
 pub mod browser;
 pub mod change_verify;
@@ -260,6 +261,17 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_deep_link::init())
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. })
+                && app_lifecycle::close_disposition(window.label())
+                    == app_lifecycle::WindowCloseDisposition::ExitApplication
+            {
+                use tauri::Manager;
+
+                tracing::info!("main window close requested; exiting application");
+                window.app_handle().exit(0);
+            }
+        })
         .manage(state)
         .manage(config_manager)
         .invoke_handler(tauri::generate_handler![
