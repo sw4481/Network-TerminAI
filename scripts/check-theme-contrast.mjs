@@ -728,7 +728,18 @@ function discoverVisualStateGroups(parsedFiles) {
   const groups = [];
   for (const contract of VISUAL_STATE_CONTRACTS) {
     const parsed = parsedFiles.get(contract.file);
-    if (!parsed) continue;
+    if (!parsed) {
+      groups.push({
+        name: contract.name,
+        file: contract.file,
+        surfaces: contract.surfaces,
+        minimum: contract.minimum,
+        requireDistinct: contract.requireDistinct,
+        error: "missing contracted CSS file",
+        entries: [],
+      });
+      continue;
+    }
     const entries = contract.states.map((state) => {
       const matchingRules = parsed.rules.filter((rule) => (
         splitTopLevel(rule.selector, ",")
@@ -1022,6 +1033,18 @@ export function auditThemeContrast(
     }
 
     for (const group of discovery.visualGroups ?? []) {
+      if (group.error) {
+        findings.push({
+          kind: "visual",
+          themeId,
+          group: group.name,
+          file: group.file,
+          line: 1,
+          selector: "<contract file>",
+          error: group.error,
+        });
+        continue;
+      }
       const resolvedEntries = [];
       for (const entry of group.entries) {
         if (entry.error) {

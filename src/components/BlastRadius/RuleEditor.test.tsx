@@ -95,4 +95,35 @@ describe("RuleEditor", () => {
       "New rule",
     );
   });
+
+  it("supports roving keyboard focus and explicit rule activation", async () => {
+    render(<RuleEditor />);
+    const builtin = await screen.findByTestId("re-rule-builtin-iosxe-reload");
+    const custom = screen.getByTestId("re-rule-user-1");
+
+    expect(builtin).toHaveAttribute("tabindex", "0");
+    expect(custom).toHaveAttribute("tabindex", "-1");
+    builtin.focus();
+
+    fireEvent.keyDown(builtin, { key: "ArrowDown" });
+    expect(custom).toHaveFocus();
+    expect(custom).toHaveAttribute("tabindex", "0");
+    expect(custom).toHaveAttribute("aria-selected", "false");
+    expect(screen.queryByTestId("re-name")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(custom, { key: " " });
+    expect(custom).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("re-name")).toHaveValue("My custom rule");
+
+    fireEvent.keyDown(custom, { key: "ArrowUp" });
+    expect(builtin).toHaveFocus();
+    fireEvent.keyDown(builtin, { key: "End" });
+    expect(custom).toHaveFocus();
+    fireEvent.keyDown(custom, { key: "Home" });
+    expect(builtin).toHaveFocus();
+    fireEvent.keyDown(builtin, { key: "Enter" });
+    expect(builtin).toHaveAttribute("aria-selected", "true");
+    expect(custom).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByTestId("re-name")).toHaveValue("IOS-XE reload");
+  });
 });

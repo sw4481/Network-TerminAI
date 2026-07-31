@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./BlastRadius.css";
 import type { ImpactSummary } from "./TypedConfirmModal";
 
@@ -39,8 +39,18 @@ export function MaintenanceWindowModal({
   onCancel,
 }: MaintenanceWindowModalProps) {
   const [selectedWindow, setSelectedWindow] = useState<string | null>(null);
+  const [activeWindow, setActiveWindow] = useState<string | null>(
+    windows[0]?.id ?? null,
+  );
   const [overrideEnabled, setOverrideEnabled] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
+  const optionRefs = useRef(new Map<string, HTMLLIElement>());
+
+  const tabbableWindow =
+    windows.find((window) => window.id === activeWindow)?.id ??
+    windows.find((window) => window.id === selectedWindow)?.id ??
+    windows[0]?.id ??
+    null;
 
   const canProceed = useMemo(() => {
     if (selectedWindow) return true;
@@ -65,6 +75,44 @@ export function MaintenanceWindowModal({
     } else if (overrideEnabled && overrideReason.trim().length >= MIN_REASON_CHARS) {
       onProceed({ mode: "override", reason: overrideReason.trim() });
     }
+  };
+
+  const selectWindow = (windowId: string) => {
+    setSelectedWindow(windowId);
+    setActiveWindow(windowId);
+    setOverrideEnabled(false);
+  };
+
+  const handleWindowKeyDown = (
+    event: React.KeyboardEvent<HTMLLIElement>,
+    windowId: string,
+  ) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      selectWindow(windowId);
+      return;
+    }
+
+    const currentIndex = windows.findIndex((window) => window.id === windowId);
+    let targetIndex = currentIndex;
+    if (event.key === "ArrowDown") {
+      targetIndex = Math.min(currentIndex + 1, windows.length - 1);
+    } else if (event.key === "ArrowUp") {
+      targetIndex = Math.max(currentIndex - 1, 0);
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = windows.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const target = windows[targetIndex];
+    if (!target) return;
+    setActiveWindow(target.id);
+    optionRefs.current.get(target.id)?.focus();
   };
 
   return (
@@ -109,10 +157,14 @@ export function MaintenanceWindowModal({
                   className={selectedWindow === w.id ? "selected" : ""}
                   role="option"
                   aria-selected={selectedWindow === w.id}
-                  onClick={() => {
-                    setSelectedWindow(w.id);
-                    setOverrideEnabled(false);
+                  tabIndex={tabbableWindow === w.id ? 0 : -1}
+                  ref={(element) => {
+                    if (element) optionRefs.current.set(w.id, element);
+                    else optionRefs.current.delete(w.id);
                   }}
+                  onFocus={() => setActiveWindow(w.id)}
+                  onKeyDown={(event) => handleWindowKeyDown(event, w.id)}
+                  onClick={() => selectWindow(w.id)}
                   data-testid={`br-mw-${w.id}`}
                 >
                   <strong>{w.label}</strong>

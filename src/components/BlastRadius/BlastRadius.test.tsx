@@ -176,6 +176,54 @@ describe("MaintenanceWindowModal (Tier 3)", () => {
     });
     expect(btn.disabled).toBe(false);
   });
+
+  it("supports roving keyboard focus and explicit option activation", () => {
+    render(
+      <MaintenanceWindowModal
+        command="reload"
+        reasoning="Full reload"
+        vendor="cisco"
+        platform="iosxe"
+        windows={[
+          { id: "w1", label: "First window", startsAt: 1, endsAt: 2 },
+          { id: "w2", label: "Second window", startsAt: 3, endsAt: 4 },
+          { id: "w3", label: "Third window", startsAt: 5, endsAt: 6 },
+        ]}
+        onProceed={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    const first = screen.getByTestId("br-mw-w1");
+    const second = screen.getByTestId("br-mw-w2");
+    const third = screen.getByTestId("br-mw-w3");
+    const proceed = screen.getByTestId("br-proceed") as HTMLButtonElement;
+
+    expect(first).toHaveAttribute("tabindex", "0");
+    expect(second).toHaveAttribute("tabindex", "-1");
+    first.focus();
+
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+    expect(second).toHaveFocus();
+    expect(second).toHaveAttribute("tabindex", "0");
+    expect(second).toHaveAttribute("aria-selected", "false");
+    expect(proceed.disabled).toBe(true);
+
+    fireEvent.keyDown(second, { key: "ArrowUp" });
+    expect(first).toHaveFocus();
+
+    fireEvent.keyDown(first, { key: "End" });
+    expect(third).toHaveFocus();
+    fireEvent.keyDown(third, { key: " " });
+    expect(third).toHaveAttribute("aria-selected", "true");
+    expect(proceed.disabled).toBe(false);
+
+    fireEvent.keyDown(third, { key: "Home" });
+    expect(first).toHaveFocus();
+    fireEvent.keyDown(first, { key: "Enter" });
+    expect(first).toHaveAttribute("aria-selected", "true");
+    expect(third).toHaveAttribute("aria-selected", "false");
+  });
 });
 
 describe("BlastRadiusHost queue", () => {

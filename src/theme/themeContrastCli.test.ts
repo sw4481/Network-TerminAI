@@ -78,10 +78,44 @@ function fixture(css: string) {
   return path;
 }
 
-function sourceFixture(files: Record<string, string>) {
+const validVisualStateFiles = {
+  "App.css": `
+.tab-recording-dot { background-color: var(--status-recording-live); }
+.tab-activity-dot--needs-attention { background-color: var(--status-danger); }
+.tab-activity-dot--running { background-color: var(--status-warning); }
+`,
+  "components/BlastRadius/BlastRadius.css": `
+.br-tier-badge.tier-1 { border-color: var(--risk-tier-1); }
+.br-tier-badge.tier-2 { border-color: var(--risk-tier-2); }
+.br-tier-badge.tier-3 { border-color: var(--risk-tier-3); }
+.br-tier-badge.tier-amb { border-color: var(--risk-ambiguous); }
+`,
+  "components/DriftSidebar.css": `
+.drift-status-dot.in_sync { background-color: var(--risk-auto); }
+.drift-status-dot.drift { background-color: var(--risk-tier-2); }
+.drift-status-dot.error { background-color: var(--risk-tier-3); }
+.drift-status-dot.paused { background-color: var(--risk-ambiguous); }
+`,
+  "components/BlastRadius/RuleEditor.css": `
+.rule-editor .badge.tier-0 { border-color: var(--risk-auto); }
+.rule-editor .badge.tier-1 { border-color: var(--risk-tier-1); }
+.rule-editor .badge.tier-2 { border-color: var(--risk-tier-2); }
+.rule-editor .badge.tier-3 { border-color: var(--risk-tier-3); }
+`,
+} as const;
+
+function sourceFixture(
+  files: Record<string, string>,
+  omittedContractFiles: string[] = [],
+) {
   const directory = mkdtempSync(join(tmpdir(), "terminai-theme-usage-"));
   temporaryDirectories.push(directory);
-  for (const [name, contents] of Object.entries(files)) {
+  const contractFiles = Object.fromEntries(
+    Object.entries(validVisualStateFiles).filter(
+      ([name]) => !omittedContractFiles.includes(name),
+    ),
+  );
+  for (const [name, contents] of Object.entries({ ...contractFiles, ...files })) {
     const path = join(directory, name);
     mkdirSync(resolve(path, ".."), { recursive: true });
     writeFileSync(path, contents);
@@ -476,6 +510,23 @@ describe("theme contrast release checker", () => {
     expect(result.stderr).toContain("missing background paint");
   });
 
+  it("fails closed when a contracted visual-state CSS file is missing", () => {
+    const sourceRoot = sourceFixture(
+      {},
+      ["components/BlastRadius/RuleEditor.css"],
+    );
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Blast Radius rule tiers");
+    expect(result.stderr).toContain("components/BlastRadius/RuleEditor.css");
+    expect(result.stderr).toContain("missing contracted CSS file");
+  });
+
   it("fails when distinct Blast Radius tiers resolve to the same visible paint", () => {
     const sourceRoot = sourceFixture({
       "components/BlastRadius/BlastRadius.css": `
@@ -527,8 +578,12 @@ describe("theme contrast release checker", () => {
   });
 
   it("passes the repository's three shipped application themes", () => {
-    expect(() => {
-      execFileSync(process.execPath, [checker], { encoding: "utf8", stdio: "pipe" });
-    }).not.toThrow();
+    const output = execFileSync(process.execPath, [checker], {
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+
+    expect(output).toContain("15 visual-state paints");
+    expect(output).toContain("4 contract groups");
   });
 });

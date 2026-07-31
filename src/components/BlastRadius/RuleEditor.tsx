@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   rulesList,
   ruleUpsert,
@@ -44,6 +44,7 @@ function blankRule(): GuardrailRule {
 export function RuleEditor() {
   const [rules, setRules] = useState<GuardrailRule[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState<GuardrailRule | null>(null);
   const [search, setSearch] = useState("");
   const [regexError, setRegexError] = useState<string | null>(null);
@@ -53,6 +54,7 @@ export function RuleEditor() {
     error: string | null;
   } | null>(null);
   const [importExportOpen, setImportExportOpen] = useState(false);
+  const optionRefs = useRef(new Map<string, HTMLLIElement>());
 
   const loadRules = useCallback(async () => {
     try {
@@ -79,10 +81,49 @@ export function RuleEditor() {
 
   const select = useCallback((rule: GuardrailRule) => {
     setSelectedId(rule.id);
+    setActiveId(rule.id);
     setDraft({ ...rule });
     setRegexError(null);
     setTestResult(null);
   }, []);
+
+  const tabbableId =
+    filtered.find((rule) => rule.id === activeId)?.id ??
+    filtered.find((rule) => rule.id === selectedId)?.id ??
+    filtered[0]?.id ??
+    null;
+
+  const handleRuleKeyDown = (
+    event: React.KeyboardEvent<HTMLLIElement>,
+    rule: GuardrailRule,
+  ) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      select(rule);
+      return;
+    }
+
+    const currentIndex = filtered.findIndex((item) => item.id === rule.id);
+    let targetIndex = currentIndex;
+    if (event.key === "ArrowDown") {
+      targetIndex = Math.min(currentIndex + 1, filtered.length - 1);
+    } else if (event.key === "ArrowUp") {
+      targetIndex = Math.max(currentIndex - 1, 0);
+    } else if (event.key === "Home") {
+      targetIndex = 0;
+    } else if (event.key === "End") {
+      targetIndex = filtered.length - 1;
+    } else {
+      return;
+    }
+
+    event.preventDefault();
+    const target = filtered[targetIndex];
+    if (!target) return;
+    setActiveId(target.id);
+    optionRefs.current.get(target.id)?.focus();
+  };
 
   const handleNew = useCallback(() => {
     const r = blankRule();
@@ -248,6 +289,15 @@ export function RuleEditor() {
               }
               role="option"
               aria-selected={selectedId === r.id}
+              tabIndex={tabbableId === r.id ? 0 : -1}
+              ref={(element) => {
+                if (element) optionRefs.current.set(r.id, element);
+                else optionRefs.current.delete(r.id);
+              }}
+              onFocus={(event) => {
+                if (event.target === event.currentTarget) setActiveId(r.id);
+              }}
+              onKeyDown={(event) => handleRuleKeyDown(event, r)}
               onClick={() => select(r)}
               data-testid={`re-rule-${r.id}`}
             >
