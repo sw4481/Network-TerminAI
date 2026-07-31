@@ -18,12 +18,20 @@ import { applyAppearanceSettings } from "../lib/terminalRegistry";
 export const APPEARANCE_SETTINGS_CHANGED_EVENT = "appearance-settings-changed";
 export const APPEARANCE_THEME_MIRROR_KEY = "ccie.appearance.theme.v1";
 
+export type AppearanceSettingsPatch = Partial<
+  Pick<AppearanceSettingsV1, "appTheme" | "editorTheme" | "terminal" | "effects">
+>;
+
+type AppearanceField = keyof AppearanceSettingsPatch;
+
 type AppearanceContextValue = {
   settings: AppearanceSettingsV1;
   hydrated: boolean;
   authoritativeState: "pending" | "ready" | "failed";
   error: string | null;
+  isSaving: boolean;
   previewSettings: (settings: AppearanceSettingsV1) => void;
+  saveSettingsPatch: (patch: AppearanceSettingsPatch) => Promise<void>;
   setSettings: (settings: AppearanceSettingsV1) => Promise<void>;
   retryAuthoritativeSettings: () => Promise<void>;
 };
@@ -76,20 +84,56 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const APPEARANCE_FIELDS: readonly AppearanceField[] = [
+  "appTheme",
+  "editorTheme",
+  "terminal",
+  "effects",
+];
+
+function fieldChanged(
+  field: AppearanceField,
+  before: AppearanceSettingsV1,
+  after: AppearanceSettingsV1,
+): boolean {
+  if (field === "appTheme" || field === "editorTheme") {
+    return before[field] !== after[field];
+  }
+  return JSON.stringify(before[field]) !== JSON.stringify(after[field]);
+}
+
 export function AppearanceProvider({ children }: PropsWithChildren) {
   const [settings, setSettingsState] = useState<AppearanceSettingsV1>(initialSettings);
   const [hydrated, setHydrated] = useState(false);
   const [authoritativeState, setAuthoritativeState] = useState<"pending" | "ready" | "failed">("pending");
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const liveSettingsRef = useRef(settings);
+  const authoritativeSettingsRef = useRef(settings);
+  const authoritativeRevisionRef = useRef(0);
+  const fieldRevisionRef = useRef<Record<AppearanceField, number>>({
+    appTheme: 0,
+    editorTheme: 0,
+    terminal: 0,
+    effects: 0,
+  });
+  const saveLockRef = useRef(false);
   const generationRef = useRef(0);
+  const sourceIdRef = useRef(
+    globalThis.crypto?.randomUUID?.()
+      ?? `appearance:${Math.random().toString(36).slice(2)}`,
+  );
 
   const applyPreview = useCallback((next: AppearanceSettingsV1) => {
+    liveSettingsRef.current = next;
     setSettingsState(next);
     applyAppearanceToDocument(next);
     applyAppearanceSettings(next);
   }, []);
 
   const applyAuthoritativeSettings = useCallback((next: AppearanceSettingsV1) => {
+    authoritativeSettingsRef.current = next;
+    authoritativeRevisionRef.current += 1;
     applyPreview(next);
     writeThemeMirror(next.appTheme);
   }, [applyPreview]);
@@ -105,10 +149,11 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
 
     void (async () => {
       try {
-        const stopListening = await listen<AppearanceSettingsV1>(
+        const stopListening = await listen<AppearanceSettingsV1 & { sourceId?: string }>(
           APPEARANCE_SETTINGS_CHANGED_EVENT,
           (event) => {
             if (disposed) return;
+            if (event.payload.sourceId === sourceIdRef.current) return;
             generationRef.current += 1;
             receivedLiveEvent = true;
             applyAuthoritativeSettings(normalizeAppearanceSettings(event.payload));
@@ -148,38 +193,116 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     };
   }, [applyAuthoritativeSettings, applyPreview]);
 
-  const setSettings = useCallback(async (candidate: AppearanceSettingsV1) => {
+  const saveSettingsPatch = useCallback(async (patch: AppearanceSettingsPatch) => {
+    if (saveLockRef.current) {
+      throw new Error("Appearance settings are already being saved");
+    }
+
+    const fields = APPEARANCE_FIELDS.filter((field) => field in patch);
+    const authoritativeAtStart = authoritativeSettingsRef.current;
+    const candidate = {
+      ...authoritativeAtStart,
+      ...patch,
+      schemaVersion: 1 as const,
+    };
     const validated = parseAppearanceSettings(candidate);
     if (!validated) {
       const message = "Invalid appearance settings";
-      applyPreview(createDefaultAppearanceSettings());
       setError(message);
       throw new Error(message);
     }
-    const requestGeneration = ++generationRef.current;
+
+    saveLockRef.current = true;
+    setIsSaving(true);
+    generationRef.current += 1;
+    const authoritativeRevisionAtStart = authoritativeRevisionRef.current;
+    const fieldRevisionsAtStart = Object.fromEntries(
+      fields.map((field) => [field, fieldRevisionRef.current[field]]),
+    ) as Partial<Record<AppearanceField, number>>;
+
     try {
-      const stored = await appearanceSettingsSet(validated);
-      if (requestGeneration !== generationRef.current) return;
-      const normalized = normalizeAppearanceSettings(stored);
-      applyAuthoritativeSettings(normalized);
+      let normalized: AppearanceSettingsV1;
+      try {
+        const stored = await appearanceSettingsSet(validated);
+        normalized = normalizeAppearanceSettings(stored);
+      } catch (saveError) {
+        const message = errorMessage(saveError);
+        if (authoritativeRevisionAtStart === authoritativeRevisionRef.current) {
+          const restored = { ...liveSettingsRef.current };
+          for (const field of fields) {
+            if (fieldRevisionRef.current[field] === fieldRevisionsAtStart[field]) {
+              Object.assign(restored, { [field]: authoritativeAtStart[field] });
+            }
+          }
+          applyPreview(restored);
+          setError(message);
+        }
+        throw saveError instanceof Error ? saveError : new Error(message);
+      }
+
+      if (authoritativeRevisionAtStart !== authoritativeRevisionRef.current) {
+        return;
+      }
+
+      authoritativeSettingsRef.current = normalized;
+      authoritativeRevisionRef.current += 1;
+      writeThemeMirror(normalized.appTheme);
+      setAuthoritativeState("ready");
+
+      const mergedPreview = { ...liveSettingsRef.current };
+      for (const field of fields) {
+        if (fieldRevisionRef.current[field] === fieldRevisionsAtStart[field]) {
+          Object.assign(mergedPreview, { [field]: normalized[field] });
+        }
+      }
+      applyPreview(mergedPreview);
       setError(null);
-      await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, normalized);
-    } catch (saveError) {
-      // A newer event, retry, or save is authoritative. A stale failed save
-      // must not replace that snapshot with the Dark fallback or an error.
-      if (requestGeneration !== generationRef.current) return;
-      applyPreview(createDefaultAppearanceSettings());
-      const message = errorMessage(saveError);
-      setError(message);
-      throw saveError instanceof Error ? saveError : new Error(message);
+
+      try {
+        await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, {
+          ...normalized,
+          sourceId: sourceIdRef.current,
+        });
+      } catch (broadcastError) {
+        const message = `Appearance saved, but other windows could not be notified: ${errorMessage(broadcastError)}`;
+        console.error(message, broadcastError);
+        setError(message);
+      }
+    } finally {
+      saveLockRef.current = false;
+      setIsSaving(false);
     }
-  }, [applyAuthoritativeSettings, applyPreview]);
+  }, [applyPreview]);
+
+  const setSettings = useCallback(
+    async (candidate: AppearanceSettingsV1) => {
+      const validated = parseAppearanceSettings(candidate);
+      if (!validated) {
+        const message = "Invalid appearance settings";
+        setError(message);
+        throw new Error(message);
+      }
+      await saveSettingsPatch({
+        appTheme: validated.appTheme,
+        editorTheme: validated.editorTheme,
+        terminal: validated.terminal,
+        effects: validated.effects,
+      });
+    },
+    [saveSettingsPatch],
+  );
 
   const previewSettings = useCallback((candidate: AppearanceSettingsV1) => {
     const validated = parseAppearanceSettings(candidate);
     if (!validated) {
       setError("Invalid appearance settings");
       return;
+    }
+    generationRef.current += 1;
+    for (const field of APPEARANCE_FIELDS) {
+      if (fieldChanged(field, liveSettingsRef.current, validated)) {
+        fieldRevisionRef.current[field] += 1;
+      }
     }
     applyPreview(validated);
     setError(null);
@@ -208,8 +331,28 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   }, [applyAuthoritativeSettings, applyPreview]);
 
   const value = useMemo<AppearanceContextValue>(
-    () => ({ settings, hydrated, authoritativeState, error, previewSettings, setSettings, retryAuthoritativeSettings }),
-    [settings, hydrated, authoritativeState, error, previewSettings, setSettings, retryAuthoritativeSettings],
+    () => ({
+      settings,
+      hydrated,
+      authoritativeState,
+      error,
+      isSaving,
+      previewSettings,
+      saveSettingsPatch,
+      setSettings,
+      retryAuthoritativeSettings,
+    }),
+    [
+      settings,
+      hydrated,
+      authoritativeState,
+      error,
+      isSaving,
+      previewSettings,
+      saveSettingsPatch,
+      setSettings,
+      retryAuthoritativeSettings,
+    ],
   );
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;

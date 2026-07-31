@@ -10,10 +10,16 @@ function withTheme(settings: AppearanceSettingsV1, appTheme: AppThemeId): Appear
 }
 
 export function AppearanceSettingsTab() {
-  const { settings, error, previewSettings, setSettings } = useAppearance();
+  const {
+    settings,
+    error,
+    isSaving: providerSaving,
+    previewSettings,
+    saveSettingsPatch,
+  } = useAppearance();
   const [draft, setDraft] = useState(settings);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
-  const isSaving = saveStatus === "saving";
+  const isSaving = providerSaving || saveStatus === "saving";
 
   useEffect(() => setDraft(settings), [settings]);
 
@@ -28,7 +34,10 @@ export function AppearanceSettingsTab() {
     if (isSaving) return;
     setSaveStatus("saving");
     try {
-      await setSettings(draft);
+      await saveSettingsPatch({
+        appTheme: draft.appTheme,
+        effects: draft.effects,
+      });
       setSaveStatus("saved");
     } catch {
       // The provider keeps the non-fatal error visible in this tab.

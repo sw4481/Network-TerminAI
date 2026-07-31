@@ -55,10 +55,17 @@ function selectionWithOpacity(color: string, opacity: number): string {
 }
 
 const TerminalSettingsTab: React.FC = () => {
-  const { settings: appearanceSettings, previewSettings, setSettings } = useAppearance();
+  const {
+    settings: appearanceSettings,
+    error: appearanceProviderError,
+    isSaving: appearanceSaving,
+    previewSettings,
+    saveSettingsPatch,
+  } = useAppearance();
   const [terminalDraft, setTerminalDraft] = useState(appearanceSettings);
+  const [appearanceSaveError, setAppearanceSaveError] = useState("");
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [logLocations, setLogLocations] = useState<LogLocations | null>(null);
   const [logError, setLogError] = useState("");
   const [openingLogId, setOpeningLogId] = useState<string | null>(null);
@@ -71,8 +78,20 @@ const TerminalSettingsTab: React.FC = () => {
   useEffect(() => setTerminalDraft(appearanceSettings), [appearanceSettings]);
 
   const previewTerminal = (next: typeof terminalDraft) => {
+    if (appearanceSaving) return;
     setTerminalDraft(next);
+    setAppearanceSaveError("");
     previewSettings(next);
+  };
+
+  const saveTerminalAppearance = async () => {
+    if (appearanceSaving) return;
+    setAppearanceSaveError("");
+    try {
+      await saveSettingsPatch({ terminal: terminalDraft.terminal });
+    } catch (error) {
+      setAppearanceSaveError(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const selectTerminalPreset = (preset: TerminalPresetId) => {
@@ -193,7 +212,7 @@ const TerminalSettingsTab: React.FC = () => {
   const handleSave = async () => {
     if (!prefs) return;
 
-    setIsSaving(true);
+    setIsSavingNotifications(true);
     try {
       await updateNotificationPreferences(prefs);
       alert("Preferences saved successfully");
@@ -201,7 +220,7 @@ const TerminalSettingsTab: React.FC = () => {
       console.error("Failed to save preferences:", error);
       alert("Failed to save preferences");
     } finally {
-      setIsSaving(false);
+      setIsSavingNotifications(false);
     }
   };
 
@@ -213,12 +232,24 @@ const TerminalSettingsTab: React.FC = () => {
             <h2 id="terminal-appearance-heading">Terminal appearance</h2>
             <p>Preview changes in every open terminal, then save them for new and restored sessions.</p>
           </div>
-          <button type="button" className="secondary-btn" onClick={() => void setSettings(terminalDraft).catch(() => {})}>
+          <button
+            type="button"
+            className="secondary-btn"
+            disabled={appearanceSaving}
+            aria-busy={appearanceSaving}
+            onClick={() => void saveTerminalAppearance()}
+          >
             Save terminal appearance
           </button>
         </div>
 
-        <fieldset className="terminal-appearance__section">
+        {(appearanceSaveError || appearanceProviderError) && (
+          <p className="terminal-appearance__error" role="alert">
+            {appearanceSaveError || appearanceProviderError}
+          </p>
+        )}
+
+        <fieldset className="terminal-appearance__section" disabled={appearanceSaving}>
           <legend>Terminal palette</legend>
           <div className="terminal-appearance__presets" role="radiogroup" aria-label="Terminal preset">
             <label><input type="radio" name="terminal-preset" checked={terminalDraft.terminal.preset === "follow-app"} onChange={() => selectTerminalPreset("follow-app")} /> Follow application theme</label>
@@ -229,7 +260,7 @@ const TerminalSettingsTab: React.FC = () => {
           </div>
         </fieldset>
 
-        <fieldset className="terminal-appearance__section">
+        <fieldset className="terminal-appearance__section" disabled={appearanceSaving}>
           <legend>Core colors</legend>
           <div className="terminal-appearance__grid">
             {([
@@ -244,7 +275,7 @@ const TerminalSettingsTab: React.FC = () => {
           <button type="button" className="secondary-btn" onClick={resetColors}>Reset colors</button>
         </fieldset>
 
-        <fieldset className="terminal-appearance__section">
+        <fieldset className="terminal-appearance__section" disabled={appearanceSaving}>
           <legend>ANSI palette</legend>
           <div className="terminal-appearance__grid terminal-appearance__ansi">
             {ANSI_FIELDS.map(([key, label]) => (
@@ -258,7 +289,7 @@ const TerminalSettingsTab: React.FC = () => {
           <button type="button" className="secondary-btn" onClick={resetAnsiPalette}>Reset ANSI palette</button>
         </fieldset>
 
-        <fieldset className="terminal-appearance__section">
+        <fieldset className="terminal-appearance__section" disabled={appearanceSaving}>
           <legend>Typography</legend>
           <div className="terminal-appearance__grid">
             <label>Font family<input aria-label="Font family" type="text" value={terminalDraft.terminal.fontFamily} onChange={(event) => updateTerminal({ fontFamily: event.target.value.trim() || createDefaultAppearanceSettings().terminal.fontFamily })} /></label>
@@ -269,7 +300,7 @@ const TerminalSettingsTab: React.FC = () => {
           <button type="button" className="secondary-btn" onClick={resetTypography}>Reset typography</button>
         </fieldset>
 
-        <fieldset className="terminal-appearance__section">
+        <fieldset className="terminal-appearance__section" disabled={appearanceSaving}>
           <legend>Cursor</legend>
           <label>Cursor style<select aria-label="Cursor style" value={terminalDraft.terminal.cursorStyle} onChange={(event) => updateTerminal({ cursorStyle: event.target.value as typeof terminalDraft.terminal.cursorStyle })}><option value="block">Block</option><option value="bar">Bar</option><option value="underline">Underline</option></select></label>
           <label><input type="checkbox" checked={terminalDraft.terminal.cursorBlink} onChange={(event) => updateTerminal({ cursorBlink: event.target.checked })} /> Blinking cursor</label>
@@ -378,8 +409,8 @@ const TerminalSettingsTab: React.FC = () => {
             </label>
           </div>
 
-          <button onClick={handleSave} disabled={isSaving} className="save-btn">
-            {isSaving ? "Saving..." : "Save"}
+          <button onClick={handleSave} disabled={isSavingNotifications} className="save-btn">
+            {isSavingNotifications ? "Saving..." : "Save"}
           </button>
         </>
       )}

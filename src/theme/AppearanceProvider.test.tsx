@@ -41,12 +41,24 @@ let deliverEvent:
   | undefined;
 
 function Probe() {
-  const { settings, hydrated, authoritativeState, error, setSettings, previewSettings, retryAuthoritativeSettings } = useAppearance();
+  const {
+    settings,
+    hydrated,
+    authoritativeState,
+    error,
+    isSaving,
+    saveSettingsPatch,
+    setSettings,
+    previewSettings,
+    retryAuthoritativeSettings,
+  } = useAppearance();
   return (
     <>
       <output data-testid="theme">{settings.appTheme}</output>
+      <output data-testid="terminal-foreground">{settings.terminal.foreground}</output>
       <output data-testid="hydrated">{String(hydrated)}</output>
       <output data-testid="authoritative-state">{authoritativeState}</output>
+      <output data-testid="appearance-saving">{String(isSaving)}</output>
       <output data-testid="error">{error ?? ""}</output>
       <button
         onClick={() =>
@@ -62,6 +74,53 @@ function Probe() {
         onClick={() => previewSettings({ ...settings, appTheme: "slate-grey" })}
       >
         preview grey
+      </button>
+      <button
+        onClick={() => previewSettings({ ...settings, appTheme: "matrix" })}
+      >
+        preview matrix
+      </button>
+      <button
+        onClick={() =>
+          void saveSettingsPatch({ editorTheme: "zed-one-dark" }).catch(() => {})
+        }
+      >
+        save editor patch
+      </button>
+      <button
+        onClick={() =>
+          previewSettings({
+            ...settings,
+            terminal: {
+              ...settings.terminal,
+              preset: "custom",
+              foreground: "#111111",
+            },
+          })
+        }
+      >
+        preview older terminal
+      </button>
+      <button
+        onClick={() =>
+          void saveSettingsPatch({ terminal: settings.terminal }).catch(() => {})
+        }
+      >
+        save terminal patch
+      </button>
+      <button
+        onClick={() =>
+          previewSettings({
+            ...settings,
+            terminal: {
+              ...settings.terminal,
+              preset: "custom",
+              foreground: "#222222",
+            },
+          })
+        }
+      >
+        preview newer terminal
       </button>
       <button onClick={() => void retryAuthoritativeSettings().catch(() => {})}>retry appearance</button>
     </>
@@ -207,6 +266,70 @@ describe("AppearanceProvider", () => {
       mocks.emit.mock.invocationCallOrder[0],
     );
     expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("matrix");
+  });
+
+  it("keeps a successfully persisted theme authoritative when broadcasting fails", async () => {
+    mocks.emit.mockRejectedValueOnce(new Error("event bus unavailable"));
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    screen.getByRole("button", { name: "matrix" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+      expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready");
+      expect(screen.getByTestId("error")).toHaveTextContent(
+        "Appearance saved, but other windows could not be notified: event bus unavailable",
+      );
+    });
+    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("matrix");
+    expect(document.documentElement).toHaveAttribute("data-theme", "matrix");
+  });
+
+  it("merges an editor-only save into the authoritative snapshot without persisting an application preview", async () => {
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    screen.getByRole("button", { name: "preview matrix" }).click();
+    await waitFor(() => expect(screen.getByTestId("theme")).toHaveTextContent("matrix"));
+    mocks.set.mockClear();
+
+    screen.getByRole("button", { name: "save editor patch" }).click();
+
+    await waitFor(() => expect(mocks.set).toHaveBeenCalledOnce());
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appTheme: "terminai-dark",
+        editorTheme: "zed-one-dark",
+      }),
+    );
+    expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("terminai-dark");
+  });
+
+  it("keeps the global save lock active and does not overwrite a newer terminal preview with an older response", async () => {
+    let resolveSave!: (value: AppearanceSettingsV1) => void;
+    mocks.set.mockImplementationOnce(
+      (value: AppearanceSettingsV1) =>
+        new Promise<AppearanceSettingsV1>((resolve) => {
+          resolveSave = () => resolve(value);
+        }),
+    );
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    act(() => screen.getByRole("button", { name: "preview older terminal" }).click());
+    await waitFor(() => expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#111111"));
+    act(() => screen.getByRole("button", { name: "save terminal patch" }).click());
+    await waitFor(() => expect(screen.getByTestId("appearance-saving")).toHaveTextContent("true"));
+
+    act(() => screen.getByRole("button", { name: "preview newer terminal" }).click());
+    await waitFor(() => expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#222222"));
+
+    await act(async () => resolveSave());
+
+    await waitFor(() => expect(screen.getByTestId("appearance-saving")).toHaveTextContent("false"));
+    expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#222222");
   });
 
   it("falls back to Dark and reports a non-fatal error when saving fails", async () => {

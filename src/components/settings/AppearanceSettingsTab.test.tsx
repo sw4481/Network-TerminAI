@@ -7,7 +7,9 @@ import type { AppearanceSettingsV1 } from "../../theme/types";
 const appearance = vi.hoisted(() => ({
   settings: null as unknown as AppearanceSettingsV1,
   error: null as string | null,
+  isSaving: false,
   previewSettings: vi.fn(),
+  saveSettingsPatch: vi.fn(),
   setSettings: vi.fn(),
 }));
 
@@ -21,7 +23,9 @@ describe("AppearanceSettingsTab", () => {
   beforeEach(() => {
     appearance.settings = createDefaultAppearanceSettings();
     appearance.error = null;
+    appearance.isSaving = false;
     appearance.previewSettings.mockReset();
+    appearance.saveSettingsPatch.mockReset().mockResolvedValue(undefined);
     appearance.setSettings.mockReset().mockResolvedValue(undefined);
   });
 
@@ -42,7 +46,11 @@ describe("AppearanceSettingsTab", () => {
     render(<AppearanceSettingsTab />);
     await user.click(screen.getByRole("radio", { name: /Slate Grey/i }));
     await user.click(screen.getByRole("button", { name: "Save appearance" }));
-    expect(appearance.setSettings).toHaveBeenCalledWith(expect.objectContaining({ appTheme: "slate-grey" }));
+    expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
+      appTheme: "slate-grey",
+      effects: createDefaultAppearanceSettings().effects,
+    });
+    expect(appearance.setSettings).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset appearance" }));
     expect(appearance.previewSettings).toHaveBeenLastCalledWith(expect.objectContaining({ appTheme: "terminai-dark" }));
@@ -83,7 +91,7 @@ describe("AppearanceSettingsTab", () => {
 
   it("disables duplicate saves and announces progress and success in text", async () => {
     let finishSave: (() => void) | undefined;
-    appearance.setSettings.mockImplementation(
+    appearance.saveSettingsPatch.mockImplementation(
       () => new Promise<void>((resolve) => {
         finishSave = resolve;
       }),
@@ -104,7 +112,7 @@ describe("AppearanceSettingsTab", () => {
 
   it("locks every editable control and keeps the saving status truthful until persistence settles", async () => {
     let finishSave: (() => void) | undefined;
-    appearance.setSettings.mockImplementation(
+    appearance.saveSettingsPatch.mockImplementation(
       () => new Promise<void>((resolve) => {
         finishSave = resolve;
       }),
@@ -128,7 +136,7 @@ describe("AppearanceSettingsTab", () => {
     await user.click(screen.getByRole("button", { name: "Reset appearance" }));
     expect(screen.getByRole("radio", { name: /Matrix/i })).toBeChecked();
     expect(appearance.previewSettings).toHaveBeenCalledTimes(previewsBeforeSave);
-    expect(appearance.setSettings).toHaveBeenCalledTimes(1);
+    expect(appearance.saveSettingsPatch).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status")).toHaveTextContent("Saving appearance");
 
     finishSave?.();
@@ -154,5 +162,17 @@ describe("AppearanceSettingsTab", () => {
       await user.tab();
       expect(expected).toHaveFocus();
     }
+  });
+
+  it("locks every appearance control while another settings tab is saving", () => {
+    appearance.isSaving = true;
+    render(<AppearanceSettingsTab />);
+
+    for (const control of screen.getAllByRole("radio")) expect(control).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix scanlines/i })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Enable Matrix glow/i })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: /Matrix motion preference/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save appearance" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset appearance" })).toBeDisabled();
   });
 });

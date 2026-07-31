@@ -13,7 +13,9 @@ const state = vi.hoisted(() => ({
     terminal: {},
     effects: {},
   },
+  appearanceSaving: false,
   previewSettings: vi.fn(),
+  saveSettingsPatch: vi.fn(),
   setSettings: vi.fn(),
 }));
 
@@ -24,7 +26,9 @@ vi.mock("../editor/ZedModeProvider", () => ({
 vi.mock("../../theme/AppearanceProvider", () => ({
   useAppearance: () => ({
     settings: state.settings,
+    isSaving: state.appearanceSaving,
     previewSettings: state.previewSettings,
+    saveSettingsPatch: state.saveSettingsPatch,
     setSettings: state.setSettings,
   }),
 }));
@@ -39,7 +43,9 @@ describe("EditorSettingsTab", () => {
     state.setVimEnabled.mockReset().mockResolvedValue(undefined);
     state.settings.appTheme = "terminai-dark";
     state.settings.editorTheme = "follow-app";
+    state.appearanceSaving = false;
     state.previewSettings.mockReset();
+    state.saveSettingsPatch.mockReset().mockResolvedValue(undefined);
     state.setSettings.mockReset().mockResolvedValue(undefined);
   });
 
@@ -84,15 +90,40 @@ describe("EditorSettingsTab", () => {
     expect(state.setVimEnabled).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
-    await waitFor(() => expect(state.setSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ editorTheme: "matrix", appTheme: "terminai-dark" }),
-    ));
+    await waitFor(() => expect(state.saveSettingsPatch).toHaveBeenCalledWith({
+      editorTheme: "matrix",
+    }));
+    expect(state.setSettings).not.toHaveBeenCalled();
   });
 
   it("displays an appearance save failure returned by the provider", async () => {
-    state.setSettings.mockRejectedValueOnce(new Error("write failed"));
+    state.saveSettingsPatch.mockRejectedValueOnce(new Error("write failed"));
     render(<EditorSettingsTab />);
     fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("write failed");
+  });
+
+  it("saves only the editor patch when the application has an unsaved Matrix preview", async () => {
+    state.settings.appTheme = "matrix";
+    state.settings.editorTheme = "classic-dark";
+    render(<EditorSettingsTab />);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Zed One Dark" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
+
+    await waitFor(() => expect(state.saveSettingsPatch).toHaveBeenCalledWith({
+      editorTheme: "zed-one-dark",
+    }));
+    expect(state.saveSettingsPatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ appTheme: "matrix" }),
+    );
+  });
+
+  it("locks every editor appearance control while another appearance save is active", () => {
+    state.appearanceSaving = true;
+    render(<EditorSettingsTab />);
+
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save editor appearance" })).toBeDisabled();
   });
 });

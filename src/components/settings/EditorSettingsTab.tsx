@@ -7,7 +7,12 @@ import "./EditorSettingsTab.css";
 
 export default function EditorSettingsTab() {
   const { mode, vimEnabled, setMode, setVimEnabled } = useZedMode();
-  const { settings: appearanceSettings, previewSettings, setSettings } = useAppearance();
+  const {
+    settings: appearanceSettings,
+    isSaving: appearanceSaving,
+    previewSettings,
+    saveSettingsPatch,
+  } = useAppearance();
   const [appearanceDraft, setAppearanceDraft] = useState(appearanceSettings);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,15 +20,17 @@ export default function EditorSettingsTab() {
   useEffect(() => setAppearanceDraft(appearanceSettings), [appearanceSettings]);
 
   const previewEditorTheme = (editorTheme: EditorThemeId) => {
+    if (appearanceSaving) return;
     const next: AppearanceSettingsV1 = { ...appearanceDraft, editorTheme };
     setAppearanceDraft(next);
     previewSettings(next);
   };
 
   const saveEditorAppearance = async () => {
+    if (appearanceSaving) return;
     setError(null);
     try {
-      await setSettings(appearanceDraft);
+      await saveSettingsPatch({ editorTheme: appearanceDraft.editorTheme });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -87,7 +94,7 @@ export default function EditorSettingsTab() {
       </div>
 
       <div className="editor-settings-section">
-        <fieldset>
+        <fieldset disabled={appearanceSaving}>
           <legend>Editor color theme</legend>
           <p className="editor-settings-help">
             Preview a color choice immediately, then save it for all TerminAI windows.

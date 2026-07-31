@@ -11,7 +11,10 @@ import type { AppearanceSettingsV1 } from "../theme/types";
 
 const appearance = vi.hoisted(() => ({
   settings: null as unknown as AppearanceSettingsV1,
+  error: null as string | null,
+  isSaving: false,
   previewSettings: vi.fn(),
+  saveSettingsPatch: vi.fn(),
   setSettings: vi.fn(),
 }));
 
@@ -58,7 +61,10 @@ describe("TerminalSettingsTab", () => {
     vi.spyOn(tauri, "openLogLocation").mockResolvedValue();
     vi.spyOn(tauri, "revealLogLocation").mockResolvedValue();
     appearance.settings = createDefaultAppearanceSettings();
+    appearance.error = null;
+    appearance.isSaving = false;
     appearance.previewSettings.mockReset();
+    appearance.saveSettingsPatch.mockReset().mockResolvedValue(undefined);
     appearance.setSettings.mockReset().mockResolvedValue(undefined);
   });
 
@@ -192,7 +198,10 @@ describe("TerminalSettingsTab", () => {
       expect.objectContaining({ terminal: expect.objectContaining({ preset: "custom", foreground: "#ABCDEF" }) }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Save terminal appearance" }));
-    await waitFor(() => expect(appearance.setSettings).toHaveBeenCalled());
+    await waitFor(() => expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
+      terminal: expect.objectContaining({ preset: "custom", foreground: "#ABCDEF" }),
+    }));
+    expect(appearance.setSettings).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Reset typography" }));
     expect(appearance.previewSettings).toHaveBeenLastCalledWith(
       expect.objectContaining({ terminal: expect.objectContaining({ fontSize: 13 }) }),
@@ -239,5 +248,29 @@ describe("TerminalSettingsTab", () => {
         effects: { matrixScanlines: true, matrixGlow: true, motion: "reduced" },
       }),
     );
+  });
+
+  it("locks every terminal appearance control while any appearance save is active", async () => {
+    appearance.isSaving = true;
+    render(<TerminalSettingsTab />);
+    await screen.findByLabelText(/Minimum duration/i);
+
+    expect(screen.getByRole("button", { name: "Save terminal appearance" })).toBeDisabled();
+    for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
+    expect(screen.getByLabelText("Foreground color")).toBeDisabled();
+    expect(screen.getByLabelText("ANSI red")).toBeDisabled();
+    expect(screen.getByLabelText("Font family")).toBeDisabled();
+    expect(screen.getByLabelText("Cursor style")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset colors" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reset ANSI palette" })).toBeDisabled();
+  });
+
+  it("surfaces terminal appearance persistence failures without affecting notification saves", async () => {
+    appearance.saveSettingsPatch.mockRejectedValueOnce(new Error("appearance database locked"));
+    render(<TerminalSettingsTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save terminal appearance" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("appearance database locked");
   });
 });
