@@ -238,7 +238,7 @@ export function RuleEditor() {
             data-testid="re-search"
           />
         </div>
-        <ul className="rule-list-items">
+        <ul className="rule-list-items" role="listbox" aria-label="Blast Radius rules">
           {filtered.map((r) => (
             <li
               key={r.id}
@@ -246,6 +246,8 @@ export function RuleEditor() {
                 (selectedId === r.id ? "selected " : "") +
                 (r.enabled ? "" : "disabled")
               }
+              role="option"
+              aria-selected={selectedId === r.id}
               onClick={() => select(r)}
               data-testid={`re-rule-${r.id}`}
             >

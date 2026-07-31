@@ -58,6 +58,11 @@ html[data-theme="terminai-dark"], :root:not([data-theme]) {
   --status-warning: #ffb454;
   --status-danger: #f28779;
   --status-recording-live: #f85149;
+  --risk-auto: #b3e8c0;
+  --risk-tier-1: #e6c75c;
+  --risk-tier-2: #e69f4c;
+  --risk-tier-3: #ff7777;
+  --risk-ambiguous: #b3b3ff;
   --status-recording-failure-surface: #2a1416;
   --status-recording-failure-border: #e06c75;
   --status-recording-failure-text: #f1a1a1;
@@ -164,6 +169,11 @@ html[data-theme="slate-grey"] {
   --status-warning: #c6b782;
   --status-danger: #d18f8f;
   --status-recording-live: #cd8b8b;
+  --risk-auto: var(--status-success);
+  --risk-tier-1: var(--status-info);
+  --risk-tier-2: var(--status-warning);
+  --risk-tier-3: var(--status-danger);
+  --risk-ambiguous: var(--status-neutral);
   --status-recording-failure-surface: #392426;
   --status-recording-failure-border: #cd8b8b;
   --status-recording-failure-text: #e3b1b1;
@@ -270,6 +280,11 @@ html[data-theme="matrix"] {
   --status-warning: #d9ff6a;
   --status-danger: #ff6b6b;
   --status-recording-live: #ff6b6b;
+  --risk-auto: var(--status-success);
+  --risk-tier-1: var(--status-info);
+  --risk-tier-2: var(--status-warning);
+  --risk-tier-3: var(--status-danger);
+  --risk-ambiguous: var(--status-neutral);
   --status-recording-failure-surface: #351414;
   --status-recording-failure-border: #ff6b6b;
   --status-recording-failure-text: #ffb3b3;

@@ -13,7 +13,11 @@ import {
 import { useAppearance } from "../theme/AppearanceProvider";
 import { createDefaultAppearanceSettings } from "../theme/defaults";
 import { APP_THEME_PRESETS } from "../theme/presets";
-import type { TerminalAnsiPalette, TerminalPresetId } from "../theme/types";
+import type {
+  AppearanceSettingsV1,
+  TerminalAnsiPalette,
+  TerminalPresetId,
+} from "../theme/types";
 import { APPEARANCE_LIMITS, normalizeHexColor } from "../theme/validation";
 import { terminalSettingsForPreset } from "../lib/terminalAppearance";
 import "./TerminalSettingsTab.css";

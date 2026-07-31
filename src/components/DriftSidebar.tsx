@@ -246,6 +246,13 @@ function ReportRow({
     : report.status === "error"
       ? "error"
       : report.status;
+  const dotLabel = report.diff_patch
+    ? `${report.diff_patch.severity[0].toUpperCase()}${report.diff_patch.severity.slice(1)} drift`
+    : report.status === "in_sync"
+      ? "In sync"
+      : report.status === "error"
+        ? "Drift check error"
+        : "Drift detected";
   return (
     <div
       className={`drift-report-row ${selected ? "selected" : ""}`}
@@ -253,7 +260,12 @@ function ReportRow({
       data-testid={`drift-report-${report.id}`}
     >
       <div className="drift-row-top">
-        <span className={`drift-status-dot ${dotClass}`} />
+        <span
+          className={`drift-status-dot ${dotClass}`}
+          role="img"
+          aria-label={dotLabel}
+          title={dotLabel}
+        />
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
           {report.device_id}
         </span>
@@ -295,7 +307,10 @@ function ScheduleRow({
   return (
     <div className="drift-schedule-row">
       <span
-        className={`drift-status-dot ${schedule.enabled ? "in_sync" : "error"}`}
+        className={`drift-status-dot ${schedule.enabled ? "in_sync" : "paused"}`}
+        role="img"
+        aria-label={schedule.enabled ? "Schedule active" : "Schedule paused"}
+        title={schedule.enabled ? "Schedule active" : "Schedule paused"}
       />
       <span className="drift-schedule-cron">{schedule.cron_expr}</span>
       <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>

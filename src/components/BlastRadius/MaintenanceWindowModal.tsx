@@ -94,7 +94,12 @@ export function MaintenanceWindowModal({
           <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Maintenance windows
           </div>
-          <ul className="br-mw-list" data-testid="br-mw-list">
+          <ul
+            className="br-mw-list"
+            data-testid="br-mw-list"
+            role="listbox"
+            aria-label="Maintenance windows"
+          >
             {windows.length === 0 ? (
               <li className="br-mw-empty">No maintenance windows scheduled.</li>
             ) : (
@@ -102,6 +107,8 @@ export function MaintenanceWindowModal({
                 <li
                   key={w.id}
                   className={selectedWindow === w.id ? "selected" : ""}
+                  role="option"
+                  aria-selected={selectedWindow === w.id}
                   onClick={() => {
                     setSelectedWindow(w.id);
                     setOverrideEnabled(false);

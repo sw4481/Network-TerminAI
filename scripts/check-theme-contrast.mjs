@@ -70,6 +70,68 @@ const UI_CONTROL_PAIRS = [
 
 export const CONTRAST_PAIRS = [...NORMAL_TEXT_PAIRS, ...UI_CONTROL_PAIRS];
 
+const VISUAL_STATE_CONTRACTS = [
+  {
+    name: "tab operational indicators",
+    file: "App.css",
+    paintLabel: "background",
+    properties: ["background", "background-color"],
+    surfaces: ["--surface-2", "--surface-selected"],
+    minimum: 3,
+    requireDistinct: false,
+    states: [
+      { label: "recording", selector: ".tab-recording-dot" },
+      { label: "needs-attention", selector: ".tab-activity-dot--needs-attention" },
+      { label: "running", selector: ".tab-activity-dot--running" },
+    ],
+  },
+  {
+    name: "Blast Radius tiers",
+    file: "components/BlastRadius/BlastRadius.css",
+    paintLabel: "border",
+    properties: ["border-color"],
+    surfaces: ["--surface-overlay"],
+    minimum: 3,
+    requireDistinct: true,
+    states: [
+      { label: "tier-1", selector: ".br-tier-badge.tier-1" },
+      { label: "tier-2", selector: ".br-tier-badge.tier-2" },
+      { label: "tier-3", selector: ".br-tier-badge.tier-3" },
+      { label: "ambiguous", selector: ".br-tier-badge.tier-amb" },
+    ],
+  },
+  {
+    name: "Drift report states",
+    file: "components/DriftSidebar.css",
+    paintLabel: "background",
+    properties: ["background", "background-color"],
+    surfaces: ["--surface-2", "--surface-selected"],
+    minimum: 3,
+    requireDistinct: true,
+    states: [
+      { label: "in-sync", selector: ".drift-status-dot.in_sync" },
+      { label: "drift", selector: ".drift-status-dot.drift" },
+      { label: "error", selector: ".drift-status-dot.error" },
+      { label: "paused", selector: ".drift-status-dot.paused" },
+    ],
+  },
+  {
+    name: "Blast Radius rule tiers",
+    file: "components/BlastRadius/RuleEditor.css",
+    paintLabel: "border",
+    properties: ["border-color"],
+    surfaces: ["--app-canvas"],
+    minimum: 3,
+    requireDistinct: true,
+    states: [
+      { label: "tier-0", selector: ".rule-editor .badge.tier-0" },
+      { label: "tier-1", selector: ".rule-editor .badge.tier-1" },
+      { label: "tier-2", selector: ".rule-editor .badge.tier-2" },
+      { label: "tier-3", selector: ".rule-editor .badge.tier-3" },
+    ],
+  },
+];
+
 function channelToLinear(channel) {
   const normalized = channel / 255;
   return normalized <= 0.04045
@@ -662,6 +724,41 @@ function finalDeclaration(rule, properties) {
   return rule.declarations.findLast(({ property }) => properties.includes(property));
 }
 
+function discoverVisualStateGroups(parsedFiles) {
+  const groups = [];
+  for (const contract of VISUAL_STATE_CONTRACTS) {
+    const parsed = parsedFiles.get(contract.file);
+    if (!parsed) continue;
+    const entries = contract.states.map((state) => {
+      const matchingRules = parsed.rules.filter((rule) => (
+        splitTopLevel(rule.selector, ",")
+          .map((selector) => normalizedSelector(selector))
+          .includes(state.selector)
+      ));
+      const combined = {
+        declarations: matchingRules.flatMap(({ declarations }) => declarations),
+      };
+      const paint = finalDeclaration(combined, contract.properties);
+      const lastRule = matchingRules.at(-1);
+      return {
+        ...state,
+        file: contract.file,
+        line: lastRule ? lineAt(parsed.text, lastRule.offset) : 1,
+        paint: paint?.value ?? null,
+        error: paint ? null : `missing ${contract.paintLabel} paint`,
+      };
+    });
+    groups.push({
+      name: contract.name,
+      surfaces: contract.surfaces,
+      minimum: contract.minimum,
+      requireDistinct: contract.requireDistinct,
+      entries,
+    });
+  }
+  return groups;
+}
+
 function cascadedRule(baseEntries, stateEntries) {
   return {
     declarations: [...baseEntries, ...stateEntries].flatMap((entry) => (
@@ -706,10 +803,12 @@ export function discoverCssContrastUsages(sourceRoot) {
   const usages = [];
   const exclusions = [];
   const cascadeExclusions = [];
+  const parsedFiles = new Map();
   for (const path of cssFiles(root)) {
     const css = readFileSync(path, "utf8");
     const parsed = cssRules(css);
     const file = relative(root, path).split(sep).join("/");
+    parsedFiles.set(file, parsed);
     const branches = [];
     for (const [ruleIndex, rule] of parsed.rules.entries()) {
       const foreground = finalDeclaration(rule, ["color"]);
@@ -830,12 +929,22 @@ export function discoverCssContrastUsages(sourceRoot) {
       });
     }
   }
-  return { usages, exclusions, cascadeExclusions };
+  return {
+    usages,
+    exclusions,
+    cascadeExclusions,
+    visualGroups: discoverVisualStateGroups(parsedFiles),
+  };
 }
 
 export function auditThemeContrast(
   css,
-  discovery = { usages: [], exclusions: [], cascadeExclusions: [] },
+  discovery = {
+    usages: [],
+    exclusions: [],
+    cascadeExclusions: [],
+    visualGroups: [],
+  },
 ) {
   const themes = parseThemeTokens(css);
   const findings = [];
@@ -911,6 +1020,88 @@ export function auditThemeContrast(
         });
       }
     }
+
+    for (const group of discovery.visualGroups ?? []) {
+      const resolvedEntries = [];
+      for (const entry of group.entries) {
+        if (entry.error) {
+          findings.push({
+            kind: "visual",
+            themeId,
+            group: group.name,
+            ...entry,
+          });
+          continue;
+        }
+        const paint = resolveColorExpression(entry.paint, tokens);
+        const backdrop = resolveColorExpression("var(--app-canvas)", tokens);
+        if (!paint || !backdrop) {
+          findings.push({
+            kind: "visual",
+            themeId,
+            group: group.name,
+            ...entry,
+            error: `unsupported ${!paint ? "paint" : "backdrop"} expression: ${
+              !paint ? entry.paint : "var(--app-canvas)"
+            }`,
+          });
+          continue;
+        }
+        resolvedEntries.push({ ...entry, paint });
+        for (const surfaceToken of group.surfaces) {
+          const surface = resolveColorExpression(`var(${surfaceToken})`, tokens);
+          if (!surface) {
+            findings.push({
+              kind: "visual",
+              themeId,
+              group: group.name,
+              ...entry,
+              error: `missing ${surfaceToken}`,
+            });
+            continue;
+          }
+          const ratio = contrastRatio(paint.color, surface.color, backdrop.color);
+          if (ratio + Number.EPSILON < group.minimum) {
+            findings.push({
+              kind: "visual",
+              themeId,
+              group: group.name,
+              ...entry,
+              paintLabel: paint.label,
+              surfaceLabel: surface.label,
+              paintValue: paint.value,
+              surfaceValue: surface.value,
+              ratio,
+              minimum: group.minimum,
+            });
+          }
+        }
+      }
+
+      if (group.requireDistinct) {
+        for (let firstIndex = 0; firstIndex < resolvedEntries.length; firstIndex += 1) {
+          for (
+            let secondIndex = firstIndex + 1;
+            secondIndex < resolvedEntries.length;
+            secondIndex += 1
+          ) {
+            const first = resolvedEntries[firstIndex];
+            const second = resolvedEntries[secondIndex];
+            if (first.paint.value !== second.paint.value) continue;
+            findings.push({
+              kind: "visual",
+              themeId,
+              group: group.name,
+              file: first.file,
+              line: first.line,
+              selector: `${first.selector}, ${second.selector}`,
+              error: `${first.label} and ${second.label} must resolve to distinct paints`
+                + ` (both ${first.paint.value})`,
+            });
+          }
+        }
+      }
+    }
   }
   return {
     findings,
@@ -922,11 +1113,22 @@ export function auditThemeContrast(
       unsupportedUsages: unsupportedUsages.size,
       excludedNonFlatUsages: discovery.exclusions.length,
       cascadeExclusions: discovery.cascadeExclusions?.length ?? 0,
+      visualStateGroups: discovery.visualGroups?.length ?? 0,
+      visualStates: discovery.visualGroups
+        ?.reduce((count, group) => count + group.entries.length, 0) ?? 0,
     },
   };
 }
 
 function printFinding(finding) {
+  if (finding.kind === "visual") {
+    const prefix = `${finding.themeId}: ${finding.group}:`
+      + ` ${finding.file}:${finding.line} ${finding.selector}`;
+    if (finding.error) return `${prefix}: ${finding.error}`;
+    return `${prefix}: ${finding.paintLabel} on ${finding.surfaceLabel}`
+      + ` is ${finding.paintValue} on ${finding.surfaceValue}`
+      + ` (ratio ${finding.ratio.toFixed(2)}, requires ${finding.minimum.toFixed(2)})`;
+  }
   if (finding.kind === "usage") {
     const prefix = `${finding.themeId}: ${finding.file}:${finding.line} ${finding.selector}`;
     if (finding.error) return `${prefix}: ${finding.error}`;
@@ -953,7 +1155,9 @@ function discoverySummary(stats) {
       stats.excludedNonFlatUsages,
       "explicitly excluded non-flat/inherited usage",
     )},`
-    + ` ${counted(stats.cascadeExclusions, "cascade exclusion")}.`;
+    + ` ${counted(stats.cascadeExclusions, "cascade exclusion")},`
+    + ` ${counted(stats.visualStates, "visual-state paint")}`
+    + ` across ${counted(stats.visualStateGroups, "contract group")}.`;
 }
 
 function main() {
@@ -965,7 +1169,12 @@ function main() {
   const sourceRoot = resolve(sourceIndex >= 0 ? args[sourceIndex + 1] : "src");
   const discovery = shouldDiscoverUsage
     ? discoverCssContrastUsages(sourceRoot)
-    : { usages: [], exclusions: [], cascadeExclusions: [] };
+    : {
+      usages: [],
+      exclusions: [],
+      cascadeExclusions: [],
+      visualGroups: [],
+    };
   const { findings, stats } = auditThemeContrast(readFileSync(cssPath, "utf8"), discovery);
   if (findings.length) {
     console.error("Theme contrast check failed:");

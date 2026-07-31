@@ -83,7 +83,11 @@
   align-items: center;
   gap: 8px;
 }
-.rule-editor .rule-list-items li.selected { background: var(--surface-2); }
+.rule-editor .rule-list-items li.selected {
+  background: var(--surface-selected);
+  border-left: 3px solid var(--accent);
+  padding-left: 9px;
+}
 .rule-editor .rule-list-items li:hover { background: var(--surface-2); }
 .rule-editor .rule-list-items li.disabled { opacity: 0.5; }
 
@@ -96,10 +100,30 @@
 }
 .rule-editor .badge.builtin { background: var(--surface-2); color: var(--text-primary); }
 .rule-editor .badge.user { background: var(--surface-2); color: var(--text-primary); }
-.rule-editor .badge.tier-0 { background: var(--surface-2); color: var(--text-primary); }
-.rule-editor .badge.tier-1 { background: var(--surface-2); color: var(--text-primary); }
-.rule-editor .badge.tier-2 { background: var(--surface-2); color: var(--text-primary); }
-.rule-editor .badge.tier-3 { background: var(--surface-2); color: var(--text-primary); }
+.rule-editor .badge.tier-0 {
+  background: var(--app-canvas);
+  border: 1px solid var(--risk-auto);
+  border-color: var(--risk-auto);
+  color: var(--risk-auto);
+}
+.rule-editor .badge.tier-1 {
+  background: var(--app-canvas);
+  border: 1px solid var(--risk-tier-1);
+  border-color: var(--risk-tier-1);
+  color: var(--risk-tier-1);
+}
+.rule-editor .badge.tier-2 {
+  background: var(--app-canvas);
+  border: 1px solid var(--risk-tier-2);
+  border-color: var(--risk-tier-2);
+  color: var(--risk-tier-2);
+}
+.rule-editor .badge.tier-3 {
+  background: var(--app-canvas);
+  border: 1px solid var(--risk-tier-3);
+  border-color: var(--risk-tier-3);
+  color: var(--risk-tier-3);
+}
 
 .rule-editor .rule-list-items .name {
   flex: 1;

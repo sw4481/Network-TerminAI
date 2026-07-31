@@ -47,11 +47,13 @@
   border-radius: 4px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  background: var(--surface-overlay);
+  border: 1px solid currentColor;
 }
-.br-tier-badge.tier-1 { background: var(--surface-2); color: var(--text-primary); }
-.br-tier-badge.tier-2 { background: var(--surface-2); color: var(--text-primary); }
-.br-tier-badge.tier-3 { background: var(--surface-2); color: var(--text-primary); }
-.br-tier-badge.tier-amb { background: var(--surface-2); color: var(--text-primary); }
+.br-tier-badge.tier-1 { border-color: var(--risk-tier-1); color: var(--risk-tier-1); }
+.br-tier-badge.tier-2 { border-color: var(--risk-tier-2); color: var(--risk-tier-2); }
+.br-tier-badge.tier-3 { border-color: var(--risk-tier-3); color: var(--risk-tier-3); }
+.br-tier-badge.tier-amb { border-color: var(--risk-ambiguous); color: var(--risk-ambiguous); }
 
 .br-body {
   padding: 14px 16px;
@@ -132,8 +134,8 @@
   animation: br-pulse-red 1.2s ease-in-out infinite;
 }
 @keyframes br-pulse-red {
-  0%, 100% { box-shadow: 0 0 0 0 var(--text-primary); }
-  50%      { box-shadow: 0 0 0 4px var(--text-primary); }
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--status-danger) 45%, transparent); }
 }
 
 .br-typed-hint {
@@ -170,14 +172,14 @@
   bottom: 24px;
   right: 24px;
   background: var(--surface-2);
-  border: 1px solid var(--border-default);
-  color: var(--text-primary);
+  border: 1px solid var(--risk-auto);
+  color: var(--risk-auto);
   border-radius: 4px;
   padding: 8px 12px;
   font-family: Menlo, monospace;
   font-size: 12px;
   z-index: 9998;
-  box-shadow: 0 8px 24px var(--surface-2);
+  box-shadow: 0 8px 24px rgb(var(--backdrop-rgb) / 40%);
   animation: br-toast-in 200ms ease-out;
 }
 @keyframes br-toast-in {
@@ -199,7 +201,11 @@
   cursor: pointer;
 }
 .br-mw-list li:last-child { border-bottom: none; }
-.br-mw-list li.selected { background: var(--surface-2); }
+.br-mw-list li.selected {
+  background: var(--surface-selected);
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+}
 .br-mw-list .br-mw-empty { color: var(--text-secondary); padding: 12px; text-align: center; }
 
 .br-override {

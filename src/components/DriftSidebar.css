@@ -76,7 +76,7 @@
 .drift-report-row:hover { background: var(--surface-overlay); }
 .drift-report-row.selected {
   background: var(--surface-selected);
-  border-left: 3px solid var(--border-default);
+  border-left: 3px solid var(--accent);
   padding-left: 9px;
 }
 
@@ -93,14 +93,25 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.drift-status-dot.in_sync { background: var(--surface-2); }
-.drift-status-dot.drift   { background: var(--surface-2); }
-.drift-status-dot.error   { background: var(--status-danger-surface); }
-
-.drift-status-dot.severity-destructive { background: var(--surface-2); }
-.drift-status-dot.severity-additive    { background: var(--surface-2); }
-.drift-status-dot.severity-error       { background: var(--status-danger-surface); }
-.drift-status-dot.severity-none        { background: var(--surface-2); }
+.drift-status-dot.in_sync,
+.drift-status-dot.severity-none {
+  background-color: var(--status-success);
+}
+.drift-status-dot.drift,
+.drift-status-dot.severity-additive {
+  background-color: var(--status-warning);
+  border-radius: 2px;
+}
+.drift-status-dot.error,
+.drift-status-dot.severity-destructive,
+.drift-status-dot.severity-error {
+  background-color: var(--status-danger);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.drift-status-dot.paused {
+  background-color: var(--status-neutral);
+}
 
 .drift-row-meta {
   font-size: 11px;
@@ -169,10 +180,22 @@
   border-radius: 2px;
   text-transform: uppercase;
 }
-.drift-block-header .severity.destructive { background: var(--surface-2); color: var(--text-primary); }
-.drift-block-header .severity.additive    { background: var(--surface-2); color: var(--text-primary); }
-.drift-block-header .severity.none        { background: var(--surface-2); color: var(--text-primary); }
-.drift-block-header .severity.error       { background: var(--status-danger-surface); color: var(--status-danger); }
+.drift-block-header .severity.destructive,
+.drift-block-header .severity.error {
+  background: var(--surface-overlay);
+  border: 1px solid var(--status-danger);
+  color: var(--status-danger);
+}
+.drift-block-header .severity.additive {
+  background: var(--surface-overlay);
+  border: 1px solid var(--status-warning);
+  color: var(--status-warning);
+}
+.drift-block-header .severity.none {
+  background: var(--surface-overlay);
+  border: 1px solid var(--status-success);
+  color: var(--status-success);
+}
 
 .drift-changes {
   padding: 4px 10px;
@@ -184,8 +207,18 @@
   font-family: Menlo, monospace;
 }
 .drift-line.equal  { color: var(--text-primary); }
-.drift-line.insert { color: var(--text-primary); background: var(--surface-2); }
-.drift-line.delete { color: var(--status-danger); background: var(--status-danger-surface); }
+.drift-line.drift-insert {
+  color: var(--diff-new);
+  background: var(--diff-added-surface);
+  border-left: 3px solid var(--diff-new);
+  padding-left: 5px;
+}
+.drift-line.drift-delete {
+  color: var(--diff-old);
+  background: var(--diff-removed-surface);
+  border-left: 3px solid var(--diff-old);
+  padding-left: 5px;
+}
 .drift-line .marker { display: inline-block; width: 12px; }
 
 .drift-empty {
@@ -203,8 +236,8 @@
   padding: 6px 12px;
   border-bottom: 1px solid var(--border-default);
 }
-.drift-stats .add { color: var(--text-primary); }
-.drift-stats .del { color: var(--text-primary); }
+.drift-stats .add { color: var(--diff-new); }
+.drift-stats .del { color: var(--diff-old); }
 
 .drift-schedule-section {
   border-top: 1px solid var(--border-default);
@@ -247,6 +280,6 @@
 
 .drift-legend { font-size: 12px; color: var(--text-primary); margin: 6px 0; }
 .drift-badge { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-right: 4px; }
-.drift-badge.drift-insert { background: var(--surface-2); color: var(--text-primary); }  /* Missing = serious */
-.drift-badge.drift-delete { background: var(--status-danger-surface); color: var(--status-danger); }  /* Changed */
+.drift-badge.drift-insert { background: var(--diff-added-surface); color: var(--diff-new); }  /* Missing = serious */
+.drift-badge.drift-delete { background: var(--diff-removed-surface); color: var(--diff-old); }  /* Changed */
 .drift-line.drift-equal { color: var(--text-muted); }

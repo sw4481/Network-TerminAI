@@ -39,6 +39,7 @@ export function BlastRadiusHost() {
           reasoning={head.reasoning}
           vendor={head.vendor}
           platform={head.platform}
+          tier={head.tier}
           onProceed={() => resolve("proceed")}
           onCancel={() => resolve("cancel")}
         />

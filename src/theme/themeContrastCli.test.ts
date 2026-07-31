@@ -12,6 +12,7 @@ const accessibleTokens = {
   "--surface-1": "#000000",
   "--surface-2": "#000000",
   "--surface-3": "#000000",
+  "--surface-selected": "#000000",
   "--surface-overlay": "#000000",
   "--surface-input": "#000000",
   "--surface-recording": "#000000",
@@ -34,6 +35,7 @@ const accessibleTokens = {
   "--status-warning": "#FFFFFF",
   "--status-danger": "#FFFFFF",
   "--status-neutral": "#FFFFFF",
+  "--status-recording-live": "#FFFFFF",
   "--status-danger-surface": "#000000",
   "--status-warning-surface": "#000000",
   "--status-recording-failure-surface": "#000000",
@@ -50,6 +52,11 @@ const accessibleTokens = {
   "--editor-foreground": "#FFFFFF",
   "--focus-ring": "#FFFFFF",
   "--focus-control": "#FFFFFF",
+  "--risk-auto": "#00FF00",
+  "--risk-tier-1": "#00FFFF",
+  "--risk-tier-2": "#FFFF00",
+  "--risk-tier-3": "#FF0000",
+  "--risk-ambiguous": "#FF00FF",
 } as const;
 
 function themeFixture(overrides: Partial<Record<keyof typeof accessibleTokens, string>> = {}) {
@@ -448,6 +455,75 @@ describe("theme contrast release checker", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("0 derived state usages");
     expect(result.stdout).toContain("1 cascade exclusion");
+  });
+
+  it("fails the visual-state contract when a required operational selector is missing", () => {
+    const sourceRoot = sourceFixture({
+      "App.css": `
+.tab-recording-dot { background-color: var(--status-recording-live); }
+.tab-activity-dot--running { background-color: var(--status-warning); }
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("tab operational indicators");
+    expect(result.stderr).toContain(".tab-activity-dot--needs-attention");
+    expect(result.stderr).toContain("missing background paint");
+  });
+
+  it("fails when distinct Blast Radius tiers resolve to the same visible paint", () => {
+    const sourceRoot = sourceFixture({
+      "components/BlastRadius/BlastRadius.css": `
+.br-tier-badge.tier-1 { border-color: var(--risk-tier-1); }
+.br-tier-badge.tier-2 { border-color: var(--risk-tier-1); }
+.br-tier-badge.tier-3 { border-color: var(--risk-tier-3); }
+.br-tier-badge.tier-amb { border-color: var(--risk-ambiguous); }
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [checker, "--css", fixture(themeFixture()), "--src", sourceRoot],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Blast Radius tiers");
+    expect(result.stderr).toContain("tier-1 and tier-2");
+    expect(result.stderr).toContain("must resolve to distinct paints");
+  });
+
+  it("fails when an operational indicator is distinct but below 3:1 on its real tab surface", () => {
+    const sourceRoot = sourceFixture({
+      "App.css": `
+.tab-recording-dot { background-color: var(--status-recording-live); }
+.tab-activity-dot--needs-attention { background-color: var(--status-danger); }
+.tab-activity-dot--running { background-color: var(--status-warning); }
+`,
+    });
+    const result = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--css",
+        fixture(themeFixture({
+          "--status-warning": "#555555",
+          "--status-warning-surface": "#FFFFFF",
+        })),
+        "--src",
+        sourceRoot,
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("tab operational indicators");
+    expect(result.stderr).toContain(".tab-activity-dot--running");
+    expect(result.stderr).toContain("requires 3.00");
   });
 
   it("passes the repository's three shipped application themes", () => {

@@ -146,6 +146,7 @@ describe("MaintenanceWindowModal (Tier 3)", () => {
     const btn = screen.getByTestId("br-proceed") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
     fireEvent.click(screen.getByTestId("br-mw-w1"));
+    expect(screen.getByTestId("br-mw-w1")).toHaveAttribute("aria-selected", "true");
     expect(btn.disabled).toBe(false);
     fireEvent.click(btn);
     expect(onProceed).toHaveBeenCalledWith({ mode: "window", windowId: "w1" });
@@ -242,5 +243,7 @@ describe("BlastRadiusHost queue", () => {
       });
     });
     expect(screen.getByTestId("br-overlay-tier2")).toBeInTheDocument();
+    expect(screen.getByText("Ambiguous")).toHaveClass("br-tier-badge", "tier-amb");
+    expect(screen.queryByText("Tier 2")).not.toBeInTheDocument();
   });
 });

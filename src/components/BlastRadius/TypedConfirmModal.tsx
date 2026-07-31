@@ -12,6 +12,7 @@ export interface TypedConfirmModalProps {
   /** Optional impact summary; if absent, shows the topology-unavailable
    *  fallback. */
   impact?: ImpactSummary | null;
+  tier?: "T2" | "Ambiguous";
   onProceed: () => void;
   onCancel: () => void;
 }
@@ -30,9 +31,12 @@ export function TypedConfirmModal({
   platform,
   challenge,
   impact,
+  tier = "T2",
   onProceed,
   onCancel,
 }: TypedConfirmModalProps) {
+  const isAmbiguous = tier === "Ambiguous";
+  const titleId = isAmbiguous ? "br-ambiguous-title" : "br-tier2-title";
   const expected = (challenge ?? command).trim();
   const [typed, setTyped] = useState("");
   const valid = useMemo(() => typed.trim() === expected, [typed, expected]);
@@ -56,15 +60,17 @@ export function TypedConfirmModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="br-tier2-title"
+        aria-labelledby={titleId}
         className="br-modal"
         style={{ minWidth: 520 }}
       >
         <div className="br-header">
-          <span id="br-tier2-title" className="br-title">
+          <span id={titleId} className="br-title">
             Forwarding-affecting change — type to confirm
           </span>
-          <span className="br-tier-badge tier-2">Tier 2</span>
+          <span className={`br-tier-badge ${isAmbiguous ? "tier-amb" : "tier-2"}`}>
+            {isAmbiguous ? "Ambiguous" : "Tier 2"}
+          </span>
         </div>
         <div className="br-body">
           <div className="br-reasoning">{reasoning}</div>
