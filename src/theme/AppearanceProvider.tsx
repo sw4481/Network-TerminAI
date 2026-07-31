@@ -27,6 +27,11 @@ export type AppearanceSettingsPatch = Partial<
   Pick<AppearanceSettingsV1, "appTheme" | "editorTheme" | "terminal" | "effects">
 >;
 
+type AppearanceAuthorityPayload = AppearanceSettingsV1 & {
+  revision?: number;
+  sourceId?: string;
+};
+
 type AppearanceField = keyof AppearanceSettingsPatch;
 
 type AppearanceContextValue = {
@@ -89,6 +94,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function authorityRevision(value: unknown): number | null {
+  if (typeof value !== "object" || value === null) return null;
+  const revision = (value as { revision?: unknown }).revision;
+  return typeof revision === "number"
+    && Number.isSafeInteger(revision)
+    && revision >= 0
+    ? revision
+    : null;
+}
+
 const APPEARANCE_FIELDS: readonly AppearanceField[] = [
   "appTheme",
   "editorTheme",
@@ -105,6 +120,20 @@ function fieldChanged(
     return before[field] !== after[field];
   }
   return JSON.stringify(before[field]) !== JSON.stringify(after[field]);
+}
+
+function preservePreviewOverlay(
+  authority: AppearanceSettingsV1,
+  previousAuthority: AppearanceSettingsV1,
+  live: AppearanceSettingsV1,
+): AppearanceSettingsV1 {
+  const merged = { ...authority };
+  for (const field of APPEARANCE_FIELDS) {
+    if (fieldChanged(field, previousAuthority, live)) {
+      Object.assign(merged, { [field]: live[field] });
+    }
+  }
+  return merged;
 }
 
 function scopedPatchRequest(
@@ -145,7 +174,8 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
   const [isSaving, setIsSaving] = useState(false);
   const liveSettingsRef = useRef(settings);
   const authoritativeSettingsRef = useRef(settings);
-  const authoritativeRevisionRef = useRef(0);
+  const authorityEpochRef = useRef(0);
+  const backendRevisionRef = useRef<number | null>(null);
   const fieldRevisionRef = useRef<Record<AppearanceField, number>>({
     appTheme: 0,
     editorTheme: 0,
@@ -166,12 +196,38 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     applyAppearanceSettings(next);
   }, []);
 
-  const applyAuthoritativeSettings = useCallback((next: AppearanceSettingsV1) => {
+  const acceptAuthoritativeSettings = useCallback((value: AppearanceAuthorityPayload) => {
+    const revision = authorityRevision(value);
+    const currentRevision = backendRevisionRef.current;
+    if (
+      (revision === null && currentRevision !== null)
+      || (revision !== null && currentRevision !== null && revision <= currentRevision)
+    ) {
+      return null;
+    }
+
+    const next = normalizeAppearanceSettings(value);
+    const previousAuthority = authoritativeSettingsRef.current;
+    const live = liveSettingsRef.current;
     authoritativeSettingsRef.current = next;
-    authoritativeRevisionRef.current += 1;
-    applyPreview(next);
+    authorityEpochRef.current += 1;
+    if (revision !== null) backendRevisionRef.current = revision;
     writeThemeMirror(next.appTheme);
-  }, [applyPreview]);
+    return { next, previousAuthority, live, revision };
+  }, []);
+
+  const applyAuthoritativeSettings = useCallback((value: AppearanceAuthorityPayload) => {
+    const accepted = acceptAuthoritativeSettings(value);
+    if (!accepted) return false;
+    applyPreview(
+      preservePreviewOverlay(
+        accepted.next,
+        accepted.previousAuthority,
+        accepted.live,
+      ),
+    );
+    return true;
+  }, [acceptAuthoritativeSettings, applyPreview]);
 
   useEffect(() => {
     applyAppearanceToDocument(settings);
@@ -184,14 +240,14 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
 
     void (async () => {
       try {
-        const stopListening = await listen<AppearanceSettingsV1 & { sourceId?: string }>(
+        const stopListening = await listen<AppearanceAuthorityPayload>(
           APPEARANCE_SETTINGS_CHANGED_EVENT,
           (event) => {
             if (disposed) return;
             if (event.payload.sourceId === sourceIdRef.current) return;
+            if (!applyAuthoritativeSettings(event.payload)) return;
             generationRef.current += 1;
             receivedLiveEvent = true;
-            applyAuthoritativeSettings(normalizeAppearanceSettings(event.payload));
             setError(null);
             setAuthoritativeState("ready");
             setHydrated(true);
@@ -206,8 +262,15 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       const requestGeneration = ++generationRef.current;
       try {
         const stored = await appearanceSettingsGet();
-        if (!disposed && !receivedLiveEvent && requestGeneration === generationRef.current) {
-          applyAuthoritativeSettings(normalizeAppearanceSettings(stored));
+        const hasBackendRevision = authorityRevision(stored) !== null;
+        if (
+          !disposed
+          && (
+            hasBackendRevision
+            || (!receivedLiveEvent && requestGeneration === generationRef.current)
+          )
+          && applyAuthoritativeSettings(stored)
+        ) {
           setError(null);
           setAuthoritativeState("ready");
         }
@@ -250,21 +313,20 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     saveLockRef.current = true;
     setIsSaving(true);
     generationRef.current += 1;
-    const authoritativeRevisionAtStart = authoritativeRevisionRef.current;
+    const authorityEpochAtStart = authorityEpochRef.current;
     const fieldRevisionsAtStart = Object.fromEntries(
       fields.map((field) => [field, fieldRevisionRef.current[field]]),
     ) as Partial<Record<AppearanceField, number>>;
 
     try {
-      let normalized: AppearanceSettingsV1;
+      let stored: AppearanceAuthorityPayload;
       try {
-        const stored = fields.length === APPEARANCE_FIELDS.length
+        stored = fields.length === APPEARANCE_FIELDS.length
           ? await appearanceSettingsSet(validated)
           : await appearanceSettingsPatch(scopedPatchRequest(fields, validated));
-        normalized = normalizeAppearanceSettings(stored);
       } catch (saveError) {
         const message = errorMessage(saveError);
-        if (authoritativeRevisionAtStart === authoritativeRevisionRef.current) {
+        if (authorityEpochAtStart === authorityEpochRef.current) {
           const restored = { ...liveSettingsRef.current };
           for (const field of fields) {
             if (fieldRevisionRef.current[field] === fieldRevisionsAtStart[field]) {
@@ -277,25 +339,27 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
         throw saveError instanceof Error ? saveError : new Error(message);
       }
 
-      if (authoritativeRevisionAtStart !== authoritativeRevisionRef.current) {
+      if (
+        authorityRevision(stored) === null
+        && authorityEpochAtStart !== authorityEpochRef.current
+      ) {
         return;
       }
 
-      authoritativeSettingsRef.current = normalized;
-      authoritativeRevisionRef.current += 1;
-      writeThemeMirror(normalized.appTheme);
+      const accepted = acceptAuthoritativeSettings(stored);
+      if (!accepted) return;
+      const normalized = accepted.next;
       setAuthoritativeState("ready");
 
-      const liveAtResponse = liveSettingsRef.current;
       const mergedPreview = { ...normalized };
       for (const field of APPEARANCE_FIELDS) {
         const savedField = fields.includes(field);
         const hasNewerSavedFieldPreview = savedField
           && fieldRevisionRef.current[field] !== fieldRevisionsAtStart[field];
         const hasUnrelatedPreviewOverlay = !savedField
-          && fieldChanged(field, authoritativeAtStart, liveAtResponse);
+          && fieldChanged(field, accepted.previousAuthority, accepted.live);
         if (hasNewerSavedFieldPreview || hasUnrelatedPreviewOverlay) {
-          Object.assign(mergedPreview, { [field]: liveAtResponse[field] });
+          Object.assign(mergedPreview, { [field]: accepted.live[field] });
         }
       }
       applyPreview(mergedPreview);
@@ -304,6 +368,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       try {
         await emit(APPEARANCE_SETTINGS_CHANGED_EVENT, {
           ...normalized,
+          ...(accepted.revision === null ? {} : { revision: accepted.revision }),
           sourceId: sourceIdRef.current,
         });
       } catch (broadcastError) {
@@ -315,7 +380,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       saveLockRef.current = false;
       setIsSaving(false);
     }
-  }, [applyPreview]);
+  }, [acceptAuthoritativeSettings, applyPreview]);
 
   const setSettings = useCallback(
     async (candidate: AppearanceSettingsV1) => {
@@ -357,10 +422,13 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     setError(null);
     try {
       const stored = await appearanceSettingsGet();
-      if (requestGeneration !== generationRef.current) return;
-      const normalized = normalizeAppearanceSettings(stored);
-      applyAuthoritativeSettings(normalized);
-      setAuthoritativeState("ready");
+      const revision = authorityRevision(stored);
+      if (revision === null && requestGeneration !== generationRef.current) return;
+      if (revision !== null && revision === backendRevisionRef.current) {
+        setAuthoritativeState("ready");
+        return;
+      }
+      if (applyAuthoritativeSettings(stored)) setAuthoritativeState("ready");
     } catch (loadError) {
       if (requestGeneration !== generationRef.current) return;
       applyPreview(createDefaultAppearanceSettings());

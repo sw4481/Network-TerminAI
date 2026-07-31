@@ -110,6 +110,8 @@ pub struct AppearanceEffects {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AppearanceSettingsV1 {
     pub schema_version: u32,
+    #[serde(default)]
+    pub revision: u64,
     pub app_theme: AppThemeId,
     pub editor_theme: EditorThemeId,
     pub terminal: TerminalAppearanceSettings,
@@ -137,6 +139,7 @@ impl Default for AppearanceSettingsV1 {
     fn default() -> Self {
         Self {
             schema_version: 1,
+            revision: 0,
             app_theme: AppThemeId::TerminaiDark,
             editor_theme: EditorThemeId::FollowApp,
             terminal: TerminalAppearanceSettings {
@@ -298,15 +301,39 @@ pub fn save_appearance_settings(
     conn: &Connection,
     settings: AppearanceSettingsV1,
 ) -> Result<AppearanceSettingsV1, String> {
-    let normalized = normalize_appearance_settings(settings)?;
+    let mut normalized = normalize_appearance_settings(settings)?;
+    ensure_app_flags_table(conn)?;
+    let transaction = conn
+        .unchecked_transaction()
+        .map_err(|error| format!("Failed to start appearance settings save: {error}"))?;
+    let stored: Option<String> = transaction
+        .query_row(
+            "SELECT value FROM app_flags WHERE key = ?1",
+            [APPEARANCE_SETTINGS_FLAG_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| format!("Failed to read appearance settings: {error}"))?;
+    let current_revision = stored
+        .as_deref()
+        .and_then(|value| parse_appearance_settings(value).ok())
+        .map(|settings| settings.revision)
+        .unwrap_or_default();
+    normalized.revision = current_revision
+        .checked_add(1)
+        .ok_or_else(|| "appearance settings revision exhausted".to_string())?;
     let serialized = serde_json::to_string(&normalized)
         .map_err(|error| format!("Failed to serialize appearance settings: {error}"))?;
-    ensure_app_flags_table(conn)?;
-    conn.execute(
-        "INSERT OR REPLACE INTO app_flags(key, value) VALUES (?1, ?2)",
-        [APPEARANCE_SETTINGS_FLAG_KEY, &serialized],
-    )
-    .map_err(|error| format!("Failed to save appearance settings: {error}"))?;
+    transaction
+        .execute(
+            "INSERT INTO app_flags(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![APPEARANCE_SETTINGS_FLAG_KEY, serialized],
+        )
+        .map_err(|error| format!("Failed to save appearance settings: {error}"))?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Failed to commit appearance settings save: {error}"))?;
     Ok(normalized)
 }
 
@@ -344,7 +371,11 @@ pub fn patch_appearance_settings(
         }
     }
 
-    let normalized = normalize_appearance_settings(current)?;
+    let mut normalized = normalize_appearance_settings(current)?;
+    normalized.revision = normalized
+        .revision
+        .checked_add(1)
+        .ok_or_else(|| "appearance settings revision exhausted".to_string())?;
     let serialized = serde_json::to_string(&normalized)
         .map_err(|error| format!("Failed to serialize appearance settings: {error}"))?;
     transaction
@@ -414,6 +445,100 @@ mod tests {
         assert_eq!(restored.app_theme, AppThemeId::Matrix);
         assert_eq!(restored.terminal.foreground, "#AABBCC");
         assert_eq!(restored.terminal.font_size, FONT_SIZE_MIN);
+    }
+
+    #[test]
+    fn full_writes_increment_a_revision_that_persists_across_get() {
+        let conn = test_conn();
+        let first =
+            save_appearance_settings(&conn, AppearanceSettingsV1::default()).expect("first save");
+        let mut second_settings = AppearanceSettingsV1::default();
+        second_settings.app_theme = AppThemeId::Matrix;
+        let second = save_appearance_settings(&conn, second_settings).expect("second save");
+        let loaded = load_appearance_settings(&conn).expect("load latest");
+
+        assert_eq!(serde_json::to_value(first).unwrap()["revision"], 1);
+        assert_eq!(serde_json::to_value(second).unwrap()["revision"], 2);
+        let loaded = serde_json::to_value(loaded).unwrap();
+        assert_eq!(loaded["revision"], 2);
+        assert_eq!(loaded["appTheme"], "matrix");
+    }
+
+    #[test]
+    fn scoped_patch_returns_the_merged_settings_with_the_atomic_revision() {
+        let mut conn = test_conn();
+        save_appearance_settings(&conn, AppearanceSettingsV1::default()).expect("seed");
+        patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Application {
+                app_theme: AppThemeId::Matrix,
+                effects: AppearanceSettingsV1::default().effects,
+            },
+        )
+        .expect("application patch");
+        let returned = patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Editor {
+                editor_theme: EditorThemeId::ZedOneDark,
+            },
+        )
+        .expect("editor patch");
+
+        let returned = serde_json::to_value(returned).unwrap();
+        assert_eq!(returned["revision"], 3);
+        assert_eq!(returned["appTheme"], "matrix");
+        assert_eq!(returned["editorTheme"], "zed-one-dark");
+        let loaded =
+            serde_json::to_value(load_appearance_settings(&conn).expect("load merged settings"))
+                .unwrap();
+        assert_eq!(loaded["revision"], 3);
+        assert_eq!(loaded["appTheme"], "matrix");
+        assert_eq!(loaded["editorTheme"], "zed-one-dark");
+    }
+
+    #[test]
+    fn invalid_scoped_patch_does_not_increment_the_revision() {
+        let mut conn = test_conn();
+        let seeded =
+            save_appearance_settings(&conn, AppearanceSettingsV1::default()).expect("seed");
+        assert_eq!(serde_json::to_value(seeded).unwrap()["revision"], 1);
+        let mut invalid_terminal = AppearanceSettingsV1::default().terminal;
+        invalid_terminal.foreground = "red".into();
+
+        let result = patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Terminal {
+                terminal: invalid_terminal,
+            },
+        );
+
+        assert!(result.is_err());
+        let loaded =
+            serde_json::to_value(load_appearance_settings(&conn).expect("load unchanged settings"))
+                .unwrap();
+        assert_eq!(loaded["revision"], 1);
+    }
+
+    #[test]
+    fn legacy_settings_without_a_revision_load_at_revision_zero() {
+        let conn = test_conn();
+        ensure_app_flags_table(&conn).unwrap();
+        let mut legacy = serde_json::to_value(AppearanceSettingsV1::default()).unwrap();
+        legacy
+            .as_object_mut()
+            .expect("appearance object")
+            .remove("revision");
+        conn.execute(
+            "INSERT INTO app_flags(key, value) VALUES (?1, ?2)",
+            rusqlite::params![APPEARANCE_SETTINGS_FLAG_KEY, legacy.to_string()],
+        )
+        .unwrap();
+
+        let loaded =
+            serde_json::to_value(load_appearance_settings(&conn).expect("load legacy settings"))
+                .unwrap();
+        assert_eq!(loaded["revision"], 0);
+        assert_eq!(loaded["appTheme"], "terminai-dark");
     }
 
     #[test]
@@ -534,7 +659,7 @@ mod tests {
         let mut saved = AppearanceSettingsV1::default();
         saved.app_theme = AppThemeId::Matrix;
         saved.editor_theme = EditorThemeId::ClassicDark;
-        save_appearance_settings(&conn, saved.clone()).expect("seed settings");
+        let saved = save_appearance_settings(&conn, saved).expect("seed settings");
 
         let mut invalid_terminal = saved.terminal.clone();
         invalid_terminal.foreground = "red".into();

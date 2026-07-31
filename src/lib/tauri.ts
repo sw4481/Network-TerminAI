@@ -1624,13 +1624,17 @@ export const editorModeGet = () => invoke<EditorMode>("editor_mode_get");
 export const editorModeSet = (mode: EditorMode) =>
   invoke<void>("editor_mode_set", { mode });
 
+export type AuthoritativeAppearanceSettings = AppearanceSettingsV1 & {
+  revision: number;
+};
+
 /** Authoritative, versioned appearance preferences stored in app_flags. */
 export const appearanceSettingsGet = () =>
-  invoke<AppearanceSettingsV1>("appearance_settings_get");
+  invoke<AuthoritativeAppearanceSettings>("appearance_settings_get");
 
 /** Persists and returns the backend-normalized appearance snapshot. */
 export const appearanceSettingsSet = (settings: AppearanceSettingsV1) =>
-  invoke<AppearanceSettingsV1>("appearance_settings_set", { settings });
+  invoke<AuthoritativeAppearanceSettings>("appearance_settings_set", { settings });
 
 export type AppearanceSettingsPatchRequest =
   | {
@@ -1649,7 +1653,7 @@ export type AppearanceSettingsPatchRequest =
 
 /** Atomically merge one appearance scope into the backend-authoritative snapshot. */
 export const appearanceSettingsPatch = (patch: AppearanceSettingsPatchRequest) =>
-  invoke<AppearanceSettingsV1>("appearance_settings_patch", { patch });
+  invoke<AuthoritativeAppearanceSettings>("appearance_settings_patch", { patch });
 
 // Master context-graph feature flag (agent graph helper, temporal memory,
 // graph-compact serialization). Persisted in app_flags; the sidecar reads the

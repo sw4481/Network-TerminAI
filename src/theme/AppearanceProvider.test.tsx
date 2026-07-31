@@ -38,8 +38,13 @@ import {
 } from "./AppearanceProvider";
 import { DEFAULT_APPEARANCE_SETTINGS } from "./defaults";
 
+type RevisionedAppearancePayload = AppearanceSettingsV1 & {
+  revision?: number;
+  sourceId?: string;
+};
+
 let deliverEvent:
-  | ((event: { payload: AppearanceSettingsV1 }) => void)
+  | ((event: { payload: RevisionedAppearancePayload }) => void)
   | undefined;
 
 function Probe() {
@@ -57,6 +62,7 @@ function Probe() {
   return (
     <>
       <output data-testid="theme">{settings.appTheme}</output>
+      <output data-testid="editor-theme">{settings.editorTheme}</output>
       <output data-testid="terminal-foreground">{settings.terminal.foreground}</output>
       <output data-testid="hydrated">{String(hydrated)}</output>
       <output data-testid="authoritative-state">{authoritativeState}</output>
@@ -153,7 +159,7 @@ describe("AppearanceProvider", () => {
     mocks.unlisten.mockReset();
     mocks.applyAppearanceSettings.mockReset();
     mocks.listen.mockReset().mockImplementation(
-      async (_name: string, handler: (event: { payload: AppearanceSettingsV1 }) => void) => {
+      async (_name: string, handler: (event: { payload: RevisionedAppearancePayload }) => void) => {
         deliverEvent = handler;
         return mocks.unlisten;
       },
@@ -341,6 +347,92 @@ describe("AppearanceProvider", () => {
       expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
       expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("matrix");
     });
+  });
+
+  it("applies and broadcasts a newer save response after an older live event arrives", async () => {
+    mocks.get.mockResolvedValueOnce({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      revision: 1,
+    });
+    let resolveSave!: (value: RevisionedAppearancePayload) => void;
+    mocks.patch.mockImplementationOnce(
+      () => new Promise<RevisionedAppearancePayload>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    screen.getByRole("button", { name: "save editor patch" }).click();
+    await waitFor(() => expect(mocks.patch).toHaveBeenCalledOnce());
+    act(() => deliverEvent?.({
+      payload: {
+        ...DEFAULT_APPEARANCE_SETTINGS,
+        appTheme: "matrix",
+        revision: 2,
+        sourceId: "window-b",
+      },
+    }));
+    expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+    expect(screen.getByTestId("editor-theme")).toHaveTextContent("follow-app");
+
+    await act(async () => resolveSave({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      appTheme: "matrix",
+      editorTheme: "zed-one-dark",
+      revision: 3,
+    }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("editor-theme")).toHaveTextContent("zed-one-dark");
+      expect(mocks.emit).toHaveBeenCalledWith(
+        APPEARANCE_SETTINGS_CHANGED_EVENT,
+        expect.objectContaining({
+          appTheme: "matrix",
+          editorTheme: "zed-one-dark",
+          revision: 3,
+        }),
+      );
+    });
+  });
+
+  it("keeps a newer live authority and an unrelated preview when an older save response resolves", async () => {
+    mocks.get.mockResolvedValueOnce({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      revision: 1,
+    });
+    let resolveSave!: (value: RevisionedAppearancePayload) => void;
+    mocks.patch.mockImplementationOnce(
+      () => new Promise<RevisionedAppearancePayload>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    screen.getByRole("button", { name: "save editor patch" }).click();
+    await waitFor(() => expect(mocks.patch).toHaveBeenCalledOnce());
+    act(() => screen.getByRole("button", { name: "preview newer terminal" }).click());
+    act(() => deliverEvent?.({
+      payload: {
+        ...DEFAULT_APPEARANCE_SETTINGS,
+        appTheme: "slate-grey",
+        editorTheme: "classic-dark",
+        revision: 3,
+        sourceId: "window-b",
+      },
+    }));
+    await act(async () => resolveSave({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      appTheme: "matrix",
+      editorTheme: "zed-one-dark",
+      revision: 2,
+    }));
+
+    expect(screen.getByTestId("theme")).toHaveTextContent("slate-grey");
+    expect(screen.getByTestId("editor-theme")).toHaveTextContent("classic-dark");
+    expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#222222");
+    expect(mocks.emit).not.toHaveBeenCalled();
   });
 
   it("keeps the global save lock active and does not overwrite a newer terminal preview with an older response", async () => {
