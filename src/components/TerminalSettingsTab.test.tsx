@@ -250,6 +250,69 @@ describe("TerminalSettingsTab", () => {
     );
   });
 
+  it("renders Matrix follow-app colors in the native controls and ANSI preview", () => {
+    appearance.settings = {
+      ...createDefaultAppearanceSettings(),
+      appTheme: "matrix",
+    };
+    render(<TerminalSettingsTab />);
+
+    expect(screen.getByRole("radio", { name: /Follow application theme/i })).toBeChecked();
+    expect(screen.getByLabelText("Foreground color")).toHaveValue("#8dff9a");
+    expect(screen.getByLabelText("Background color")).toHaveValue("#030703");
+    expect(screen.getByLabelText("Cursor color")).toHaveValue("#b8ffb8");
+    expect(screen.getByLabelText("ANSI red")).toHaveValue("#ff6b6b");
+    expect(screen.getByLabelText("ANSI bright cyan")).toHaveValue("#a2fff7");
+    expect(screen.getByText("red")).toHaveStyle({ color: "rgb(255, 107, 107)" });
+    expect(screen.getByText("cyan")).toHaveStyle({ color: "rgb(162, 255, 247)" });
+  });
+
+  it("materializes the complete Matrix palette before a follow-app color edit and resets colors back to Matrix", () => {
+    appearance.settings = {
+      ...createDefaultAppearanceSettings(),
+      appTheme: "matrix",
+    };
+    render(<TerminalSettingsTab />);
+
+    fireEvent.change(screen.getByLabelText("Foreground color"), {
+      target: { value: "#123456" },
+    });
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        terminal: expect.objectContaining({
+          preset: "custom",
+          foreground: "#123456",
+          background: "#030703",
+          cursor: "#B8FFB8",
+          selectionBackground: "#1B5E20",
+          ansi: expect.objectContaining({
+            red: "#FF6B6B",
+            green: "#39FF6A",
+            brightCyan: "#A2FFF7",
+          }),
+        }),
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset colors" }));
+    expect(appearance.previewSettings).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        terminal: expect.objectContaining({
+          preset: "custom",
+          foreground: "#8DFF9A",
+          background: "#030703",
+          cursor: "#B8FFB8",
+          cursorAccent: "#030703",
+          selectionBackground: "#1B5E20",
+          ansi: expect.objectContaining({
+            red: "#FF6B6B",
+            green: "#39FF6A",
+          }),
+        }),
+      }),
+    );
+  });
+
   it("locks every terminal appearance control while any appearance save is active", async () => {
     appearance.isSaving = true;
     render(<TerminalSettingsTab />);

@@ -54,6 +54,16 @@ function selectionWithOpacity(color: string, opacity: number): string {
   return `${normalized}${alpha}`;
 }
 
+function resolvedPaletteForReset(settings: AppearanceSettingsV1): typeof settings.terminal {
+  const preset = settings.terminal.preset === "custom"
+    ? "follow-app"
+    : settings.terminal.preset;
+  return terminalSettingsForPreset({
+    ...settings,
+    terminal: { ...settings.terminal, preset },
+  });
+}
+
 const TerminalSettingsTab: React.FC = () => {
   const {
     settings: appearanceSettings,
@@ -76,6 +86,8 @@ const TerminalSettingsTab: React.FC = () => {
   }, []);
 
   useEffect(() => setTerminalDraft(appearanceSettings), [appearanceSettings]);
+
+  const resolvedTerminal = terminalSettingsForPreset(terminalDraft);
 
   const previewTerminal = (next: typeof terminalDraft) => {
     if (appearanceSaving) return;
@@ -103,7 +115,10 @@ const TerminalSettingsTab: React.FC = () => {
       return;
     }
     if (preset === "custom") {
-      previewTerminal({ ...terminalDraft, terminal: { ...terminalDraft.terminal, preset } });
+      previewTerminal({
+        ...terminalDraft,
+        terminal: { ...terminalSettingsForPreset(terminalDraft), preset },
+      });
       return;
     }
     const theme = APP_THEME_PRESETS.find((candidate) => candidate.id === preset)?.terminal;
@@ -124,10 +139,13 @@ const TerminalSettingsTab: React.FC = () => {
   };
 
   const updateTerminal = (updates: Partial<typeof terminalDraft.terminal>, custom = false) => {
+    const base = custom && terminalDraft.terminal.preset !== "custom"
+      ? terminalSettingsForPreset(terminalDraft)
+      : terminalDraft.terminal;
     previewTerminal({
       ...terminalDraft,
       terminal: {
-        ...terminalDraft.terminal,
+        ...base,
         ...updates,
         ...(custom ? { preset: "custom" as const } : {}),
       },
@@ -135,7 +153,7 @@ const TerminalSettingsTab: React.FC = () => {
   };
 
   const resetColors = () => {
-    const defaults = createDefaultAppearanceSettings().terminal;
+    const defaults = resolvedPaletteForReset(terminalDraft);
     updateTerminal({
       foreground: defaults.foreground,
       background: defaults.background,
@@ -162,13 +180,7 @@ const TerminalSettingsTab: React.FC = () => {
   };
 
   const resetAnsiPalette = () => {
-    const preset = terminalDraft.terminal.preset === "custom"
-      ? "follow-app"
-      : terminalDraft.terminal.preset;
-    const resolved = terminalSettingsForPreset({
-      ...terminalDraft,
-      terminal: { ...terminalDraft.terminal, preset },
-    });
+    const resolved = resolvedPaletteForReset(terminalDraft);
     updateTerminal({ ansi: { ...resolved.ansi } }, true);
   };
 
@@ -267,10 +279,10 @@ const TerminalSettingsTab: React.FC = () => {
               ["foreground", "Foreground color"], ["background", "Background color"],
               ["cursor", "Cursor color"], ["cursorAccent", "Cursor accent color"],
             ] as const).map(([key, label]) => (
-              <label key={key}>{label}<input aria-label={label} type="color" value={terminalDraft.terminal[key].slice(0, 7)} onChange={(event) => updateTerminal({ [key]: normalizeHexColor(event.target.value) ?? terminalDraft.terminal[key] }, true)} /></label>
+              <label key={key}>{label}<input aria-label={label} type="color" value={resolvedTerminal[key].slice(0, 7)} onChange={(event) => updateTerminal({ [key]: normalizeHexColor(event.target.value) ?? resolvedTerminal[key] }, true)} /></label>
             ))}
-            <label>Selection color<input aria-label="Selection color" type="color" value={terminalDraft.terminal.selectionBackground.slice(0, 7)} onChange={(event) => updateTerminal({ selectionBackground: colorWithPreservedAlpha(event.target.value, terminalDraft.terminal.selectionBackground) }, true)} /></label>
-            <label>Selection opacity<input aria-label="Selection opacity" type="number" min="0" max="1" step="0.01" value={selectionOpacity(terminalDraft.terminal.selectionBackground)} onChange={(event) => updateTerminal({ selectionBackground: selectionWithOpacity(terminalDraft.terminal.selectionBackground, Number(event.target.value)) }, true)} /></label>
+            <label>Selection color<input aria-label="Selection color" type="color" value={resolvedTerminal.selectionBackground.slice(0, 7)} onChange={(event) => updateTerminal({ selectionBackground: colorWithPreservedAlpha(event.target.value, resolvedTerminal.selectionBackground) }, true)} /></label>
+            <label>Selection opacity<input aria-label="Selection opacity" type="number" min="0" max="1" step="0.01" value={selectionOpacity(resolvedTerminal.selectionBackground)} onChange={(event) => updateTerminal({ selectionBackground: selectionWithOpacity(resolvedTerminal.selectionBackground, Number(event.target.value)) }, true)} /></label>
           </div>
           <button type="button" className="secondary-btn" onClick={resetColors}>Reset colors</button>
         </fieldset>
@@ -279,12 +291,12 @@ const TerminalSettingsTab: React.FC = () => {
           <legend>ANSI palette</legend>
           <div className="terminal-appearance__grid terminal-appearance__ansi">
             {ANSI_FIELDS.map(([key, label]) => (
-              <label key={key}>{label}<input aria-label={label} type="color" value={terminalDraft.terminal.ansi[key].slice(0, 7)} onChange={(event) => updateTerminal({ ansi: { ...terminalDraft.terminal.ansi, [key]: normalizeHexColor(event.target.value) ?? terminalDraft.terminal.ansi[key] } }, true)} /></label>
+              <label key={key}>{label}<input aria-label={label} type="color" value={resolvedTerminal.ansi[key].slice(0, 7)} onChange={(event) => updateTerminal({ ansi: { ...resolvedTerminal.ansi, [key]: normalizeHexColor(event.target.value) ?? resolvedTerminal.ansi[key] } }, true)} /></label>
             ))}
           </div>
           <div className="terminal-appearance__preview" aria-label="ANSI preview">
             <strong>ANSI preview</strong>
-            <code style={{ color: terminalDraft.terminal.ansi.red }}>red</code><code style={{ color: terminalDraft.terminal.ansi.green }}>green</code><code style={{ color: terminalDraft.terminal.ansi.yellow }}>yellow</code><code style={{ color: terminalDraft.terminal.ansi.blue }}>blue</code><code style={{ color: terminalDraft.terminal.ansi.brightMagenta }}>magenta</code><code style={{ color: terminalDraft.terminal.ansi.brightCyan }}>cyan</code>
+            <code style={{ color: resolvedTerminal.ansi.red }}>red</code><code style={{ color: resolvedTerminal.ansi.green }}>green</code><code style={{ color: resolvedTerminal.ansi.yellow }}>yellow</code><code style={{ color: resolvedTerminal.ansi.blue }}>blue</code><code style={{ color: resolvedTerminal.ansi.brightMagenta }}>magenta</code><code style={{ color: resolvedTerminal.ansi.brightCyan }}>cyan</code>
           </div>
           <button type="button" className="secondary-btn" onClick={resetAnsiPalette}>Reset ANSI palette</button>
         </fieldset>
