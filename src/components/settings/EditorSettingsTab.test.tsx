@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
     effects: {},
   },
   appearanceSaving: false,
+  appearanceError: null as string | null,
   previewSettings: vi.fn(),
   saveSettingsPatch: vi.fn(),
   setSettings: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("../editor/ZedModeProvider", () => ({
 vi.mock("../../theme/AppearanceProvider", () => ({
   useAppearance: () => ({
     settings: state.settings,
+    error: state.appearanceError,
     isSaving: state.appearanceSaving,
     previewSettings: state.previewSettings,
     saveSettingsPatch: state.saveSettingsPatch,
@@ -44,6 +46,7 @@ describe("EditorSettingsTab", () => {
     state.settings.appTheme = "terminai-dark";
     state.settings.editorTheme = "follow-app";
     state.appearanceSaving = false;
+    state.appearanceError = null;
     state.previewSettings.mockReset();
     state.saveSettingsPatch.mockReset().mockResolvedValue(undefined);
     state.setSettings.mockReset().mockResolvedValue(undefined);
@@ -101,6 +104,20 @@ describe("EditorSettingsTab", () => {
     render(<EditorSettingsTab />);
     fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("write failed");
+  });
+
+  it("reports a saved-but-not-broadcast editor appearance as a sync warning", async () => {
+    const warning =
+      "Appearance saved, but other windows could not be notified: event bus unavailable";
+    const view = render(<EditorSettingsTab />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save editor appearance" }));
+    await waitFor(() => expect(state.saveSettingsPatch).toHaveBeenCalledOnce());
+    state.appearanceError = warning;
+    view.rerender(<EditorSettingsTab />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(warning);
+    expect(screen.queryByText("Appearance was not saved.")).not.toBeInTheDocument();
   });
 
   it("saves only the editor patch when the application has an unsaved Matrix preview", async () => {

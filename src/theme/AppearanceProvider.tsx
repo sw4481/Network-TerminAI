@@ -9,7 +9,12 @@ import {
   type PropsWithChildren,
 } from "react";
 import { emit, listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { appearanceSettingsGet, appearanceSettingsSet } from "../lib/tauri";
+import {
+  appearanceSettingsGet,
+  appearanceSettingsPatch,
+  appearanceSettingsSet,
+  type AppearanceSettingsPatchRequest,
+} from "../lib/tauri";
 import { createDefaultAppearanceSettings } from "./defaults";
 import type { AppearanceSettingsV1, AppThemeId } from "./types";
 import { normalizeAppearanceSettings, parseAppearanceSettings } from "./validation";
@@ -100,6 +105,36 @@ function fieldChanged(
     return before[field] !== after[field];
   }
   return JSON.stringify(before[field]) !== JSON.stringify(after[field]);
+}
+
+function scopedPatchRequest(
+  fields: readonly AppearanceField[],
+  settings: AppearanceSettingsV1,
+): AppearanceSettingsPatchRequest {
+  if (
+    fields.length === 2
+    && fields.includes("appTheme")
+    && fields.includes("effects")
+  ) {
+    return {
+      scope: "application",
+      appTheme: settings.appTheme,
+      effects: settings.effects,
+    };
+  }
+  if (fields.length === 1 && fields[0] === "editorTheme") {
+    return {
+      scope: "editor",
+      editorTheme: settings.editorTheme,
+    };
+  }
+  if (fields.length === 1 && fields[0] === "terminal") {
+    return {
+      scope: "terminal",
+      terminal: settings.terminal,
+    };
+  }
+  throw new Error("Appearance patch must target exactly one settings scope");
 }
 
 export function AppearanceProvider({ children }: PropsWithChildren) {
@@ -223,7 +258,9 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
     try {
       let normalized: AppearanceSettingsV1;
       try {
-        const stored = await appearanceSettingsSet(validated);
+        const stored = fields.length === APPEARANCE_FIELDS.length
+          ? await appearanceSettingsSet(validated)
+          : await appearanceSettingsPatch(scopedPatchRequest(fields, validated));
         normalized = normalizeAppearanceSettings(stored);
       } catch (saveError) {
         const message = errorMessage(saveError);
@@ -249,10 +286,16 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       writeThemeMirror(normalized.appTheme);
       setAuthoritativeState("ready");
 
-      const mergedPreview = { ...liveSettingsRef.current };
-      for (const field of fields) {
-        if (fieldRevisionRef.current[field] === fieldRevisionsAtStart[field]) {
-          Object.assign(mergedPreview, { [field]: normalized[field] });
+      const liveAtResponse = liveSettingsRef.current;
+      const mergedPreview = { ...normalized };
+      for (const field of APPEARANCE_FIELDS) {
+        const savedField = fields.includes(field);
+        const hasNewerSavedFieldPreview = savedField
+          && fieldRevisionRef.current[field] !== fieldRevisionsAtStart[field];
+        const hasUnrelatedPreviewOverlay = !savedField
+          && fieldChanged(field, authoritativeAtStart, liveAtResponse);
+        if (hasNewerSavedFieldPreview || hasUnrelatedPreviewOverlay) {
+          Object.assign(mergedPreview, { [field]: liveAtResponse[field] });
         }
       }
       applyPreview(mergedPreview);

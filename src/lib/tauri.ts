@@ -1632,6 +1632,25 @@ export const appearanceSettingsGet = () =>
 export const appearanceSettingsSet = (settings: AppearanceSettingsV1) =>
   invoke<AppearanceSettingsV1>("appearance_settings_set", { settings });
 
+export type AppearanceSettingsPatchRequest =
+  | {
+    scope: "application";
+    appTheme: AppearanceSettingsV1["appTheme"];
+    effects: AppearanceSettingsV1["effects"];
+  }
+  | {
+    scope: "editor";
+    editorTheme: AppearanceSettingsV1["editorTheme"];
+  }
+  | {
+    scope: "terminal";
+    terminal: AppearanceSettingsV1["terminal"];
+  };
+
+/** Atomically merge one appearance scope into the backend-authoritative snapshot. */
+export const appearanceSettingsPatch = (patch: AppearanceSettingsPatchRequest) =>
+  invoke<AppearanceSettingsV1>("appearance_settings_patch", { patch });
+
 // Master context-graph feature flag (agent graph helper, temporal memory,
 // graph-compact serialization). Persisted in app_flags; the sidecar reads the
 // same key. Default OFF — the instant, no-rebuild rollback lever.

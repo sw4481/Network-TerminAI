@@ -6,6 +6,7 @@ import type { AppearanceSettingsV1 } from "./types";
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   set: vi.fn(),
+  patch: vi.fn(),
   emit: vi.fn(),
   listen: vi.fn(),
   unlisten: vi.fn(),
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../lib/tauri", () => ({
   appearanceSettingsGet: mocks.get,
   appearanceSettingsSet: mocks.set,
+  appearanceSettingsPatch: mocks.patch,
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -134,6 +136,19 @@ describe("AppearanceProvider", () => {
     deliverEvent = undefined;
     mocks.get.mockReset().mockResolvedValue(DEFAULT_APPEARANCE_SETTINGS);
     mocks.set.mockReset().mockImplementation(async (value) => value);
+    mocks.patch.mockReset().mockImplementation(async (patch) => {
+      if (patch.scope === "application") {
+        return {
+          ...DEFAULT_APPEARANCE_SETTINGS,
+          appTheme: patch.appTheme,
+          effects: patch.effects,
+        };
+      }
+      if (patch.scope === "editor") {
+        return { ...DEFAULT_APPEARANCE_SETTINGS, editorTheme: patch.editorTheme };
+      }
+      return { ...DEFAULT_APPEARANCE_SETTINGS, terminal: patch.terminal };
+    });
     mocks.emit.mockReset().mockResolvedValue(undefined);
     mocks.unlisten.mockReset();
     mocks.applyAppearanceSettings.mockReset();
@@ -287,32 +302,56 @@ describe("AppearanceProvider", () => {
   });
 
   it("merges an editor-only save into the authoritative snapshot without persisting an application preview", async () => {
+    mocks.patch.mockResolvedValueOnce({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      appTheme: "slate-grey",
+      editorTheme: "zed-one-dark",
+    });
     render(<AppearanceProvider><Probe /></AppearanceProvider>);
     await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
 
     screen.getByRole("button", { name: "preview matrix" }).click();
     await waitFor(() => expect(screen.getByTestId("theme")).toHaveTextContent("matrix"));
-    mocks.set.mockClear();
+    mocks.patch.mockClear();
 
     screen.getByRole("button", { name: "save editor patch" }).click();
 
-    await waitFor(() => expect(mocks.set).toHaveBeenCalledOnce());
-    expect(mocks.set).toHaveBeenCalledWith(
-      expect.objectContaining({
-        appTheme: "terminai-dark",
-        editorTheme: "zed-one-dark",
-      }),
-    );
+    await waitFor(() => expect(mocks.patch).toHaveBeenCalledOnce());
+    expect(mocks.patch).toHaveBeenCalledWith({
+      scope: "editor",
+      editorTheme: "zed-one-dark",
+    });
+    expect(mocks.set).not.toHaveBeenCalled();
     expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
-    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("terminai-dark");
+    expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("slate-grey");
+  });
+
+  it("rebases a scoped save onto newer authoritative fields returned by the backend", async () => {
+    mocks.patch.mockResolvedValueOnce({
+      ...DEFAULT_APPEARANCE_SETTINGS,
+      appTheme: "matrix",
+      editorTheme: "zed-one-dark",
+    });
+    render(<AppearanceProvider><Probe /></AppearanceProvider>);
+    await waitFor(() => expect(screen.getByTestId("authoritative-state")).toHaveTextContent("ready"));
+
+    screen.getByRole("button", { name: "save editor patch" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("theme")).toHaveTextContent("matrix");
+      expect(localStorage.getItem(APPEARANCE_THEME_MIRROR_KEY)).toBe("matrix");
+    });
   });
 
   it("keeps the global save lock active and does not overwrite a newer terminal preview with an older response", async () => {
     let resolveSave!: (value: AppearanceSettingsV1) => void;
-    mocks.set.mockImplementationOnce(
-      (value: AppearanceSettingsV1) =>
+    mocks.patch.mockImplementationOnce(
+      (patch: { terminal: AppearanceSettingsV1["terminal"] }) =>
         new Promise<AppearanceSettingsV1>((resolve) => {
-          resolveSave = () => resolve(value);
+          resolveSave = () => resolve({
+            ...DEFAULT_APPEARANCE_SETTINGS,
+            terminal: patch.terminal,
+          });
         }),
     );
     render(<AppearanceProvider><Probe /></AppearanceProvider>);
@@ -321,7 +360,13 @@ describe("AppearanceProvider", () => {
     act(() => screen.getByRole("button", { name: "preview older terminal" }).click());
     await waitFor(() => expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#111111"));
     act(() => screen.getByRole("button", { name: "save terminal patch" }).click());
-    await waitFor(() => expect(screen.getByTestId("appearance-saving")).toHaveTextContent("true"));
+    await waitFor(() => {
+      expect(screen.getByTestId("appearance-saving")).toHaveTextContent("true");
+      expect(mocks.patch).toHaveBeenCalledWith({
+        scope: "terminal",
+        terminal: expect.objectContaining({ foreground: "#111111" }),
+      });
+    });
 
     act(() => screen.getByRole("button", { name: "preview newer terminal" }).click());
     await waitFor(() => expect(screen.getByTestId("terminal-foreground")).toHaveTextContent("#222222"));

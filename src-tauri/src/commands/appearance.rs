@@ -2,7 +2,7 @@
 //! `app_flags` table. Invalid stored rows are deliberately non-fatal: callers
 //! receive the complete current Dark default rather than a partial setting.
 
-use rusqlite::{Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -114,6 +114,23 @@ pub struct AppearanceSettingsV1 {
     pub editor_theme: EditorThemeId,
     pub terminal: TerminalAppearanceSettings,
     pub effects: AppearanceEffects,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "scope", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum AppearanceSettingsPatch {
+    Application {
+        #[serde(rename = "appTheme")]
+        app_theme: AppThemeId,
+        effects: AppearanceEffects,
+    },
+    Editor {
+        #[serde(rename = "editorTheme")]
+        editor_theme: EditorThemeId,
+    },
+    Terminal {
+        terminal: TerminalAppearanceSettings,
+    },
 }
 
 impl Default for AppearanceSettingsV1 {
@@ -293,6 +310,56 @@ pub fn save_appearance_settings(
     Ok(normalized)
 }
 
+pub fn patch_appearance_settings(
+    conn: &mut Connection,
+    patch: AppearanceSettingsPatch,
+) -> Result<AppearanceSettingsV1, String> {
+    ensure_app_flags_table(conn)?;
+    let transaction = conn
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(|error| format!("Failed to start appearance settings patch: {error}"))?;
+    let stored: Option<String> = transaction
+        .query_row(
+            "SELECT value FROM app_flags WHERE key = ?1",
+            [APPEARANCE_SETTINGS_FLAG_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| format!("Failed to read appearance settings: {error}"))?;
+    let mut current = stored
+        .as_deref()
+        .and_then(|value| parse_appearance_settings(value).ok())
+        .unwrap_or_default();
+
+    match patch {
+        AppearanceSettingsPatch::Application { app_theme, effects } => {
+            current.app_theme = app_theme;
+            current.effects = effects;
+        }
+        AppearanceSettingsPatch::Editor { editor_theme } => {
+            current.editor_theme = editor_theme;
+        }
+        AppearanceSettingsPatch::Terminal { terminal } => {
+            current.terminal = terminal;
+        }
+    }
+
+    let normalized = normalize_appearance_settings(current)?;
+    let serialized = serde_json::to_string(&normalized)
+        .map_err(|error| format!("Failed to serialize appearance settings: {error}"))?;
+    transaction
+        .execute(
+            "INSERT INTO app_flags(key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![APPEARANCE_SETTINGS_FLAG_KEY, serialized],
+        )
+        .map_err(|error| format!("Failed to save appearance settings patch: {error}"))?;
+    transaction
+        .commit()
+        .map_err(|error| format!("Failed to commit appearance settings patch: {error}"))?;
+    Ok(normalized)
+}
+
 #[tauri::command]
 pub fn appearance_settings_get(state: State<'_, AppState>) -> Result<AppearanceSettingsV1, String> {
     load_appearance_settings(&state.db.lock())
@@ -304,6 +371,14 @@ pub fn appearance_settings_set(
     settings: AppearanceSettingsV1,
 ) -> Result<AppearanceSettingsV1, String> {
     save_appearance_settings(&state.db.lock(), settings)
+}
+
+#[tauri::command]
+pub fn appearance_settings_patch(
+    state: State<'_, AppState>,
+    patch: AppearanceSettingsPatch,
+) -> Result<AppearanceSettingsV1, String> {
+    patch_appearance_settings(&mut state.db.lock(), patch)
 }
 
 #[cfg(test)]
@@ -371,6 +446,109 @@ mod tests {
         assert_eq!(
             load_appearance_settings(&conn).unwrap().app_theme,
             AppThemeId::Matrix
+        );
+    }
+
+    #[test]
+    fn stale_disjoint_scoped_patches_preserve_both_clients_changes() {
+        let mut conn = test_conn();
+        let stale_application_client =
+            load_appearance_settings(&conn).expect("application client hydrate");
+        let _stale_editor_client = load_appearance_settings(&conn).expect("editor client hydrate");
+
+        patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Application {
+                app_theme: AppThemeId::Matrix,
+                effects: stale_application_client.effects,
+            },
+        )
+        .expect("application patch");
+        let returned = patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Editor {
+                editor_theme: EditorThemeId::ZedOneDark,
+            },
+        )
+        .expect("editor patch");
+
+        assert_eq!(returned.app_theme, AppThemeId::Matrix);
+        assert_eq!(returned.editor_theme, EditorThemeId::ZedOneDark);
+        let stored = load_appearance_settings(&conn).expect("load merged settings");
+        assert_eq!(stored.app_theme, AppThemeId::Matrix);
+        assert_eq!(stored.editor_theme, EditorThemeId::ZedOneDark);
+    }
+
+    #[test]
+    fn concurrent_scoped_patches_share_one_locked_authoritative_row() {
+        use std::sync::{Arc, Barrier};
+
+        let db = Arc::new(parking_lot::Mutex::new(test_conn()));
+        let barrier = Arc::new(Barrier::new(3));
+
+        let application_db = Arc::clone(&db);
+        let application_barrier = Arc::clone(&barrier);
+        let application = std::thread::spawn(move || {
+            application_barrier.wait();
+            let mut conn = application_db.lock();
+            patch_appearance_settings(
+                &mut conn,
+                AppearanceSettingsPatch::Application {
+                    app_theme: AppThemeId::SlateGrey,
+                    effects: AppearanceSettingsV1::default().effects,
+                },
+            )
+            .expect("application patch");
+        });
+
+        let terminal_db = Arc::clone(&db);
+        let terminal_barrier = Arc::clone(&barrier);
+        let terminal = std::thread::spawn(move || {
+            terminal_barrier.wait();
+            let mut terminal_settings = AppearanceSettingsV1::default().terminal;
+            terminal_settings.preset = TerminalPresetId::Custom;
+            terminal_settings.foreground = "#123456".into();
+            let mut conn = terminal_db.lock();
+            patch_appearance_settings(
+                &mut conn,
+                AppearanceSettingsPatch::Terminal {
+                    terminal: terminal_settings,
+                },
+            )
+            .expect("terminal patch");
+        });
+
+        barrier.wait();
+        application.join().expect("application client joined");
+        terminal.join().expect("terminal client joined");
+
+        let stored = load_appearance_settings(&db.lock()).expect("load merged settings");
+        assert_eq!(stored.app_theme, AppThemeId::SlateGrey);
+        assert_eq!(stored.terminal.preset, TerminalPresetId::Custom);
+        assert_eq!(stored.terminal.foreground, "#123456");
+    }
+
+    #[test]
+    fn invalid_scoped_patch_does_not_overwrite_the_authoritative_row() {
+        let mut conn = test_conn();
+        let mut saved = AppearanceSettingsV1::default();
+        saved.app_theme = AppThemeId::Matrix;
+        saved.editor_theme = EditorThemeId::ClassicDark;
+        save_appearance_settings(&conn, saved.clone()).expect("seed settings");
+
+        let mut invalid_terminal = saved.terminal.clone();
+        invalid_terminal.foreground = "red".into();
+        let result = patch_appearance_settings(
+            &mut conn,
+            AppearanceSettingsPatch::Terminal {
+                terminal: invalid_terminal,
+            },
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            load_appearance_settings(&conn).expect("load unchanged settings"),
+            normalize_appearance_settings(saved).expect("normalize seed"),
         );
     }
 

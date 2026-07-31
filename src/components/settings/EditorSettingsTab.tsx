@@ -9,6 +9,7 @@ export default function EditorSettingsTab() {
   const { mode, vimEnabled, setMode, setVimEnabled } = useZedMode();
   const {
     settings: appearanceSettings,
+    error: appearanceProviderError,
     isSaving: appearanceSaving,
     previewSettings,
     saveSettingsPatch,
@@ -171,7 +172,11 @@ export default function EditorSettingsTab() {
         </label>
       </div>
 
-      {error && <div className="editor-settings-error" role="alert">{error}</div>}
+      {(error || appearanceProviderError) && (
+        <div className="editor-settings-error" role="alert">
+          {error || appearanceProviderError}
+        </div>
+      )}
     </section>
   );
 }
