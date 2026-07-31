@@ -1,7 +1,10 @@
 import { useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTabs } from "../state/tabsStore";
 import { saveCurrentSession } from "../lib/tauri";
+import {
+  installAppShutdownResponder,
+  registerAppShutdownTask,
+} from "../lib/appShutdown";
 
 type Saver = ((activeTabId: string | null, tabIds: string[]) => void) & {
   flush: () => void;
@@ -31,9 +34,24 @@ export function makeDebouncedSaver(
   return saver;
 }
 
+type SessionSnapshot = {
+  activeTabId: string | null;
+  tabs: ReadonlyArray<{ id: string }>;
+};
+
+export function createSessionShutdownTask(
+  getSnapshot: () => SessionSnapshot,
+  save: (activeTabId: string | null, tabIds: string[]) => Promise<unknown>,
+): () => Promise<void> {
+  return async () => {
+    const { activeTabId, tabs } = getSnapshot();
+    await save(activeTabId, tabs.map((tab) => tab.id));
+  };
+}
+
 /**
  * Persist the session snapshot continuously: debounced on tab-store changes
- * and synchronously on window close, so restore survives crashes/force-quit.
+ * and as an awaited task in the native app-shutdown handshake.
  */
 export function useSessionSave(): void {
   useEffect(() => {
@@ -50,22 +68,22 @@ export function useSessionSave(): void {
       saver(s.activeTabId, s.tabs.map((t) => t.id)),
     );
 
-    // Synchronous save on close so a clean quit captures the exact state.
-    let unlistenClose: (() => void) | undefined;
-    getCurrentWindow()
-      .onCloseRequested(async () => {
-        const { activeTabId, tabs } = useTabs.getState();
-        try {
-          await saveCurrentSession(activeTabId, tabs.map((t) => t.id));
-        } catch { /* best effort */ }
+    const unregisterShutdownTask = registerAppShutdownTask(
+      "session",
+      createSessionShutdownTask(useTabs.getState, saveCurrentSession),
+    );
+    let unlistenShutdown: (() => void) | undefined;
+    installAppShutdownResponder()
+      .then((fn) => {
+        unlistenShutdown = fn;
       })
-      .then((fn) => { unlistenClose = fn; })
       .catch(() => {});
 
     return () => {
       unsub();
       saver.flush();
-      unlistenClose?.();
+      unregisterShutdownTask();
+      unlistenShutdown?.();
     };
   }, []);
 }

@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
   listen: vi.fn(),
   dapSessionForTab: vi.fn(),
   unlistenClose: vi.fn(),
+  registerShutdownTask: vi.fn(),
+  installShutdownResponder: vi.fn(),
+  shutdownTask: undefined as (() => Promise<void>) | undefined,
   closeRequestHandler: undefined as
     | ((event: { preventDefault: () => void }) => Promise<void>)
     | undefined,
@@ -117,6 +120,11 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
+vi.mock("../../lib/appShutdown", () => ({
+  registerAppShutdownTask: mocks.registerShutdownTask,
+  installAppShutdownResponder: mocks.installShutdownResponder,
+}));
+
 import { DetachedEditorWindow } from "./DetachedEditorWindow";
 
 const metadata = {
@@ -159,6 +167,16 @@ describe("DetachedEditorWindow", () => {
     });
     mocks.dispose.mockReset();
     mocks.unlistenClose.mockReset();
+    mocks.shutdownTask = undefined;
+    mocks.registerShutdownTask
+      .mockReset()
+      .mockImplementation((_id: string, task: () => Promise<void>) => {
+        mocks.shutdownTask = task;
+        return vi.fn();
+      });
+    mocks.installShutdownResponder
+      .mockReset()
+      .mockResolvedValue(vi.fn());
     mocks.closeRequestHandler = undefined;
     mocks.onCloseRequested
       .mockReset()
@@ -295,6 +313,29 @@ describe("DetachedEditorWindow", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "sync unavailable",
     );
+  });
+
+  it("acknowledges app shutdown preparation only after its buffer flushes", async () => {
+    let finishFlush!: () => void;
+    mocks.flushNow.mockImplementationOnce(
+      () =>
+        new Promise<typeof authoritative>((resolve) => {
+          finishFlush = () => resolve(authoritative);
+        }),
+    );
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+
+    let prepared = false;
+    const pending = mocks.shutdownTask?.().then(() => {
+      prepared = true;
+    });
+    await Promise.resolve();
+    expect(prepared).toBe(false);
+
+    finishFlush();
+    await pending;
+    expect(prepared).toBe(true);
   });
 
   it("renders a recoverable metadata error", async () => {

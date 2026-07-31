@@ -21,6 +21,10 @@ import { EditorPane } from "./EditorPane";
 import { useZedMode } from "./ZedModeProvider";
 import { useAppearance } from "../../theme/AppearanceProvider";
 import { resolveMonacoTheme } from "../../theme/monacoThemes";
+import {
+  installAppShutdownResponder,
+  registerAppShutdownTask,
+} from "../../lib/appShutdown";
 import type { EditorPaneLeaf } from "./editorPaneLayout";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
@@ -71,6 +75,7 @@ export function DetachedEditorWindow() {
   const [debugStatus, setDebugStatus] =
     useState<DapSessionStatus | null>(null);
   const clientRef = useRef<EditorBufferSyncClient | null>(null);
+  const clientReadyRef = useRef<Promise<void> | null>(null);
   const closingRef = useRef(false);
   const sourceIdRef = useRef(
     `editor-detached:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
@@ -85,7 +90,7 @@ export function DetachedEditorWindow() {
     let disposed = false;
     let client: EditorBufferSyncClient | null = null;
 
-    void (async () => {
+    const ready = (async () => {
       const current = await editorDetachedWindowGetCurrent();
       if (disposed) return;
       setMetadata(current);
@@ -131,7 +136,9 @@ export function DetachedEditorWindow() {
         dirty: false,
         sourceId: sourceIdRef.current,
       });
-    })().catch((loadError) => {
+    })();
+    clientReadyRef.current = ready;
+    void ready.catch((loadError) => {
       if (!disposed) setError(String(loadError));
     });
 
@@ -139,6 +146,40 @@ export function DetachedEditorWindow() {
       disposed = true;
       client?.dispose();
       if (clientRef.current === client) clientRef.current = null;
+      if (clientReadyRef.current === ready) clientReadyRef.current = null;
+    };
+  }, []);
+
+  useEffect(
+    () =>
+      registerAppShutdownTask(
+        `editor-detached:${sourceIdRef.current}`,
+        async () => {
+          const ready = clientReadyRef.current;
+          if (!ready) throw new Error("detached editor buffer is not ready");
+          await ready;
+          const client = clientRef.current;
+          if (!client) throw new Error("detached editor sync client is unavailable");
+          await client.flushNow();
+        },
+      ),
+    [],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | null = null;
+    void installAppShutdownResponder()
+      .then((stopListening) => {
+        if (disposed) stopListening();
+        else unlisten = stopListening;
+      })
+      .catch((listenError) => {
+        if (!disposed) setError(String(listenError));
+      });
+    return () => {
+      disposed = true;
+      unlisten?.();
     };
   }, []);
 

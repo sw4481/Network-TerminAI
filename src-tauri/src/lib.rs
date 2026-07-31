@@ -253,7 +253,9 @@ pub fn run() {
     let config_manager = config::ConfigManager::new().expect("initialize config manager");
     tracing::info!("Config manager initialized");
 
-    tauri::Builder::default()
+    let shutdown = app_lifecycle::ShutdownCoordinator::default();
+    let shutdown_for_window_events = shutdown.clone();
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -261,19 +263,26 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_deep_link::init())
-        .on_window_event(|window, event| {
-            if matches!(event, tauri::WindowEvent::CloseRequested { .. })
-                && app_lifecycle::close_disposition(window.label())
-                    == app_lifecycle::WindowCloseDisposition::ExitApplication
-            {
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if app_lifecycle::close_disposition(window.label())
+                    != app_lifecycle::WindowCloseDisposition::ExitApplication
+                {
+                    return;
+                }
                 use tauri::Manager;
 
-                tracing::info!("main window close requested; exiting application");
-                window.app_handle().exit(0);
+                api.prevent_close();
+                app_lifecycle::request_shutdown(
+                    window.app_handle(),
+                    &shutdown_for_window_events,
+                    "main-window-close",
+                );
             }
         })
         .manage(state)
         .manage(config_manager)
+        .manage(shutdown)
         .invoke_handler(tauri::generate_handler![
             commands::ping_cmd,
             commands::ping_sidecar,
@@ -319,6 +328,8 @@ pub fn run() {
             commands::editor::editor_mode_set,
             commands::appearance::appearance_settings_get,
             commands::appearance::appearance_settings_set,
+            commands::appearance::appearance_settings_patch,
+            app_lifecycle::app_shutdown_acknowledge,
             commands::editor::editor_buffer_register,
             commands::editor::editor_buffer_get,
             commands::editor::editor_buffer_update,
@@ -1606,6 +1617,30 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|app_handle, event| {
+        use tauri::Manager;
+
+        match event {
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
+                let shutdown = app_handle.state::<app_lifecycle::ShutdownCoordinator>();
+                if app_lifecycle::exit_request_disposition(&shutdown, code)
+                    == app_lifecycle::ExitRequestDisposition::Intercept
+                {
+                    api.prevent_exit();
+                    app_lifecycle::request_shutdown(
+                        app_handle,
+                        &shutdown,
+                        "application-quit",
+                    );
+                }
+            }
+            tauri::RunEvent::Exit => {
+                app_lifecycle::cleanup_before_process_exit(app_handle);
+            }
+            _ => {}
+        }
+    });
 }

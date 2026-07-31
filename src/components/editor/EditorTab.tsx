@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Tab } from "../../lib/types";
+import { registerAppShutdownTask } from "../../lib/appShutdown";
 import {
   editorDetachedWindowClose,
   editorDetachedWindowFocus,
@@ -38,7 +39,10 @@ import { useEditorSettings } from "../../hooks/useEditorSettings";
 import { useDebugSession } from "../../hooks/useDebugSession";
 import { normalizeLspLanguage } from "../../hooks/useLspClient";
 import { useZedMode } from "./ZedModeProvider";
-import { EditorBufferSyncClient } from "./editorBufferSync";
+import {
+  EditorBufferSyncClient,
+  flushEditorBufferSyncClients,
+} from "./editorBufferSync";
 import {
   applyDetachedEditorWindowClosed,
   EDITOR_DETACHED_WINDOW_CLOSED_EVENT,
@@ -200,6 +204,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
       syncClients.current.clear();
     },
     [],
+  );
+
+  useEffect(
+    () =>
+      registerAppShutdownTask(`editor:${tab.id}`, () =>
+        flushEditorBufferSyncClients(syncClients.current.values()),
+      ),
+    [tab.id],
   );
 
   useEffect(() => {

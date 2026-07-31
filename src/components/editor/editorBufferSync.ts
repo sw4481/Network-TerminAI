@@ -351,3 +351,9 @@ export class EditorBufferSyncClient {
     this.timer = null;
   }
 }
+
+export async function flushEditorBufferSyncClients(
+  clients: Iterable<EditorBufferSyncClient>,
+): Promise<void> {
+  await Promise.all([...clients].map((client) => client.flushNow()));
+}

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EditorBufferSyncClient,
+  flushEditorBufferSyncClients,
   type EditorBufferSyncClientOptions,
   type EditorBufferSyncTransport,
 } from "./editorBufferSync";
@@ -196,6 +197,41 @@ describe("EditorBufferSyncClient", () => {
     const flushed = await sync.flushNow();
 
     expect(flushed).toEqual(snapshot(1, "save this", "main-window"));
+  });
+
+  it("flushes every live editor client before shutdown preparation resolves", async () => {
+    let resolveFirst: ((result: EditorBufferUpdateResult) => void) | undefined;
+    const firstTransport = transport();
+    firstTransport.update.mockImplementationOnce(
+      () =>
+        new Promise<EditorBufferUpdateResult>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    const secondTransport = transport();
+    const first = client(firstTransport.value);
+    const second = client(secondTransport.value);
+    await first.start(seed);
+    await second.start(seed);
+    first.queueLocal("first pending", "typescript", true);
+    second.queueLocal("second pending", "typescript", true);
+
+    let completed = false;
+    const pending = flushEditorBufferSyncClients([first, second]).then(() => {
+      completed = true;
+    });
+    await Promise.resolve();
+
+    expect(firstTransport.update).toHaveBeenCalledOnce();
+    expect(secondTransport.update).toHaveBeenCalledOnce();
+    expect(completed).toBe(false);
+
+    resolveFirst?.({
+      status: "applied",
+      snapshot: snapshot(1, "first pending", "main-window"),
+    });
+    await pending;
+    expect(completed).toBe(true);
   });
 
   it("rejects a flush when pending local text cannot be synchronized", async () => {

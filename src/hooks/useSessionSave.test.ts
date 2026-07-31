@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { makeDebouncedSaver } from "./useSessionSave";
+import {
+  createSessionShutdownTask,
+  makeDebouncedSaver,
+} from "./useSessionSave";
 
 describe("makeDebouncedSaver", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -25,5 +28,36 @@ describe("makeDebouncedSaver", () => {
     expect(save).toHaveBeenCalledWith("x", ["x1"]);
     vi.advanceTimersByTime(1000);
     expect(save).toHaveBeenCalledTimes(1); // not double-fired
+  });
+});
+
+describe("createSessionShutdownTask", () => {
+  it("captures the live tab snapshot and resolves only after persistence", async () => {
+    let finishSave!: () => void;
+    const save = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const task = createSessionShutdownTask(
+      () => ({
+        activeTabId: "tab-2",
+        tabs: [{ id: "tab-1" }, { id: "tab-2" }],
+      }),
+      save,
+    );
+
+    let completed = false;
+    const pending = task().then(() => {
+      completed = true;
+    });
+
+    expect(save).toHaveBeenCalledWith("tab-2", ["tab-1", "tab-2"]);
+    expect(completed).toBe(false);
+
+    finishSave();
+    await pending;
+    expect(completed).toBe(true);
   });
 });
