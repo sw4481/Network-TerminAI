@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -13,9 +13,12 @@ const appearance = vi.hoisted(() => ({
   settings: null as unknown as AppearanceSettingsV1,
   error: null as string | null,
   isSaving: false,
+  hydrated: true,
+  authoritativeState: "ready" as "pending" | "ready" | "failed",
   previewSettings: vi.fn(),
   saveSettingsPatch: vi.fn(),
   setSettings: vi.fn(),
+  retryAuthoritativeSettings: vi.fn(),
 }));
 
 vi.mock("../theme/AppearanceProvider", () => ({
@@ -63,9 +66,12 @@ describe("TerminalSettingsTab", () => {
     appearance.settings = createDefaultAppearanceSettings();
     appearance.error = null;
     appearance.isSaving = false;
+    appearance.hydrated = true;
+    appearance.authoritativeState = "ready";
     appearance.previewSettings.mockReset();
     appearance.saveSettingsPatch.mockReset().mockResolvedValue(undefined);
     appearance.setSettings.mockReset().mockResolvedValue(undefined);
+    appearance.retryAuthoritativeSettings.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -137,7 +143,7 @@ describe("TerminalSettingsTab", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not save terminal settings: appearance database locked",
+      "Terminal appearance and notification settings were not saved: appearance database locked",
     );
     expect(notificationSave).not.toHaveBeenCalled();
     expect(window.alert).not.toHaveBeenCalled();
@@ -155,12 +161,48 @@ describe("TerminalSettingsTab", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not save terminal settings: notification database locked",
+      "Terminal appearance saved, but notification settings failed: notification database locked",
     );
     expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
       terminal: expect.any(Object),
     });
     expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  it("keeps Terminal settings persistence unavailable after authoritative appearance hydration fails", async () => {
+    appearance.hydrated = true;
+    appearance.authoritativeState = "failed";
+    appearance.error = "appearance database unavailable";
+    render(<TerminalSettingsTab />);
+
+    await screen.findByLabelText(/Minimum duration/i);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("appearance database unavailable");
+    for (const saveButton of screen.getAllByRole("button", {
+      name: "Save terminal settings",
+      exact: true,
+    })) {
+      expect(saveButton).toBeDisabled();
+    }
+  });
+
+  it("locks notification inputs while the captured Terminal-tab save is pending", async () => {
+    let resolveNotificationSave!: () => void;
+    vi.spyOn(paneActivityLib, "updateNotificationPreferences").mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveNotificationSave = resolve; }),
+    );
+    render(<TerminalSettingsTab />);
+
+    const durationInput = await screen.findByLabelText(/Minimum duration/i);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+
+    await waitFor(() => expect(paneActivityLib.updateNotificationPreferences).toHaveBeenCalled());
+    expect(durationInput).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Enable notification sound" })).toBeDisabled();
+
+    await act(async () => resolveNotificationSave());
   });
 
   it("displays authoritative log paths and availability", async () => {
@@ -404,7 +446,7 @@ describe("TerminalSettingsTab", () => {
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Could not save terminal settings: appearance database locked",
+      "Terminal appearance and notification settings were not saved: appearance database locked",
     );
   });
 });

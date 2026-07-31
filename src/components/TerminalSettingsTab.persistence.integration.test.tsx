@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TerminalSettingsTab from "./TerminalSettingsTab";
 import { AppearanceProvider } from "../theme/AppearanceProvider";
@@ -114,6 +114,48 @@ describe("TerminalSettingsTab persistence integration", () => {
     await waitFor(() => {
       expect(mocks.appearanceSettingsGet).toHaveBeenCalledTimes(2);
       expect(screen.getByLabelText("Font size")).toHaveValue(18);
+    });
+  });
+
+  it("waits for authoritative terminal hydration before enabling either save action", async () => {
+    let resolveAppearance!: (settings: AppearanceSettingsV1 & { revision: number }) => void;
+    const hydratedTerminal = {
+      ...createDefaultAppearanceSettings(),
+      revision: 2,
+      terminal: {
+        ...createDefaultAppearanceSettings().terminal,
+        preset: "custom" as const,
+        fontSize: 18,
+      },
+    };
+    mocks.appearanceSettingsGet.mockReset().mockImplementationOnce(
+      () => new Promise((resolve) => { resolveAppearance = resolve; }),
+    );
+
+    renderTerminalSettings();
+    await screen.findByLabelText(/Minimum duration/i);
+
+    for (const saveButton of screen.getAllByRole("button", {
+      name: "Save terminal settings",
+      exact: true,
+    })) {
+      expect(saveButton).toBeDisabled();
+    }
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+    expect(mocks.appearanceSettingsPatch).not.toHaveBeenCalled();
+
+    await act(async () => resolveAppearance(hydratedTerminal));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Font size")).toHaveValue(18);
+      for (const saveButton of screen.getAllByRole("button", {
+        name: "Save terminal settings",
+        exact: true,
+      })) {
+        expect(saveButton).toBeEnabled();
+      }
     });
   });
 });
