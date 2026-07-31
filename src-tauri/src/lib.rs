@@ -34,6 +34,7 @@ pub mod drift;
 pub mod editor;
 pub mod fanout;
 pub mod ftp;
+pub mod git;
 pub mod tftp;
 pub mod guardrails;
 pub mod heartbeat;
@@ -380,12 +381,39 @@ pub fn run() {
             commands::git::git_get_line_blame,
             commands::git::git_get_repository_summary,
             commands::git::git_is_repo,
+            commands::git::git_discover_repositories,
+            commands::git::git_get_repository_state,
+            commands::git::git_watch_repositories,
+            commands::git::git_stage_paths,
+            commands::git::git_unstage_paths,
+            commands::git::git_repository_commit,
+            commands::git::git_initialize_repository,
+            commands::git::git_clone_repository,
+            commands::git::git_list_branches,
+            commands::git::git_switch_branch,
+            commands::git::git_repository_fetch,
+            commands::git::git_repository_pull,
+            commands::git::git_repository_push,
+            commands::git::git_add_remote,
+            commands::git::git_update_remote,
+            commands::git::git_remove_remote,
+            commands::git::git_repository_history,
+            commands::git::git_commit_detail,
+            commands::git::git_staged_diff,
+            commands::git::git_unstaged_diff,
+            commands::git::git_historical_diff,
             commands::git::git_init,
             commands::git::git_commit_paths,
             commands::git::git_get_remote,
             commands::git::git_set_remote,
             commands::git::git_push,
             commands::git::git_current_branch,
+            commands::git::github_auth_start,
+            commands::git::github_auth_poll,
+            commands::git::github_auth_cancel,
+            commands::git::github_account_status,
+            commands::git::github_disconnect,
+            commands::git::github_list_repositories,
             commands::git::github_list_runs,
             commands::yang_release_list,
             commands::yang_release_download,

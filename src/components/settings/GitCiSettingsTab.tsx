@@ -15,7 +15,6 @@ export default function GitCiSettingsTab() {
     branch: "main",
     authorName: "",
     authorEmail: "",
-    token: "",
   });
   const [status, setStatus] = useState<{ kind: StatusKind; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -35,7 +34,6 @@ export default function GitCiSettingsTab() {
         branch: cfg.branch?.trim() || undefined,
         authorName: cfg.authorName?.trim() || undefined,
         authorEmail: cfg.authorEmail?.trim() || undefined,
-        token: cfg.token?.trim() || undefined,
       });
       setStatus({ kind: "ok", text: "Git defaults saved." });
     } catch (e) {
@@ -113,23 +111,17 @@ export default function GitCiSettingsTab() {
 
       <div className="gitci-section">
         <h3>GitHub Actions</h3>
-        <div className="gitci-grid">
-          <label htmlFor="gitci-token">Access token</label>
-          <input
-            id="gitci-token"
-            type="password"
-            value={cfg.token ?? ""}
-            onChange={(e) => setCfg({ ...cfg, token: e.target.value })}
-            placeholder="ghp_… or github_pat_…"
-          />
-          <div className="gitci-field-desc gitci-field--full">
-            A GitHub Personal Access Token with <code>actions:read</code> (a
-            fine-grained token scoped to the repo, or a classic token with the{" "}
-            <code>repo</code> scope). Lets the IaC Studio <strong>Runs</strong>{" "}
-            panel show your pipeline results in-app. Create one at{" "}
-            <code>github.com/settings/tokens</code>. Stored locally only.
-          </div>
+        <div className="gitci-field-desc">
+          Connect your GitHub account from the Zed Mode Git panel. TerminAI uses
+          GitHub&apos;s device login and keeps the credential in the platform keyring;
+          tokens are never returned to this settings page or stored in Git defaults.
         </div>
+        {cfg.legacyTokenNeedsReconnect && (
+          <div className="gitci-status gitci-status--err">
+            A legacy token is quarantined because secure migration was unavailable.
+            Reconnect GitHub from the Git panel; the token is not exposed or used.
+          </div>
+        )}
       </div>
 
       <div className="gitci-actions">

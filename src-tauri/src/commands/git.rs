@@ -13,6 +13,17 @@ use similar::{DiffTag, TextDiff};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use tauri::{AppHandle, State};
+use tauri_plugin_opener::OpenerExt;
+
+use super::AppState;
+use crate::git::github_auth::{
+    GitHubAccount, GitHubAuthPollResult, GitHubDeviceAuthorization, GitHubRepositoryPage,
+};
+use crate::git::repository_service::{
+    GitBranch, GitCommitDetail, GitCommitSummary, GitDiffPayload, GitOperationResult,
+    GitRepositoryDescriptor, GitRepositoryState,
+};
 
 /// Result of a shelled-out git invocation.
 #[derive(Debug, Serialize)]
@@ -634,6 +645,340 @@ pub async fn git_get_repository_summary(
     repository_summary_impl(&path)
 }
 
+// ── Zed Mode Phase 6: repository service commands ──────────────────────────
+
+#[tauri::command]
+pub fn git_discover_repositories(
+    workspace_path: String,
+    additional_paths: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<Vec<GitRepositoryDescriptor>, String> {
+    state
+        .git_repository_service
+        .discover(&workspace_path, &additional_paths)
+}
+
+#[tauri::command]
+pub fn git_get_repository_state(
+    repo_path: String,
+    state: State<'_, AppState>,
+) -> Result<GitRepositoryState, String> {
+    state.git_repository_service.state(&repo_path)
+}
+
+#[tauri::command]
+pub fn git_watch_repositories(
+    roots: Vec<String>,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.git_repository_service.watch_repositories(&roots, app)
+}
+
+#[tauri::command]
+pub async fn git_stage_paths(
+    repo_path: String,
+    paths: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .stage_paths(&repo_path, &paths)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_unstage_paths(
+    repo_path: String,
+    paths: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .unstage_paths(&repo_path, &paths)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_repository_commit(
+    repo_path: String,
+    message: String,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .commit(&repo_path, &message)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_initialize_repository(
+    workspace_path: String,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .initialize(&workspace_path)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_clone_repository(
+    url: String,
+    target: String,
+    into_existing: bool,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    let token = state.github_auth_manager.token_for_git()?;
+    state
+        .git_repository_service
+        .clone_repository(&url, &target, into_existing, token.as_deref())
+        .await
+}
+
+#[tauri::command]
+pub fn git_list_branches(
+    repo_path: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<GitBranch>, String> {
+    state.git_repository_service.branches(&repo_path)
+}
+
+#[tauri::command]
+pub async fn git_switch_branch(
+    repo_path: String,
+    branch: GitBranch,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    let repository = state.git_repository_service.state(&repo_path)?;
+    let editor_dirty = state
+        .editor_buffer_manager
+        .has_dirty_within(Path::new(&repository.repository.root));
+    state
+        .git_repository_service
+        .switch_branch(&repo_path, &branch, editor_dirty)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_repository_fetch(
+    repo_path: String,
+    remote: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    let token = state.github_auth_manager.token_for_git()?;
+    state
+        .git_repository_service
+        .fetch(&repo_path, remote.as_deref(), token.as_deref())
+        .await
+}
+
+#[tauri::command]
+pub async fn git_repository_pull(
+    repo_path: String,
+    remote: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    let repository = state.git_repository_service.state(&repo_path)?;
+    let editor_dirty = state
+        .editor_buffer_manager
+        .has_dirty_within(Path::new(&repository.repository.root));
+    let token = state.github_auth_manager.token_for_git()?;
+    state
+        .git_repository_service
+        .pull(
+            &repo_path,
+            remote.as_deref(),
+            editor_dirty,
+            token.as_deref(),
+        )
+        .await
+}
+
+#[tauri::command]
+pub async fn git_repository_push(
+    repo_path: String,
+    remote: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    let token = state.github_auth_manager.token_for_git()?;
+    state
+        .git_repository_service
+        .push(&repo_path, remote.as_deref(), token.as_deref())
+        .await
+}
+
+#[tauri::command]
+pub async fn git_add_remote(
+    repo_path: String,
+    name: String,
+    url: String,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .add_remote(&repo_path, &name, &url)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_update_remote(
+    repo_path: String,
+    name: String,
+    url: String,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .set_remote(&repo_path, &name, &url)
+        .await
+}
+
+#[tauri::command]
+pub async fn git_remove_remote(
+    repo_path: String,
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<GitOperationResult, String> {
+    state
+        .git_repository_service
+        .remove_remote(&repo_path, &name)
+        .await
+}
+
+#[tauri::command]
+pub fn git_repository_history(
+    repo_path: String,
+    file_path: Option<String>,
+    skip: usize,
+    limit: usize,
+    state: State<'_, AppState>,
+) -> Result<Vec<GitCommitSummary>, String> {
+    state
+        .git_repository_service
+        .history(&repo_path, file_path.as_deref(), skip, limit)
+}
+
+#[tauri::command]
+pub fn git_commit_detail(
+    repo_path: String,
+    sha: String,
+    state: State<'_, AppState>,
+) -> Result<GitCommitDetail, String> {
+    state.git_repository_service.commit_detail(&repo_path, &sha)
+}
+
+#[tauri::command]
+pub fn git_staged_diff(
+    repo_path: String,
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<GitDiffPayload, String> {
+    state
+        .git_repository_service
+        .staged_diff(&repo_path, &file_path)
+}
+
+#[tauri::command]
+pub fn git_unstaged_diff(
+    repo_path: String,
+    file_path: String,
+    buffer_contents: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitDiffPayload, String> {
+    state
+        .git_repository_service
+        .unstaged_diff(&repo_path, &file_path, buffer_contents)
+}
+
+#[tauri::command]
+pub fn git_historical_diff(
+    repo_path: String,
+    sha: String,
+    file_path: String,
+    previous_path: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitDiffPayload, String> {
+    state.git_repository_service.historical_diff(
+        &repo_path,
+        &sha,
+        &file_path,
+        previous_path.as_deref(),
+    )
+}
+
+// ── Zed Mode Phase 6: GitHub OAuth/account commands ─────────────────────────
+
+#[tauri::command]
+pub async fn github_auth_start(
+    session_only: bool,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<GitHubDeviceAuthorization, String> {
+    let authorization = state
+        .github_auth_manager
+        .start_device_flow(session_only)
+        .await?;
+    if let Err(error) = app
+        .opener()
+        .open_url(authorization.verification_uri.clone(), None::<&str>)
+    {
+        state
+            .github_auth_manager
+            .cancel_device_flow(&authorization.authorization_id)
+            .await;
+        return Err(format!("Could not open GitHub verification page: {error}"));
+    }
+    Ok(authorization)
+}
+
+#[tauri::command]
+pub async fn github_auth_poll(
+    authorization_id: String,
+    state: State<'_, AppState>,
+) -> Result<GitHubAuthPollResult, String> {
+    state
+        .github_auth_manager
+        .poll_device_flow(&authorization_id)
+        .await
+}
+
+#[tauri::command]
+pub async fn github_auth_cancel(
+    authorization_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .github_auth_manager
+        .cancel_device_flow(&authorization_id)
+        .await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_account_status(
+    state: State<'_, AppState>,
+) -> Result<Option<GitHubAccount>, String> {
+    state.github_auth_manager.account_status().await
+}
+
+#[tauri::command]
+pub fn github_disconnect(state: State<'_, AppState>) -> Result<(), String> {
+    state.github_auth_manager.disconnect()
+}
+
+#[tauri::command]
+pub async fn github_list_repositories(
+    page: u32,
+    query: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<GitHubRepositoryPage, String> {
+    state
+        .github_auth_manager
+        .list_repositories(page, query.as_deref())
+        .await
+}
+
 #[cfg(test)]
 mod phase3_git_awareness_tests {
     use super::*;
@@ -829,7 +1174,7 @@ mod phase3_git_awareness_tests {
 
 // ── GitHub Actions runs (read-only) ────────────────────────────────────────
 // The IaC Studio "Runs" panel lists recent workflow runs for the repo's remote.
-// Read-only: needs a PAT with `actions:read` (a fine-grained or classic token).
+// Its credential is resolved by GitHubAuthManager and never crosses Tauri IPC.
 
 /// One workflow run row shown in the IaC Studio Runs panel.
 #[derive(Debug, Serialize)]
@@ -902,23 +1247,25 @@ mod owner_repo_tests {
 }
 
 /// List recent GitHub Actions workflow runs for the repo whose `origin` remote
-/// lives in `cwd`. `token` is a GitHub PAT with `actions:read`. Returns up to
-/// `limit` runs (most recent first). Errors are surfaced as human strings so
-/// the panel can show them (bad token, no remote, rate limit, etc.).
+/// lives in `cwd`. Returns up to `limit` runs (most recent first). Errors are
+/// surfaced as human strings so the panel can show them (expired connection,
+/// no remote, rate limit, etc.).
 #[tauri::command]
 pub async fn github_list_runs(
     cwd: String,
-    token: String,
     limit: Option<u32>,
+    state: State<'_, AppState>,
 ) -> Result<Vec<GhWorkflowRun>, String> {
-    if token.trim().is_empty() {
-        return Err("No GitHub token set. Add one in Settings → Git / CI.".into());
-    }
+    let token = state
+        .github_auth_manager
+        .token_for_git()?
+        .ok_or_else(|| "Connect GitHub in the Git panel first.".to_string())?;
     let remote = git_get_remote(cwd, None)
         .await?
         .ok_or_else(|| "No 'origin' remote on this workspace.".to_string())?;
-    let (owner, repo) = parse_owner_repo(&remote)
-        .ok_or_else(|| format!("Could not parse a GitHub owner/repo from remote: {remote}"))?;
+    let (owner, repo) = parse_owner_repo(&remote).ok_or_else(|| {
+        "Could not parse a GitHub owner/repo from the configured remote.".to_string()
+    })?;
 
     let per_page = limit.unwrap_or(20).clamp(1, 100);
     let url =
@@ -927,7 +1274,7 @@ pub async fn github_list_runs(
     let client = reqwest::Client::new();
     let resp = client
         .get(&url)
-        .header("Authorization", format!("Bearer {}", token.trim()))
+        .bearer_auth(&token)
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .header("User-Agent", "ccie-terminal")
@@ -937,12 +1284,11 @@ pub async fn github_list_runs(
 
     let code = resp.status();
     if !code.is_success() {
-        let body = resp.text().await.unwrap_or_default();
         return Err(match code.as_u16() {
-            401 => "GitHub rejected the token (401). Check it has 'actions:read'.".into(),
+            401 => "GitHub rejected the saved connection (401). Reconnect GitHub.".into(),
             403 => "GitHub returned 403 (rate limit or insufficient scope).".into(),
             404 => format!("Repo {owner}/{repo} not found (or token lacks access)."),
-            _ => format!("GitHub API error {code}: {body}"),
+            _ => format!("GitHub API error {code}"),
         });
     }
 

@@ -20,6 +20,28 @@ const baseProps = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("FileExplorer inline create", () => {
+  it("reloads the workspace root when its refresh key changes", async () => {
+    vi.mocked(tauri.editorListDirectory)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          path: "/proj/cloned-repository",
+          name: "cloned-repository",
+          node_type: "directory",
+        },
+      ]);
+
+    const { rerender } = render(<FileExplorer {...baseProps} refreshKey={0} />);
+    await waitFor(() =>
+      expect(tauri.editorListDirectory).toHaveBeenCalledTimes(1),
+    );
+
+    rerender(<FileExplorer {...baseProps} refreshKey={1} />);
+
+    expect(await screen.findByText("cloned-repository")).toBeTruthy();
+    expect(tauri.editorListDirectory).toHaveBeenLastCalledWith("/proj");
+  });
+
   it("offers a workspace folder selector when no root is open", () => {
     const onSelectWorkspace = vi.fn();
     render(

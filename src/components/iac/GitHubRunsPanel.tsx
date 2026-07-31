@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { githubListRuns, gitConfigGet, type GhWorkflowRun } from "../../lib/tauri";
+import { useCallback, useEffect, useState } from "react";
+import { githubListRuns, type GhWorkflowRun } from "../../lib/tauri";
 import { createBrowserWindow } from "../../lib/browser";
 import "./GitHubRunsPanel.css";
 
@@ -39,7 +39,8 @@ function relTime(iso: string, now: number): string {
 /**
  * IaC Studio "Runs" panel — lists recent GitHub Actions workflow runs for the
  * workspace's origin remote. Auto-refreshes every 15s. Clicking a run opens its
- * full log on GitHub in a browser pane. Needs a PAT saved in Settings → Git/CI.
+ * full log on GitHub in a browser pane. Rust resolves credentials from the
+ * secure GitHub connection established in the Zed Mode Git panel.
  */
 export function GitHubRunsPanel({
   rootPath,
@@ -53,28 +54,13 @@ export function GitHubRunsPanel({
   const [loading, setLoading] = useState(true);
   // now is stamped on each fetch so relative times refresh with the list.
   const [now, setNow] = useState(0);
-  const tokenRef = useRef<string>("");
-
   const refresh = useCallback(async () => {
     try {
-      // Re-read the token each cycle so a Settings edit takes effect without
-      // reopening the panel.
-      if (!tokenRef.current) {
-        const cfg = await gitConfigGet();
-        tokenRef.current = cfg.token ?? "";
-      }
-      if (!tokenRef.current) {
-        setError("No GitHub token set. Add one in Settings → Git / CI.");
-        setLoading(false);
-        return;
-      }
-      const list = await githubListRuns(rootPath, tokenRef.current, 20);
+      const list = await githubListRuns(rootPath, 20);
       setRuns(list);
       setError(null);
       setNow(Date.parse(new Date().toISOString()) || 0);
     } catch (e) {
-      // Reset token so a corrected one is re-read next cycle.
-      tokenRef.current = "";
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);

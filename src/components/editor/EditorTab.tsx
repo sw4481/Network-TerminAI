@@ -48,6 +48,11 @@ import {
   EDITOR_DETACHED_WINDOW_CLOSED_EVENT,
 } from "./editorWindowLifecycle";
 import { GitStatusIndicator } from "./GitStatusIndicator";
+import { GitDiffReview } from "./GitDiffReview";
+import { GitPanel } from "./GitPanel";
+import { useGitPanel } from "./useGitPanel";
+import { isGitPanelToggleShortcut } from "./gitPanelState";
+import type { GitDiffPayload } from "../../lib/tauri";
 import { useGitRepositorySummary } from "./useGitRepositorySummary";
 import {
   WorkspaceSymbolSearch,
@@ -112,6 +117,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [fileExplorerRefreshKey, setFileExplorerRefreshKey] = useState(0);
   const [terminalMode, setTerminalMode] =
     useState<EditorTerminalMode>("opencode");
   const debug = useDebugSession(tab.id, modeHydrated ? mode === "zed" : null);
@@ -134,6 +140,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
       focusedBuffer?.file_path ?? workspace.root_path,
       mode === "zed",
     );
+  const gitPanel = useGitPanel({
+    workspaceRoot: workspace.root_path ?? "",
+    focusedFile: focusedBuffer?.file_path ?? null,
+    enabled: mode === "zed",
+  });
+  const [gitDiffReview, setGitDiffReview] = useState<{
+    path: string;
+    payload: GitDiffPayload;
+  } | null>(null);
 
   const ensureBufferSync = useCallback(async (bufferId: string) => {
     const state = useEditorStore.getState();
@@ -837,6 +852,9 @@ export function EditorTab({ tab }: { tab: Tab }) {
       ) {
         event.preventDefault();
         setShowSymbolSearch((value) => !value);
+      } else if (isGitPanelToggleShortcut(event, mode)) {
+        event.preventDefault();
+        gitPanel.setOpen(!gitPanel.preferences.open);
       } else if (
         meta &&
         event.shiftKey &&
@@ -872,12 +890,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
         setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
       } else if (
         event.key === "Escape" &&
-        (showFind || showSettings || showSymbolSearch)
+        (showFind || showSettings || showSymbolSearch || gitDiffReview)
       ) {
         event.preventDefault();
         setShowFind(false);
         setShowSettings(false);
         setShowSymbolSearch(false);
+        setGitDiffReview(null);
       }
     };
     document.addEventListener("keydown", handler);
@@ -888,6 +907,9 @@ export function EditorTab({ tab }: { tab: Tab }) {
     showFind,
     showSettings,
     showSymbolSearch,
+    gitDiffReview,
+    gitPanel.preferences.open,
+    gitPanel.setOpen,
     terminalMode,
     mode,
     pythonDebuggable,
@@ -1184,6 +1206,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
         {workspace.explorer_open && (
           <FileExplorer
             rootPath={workspace.root_path}
+            refreshKey={fileExplorerRefreshKey}
             expandedDirs={workspace.expanded_dirs}
             onSelectFile={openFile}
             onToggleDir={(dirPath) => toggleDirectory(tab.id, dirPath)}
@@ -1193,7 +1216,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
         )}
         <div className="editor-content">
           <div className="editor-canvas">
-            {mode === "zed" ? (
+            {mode === "zed" && gitDiffReview ? (
+              <GitDiffReview
+                path={gitDiffReview.path}
+                payload={gitDiffReview.payload}
+                style={gitPanel.preferences.diffStyle}
+                onStyleChange={gitPanel.setDiffStyle}
+                onClose={() => setGitDiffReview(null)}
+              />
+            ) : mode === "zed" ? (
               <EditorSplitTree
                 node={workspace.layout}
                 buffers={buffers}
@@ -1245,7 +1276,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
                 />
               )
             )}
-            {showFind && (
+            {!gitDiffReview && showFind && (
               <FindReplace
                 editor={focusedEditor}
                 onClose={() => setShowFind(false)}
@@ -1279,6 +1310,35 @@ export function EditorTab({ tab }: { tab: Tab }) {
             />
           </div>
         </div>
+        {mode === "zed" && gitPanel.preferences.open && (
+          <GitPanel
+            controller={gitPanel}
+            workspaceRoot={workspace.root_path ?? ""}
+            focusedFile={focusedBuffer?.file_path ?? null}
+            getBufferContents={(absolutePath) => {
+              const normalizedTarget = absolutePath.replace(/\\/g, "/");
+              return Object.values(useEditorStore.getState().buffers).find(
+                (buffer) =>
+                  buffer.file_path?.replace(/\\/g, "/") === normalizedTarget,
+              )?.content;
+            }}
+            onOpenDiff={(review) => setGitDiffReview(review)}
+            onOpenWorkspace={(root) => {
+              setFileTree(tab.id, [], root);
+              patchWorkspace(tab.id, { explorer_open: true });
+              setGitDiffReview(null);
+            }}
+            onRepositoryChanged={() => {
+              setFileExplorerRefreshKey((current) => current + 1);
+              void refreshGitSummary();
+              if (workspace.root_path) {
+                void gitGetStatus(workspace.root_path)
+                  .then((status) => setGitStatus(tab.id, status, true))
+                  .catch(() => undefined);
+              }
+            }}
+          />
+        )}
       </div>
 
       {showTerminal && (
@@ -1310,6 +1370,8 @@ export function EditorTab({ tab }: { tab: Tab }) {
           <GitStatusIndicator
             summary={gitSummary}
             bufferDirty={focusedBuffer?.is_dirty}
+            panelOpen={gitPanel.preferences.open}
+            onToggle={() => gitPanel.setOpen(!gitPanel.preferences.open)}
           />
         )}
         <span>{focusedBuffer?.sync_status ?? "local"}</span>

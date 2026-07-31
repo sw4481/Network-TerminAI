@@ -284,6 +284,11 @@ pub struct AppState {
     pub editor_buffer_manager: Arc<crate::editor::EditorBufferManager>,
     /// Zed Mode Phase 2 — detached internal editor window metadata.
     pub editor_window_manager: Arc<crate::editor::EditorWindowManager>,
+    /// Zed Mode Phase 6 — shared repository discovery, mutation, history, diff,
+    /// and watcher authority. Commands remain stateless adapters around it.
+    pub git_repository_service: Arc<crate::git::GitRepositoryService>,
+    /// Zed Mode Phase 6 — backend-only GitHub OAuth/token authority.
+    pub github_auth_manager: Arc<crate::git::GitHubAuthManager>,
     /// Heartbeat Monitoring System — Lazily initialized scheduler for automated
     /// network health checks. Optional so unit tests can construct AppState without
     /// a Tauri AppHandle.
@@ -383,6 +388,8 @@ impl AppState {
         let browser_manager = Arc::new(crate::browser::BrowserManager::new());
         let editor_buffer_manager = Arc::new(crate::editor::EditorBufferManager::new());
         let editor_window_manager = Arc::new(crate::editor::EditorWindowManager::new());
+        let git_repository_service = Arc::new(crate::git::GitRepositoryService::new());
+        let github_auth_manager = Arc::new(crate::git::GitHubAuthManager::production());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
             db: db_arc,
@@ -421,6 +428,8 @@ impl AppState {
             browser_manager,
             editor_buffer_manager,
             editor_window_manager,
+            git_repository_service,
+            github_auth_manager,
             heartbeat_scheduler: Arc::new(parking_lot::Mutex::new(None)),
         }
     }
@@ -3979,26 +3988,75 @@ const GIT_CONFIG_FLAG_KEY: &str = "ccie_git_config";
 
 #[tauri::command]
 pub fn git_config_get(state: State<'_, AppState>) -> Result<String, String> {
-    let db = state.db.lock();
-    db.execute_batch(
-        "CREATE TABLE IF NOT EXISTS app_flags (\
-            key TEXT PRIMARY KEY,\
-            value TEXT NOT NULL,\
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))\
-        );",
-    )
-    .map_err(|e| format!("Failed to ensure app_flags: {}", e))?;
+    let value = {
+        let db = state.db.lock();
+        db.execute_batch(
+            "CREATE TABLE IF NOT EXISTS app_flags (\
+                key TEXT PRIMARY KEY,\
+                value TEXT NOT NULL,\
+                updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))\
+            );",
+        )
+        .map_err(|e| format!("Failed to ensure app_flags: {}", e))?;
 
-    let value: Option<String> = db
-        .query_row(
+        db.query_row(
             "SELECT value FROM app_flags WHERE key = ?1",
             rusqlite::params![GIT_CONFIG_FLAG_KEY],
-            |r| r.get(0),
+            |r| r.get::<_, String>(0),
         )
         .optional()
-        .map_err(|e| format!("Failed to read git config: {}", e))?;
+        .map_err(|e| format!("Failed to read git config: {}", e))?
+        .unwrap_or_else(|| "{}".to_string())
+    };
 
-    Ok(value.unwrap_or_else(|| "{}".to_string()))
+    let mut stored: serde_json::Value =
+        serde_json::from_str(&value).unwrap_or_else(|_| serde_json::json!({}));
+    let Some(object) = stored.as_object_mut() else {
+        return Ok("{}".to_string());
+    };
+    let legacy_token = object
+        .get("token")
+        .and_then(|token| token.as_str())
+        .filter(|token| !token.trim().is_empty())
+        .map(str::to_string);
+
+    let mut needs_reconnect = false;
+    let mut migrated = false;
+    if let Some(token) = legacy_token.as_deref() {
+        match state.github_auth_manager.migrate_legacy_token(token) {
+            Ok(true) => {
+                object.remove("token");
+                migrated = true;
+            }
+            Ok(false) | Err(_) => {
+                // Preserve the legacy value in SQLite until secure storage
+                // succeeds, but never return or use it through the frontend.
+                needs_reconnect = true;
+            }
+        }
+    }
+
+    let mut safe = stored.clone();
+    if let Some(safe_object) = safe.as_object_mut() {
+        safe_object.remove("token");
+        if needs_reconnect {
+            safe_object.insert(
+                "legacyTokenNeedsReconnect".to_string(),
+                serde_json::Value::Bool(true),
+            );
+        }
+    }
+
+    if migrated {
+        let db = state.db.lock();
+        db.execute(
+            "INSERT OR REPLACE INTO app_flags(key, value) VALUES (?1, ?2)",
+            rusqlite::params![GIT_CONFIG_FLAG_KEY, stored.to_string()],
+        )
+        .map_err(|e| format!("Failed to finish secure GitHub token migration: {}", e))?;
+    }
+
+    serde_json::to_string(&safe).map_err(|e| format!("Failed to encode git config: {e}"))
 }
 
 #[tauri::command]
@@ -4009,6 +4067,14 @@ pub fn git_config_set(state: State<'_, AppState>, config: String) -> Result<(), 
     if !parsed.is_object() {
         return Err("Git config must be a JSON object".to_string());
     }
+    if parsed.get("token").is_some() {
+        return Err(
+            "GitHub tokens cannot be saved in Git defaults. Connect GitHub from the Git panel."
+                .to_string(),
+        );
+    }
+
+    let mut stored = parsed;
 
     let db = state.db.lock();
     db.execute_batch(
@@ -4020,9 +4086,36 @@ pub fn git_config_set(state: State<'_, AppState>, config: String) -> Result<(), 
     )
     .map_err(|e| format!("Failed to ensure app_flags: {}", e))?;
 
+    // An older build may still have a plaintext token awaiting secure
+    // migration. Preserve it in-place when keyring migration failed; never
+    // expose it to React and never accept a new plaintext replacement.
+    if !state
+        .github_auth_manager
+        .has_secure_token()
+        .unwrap_or(false)
+    {
+        let existing: Option<String> = db
+            .query_row(
+                "SELECT value FROM app_flags WHERE key = ?1",
+                rusqlite::params![GIT_CONFIG_FLAG_KEY],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(|e| format!("Failed to read existing git config: {e}"))?;
+        if let Some(token) = existing
+            .as_deref()
+            .and_then(|value| serde_json::from_str::<serde_json::Value>(value).ok())
+            .and_then(|value| value.get("token").cloned())
+        {
+            if let Some(object) = stored.as_object_mut() {
+                object.insert("token".to_string(), token);
+            }
+        }
+    }
+
     db.execute(
         "INSERT OR REPLACE INTO app_flags(key, value) VALUES (?1, ?2)",
-        rusqlite::params![GIT_CONFIG_FLAG_KEY, config],
+        rusqlite::params![GIT_CONFIG_FLAG_KEY, stored.to_string()],
     )
     .map_err(|e| format!("Failed to save git config: {}", e))?;
 

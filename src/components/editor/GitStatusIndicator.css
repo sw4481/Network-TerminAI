@@ -8,6 +8,19 @@
   white-space: nowrap;
 }
 
+button.editor-git-status {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.editor-git-status:hover,
+button.editor-git-status[aria-pressed="true"] {
+  color: var(--text-primary);
+}
+
 .editor-git-branch {
   max-width: 220px;
   overflow: hidden;

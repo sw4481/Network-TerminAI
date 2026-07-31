@@ -1,6 +1,7 @@
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +61,20 @@ impl EditorBufferManager {
 
     pub fn get(&self, buffer_id: &str) -> Option<EditorBufferSnapshot> {
         self.buffers.read().get(buffer_id).cloned()
+    }
+
+    /// True when an authoritative attached or detached editor buffer inside
+    /// `repository_root` has unsaved content. Git pull/branch switching use
+    /// this in addition to the on-disk worktree guard.
+    pub fn has_dirty_within(&self, repository_root: &Path) -> bool {
+        self.buffers.read().values().any(|buffer| {
+            buffer.dirty
+                && buffer
+                    .file_path
+                    .as_deref()
+                    .map(Path::new)
+                    .is_some_and(|path| path.starts_with(repository_root))
+        })
     }
 
     pub fn update(

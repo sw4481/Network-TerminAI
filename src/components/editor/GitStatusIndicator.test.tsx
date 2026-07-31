@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { GitRepositorySummary } from "../../lib/tauri";
 import { GitStatusIndicator } from "./GitStatusIndicator";
 
@@ -75,5 +75,23 @@ describe("GitStatusIndicator", () => {
   it("renders nothing outside a repository", () => {
     const { container } = render(<GitStatusIndicator summary={null} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("remains clickable without a repository so setup stays reachable", () => {
+    const onToggle = vi.fn();
+    render(
+      <GitStatusIndicator
+        summary={null}
+        onToggle={onToggle}
+        panelOpen
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: "Git panel, No repository",
+    });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button);
+    expect(onToggle).toHaveBeenCalledOnce();
   });
 });

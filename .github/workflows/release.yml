@@ -141,6 +141,12 @@ jobs:
       - name: Run frontend tests
         run: bun run test
 
+      - name: Require GitHub OAuth public client ID
+        shell: bash
+        env:
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
+        run: test -n "$TERMINAI_GITHUB_CLIENT_ID"
+
       - name: Check semantic color literals
         env:
           STRUCTURAL_COLOR_BASE: ${{ github.event.before || github.sha }}
@@ -157,6 +163,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}

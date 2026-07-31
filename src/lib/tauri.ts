@@ -1713,13 +1713,14 @@ export const vendorKeywordDefaults = () =>
 
 // Git / CI defaults for the IaC Studio push flow. Persisted as one JSON blob in
 // app_flags under `ccie_git_config`; the Push-to-Git modal prefills from it.
-// `token` is a GitHub PAT (actions:read) used by the Runs panel.
+// GitHub credentials are backend-only and deliberately absent from this type.
 export type GitConfig = {
   remote?: string;
   branch?: string;
   authorName?: string;
   authorEmail?: string;
-  token?: string;
+  /** An older plaintext token remains quarantined until secure migration works. */
+  legacyTokenNeedsReconnect?: boolean;
 };
 
 /** One GitHub Actions workflow run, for the IaC Studio Runs panel. */
@@ -1736,10 +1737,9 @@ export type GhWorkflowRun = {
 };
 
 /** List recent GitHub Actions runs for the workspace's origin remote. */
-export const githubListRuns = (cwd: string, token: string, limit?: number) =>
+export const githubListRuns = (cwd: string, limit?: number) =>
   invoke<GhWorkflowRun[]>("github_list_runs", {
     cwd,
-    token,
     limit: limit ?? null,
   });
 
@@ -3074,6 +3074,277 @@ export const gitPush = (cwd: string, name?: string) =>
 /** Current branch name, or null in an empty repo / detached HEAD. */
 export const gitCurrentBranch = (cwd: string) =>
   invoke<string | null>("git_current_branch", { cwd });
+
+export type GitRemote = {
+  name: string;
+  fetchUrl: string | null;
+  pushUrl: string | null;
+};
+
+export type GitRepositoryDescriptor = {
+  root: string;
+  name: string;
+  branch: string | null;
+  head: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  remotes: GitRemote[];
+};
+
+export type GitChangeStatus =
+  | "added"
+  | "modified"
+  | "deleted"
+  | "renamed"
+  | "untracked"
+  | "typechange";
+
+export type GitChangeEntry = {
+  path: string;
+  previousPath: string | null;
+  indexStatus: GitChangeStatus | null;
+  worktreeStatus: GitChangeStatus | null;
+  conflict: boolean;
+};
+
+export type GitRepositoryState = {
+  repository: GitRepositoryDescriptor;
+  changes: GitChangeEntry[];
+};
+
+export type GitBranch = {
+  name: string;
+  fullName: string;
+  kind: "local" | "remote";
+  current: boolean;
+  target: string | null;
+  upstream: string | null;
+};
+
+export type GitCommitSummary = {
+  sha: string;
+  shortSha: string;
+  message: string;
+  author: string;
+  authorEmail: string | null;
+  /** Unix seconds. */
+  timestamp: number;
+  parents: string[];
+};
+
+export type GitCommitFile = {
+  path: string;
+  previousPath: string | null;
+  status: GitChangeStatus | "copied";
+};
+
+export type GitCommitDetail = {
+  commit: GitCommitSummary;
+  files: GitCommitFile[];
+};
+
+export type GitDiffPayload = {
+  originalLabel: string;
+  modifiedLabel: string;
+  original: string | null;
+  modified: string | null;
+  language: string;
+  binary: boolean;
+  oversized: boolean;
+  originalSize: number;
+  modifiedSize: number;
+};
+
+export type GitOperationResult = {
+  ok: boolean;
+  message: string;
+  stdout: string;
+  stderr: string;
+  repository: GitRepositoryState | null;
+};
+
+export type GitHubAccount = {
+  login: string;
+  name: string | null;
+  avatarUrl: string | null;
+  storage: "keyring" | "session";
+  storageWarning: string | null;
+};
+
+export type GitHubRepository = {
+  id: number;
+  name: string;
+  fullName: string;
+  description: string | null;
+  private: boolean;
+  htmlUrl: string;
+  cloneUrl: string;
+  sshUrl: string;
+  defaultBranch: string;
+  updatedAt: string | null;
+};
+
+export type GitHubRepositoryPage = {
+  repositories: GitHubRepository[];
+  page: number;
+  hasMore: boolean;
+};
+
+export type GitHubDeviceAuthorization = {
+  authorizationId: string;
+  userCode: string;
+  verificationUri: string;
+  expiresIn: number;
+  interval: number;
+};
+
+export type GitHubAuthPollResult = {
+  status:
+    | "pending"
+    | "slowDown"
+    | "connected"
+    | "denied"
+    | "expired"
+    | "cancelled";
+  account: GitHubAccount | null;
+  retryAfter: number | null;
+  message: string | null;
+};
+
+export const gitDiscoverRepositories = (
+  workspacePath: string,
+  additionalPaths: string[] = [],
+) =>
+  invoke<GitRepositoryDescriptor[]>("git_discover_repositories", {
+    workspacePath,
+    additionalPaths,
+  });
+
+export const gitGetRepositoryState = (repoPath: string) =>
+  invoke<GitRepositoryState>("git_get_repository_state", { repoPath });
+
+export const gitWatchRepositories = (roots: string[]) =>
+  invoke<void>("git_watch_repositories", { roots });
+
+export const gitStagePaths = (repoPath: string, paths: string[]) =>
+  invoke<GitOperationResult>("git_stage_paths", { repoPath, paths });
+
+export const gitUnstagePaths = (repoPath: string, paths: string[]) =>
+  invoke<GitOperationResult>("git_unstage_paths", { repoPath, paths });
+
+export const gitRepositoryCommit = (repoPath: string, message: string) =>
+  invoke<GitOperationResult>("git_repository_commit", { repoPath, message });
+
+export const gitInitializeRepository = (workspacePath: string) =>
+  invoke<GitOperationResult>("git_initialize_repository", { workspacePath });
+
+export const gitCloneRepository = (
+  url: string,
+  target: string,
+  intoExisting: boolean,
+) =>
+  invoke<GitOperationResult>("git_clone_repository", {
+    url,
+    target,
+    intoExisting,
+  });
+
+export const gitListBranches = (repoPath: string) =>
+  invoke<GitBranch[]>("git_list_branches", { repoPath });
+
+export const gitSwitchBranch = (repoPath: string, branch: GitBranch) =>
+  invoke<GitOperationResult>("git_switch_branch", { repoPath, branch });
+
+export const gitRepositoryFetch = (repoPath: string, remote?: string) =>
+  invoke<GitOperationResult>("git_repository_fetch", {
+    repoPath,
+    remote: remote ?? null,
+  });
+
+export const gitRepositoryPull = (repoPath: string, remote?: string) =>
+  invoke<GitOperationResult>("git_repository_pull", {
+    repoPath,
+    remote: remote ?? null,
+  });
+
+export const gitRepositoryPush = (repoPath: string, remote?: string) =>
+  invoke<GitOperationResult>("git_repository_push", {
+    repoPath,
+    remote: remote ?? null,
+  });
+
+export const gitAddRemote = (repoPath: string, name: string, url: string) =>
+  invoke<GitOperationResult>("git_add_remote", { repoPath, name, url });
+
+export const gitUpdateRemote = (repoPath: string, name: string, url: string) =>
+  invoke<GitOperationResult>("git_update_remote", { repoPath, name, url });
+
+export const gitRemoveRemote = (repoPath: string, name: string) =>
+  invoke<GitOperationResult>("git_remove_remote", { repoPath, name });
+
+export const gitRepositoryHistory = (
+  repoPath: string,
+  filePath: string | null,
+  skip: number,
+  limit = 100,
+) =>
+  invoke<GitCommitSummary[]>("git_repository_history", {
+    repoPath,
+    filePath,
+    skip,
+    limit,
+  });
+
+export const gitCommitDetail = (repoPath: string, sha: string) =>
+  invoke<GitCommitDetail>("git_commit_detail", { repoPath, sha });
+
+export const gitStagedDiff = (repoPath: string, filePath: string) =>
+  invoke<GitDiffPayload>("git_staged_diff", { repoPath, filePath });
+
+export const gitUnstagedDiff = (
+  repoPath: string,
+  filePath: string,
+  bufferContents?: string,
+) =>
+  invoke<GitDiffPayload>("git_unstaged_diff", {
+    repoPath,
+    filePath,
+    bufferContents: bufferContents ?? null,
+  });
+
+export const gitHistoricalDiff = (
+  repoPath: string,
+  sha: string,
+  filePath: string,
+  previousPath?: string | null,
+) =>
+  invoke<GitDiffPayload>("git_historical_diff", {
+    repoPath,
+    sha,
+    filePath,
+    previousPath: previousPath ?? null,
+  });
+
+export const githubAuthStart = (sessionOnly: boolean) =>
+  invoke<GitHubDeviceAuthorization>("github_auth_start", { sessionOnly });
+
+export const githubAuthPoll = (authorizationId: string) =>
+  invoke<GitHubAuthPollResult>("github_auth_poll", { authorizationId });
+
+export const githubAuthCancel = (authorizationId: string) =>
+  invoke<void>("github_auth_cancel", { authorizationId });
+
+export const githubAccountStatus = () =>
+  invoke<GitHubAccount | null>("github_account_status");
+
+export const githubDisconnect = () => invoke<void>("github_disconnect");
+
+export const githubListRepositories = (page: number, query?: string) =>
+  invoke<GitHubRepositoryPage>("github_list_repositories", {
+    page,
+    query: query?.trim() || null,
+  });
 
 export const tabNewEditor = (opts: {
   title: string;

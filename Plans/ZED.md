@@ -1,7 +1,7 @@
 # Design: "Zed Mode" for the CCIE Terminal Editor
 
 **Date:** 2026-07-27
-**Status:** Phases 1–5 implemented; Phase 5 automated/native health validation complete; operator feature validation pending
+**Status:** Phases 1–6 implemented; Phase 6 automated/native health validation complete; operator GitHub workflow validation pending
 **Author:** brainstormed with operator
 
 ---
@@ -42,6 +42,7 @@ level, each to get its own detailed plan when reached):
 | 3 | GitHub git integration (gutter/blame/status) | ⚠️ partly exists | Medium | Phase 3 |
 | 4 | Project-wide LSP navigation | ⚠️ real work | Large | Phase 4 |
 | 5 | Debugging (DAP) of user code in the editor | ⚠️ real work | Largest | Phase 5 |
+| 6 | Docked Git workflow + secure GitHub account connection | ✅ (Tauri + Monaco) | Large | Phase 6 |
 
 **Debug target (settled):** the debugger targets **user-authored scripts/apps
 opened in the editor** — primarily Python network scripts via `debugpy`/DAP —
@@ -74,7 +75,8 @@ ZedModeProvider (React context)  reads flag at app start + on change event
         ├──► Phase 2: editor split state + Tauri WebviewWindow (reuse browser-pane pattern)
         ├──► Phase 3: new Tauri git_* commands → Monaco decorations (gutter/blame)
         ├──► Phase 4: Rust-managed persistent LSP server processes → Monaco providers
-        └──► Phase 5: Rust-managed debugpy/DAP client → debug UI panel
+        ├──► Phase 5: Rust-managed debugpy/DAP client → debug UI panel
+        └──► Phase 6: repository/GitHub services → docked Git panel + Monaco diff review
 ```
 
 **Key principles**
@@ -216,19 +218,46 @@ WKWebView.
 - Depends on Phase 4. Adapters for languages without DAP support are out of scope.
 - Deliverable: breakpoint debugging of user Python scripts, Zed-style.
 
-## 9. Cross-cutting data flow
+## 9. Phase 6 — Git Panel and GitHub Integration (IMPLEMENTED — OPERATOR VALIDATION PENDING)
+
+**Implementation and operator guide:** `docs/plans/2026-07-31-zed-mode-phase-6.md`
+
+- **Frontend:** the Zed status-bar Git tree and `Cmd/Ctrl+Shift+G` toggle a
+  persistent, resizable right panel. The panel owns repository selection,
+  Changes, History, setup/remotes, GitHub login/repository browsing, and a
+  transient central Monaco diff review. Classic Monaco and detached windows do
+  not host the panel.
+- **Backend:** a typed repository service provides nested discovery, structured
+  index/worktree status, file staging, guarded pull/branch switching, commit,
+  fetch/push, remotes, clone/init, history, rename-aware file history, and
+  text/binary/oversized diff payloads. Worktree watchers are debounced, with
+  frontend focus refresh and ten-second polling as fallbacks.
+- **GitHub security:** OAuth device flow uses the public build-time
+  `TERMINAI_GITHUB_CLIENT_ID`; no client secret exists. Tokens remain in Rust,
+  use the native platform keyring or a clearly labeled session-only fallback,
+  and reach GitHub HTTPS Git children only through an ephemeral askpass helper.
+  The IaC GitHub Actions panel now resolves this same backend credential.
+- **Release prerequisite:** create the GitHub.com OAuth App with device flow
+  enabled and set the repository Actions variable
+  `TERMINAI_GITHUB_CLIENT_ID`. Release builds fail early when it is absent.
+- Deliverable: Zed-style source control stays inside the editor without adding
+  destructive reset/discard, force-push, branch-creation, or conflict-resolver UI.
+
+## 10. Cross-cutting data flow
 
 ```
 Settings "Editor" tab ──► editorModeSet() ──► git_config-style Rust cmd ──► app_flags.ccie_editor_mode
                                                                                    │
 App start / zed-mode-changed event ──► editorModeGet() ──► ZedModeProvider ────────┘
                                                               │
-                        ┌─────────────────────────────────────┼───────────────────────────────┐
-                   Phase 1 (theme/vim/layout)          Phase 2/3 (windows/git)          Phase 4/5 (lsp/dap)
-                   pure frontend                       new Tauri commands               Rust child-process mgr
+                        ┌─────────────────────────────┬───────┼───────────────────────────────┐
+                   Phase 1 (theme/vim/layout)   Phase 2/3 (windows/git)           Phase 4/5 (lsp/dap)
+                   pure frontend                Tauri windows/read-only Git       Rust child-process mgr
+                                                      │
+                                                Phase 6 Git service/panel/device auth
 ```
 
-## 10. Testing strategy (all phases)
+## 11. Testing strategy (all phases)
 
 - **Frontend:** vitest for flag round-trips, context/provider behavior, theme
   application, UI toggles, and each phase's components — matching the existing
@@ -239,7 +268,7 @@ App start / zed-mode-changed event ──► editorModeGet() ──► ZedModePr
   being called done (operator's standing rule). Requires the dev server running;
   debug via Playwright + console when needed.
 
-## 11. Risks & open questions
+## 12. Risks & open questions
 
 - **Vim/keybinding conflicts** with existing app-global shortcuts (⌘⇧-series).
   Phase 1 must scope Zed keybindings to the focused editor and audit collisions.
