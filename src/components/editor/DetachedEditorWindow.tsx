@@ -285,6 +285,9 @@ export function DetachedEditorWindow() {
       </main>
     );
   }
+  if (!hydrated) {
+    return <main className="detached-editor-state">Loading editor mode…</main>;
+  }
 
   const pane: EditorPaneLeaf = {
     type: "leaf",

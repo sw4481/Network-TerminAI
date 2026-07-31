@@ -334,6 +334,32 @@ describe("DetachedEditorWindow", () => {
     expect(screen.getByTestId("detached-editor-window")).toHaveAttribute("data-editor-theme", "ccie-matrix");
   });
 
+  it("waits for persisted Zed mode before creating an interactive Dark editor", async () => {
+    mocks.appearanceState = "ready";
+    mocks.appearanceSettings = {
+      ...createDefaultAppearanceSettings(),
+      appTheme: "terminai-dark",
+      editorTheme: "follow-app",
+    };
+    mocks.mode = "monaco";
+    mocks.hydrated = false;
+    const view = render(<DetachedEditorWindow />);
+
+    expect(await screen.findByText("Loading editor mode…")).toBeInTheDocument();
+    expect(screen.queryByTestId("detached-editor-pane")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("detached-editor-window")).not.toBeInTheDocument();
+
+    mocks.mode = "zed";
+    mocks.hydrated = true;
+    view.rerender(<DetachedEditorWindow />);
+
+    expect(await screen.findByTestId("detached-editor-pane")).toBeInTheDocument();
+    expect(screen.getByTestId("detached-editor-window")).toHaveAttribute(
+      "data-editor-theme",
+      "ccie-zed-one-dark",
+    );
+  });
+
   it("keeps the pane non-interactive after authoritative appearance failure and retries", async () => {
     mocks.appearanceState = "failed";
     mocks.appearanceError = "database unavailable";
