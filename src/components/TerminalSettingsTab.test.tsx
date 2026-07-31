@@ -80,7 +80,7 @@ describe("TerminalSettingsTab", () => {
     });
   });
 
-  it("saves preferences on submit", async () => {
+  it("saves notification preferences through the Terminal-tab save action", async () => {
     const saveSpy = vi
       .spyOn(paneActivityLib, "updateNotificationPreferences")
       .mockResolvedValue();
@@ -92,7 +92,10 @@ describe("TerminalSettingsTab", () => {
     const input = screen.getByLabelText(/Minimum duration/i);
     fireEvent.change(input, { target: { value: "60" } });
 
-    const saveBtn = screen.getByRole("button", { name: "Save", exact: true });
+    const saveBtn = screen.getAllByRole("button", {
+      name: "Save terminal settings",
+      exact: true,
+    })[1];
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
@@ -100,6 +103,64 @@ describe("TerminalSettingsTab", () => {
         expect.objectContaining({ minDurationSecs: 60 }),
       );
     });
+  });
+
+  it("persists a terminal font edit through the Terminal-tab save action", async () => {
+    vi.spyOn(paneActivityLib, "updateNotificationPreferences").mockResolvedValue();
+    render(<TerminalSettingsTab />);
+
+    await screen.findByLabelText(/Minimum duration/i);
+    fireEvent.change(screen.getByLabelText("Font size"), {
+      target: { value: "18" },
+    });
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+
+    await waitFor(() => {
+      expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
+        terminal: expect.objectContaining({ fontSize: 18 }),
+      });
+    });
+  });
+
+  it("does not report whole-tab success when terminal appearance persistence fails", async () => {
+    appearance.saveSettingsPatch.mockRejectedValueOnce(new Error("appearance database locked"));
+    const notificationSave = vi
+      .spyOn(paneActivityLib, "updateNotificationPreferences")
+      .mockResolvedValue();
+    render(<TerminalSettingsTab />);
+
+    await screen.findByLabelText(/Minimum duration/i);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save terminal settings: appearance database locked",
+    );
+    expect(notificationSave).not.toHaveBeenCalled();
+    expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  it("does not report whole-tab success when notification persistence fails", async () => {
+    vi.spyOn(paneActivityLib, "updateNotificationPreferences").mockRejectedValueOnce(
+      new Error("notification database locked"),
+    );
+    render(<TerminalSettingsTab />);
+
+    await screen.findByLabelText(/Minimum duration/i);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save terminal settings: notification database locked",
+    );
+    expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
+      terminal: expect.any(Object),
+    });
+    expect(window.alert).not.toHaveBeenCalled();
   });
 
   it("displays authoritative log paths and availability", async () => {
@@ -188,6 +249,7 @@ describe("TerminalSettingsTab", () => {
 
   it("normalizes terminal editing through the provider, persists it, and resets each section", async () => {
     render(<TerminalSettingsTab />);
+    await screen.findByLabelText(/Minimum duration/i);
 
     fireEvent.change(screen.getByLabelText("Font size"), { target: { value: "999" } });
     expect(appearance.previewSettings).toHaveBeenLastCalledWith(
@@ -197,7 +259,9 @@ describe("TerminalSettingsTab", () => {
     expect(appearance.previewSettings).toHaveBeenLastCalledWith(
       expect.objectContaining({ terminal: expect.objectContaining({ preset: "custom", foreground: "#ABCDEF" }) }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save terminal appearance" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[0],
+    );
     await waitFor(() => expect(appearance.saveSettingsPatch).toHaveBeenCalledWith({
       terminal: expect.objectContaining({ preset: "custom", foreground: "#ABCDEF" }),
     }));
@@ -318,7 +382,9 @@ describe("TerminalSettingsTab", () => {
     render(<TerminalSettingsTab />);
     await screen.findByLabelText(/Minimum duration/i);
 
-    expect(screen.getByRole("button", { name: "Save terminal appearance" })).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: "Saving terminal settings...", exact: true })[0],
+    ).toBeDisabled();
     for (const radio of screen.getAllByRole("radio")) expect(radio).toBeDisabled();
     expect(screen.getByLabelText("Foreground color")).toBeDisabled();
     expect(screen.getByLabelText("ANSI red")).toBeDisabled();
@@ -331,9 +397,14 @@ describe("TerminalSettingsTab", () => {
   it("surfaces terminal appearance persistence failures without affecting notification saves", async () => {
     appearance.saveSettingsPatch.mockRejectedValueOnce(new Error("appearance database locked"));
     render(<TerminalSettingsTab />);
+    await screen.findByLabelText(/Minimum duration/i);
 
-    fireEvent.click(screen.getByRole("button", { name: "Save terminal appearance" }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[0],
+    );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("appearance database locked");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not save terminal settings: appearance database locked",
+    );
   });
 });

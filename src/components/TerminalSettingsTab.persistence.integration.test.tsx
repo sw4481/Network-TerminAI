@@ -1,0 +1,119 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import TerminalSettingsTab from "./TerminalSettingsTab";
+import { AppearanceProvider } from "../theme/AppearanceProvider";
+import { createDefaultAppearanceSettings } from "../theme/defaults";
+import type { AppearanceSettingsV1 } from "../theme/types";
+
+const mocks = vi.hoisted(() => ({
+  appearanceSettingsGet: vi.fn(),
+  appearanceSettingsPatch: vi.fn(),
+  appearanceSettingsSet: vi.fn(),
+  getLogLocations: vi.fn(),
+  openLogLocation: vi.fn(),
+  revealLogLocation: vi.fn(),
+  getNotificationPreferences: vi.fn(),
+  updateNotificationPreferences: vi.fn(),
+  listen: vi.fn(),
+  emit: vi.fn(),
+  applyAppearanceSettings: vi.fn(),
+}));
+
+vi.mock("../lib/tauri", () => ({
+  appearanceSettingsGet: mocks.appearanceSettingsGet,
+  appearanceSettingsPatch: mocks.appearanceSettingsPatch,
+  appearanceSettingsSet: mocks.appearanceSettingsSet,
+  getLogLocations: mocks.getLogLocations,
+  openLogLocation: mocks.openLogLocation,
+  revealLogLocation: mocks.revealLogLocation,
+}));
+
+vi.mock("../lib/paneActivity", () => ({
+  getNotificationPreferences: mocks.getNotificationPreferences,
+  updateNotificationPreferences: mocks.updateNotificationPreferences,
+}));
+
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: mocks.listen,
+  emit: mocks.emit,
+}));
+
+vi.mock("../lib/terminalRegistry", () => ({
+  applyAppearanceSettings: mocks.applyAppearanceSettings,
+}));
+
+const notificationPreferences = {
+  minDurationSecs: 30,
+  notifyOnNonzeroExit: true,
+  notifyOnAgentOutput: true,
+  keywordTriggers: ["error"],
+  ignoreCommands: ["tail"],
+  enableSound: true,
+};
+
+let authoritative: AppearanceSettingsV1 & { revision: number };
+
+function renderTerminalSettings() {
+  return render(
+    <AppearanceProvider>
+      <TerminalSettingsTab />
+    </AppearanceProvider>,
+  );
+}
+
+describe("TerminalSettingsTab persistence integration", () => {
+  beforeEach(() => {
+    authoritative = { ...createDefaultAppearanceSettings(), revision: 1 };
+    vi.spyOn(window, "alert").mockImplementation(() => {});
+    mocks.appearanceSettingsGet.mockReset().mockImplementation(async () => authoritative);
+    mocks.appearanceSettingsPatch.mockReset().mockImplementation(async (patch) => {
+      if (patch.scope !== "terminal") throw new Error("expected terminal patch");
+      authoritative = {
+        ...authoritative,
+        terminal: patch.terminal,
+        revision: authoritative.revision + 1,
+      };
+      return authoritative;
+    });
+    mocks.appearanceSettingsSet.mockReset();
+    mocks.getNotificationPreferences.mockReset().mockResolvedValue(notificationPreferences);
+    mocks.updateNotificationPreferences.mockReset().mockResolvedValue(undefined);
+    mocks.getLogLocations.mockReset().mockResolvedValue({ directory: "/logs", files: [] });
+    mocks.openLogLocation.mockReset().mockResolvedValue(undefined);
+    mocks.revealLogLocation.mockReset().mockResolvedValue(undefined);
+    mocks.listen.mockReset().mockResolvedValue(vi.fn());
+    mocks.emit.mockReset().mockResolvedValue(undefined);
+    mocks.applyAppearanceSettings.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("restores a terminal font saved through the Terminal-tab action after relaunch", async () => {
+    const firstLaunch = renderTerminalSettings();
+    await waitFor(() => expect(screen.getByLabelText("Font size")).toHaveValue(13));
+
+    fireEvent.change(screen.getByLabelText("Font size"), { target: { value: "18" } });
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+    );
+
+    await waitFor(() => {
+      expect(mocks.appearanceSettingsPatch).toHaveBeenCalledWith({
+        scope: "terminal",
+        terminal: expect.objectContaining({ fontSize: 18 }),
+      });
+      expect(mocks.updateNotificationPreferences).toHaveBeenCalledWith(notificationPreferences);
+      expect(window.alert).toHaveBeenCalledWith("Terminal settings saved successfully");
+    });
+
+    firstLaunch.unmount();
+    renderTerminalSettings();
+
+    await waitFor(() => {
+      expect(mocks.appearanceSettingsGet).toHaveBeenCalledTimes(2);
+      expect(screen.getByLabelText("Font size")).toHaveValue(18);
+    });
+  });
+});
