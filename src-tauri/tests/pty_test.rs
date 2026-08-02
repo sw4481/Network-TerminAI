@@ -59,9 +59,14 @@ async fn spawn_shell_echo_and_exit() {
             }
             PtyEvent::Exit { .. } => {
                 saw_exit = true;
-                break;
             }
             _ => {}
+        }
+        // The PTY reader and child waiter run on independent threads, so
+        // either event may reach the shared channel first. Keep draining until
+        // both parts of the contract are observed.
+        if saw_hello && saw_exit {
+            break;
         }
     }
     assert!(saw_hello, "never saw 'hello' in output");

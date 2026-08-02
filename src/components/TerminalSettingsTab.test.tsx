@@ -212,8 +212,12 @@ describe("TerminalSettingsTab", () => {
     expect(
       await screen.findByRole("heading", { name: "Diagnostic logs" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(logLocations.directory)).toBeInTheDocument();
-    expect(screen.getByText(logLocations.files[0].path)).toBeInTheDocument();
+    expect(
+      await screen.findByText(logLocations.directory),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(logLocations.files[0].path),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("Created when the first incident occurs"),
     ).toBeInTheDocument();
