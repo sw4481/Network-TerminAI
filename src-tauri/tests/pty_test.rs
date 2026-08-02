@@ -29,12 +29,33 @@ async fn spawn_shell_echo_and_exit() {
 
     let handle = spawn_pty(opts, tx).await.expect("spawn_pty");
 
+    let wait = if cfg!(windows) {
+        Duration::from_secs(10)
+    } else {
+        Duration::from_secs(5)
+    };
+    let mut output = Vec::new();
+    let mut answered_cursor_query = false;
     let mut saw_hello = false;
     let mut saw_exit = false;
-    while let Ok(Some(ev)) = tokio::time::timeout(Duration::from_secs(5), rx.recv()).await {
+    while let Ok(Some(ev)) = tokio::time::timeout(wait, rx.recv()).await {
         match ev {
-            PtyEvent::Output { bytes } if String::from_utf8_lossy(&bytes).contains("hello") => {
-                saw_hello = true;
+            PtyEvent::Output { bytes } => {
+                output.extend_from_slice(&bytes);
+                // Windows ConPTY asks its terminal emulator for the cursor
+                // position before it releases command output. The production
+                // xterm frontend answers this query through `onData`; emulate
+                // that response in this headless integration test.
+                if cfg!(windows)
+                    && !answered_cursor_query
+                    && output.windows(4).any(|window| window == b"\x1b[6n")
+                {
+                    handle.write(b"\x1b[1;1R").unwrap();
+                    answered_cursor_query = true;
+                }
+                if output.windows(5).any(|window| window == b"hello") {
+                    saw_hello = true;
+                }
             }
             PtyEvent::Exit { .. } => {
                 saw_exit = true;
@@ -86,7 +107,13 @@ async fn kill_then_exit_fires_promptly() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Killing must not deadlock.
-    handle.kill().expect("kill");
+    let kill_result = handle.kill();
+    if !cfg!(windows) {
+        kill_result.expect("kill");
+    }
+    // portable-pty 0.9.0's cloned Windows killer reports an error when
+    // TerminateProcess succeeds. The Exit event below is the cross-platform
+    // behavioral contract and still fails the test if the process survives.
 
     // We should see an Exit event within a reasonable time.
     let mut saw_exit = false;
