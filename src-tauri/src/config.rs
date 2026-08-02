@@ -103,16 +103,12 @@ impl ConfigManager {
     }
 
     pub fn save_profile(&self, name: String, profile: ModelProfile) -> Result<()> {
-        // Update in-memory config
-        {
-            let mut config = self.config.write();
-            config.profiles.insert(name, profile);
-        }
-
-        // Write to file
+        // Keep the write lock while persisting so the watcher cannot reload a
+        // partially-written file and clobber the in-memory value.
+        let mut config = self.config.write();
+        config.profiles.insert(name, profile);
         let config_path = self.config_dir.join("config.toml");
-        let config = self.config.read().clone();
-        let toml_str = toml::to_string_pretty(&config)?;
+        let toml_str = toml::to_string_pretty(&*config)?;
         std::fs::write(&config_path, toml_str)?;
 
         Ok(())
@@ -123,15 +119,12 @@ impl ConfigManager {
     }
 
     pub fn set_env_var(&self, key: String, value: String) -> Result<()> {
-        // Update in-memory
-        {
-            let mut env_vars = self.env_vars.write();
-            env_vars.insert(key, value);
-        }
-
-        // Write to file
+        // Keep the write lock while persisting so the watcher cannot reload a
+        // partially-written file and clobber the in-memory value.
+        let mut env_vars = self.env_vars.write();
+        env_vars.insert(key, value);
         let env_path = self.config_dir.join(".env");
-        write_env_file(&env_path, &self.env_vars.read())?;
+        write_env_file(&env_path, &env_vars)?;
 
         Ok(())
     }
@@ -235,14 +228,16 @@ fn setup_watcher(
         if let Ok(event) = res {
             for path in event.paths {
                 if path == config_path {
+                    let mut config = config_arc.write();
                     if let Ok(content) = std::fs::read_to_string(&config_path) {
                         if let Ok(new_config) = toml::from_str::<Config>(&content) {
-                            *config_arc.write() = new_config;
+                            *config = new_config;
                         }
                     }
                 } else if path == env_path {
+                    let mut env_vars = env_arc.write();
                     if let Ok(new_env) = load_env_file(&env_path) {
-                        *env_arc.write() = new_env;
+                        *env_vars = new_env;
                     }
                 }
             }
@@ -419,9 +414,15 @@ OPENAI_API_KEY=sk-test456
             .set_env_var("TEST_KEY".to_string(), "test_value".to_string())
             .unwrap();
 
-        // Retrieve it
-        let value = manager.get_env_var("TEST_KEY").unwrap();
-        assert_eq!(value, "test_value");
+        // The file watcher runs asynchronously. Repeatedly verify that a
+        // delayed filesystem event cannot clobber the value we just saved.
+        for _ in 0..50 {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            assert_eq!(
+                manager.get_env_var("TEST_KEY").as_deref(),
+                Some("test_value")
+            );
+        }
 
         // Verify it was written to file
         let env_path = manager.config_dir.join(".env");

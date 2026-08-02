@@ -138,7 +138,7 @@ jobs:
         working-directory: src-tauri
         env:
           CCIE_REPO_ROOT: ${{ github.workspace }}
-        run: cargo test --locked
+        run: cargo test --locked --no-fail-fast
 
   python-test:
     name: python-test
