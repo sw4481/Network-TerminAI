@@ -3,21 +3,22 @@
 use ccie_terminal_lib::db;
 use rusqlite::Connection;
 use std::time::Instant;
-use tempfile::NamedTempFile;
 use uuid::Uuid;
 
 /// Helper to create a test database with migrations
-fn setup_test_db() -> (NamedTempFile, Connection) {
-    let temp_file = NamedTempFile::new().unwrap();
-    let path = temp_file.path();
-    let conn = db::open_and_migrate(path).unwrap();
-    (temp_file, conn)
+fn setup_test_db() -> Connection {
+    ccie_terminal_lib::rag::vec::register_vec_auto_extension();
+    let mut conn = Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+    ccie_terminal_lib::rag::vec::enable_vec_extension(&conn).unwrap();
+    db::apply_migrations(&mut conn).unwrap();
+    conn
 }
 
 /// Test that database indexes improve query performance
 #[test]
 fn test_indexed_query_performance() {
-    let (_temp, conn) = setup_test_db();
+    let conn = setup_test_db();
 
     // Create a tab
     let tab_id = Uuid::new_v4().to_string();
@@ -88,7 +89,7 @@ fn test_indexed_query_performance() {
 /// Test AI message query performance with index
 #[test]
 fn test_ai_messages_index_performance() {
-    let (_temp, conn) = setup_test_db();
+    let conn = setup_test_db();
 
     // Create a tab
     let tab_id = Uuid::new_v4().to_string();
@@ -161,7 +162,7 @@ fn test_ai_messages_index_performance() {
 /// Test FTS5 search performance
 #[test]
 fn test_fts5_search_performance() {
-    let (_temp, conn) = setup_test_db();
+    let conn = setup_test_db();
 
     // Create a tab
     let tab_id = Uuid::new_v4().to_string();
@@ -245,7 +246,7 @@ fn test_fts5_search_performance() {
 /// Test tab query with partial index
 #[test]
 fn test_active_tabs_query_performance() {
-    let (_temp, conn) = setup_test_db();
+    let conn = setup_test_db();
 
     // Insert 100 tabs (50 active, 50 closed)
     for i in 0..100 {
@@ -301,7 +302,7 @@ fn test_active_tabs_query_performance() {
 /// Test that indexes don't break existing queries
 #[test]
 fn test_index_compatibility() {
-    let (_temp, conn) = setup_test_db();
+    let conn = setup_test_db();
 
     // Verify all indexes exist
     let mut stmt = conn

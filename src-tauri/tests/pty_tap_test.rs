@@ -51,10 +51,27 @@ async fn tap_receives_pty_bytes_and_detach_stops_them() {
 
     // Wait for any tap byte to arrive; combine until we see "first".
     let mut combined: Vec<u8> = Vec::new();
-    let deadline = std::time::Instant::now() + Duration::from_millis(2000);
+    let wait = if cfg!(windows) {
+        Duration::from_secs(10)
+    } else {
+        Duration::from_secs(2)
+    };
+    let deadline = std::time::Instant::now() + wait;
+    let mut answered_cursor_query = false;
     while std::time::Instant::now() < deadline {
         if let Ok(Some(raw)) = timeout(Duration::from_millis(200), tap_rx.recv()).await {
             combined.extend_from_slice(&raw.bytes);
+            // Windows ConPTY asks its terminal emulator for the cursor
+            // position before it releases command output. The real xterm
+            // frontend answers this DSR query through `onData`; this headless
+            // test must emulate that response or cmd.exe remains blocked.
+            if cfg!(windows)
+                && !answered_cursor_query
+                && combined.windows(4).any(|window| window == b"\x1b[6n")
+            {
+                handle.write(b"\x1b[1;1R").unwrap();
+                answered_cursor_query = true;
+            }
             if combined.windows(5).any(|w| w == b"first") {
                 break;
             }
