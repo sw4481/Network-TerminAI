@@ -1197,11 +1197,10 @@ pub struct GhWorkflowRun {
 /// (owner, repo) with any trailing `.git` stripped.
 fn parse_owner_repo(remote: &str) -> Option<(String, String)> {
     // SSH: git@github.com:owner/repo.git   HTTPS: https://github.com/owner/repo(.git)
-    let tail = if let Some(idx) = remote.find("github.com") {
+    let tail = {
+        let idx = remote.find("github.com")?;
         let after = &remote[idx + "github.com".len()..];
         after.trim_start_matches([':', '/']) // strip ':' (ssh) or '/' (https)
-    } else {
-        return None;
     };
     let tail = tail.strip_suffix(".git").unwrap_or(tail);
     let mut parts = tail.splitn(2, '/');

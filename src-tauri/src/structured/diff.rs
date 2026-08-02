@@ -40,20 +40,24 @@ struct SnapshotData {
 }
 
 fn load_snapshot(conn: &Connection, snapshot_id: i64) -> Result<SnapshotData> {
-    let row = conn.query_row(
-        "SELECT po.parser, po.command, po.vendor, po.platform, po.data_json
+    let row = conn
+        .query_row(
+            "SELECT po.parser, po.command, po.vendor, po.platform, po.data_json
          FROM parsed_snapshots ps
          JOIN parsed_outputs po ON po.id = ps.parsed_output_id
          WHERE ps.id = ?1",
-        params![snapshot_id],
-        |r| Ok::<(String, String, String, String, String), rusqlite::Error>((
-            r.get(0)?,
-            r.get(1)?,
-            r.get(2)?,
-            r.get(3)?,
-            r.get(4)?,
-        )),
-    ).map_err(|e| anyhow!("snapshot {snapshot_id} not found: {e}"))?;
+            params![snapshot_id],
+            |r| {
+                Ok::<(String, String, String, String, String), rusqlite::Error>((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                ))
+            },
+        )
+        .map_err(|e| anyhow!("snapshot {snapshot_id} not found: {e}"))?;
 
     let data: serde_json::Value =
         serde_json::from_str(&row.4).map_err(|e| anyhow!("invalid data_json: {e}"))?;
@@ -132,11 +136,8 @@ pub(crate) fn as_list_of_dicts(
     let arr = v.as_array()?;
     let mut out = Vec::with_capacity(arr.len());
     for item in arr {
-        if let Some(o) = item.as_object() {
-            out.push(o.clone());
-        } else {
-            return None;
-        }
+        let object = item.as_object()?;
+        out.push(object.clone());
     }
     Some(out)
 }
@@ -210,10 +211,7 @@ pub(crate) fn diff_list_of_dicts(
     out
 }
 
-pub(crate) fn diff_nested_dict(
-    a: &serde_json::Value,
-    b: &serde_json::Value,
-) -> Vec<CellDiff> {
+pub(crate) fn diff_nested_dict(a: &serde_json::Value, b: &serde_json::Value) -> Vec<CellDiff> {
     let a_rows = flatten::flatten_to_rows(a, "");
     let b_rows = flatten::flatten_to_rows(b, "");
     let a_map: BTreeMap<String, serde_json::Value> =
@@ -272,10 +270,8 @@ pub fn diff_snapshots(
     }
 
     if a_is_list {
-        let a_rows =
-            as_list_of_dicts(&a.data).ok_or_else(|| anyhow!("a is not list-of-dicts"))?;
-        let b_rows =
-            as_list_of_dicts(&b.data).ok_or_else(|| anyhow!("b is not list-of-dicts"))?;
+        let a_rows = as_list_of_dicts(&a.data).ok_or_else(|| anyhow!("a is not list-of-dicts"))?;
+        let b_rows = as_list_of_dicts(&b.data).ok_or_else(|| anyhow!("b is not list-of-dicts"))?;
         let key = lookup_schema_key(&conn, &a.parser, &a.command, &a.vendor, &a.platform)?
             .or_else(|| pick_alignment_key(&a_rows, &b_rows))
             .ok_or_else(|| anyhow!("no usable alignment key for list-of-dicts diff"))?;

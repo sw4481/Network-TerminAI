@@ -61,6 +61,51 @@ def test_ansible_lint_unavailable_is_honest(monkeypatch):
     assert all(l["available"] is False for l in ansible_entries)
 
 
+@pytest.mark.parametrize(
+    ("stderr", "expected"),
+    [
+        (
+            "ERROR! YAML parsing failed\n  debug: {{{\n             ^ here\n",
+            "ERROR! YAML parsing failed",
+        ),
+        (
+            "[ERROR]: YAML parsing failed\n(source not shown: file truncated)\n",
+            "[ERROR]: YAML parsing failed",
+        ),
+        (
+            "YAML parsing failed\n(source not shown: file truncated)\n^ here\n",
+            "YAML parsing failed",
+        ),
+    ],
+)
+def test_ansible_syntax_check_selects_useful_error_across_versions(
+    monkeypatch, stderr, expected
+):
+    monkeypatch.setattr(
+        iac_lint.shutil,
+        "which",
+        lambda name: "/usr/bin/ansible-playbook" if name == "ansible-playbook" else None,
+    )
+
+    class FakeProc:
+        stdout = ""
+        returncode = 4
+
+        def __init__(self, error_text):
+            self.stderr = error_text
+
+    monkeypatch.setattr(
+        iac_lint.subprocess,
+        "run",
+        lambda *args, **kwargs: FakeProc(stderr),
+    )
+
+    diags, linter = iac_lint._ansible_syntax_check("- hosts: all\n")
+
+    assert linter["ran"] is True
+    assert diags[0]["message"] == expected
+
+
 @requires_ansible
 def test_ansible_syntax_fallback_runs_when_lint_absent(monkeypatch):
     # ansible-lint absent but ansible-playbook present → fallback runs.

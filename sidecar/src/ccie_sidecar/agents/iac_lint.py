@@ -23,6 +23,11 @@ _FMT_ERROR_RE = re.compile(r"Error:\s*(.+)")
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 # ansible-lint emits `path:line:col: [rule] message` lines on stdout.
 _ALINT_RE = re.compile(r"^[^:]*:(\d+):(?:(\d+):)?\s*(.*)$")
+# Ansible's syntax-error prefix changed across releases. Current versions emit
+# `[ERROR]:`, while older Linux packages commonly emit `ERROR!` (and a few
+# releases used `ERROR:`). Recognize every supported form before considering
+# the trailing source excerpt/caret lines.
+_ANSIBLE_ERROR_RE = re.compile(r"^\s*(?:\[ERROR\]\s*:|ERROR[!:])", re.IGNORECASE)
 # yamllint -f parsable emits `path:line:col: [severity] message (rule)`.
 _YAMLLINT_RE = re.compile(r"^[^:]*:(\d+):(\d+):\s*\[(\w+)\]\s*(.*)$")
 
@@ -125,9 +130,25 @@ def _ansible_syntax_check(content: str) -> tuple[list[dict[str, Any]], dict[str,
         return [], _linter(name, ran=False, available=True, reason=str(e))
     if proc.returncode == 0:
         return [], _linter(name, ran=True, available=True)
-    lines = (proc.stderr or proc.stdout).strip().splitlines()
-    error_line = next((ln for ln in lines if ln.lstrip().startswith("[ERROR]:")), None)
-    message = error_line or (lines[-1] if lines else "syntax-check failed")
+    lines = [
+        _ANSI_RE.sub("", line).strip()
+        for line in (proc.stderr or proc.stdout).splitlines()
+        if line.strip()
+    ]
+    error_line = next((line for line in lines if _ANSIBLE_ERROR_RE.match(line)), None)
+    if error_line is not None:
+        message = error_line
+    else:
+        # Unknown Ansible versions may omit a stable error prefix. Do not show
+        # the trailing caret or truncation notice as the diagnostic; choose the
+        # last useful human-readable line instead.
+        useful_lines = [
+            line
+            for line in lines
+            if not line.startswith("^")
+            and "source not shown" not in line.lower()
+        ]
+        message = useful_lines[-1] if useful_lines else "syntax-check failed"
     return [{
         "line": 1, "column": 1, "severity": "error",
         "message": message.strip(),

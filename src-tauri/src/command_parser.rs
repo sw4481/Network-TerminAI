@@ -364,10 +364,8 @@ fn clean_command(raw: &str) -> String {
 fn parse_osc7_path(body: &str) -> Option<String> {
     let raw = if let Some(after) = body.strip_prefix("file://") {
         // Strip the authority component (everything up to the first '/').
-        match after.find('/') {
-            Some(idx) => &after[idx..],
-            None => return None,
-        }
+        let idx = after.find('/')?;
+        &after[idx..]
     } else if body.starts_with('/') {
         body
     } else {

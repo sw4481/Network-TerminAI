@@ -12,7 +12,7 @@ pub fn gather_git(cwd: &str) -> Option<GitInfo> {
         Some(h) if h.is_branch() => h.shorthand().unwrap_or("HEAD").to_string(),
         Some(h) => {
             let sha = h.target().map(|o| o.to_string()).unwrap_or_default();
-            format!("(detached @ {})", &sha.chars().take(7).collect::<String>())
+            format!("(detached @ {})", sha.chars().take(7).collect::<String>())
         }
         None => "HEAD".to_string(),
     };
@@ -21,19 +21,19 @@ pub fn gather_git(cwd: &str) -> Option<GitInfo> {
     let mut opts = git2::StatusOptions::new();
     opts.include_untracked(true).include_ignored(false);
     let statuses = repo.statuses(Some(&mut opts)).ok()?;
-    let changed_count = statuses.iter().filter(|e| {
-        !e.status().is_empty() && !e.status().contains(git2::Status::IGNORED)
-    }).count() as u32;
+    let changed_count = statuses
+        .iter()
+        .filter(|e| !e.status().is_empty() && !e.status().contains(git2::Status::IGNORED))
+        .count() as u32;
     let dirty = changed_count > 0;
 
     // ahead/behind vs upstream (default 0/0 when no upstream).
     let (mut ahead, mut behind) = (0u32, 0u32);
     if let Some(h) = &head {
         if let Some(local_oid) = h.target() {
-            if let Ok(local_branch) = repo.find_branch(
-                h.shorthand().unwrap_or(""),
-                git2::BranchType::Local,
-            ) {
+            if let Ok(local_branch) =
+                repo.find_branch(h.shorthand().unwrap_or(""), git2::BranchType::Local)
+            {
                 if let Ok(upstream) = local_branch.upstream() {
                     if let Some(up_oid) = upstream.get().target() {
                         if let Ok((a, b)) = repo.graph_ahead_behind(local_oid, up_oid) {
@@ -46,7 +46,13 @@ pub fn gather_git(cwd: &str) -> Option<GitInfo> {
         }
     }
 
-    Some(GitInfo { branch, dirty, changed_count, ahead, behind })
+    Some(GitInfo {
+        branch,
+        dirty,
+        changed_count,
+        ahead,
+        behind,
+    })
 }
 
 #[cfg(test)]
@@ -55,7 +61,11 @@ mod tests {
     use std::process::Command;
 
     fn sh(dir: &std::path::Path, args: &[&str]) {
-        let status = Command::new(args[0]).args(&args[1..]).current_dir(dir).status().unwrap();
+        let status = Command::new(args[0])
+            .args(&args[1..])
+            .current_dir(dir)
+            .status()
+            .unwrap();
         assert!(status.success(), "cmd failed: {args:?}");
     }
 

@@ -117,7 +117,7 @@ credentials, vaults, and RAG data.
 
 ### Development requirements
 
-- Rust stable (`rustup`)
+- Rust 1.97.0 (`rustup`; pinned by `rust-toolchain.toml`)
 - Node 22+ and [Bun](https://bun.sh)
 - Python 3.12
 - At least one AI provider API key (see Configuration)

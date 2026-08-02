@@ -16,7 +16,7 @@ Thank you for your interest in contributing to CCIE Terminal! This guide will he
 
 ### Prerequisites
 
-- **Rust**: Install via [rustup](https://rustup.rs/)
+- **Rust**: Install via [rustup](https://rustup.rs/); this repository pins 1.97.0
 - **Node.js**: Version 22+ required
 - **Bun**: Install from [bun.sh](https://bun.sh)
 - **Python**: Version 3.12 required
