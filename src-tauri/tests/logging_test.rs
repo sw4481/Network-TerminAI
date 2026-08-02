@@ -1,6 +1,5 @@
 use ccie_terminal_lib::logging::{init_logging, LogConfig, LogLevel};
 use std::fs;
-use std::path::PathBuf;
 use tempfile::TempDir;
 
 #[test]
@@ -106,11 +105,7 @@ fn test_structured_logging_fields() {
         "Test structured log message"
     );
 
-    tracing::error!(
-        error = "test_error",
-        code = 500,
-        "Test error with fields"
-    );
+    tracing::error!(error = "test_error", code = 500, "Test error with fields");
 }
 
 #[test]

@@ -15,9 +15,7 @@ use crate::commands::AppState;
 use crate::pcap::orchestrator::{self, CaptureRegistry};
 use crate::pcap::repo::{self, PcapCapture};
 use crate::pcap::ssh_exec::DeviceConn;
-use crate::pcap::summarize::{
-    FollowStreamResult, PcapBridge, PcapPacketBytes, PcapSummary,
-};
+use crate::pcap::summarize::{FollowStreamResult, PcapBridge, PcapPacketBytes, PcapSummary};
 use crate::pcap::templates::{self, PcapTemplate};
 use crate::pcap::types::{CaptureSpec, DeviceKind};
 
@@ -120,8 +118,7 @@ pub fn pcap_capture_finalize(
     size_bytes: u64,
 ) -> Result<(), String> {
     let conn = state.db.lock();
-    repo::finalize(&conn, &id, &local_path, packet_count, size_bytes)
-        .map_err(|e| e.to_string())
+    repo::finalize(&conn, &id, &local_path, packet_count, size_bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -272,7 +269,10 @@ async fn run_live_capture(
     let bytes = scp::pull_file(conn, &result.export_path, &local_path)
         .await
         .context("scp pull")?;
-    emit(orchestrator::CaptureEvent::Pulling { bytes, total: Some(bytes) });
+    emit(orchestrator::CaptureEvent::Pulling {
+        bytes,
+        total: Some(bytes),
+    });
 
     if bytes >= crate::pcap::PCAP_SIZE_WARN_BYTES {
         emit(orchestrator::CaptureEvent::SizeWarning { size_bytes: bytes });

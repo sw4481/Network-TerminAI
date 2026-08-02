@@ -42,14 +42,11 @@ async fn tap_receives_pty_bytes_and_detach_stops_them() {
     let mut combined: Vec<u8> = Vec::new();
     let deadline = std::time::Instant::now() + Duration::from_millis(2000);
     while std::time::Instant::now() < deadline {
-        match timeout(Duration::from_millis(200), tap_rx.recv()).await {
-            Ok(Some(raw)) => {
-                combined.extend_from_slice(&raw.bytes);
-                if combined.windows(5).any(|w| w == b"first") {
-                    break;
-                }
+        if let Ok(Some(raw)) = timeout(Duration::from_millis(200), tap_rx.recv()).await {
+            combined.extend_from_slice(&raw.bytes);
+            if combined.windows(5).any(|w| w == b"first") {
+                break;
             }
-            _ => {}
         }
     }
     assert!(

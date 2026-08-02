@@ -172,7 +172,7 @@ fn test_fts5_search_performance() {
     .unwrap();
 
     // Insert 10,000 command blocks with various commands
-    let commands = vec![
+    let commands = [
         "kubectl get pods",
         "docker ps",
         "git status",
@@ -277,7 +277,9 @@ fn test_active_tabs_query_performance() {
         .unwrap();
 
     let rows: Vec<_> = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
         .unwrap()
         .collect();
 
@@ -334,5 +336,8 @@ fn test_index_compatibility() {
         );
     }
 
-    println!("✓ All {} performance indexes present", expected_indexes.len());
+    println!(
+        "✓ All {} performance indexes present",
+        expected_indexes.len()
+    );
 }

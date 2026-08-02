@@ -249,8 +249,6 @@ fn classify(flags: Status) -> &'static str {
         "added"
     } else if flags.intersects(Status::WT_NEW) {
         "untracked"
-    } else if flags.intersects(Status::WT_MODIFIED | Status::INDEX_MODIFIED) {
-        "modified"
     } else {
         "modified"
     }

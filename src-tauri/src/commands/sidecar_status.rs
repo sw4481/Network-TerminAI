@@ -92,10 +92,7 @@ pub fn get_sidecar_status(state: State<'_, AppState>) -> Result<SidecarStatus, S
     // scheduler / GC jitter. Earlier iterations used 90s but the budget was
     // tight enough that a single long GC pause could flip the chip to "down"
     // on a healthy process.
-    let running = row
-        .0
-        .map(|last| now - last <= 120)
-        .unwrap_or(false);
+    let running = row.0.map(|last| now - last <= 120).unwrap_or(false);
 
     Ok(SidecarStatus {
         running,

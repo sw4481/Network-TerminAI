@@ -67,9 +67,9 @@ pub fn classify(rs: &RuleSet, vendor: &str, platform: &str, command: &str) -> De
         best = match best {
             None => Some(cr),
             Some(prev) => {
-                if cr.rule.tier > prev.rule.tier {
-                    Some(cr)
-                } else if cr.rule.tier == prev.rule.tier && specificity(cr) > specificity(prev) {
+                if cr.rule.tier > prev.rule.tier
+                    || (cr.rule.tier == prev.rule.tier && specificity(cr) > specificity(prev))
+                {
                     Some(cr)
                 } else {
                     Some(prev)
@@ -92,10 +92,7 @@ pub fn classify(rs: &RuleSet, vendor: &str, platform: &str, command: &str) -> De
     // decide whether to LLM-second-opinion or hard-gate as T1.
     let lower = c.to_lowercase();
     let read_only_prefixes = ["show ", "display ", "ping ", "traceroute ", "dir ", "more "];
-    if read_only_prefixes
-        .iter()
-        .any(|pfx| lower.starts_with(pfx))
-    {
+    if read_only_prefixes.iter().any(|pfx| lower.starts_with(pfx)) {
         return Decision {
             tier: Tier::T0,
             rule_id: None,

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use crate::heartbeat::runner::run_heartbeat;
     use crate::agent_bridge::AgentBridge;
     use crate::heartbeat::repo::HeartbeatRepo;
+    use crate::heartbeat::runner::run_heartbeat;
     use parking_lot::Mutex;
     use rusqlite::Connection;
     use std::sync::Arc;
@@ -31,7 +31,8 @@ mod tests {
         let heartbeat_id = {
             let conn = db.lock();
             let h = HeartbeatRepo::create_heartbeat(&conn, "Test", "Desc", 60, 30).unwrap();
-            HeartbeatRepo::add_check(&conn, &h.id, "Test Group", "test_agent", "test prompt", 0).unwrap();
+            HeartbeatRepo::add_check(&conn, &h.id, "Test Group", "test_agent", "test prompt", 0)
+                .unwrap();
             h.id
         };
 
@@ -43,7 +44,8 @@ mod tests {
 
         // Verify execution record was created
         let conn = db.lock();
-        let executions = HeartbeatRepo::get_execution_history(&conn, &heartbeat_id, Some(10)).unwrap();
+        let executions =
+            HeartbeatRepo::get_execution_history(&conn, &heartbeat_id, Some(10)).unwrap();
         assert_eq!(executions.len(), 1);
         assert_eq!(executions[0].status, "completed");
     }

@@ -50,7 +50,13 @@ pub struct SecretDto {
     pub expires_at: Option<i64>,
 }
 
-const VALID_KINDS: &[&str] = &["password", "ssh_key", "api_token", "snmp_community", "netconf"];
+const VALID_KINDS: &[&str] = &[
+    "password",
+    "ssh_key",
+    "api_token",
+    "snmp_community",
+    "netconf",
+];
 
 pub struct VaultStore {
     keyring: Arc<dyn KeyringStore>,
@@ -97,7 +103,11 @@ impl VaultStore {
         let mut canary_plaintext = [0u8; 32];
         OsRng.fill_bytes(&mut canary_plaintext);
         let canary_ct = aead_seal(&key, &canary_plaintext, id.as_bytes())?;
-        log::info!("[VAULT] Storing canary for envelope {}: key={}", name, canary_key(&id));
+        log::info!(
+            "[VAULT] Storing canary for envelope {}: key={}",
+            name,
+            canary_key(&id)
+        );
         self.keyring.set(&canary_key(&id), &canary_ct)?;
         log::info!("[VAULT] Canary stored successfully");
 
@@ -123,7 +133,7 @@ impl VaultStore {
             params![canary_secret_id, id, canary_key(&id)],
         )?;
 
-        Ok(self.get_envelope(db, &id)?)
+        self.get_envelope(db, &id)
     }
 
     pub fn get_envelope(&self, db: &Connection, id: &str) -> Result<EnvelopeDto, VaultError> {
@@ -390,7 +400,10 @@ impl VaultStore {
         let kref = kref.ok_or(VaultError::SecretNotFound)?;
         // Best-effort keyring delete first; tolerate already-missing.
         let _ = self.keyring.delete(&kref);
-        db.execute("DELETE FROM vault_secrets WHERE id = ?1", params![secret_id])?;
+        db.execute(
+            "DELETE FROM vault_secrets WHERE id = ?1",
+            params![secret_id],
+        )?;
         Ok(())
     }
 

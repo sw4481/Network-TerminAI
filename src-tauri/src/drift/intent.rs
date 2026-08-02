@@ -29,7 +29,9 @@ impl IntentKind {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Copy)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum MatchMode {
+    #[default]
     Baseline,
     Partial,
 }
@@ -47,12 +49,6 @@ impl MatchMode {
             "partial" => Ok(MatchMode::Partial),
             other => Err(format!("unknown match mode {other}")),
         }
-    }
-}
-
-impl Default for MatchMode {
-    fn default() -> Self {
-        MatchMode::Baseline
     }
 }
 
@@ -205,11 +201,7 @@ impl IntentRepo {
         Ok(())
     }
 
-    pub fn update_selector(
-        conn: &Connection,
-        id: &str,
-        selector: &IntentSelector,
-    ) -> Result<()> {
+    pub fn update_selector(conn: &Connection, id: &str, selector: &IntentSelector) -> Result<()> {
         let json = serde_json::to_string(selector)?;
         let n = conn.execute(
             "UPDATE intent_templates
@@ -264,8 +256,7 @@ impl IntentRepo {
             )
         })?;
         let selector_json: String = row.get(7)?;
-        let selector: IntentSelector =
-            serde_json::from_str(&selector_json).unwrap_or_default();
+        let selector: IntentSelector = serde_json::from_str(&selector_json).unwrap_or_default();
         let match_mode_str: String = row.get(10)?;
         let match_mode = MatchMode::parse(&match_mode_str).unwrap_or_default();
         Ok(IntentTemplate {

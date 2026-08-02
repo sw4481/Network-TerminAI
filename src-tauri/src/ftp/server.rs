@@ -361,8 +361,7 @@ impl FtpService {
             .notify_data(events_data)
             .shutdown_indicator(async move {
                 let _ = shutdown_rx.recv().await;
-                libunftp::options::Shutdown::new()
-                    .grace_period(std::time::Duration::from_secs(5))
+                libunftp::options::Shutdown::new().grace_period(std::time::Duration::from_secs(5))
             });
 
             let server = match builder.build() {
@@ -405,7 +404,7 @@ impl FtpService {
         });
         // We don't join the task — the shutdown_tx is how we stop it. Dropping the
         // JoinHandle is fine.
-        let _ = join;
+        std::mem::drop(join);
 
         *self.handle.lock() = Some(FtpServerHandle {
             shutdown_tx,

@@ -2,33 +2,33 @@ pub mod ai;
 pub mod appearance;
 pub mod browser;
 pub mod dap;
+pub mod diagrams;
 pub mod drift;
+pub mod editor;
+pub mod editor_windows;
 pub mod fanout;
+pub mod git;
 pub mod guardrails;
+pub mod logs;
+pub mod lsp;
+pub mod palette;
+pub mod pane_activity;
+pub mod parsers;
 pub mod pcap;
 pub mod pyats;
 pub mod rag;
 pub mod rag_seed;
-pub mod topology;
-pub mod ssh;
-pub mod editor;
-pub mod editor_windows;
-pub mod lsp;
-pub mod git;
-pub mod logs;
-pub mod palette;
-pub mod parsers;
+pub mod recording;
 pub mod sidecar_status;
+pub mod ssh;
 pub mod structured;
+pub mod topology;
 pub mod troubleshoot;
 pub mod vault;
-pub mod recording;
-pub mod diagrams;
-pub mod pane_activity;
 
-use std::time::{SystemTime, UNIX_EPOCH};
 use crate::validation;
 use rusqlite::OptionalExtension;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn ping() -> String {
     let ts = SystemTime::now()
@@ -51,9 +51,15 @@ pub fn enable_browser_mcp_server(
 ) -> Result<(), String> {
     let (python, _) = sidecar_spawn_target();
     let repo_root = std::env::var("CCIE_REPO_ROOT").unwrap_or_else(|_| {
-        std::env::current_dir().unwrap().to_string_lossy().to_string()
+        std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     });
-    let shim_path = format!("{}/sidecar/src/ccie_sidecar/mcp_servers/browser_mcp.py", repo_root);
+    let shim_path = format!(
+        "{}/sidecar/src/ccie_sidecar/mcp_servers/browser_mcp.py",
+        repo_root
+    );
     let command_json = serde_json::json!({ "cmd": python, "args": [shim_path] });
 
     // Use the shared DB handle (same as enable_stealthwatch_mcp_server) — do
@@ -77,10 +83,19 @@ pub struct BrowserMcpConfig {
 pub async fn get_browser_mcp_config() -> Result<BrowserMcpConfig, String> {
     let (python, _) = sidecar_spawn_target();
     let repo_root = std::env::var("CCIE_REPO_ROOT").unwrap_or_else(|_| {
-        std::env::current_dir().unwrap().to_string_lossy().to_string()
+        std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     });
-    let shim_path = format!("{}/sidecar/src/ccie_sidecar/mcp_servers/browser_mcp.py", repo_root);
-    Ok(BrowserMcpConfig { command: python, args: vec![shim_path] })
+    let shim_path = format!(
+        "{}/sidecar/src/ccie_sidecar/mcp_servers/browser_mcp.py",
+        repo_root
+    );
+    Ok(BrowserMcpConfig {
+        command: python,
+        args: vec![shim_path],
+    })
 }
 
 /// Resolve the command + args for spawning the Python sidecar.
@@ -138,7 +153,7 @@ fn bundled_python_path() -> Option<std::path::PathBuf> {
     } else {
         "python/bin/python3"
     };
-    for base in [
+    [
         exe_dir.join(bin),
         exe_dir.join("resources").join(bin),
         // macOS .app: Contents/MacOS/<app> → Contents/Resources/python/bin/python3
@@ -146,12 +161,9 @@ fn bundled_python_path() -> Option<std::path::PathBuf> {
             .parent()
             .map(|p| p.join("Resources").join(bin))
             .unwrap_or_default(),
-    ] {
-        if base.is_file() {
-            return Some(base);
-        }
-    }
-    None
+    ]
+    .into_iter()
+    .find(|base| base.is_file())
 }
 
 #[tauri::command]
@@ -174,12 +186,12 @@ pub async fn ping_sidecar() -> Result<String, String> {
 use crate::agent_bridge::AgentBridge;
 use crate::agents;
 use crate::ftp;
-use crate::tftp;
 use crate::netconf_runner;
 use crate::pty::{spawn_pty, PtyEvent, PtyHandle, PtyOptions};
 use crate::session;
 use crate::shell_integration;
 use crate::skills;
+use crate::tftp;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -191,9 +203,8 @@ use tokio::sync::mpsc;
 /// keyed by tool_call_id. Populated inside the sync streaming callback (which
 /// can't store a Receiver in a serde_json::Value), consumed by the async
 /// agent_chat_stream loop.
-fn pending_rx_map()
-    -> &'static std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Receiver<ApprovalDecision>>>
-{
+fn pending_rx_map(
+) -> &'static std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Receiver<ApprovalDecision>>> {
     static PENDING_RX_MAP: OnceLock<
         std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Receiver<ApprovalDecision>>>,
     > = OnceLock::new();
@@ -257,8 +268,7 @@ pub struct AppState {
     /// builtin set at boot, then merged with user-authored DB rules via
     /// `commands::guardrails::reload_ruleset`. The `RwLock` lets the
     /// classify hot path read concurrently while CRUD calls swap the set.
-    pub guardrails_ruleset:
-        Arc<parking_lot::RwLock<crate::guardrails::rules::RuleSet>>,
+    pub guardrails_ruleset: Arc<parking_lot::RwLock<crate::guardrails::rules::RuleSet>>,
     /// RAG document store (Plan 12). Shares the same SQLite connection
     /// as `db` so writes stay coherent — opening a second on-disk
     /// connection would race refinery and break vec0 row ordering.
@@ -292,7 +302,8 @@ pub struct AppState {
     /// Heartbeat Monitoring System — Lazily initialized scheduler for automated
     /// network health checks. Optional so unit tests can construct AppState without
     /// a Tauri AppHandle.
-    pub heartbeat_scheduler: Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
+    pub heartbeat_scheduler:
+        Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
 }
 
 /// Vault-related state bundle: keyring-backed CRUD store + idle-lock map.
@@ -374,13 +385,16 @@ impl AppState {
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(14400); // 4 hours = 14400 seconds
-        // Use DbKeyringStore instead of OsKeyringStore due to Tauri Keychain access issues.
-        // Security is maintained: values are still encrypted with Argon2id-derived keys.
-        // Uses separate DB connection to avoid deadlocks.
-        let keyring: Arc<dyn crate::vault::KeyringStore> =
-            Arc::new(crate::vault::DbKeyringStore::new(&db_path)
-                .expect("Failed to create DbKeyringStore"));
-        let vault = Arc::new(VaultState::new(keyring, std::time::Duration::from_secs(idle_secs)));
+                               // Use DbKeyringStore instead of OsKeyringStore due to Tauri Keychain access issues.
+                               // Security is maintained: values are still encrypted with Argon2id-derived keys.
+                               // Uses separate DB connection to avoid deadlocks.
+        let keyring: Arc<dyn crate::vault::KeyringStore> = Arc::new(
+            crate::vault::DbKeyringStore::new(&db_path).expect("Failed to create DbKeyringStore"),
+        );
+        let vault = Arc::new(VaultState::new(
+            keyring,
+            std::time::Duration::from_secs(idle_secs),
+        ));
         let recording = Arc::new(crate::recording::supervisor::RecordingSupervisor::new(
             db_arc.clone(),
         ));
@@ -440,15 +454,14 @@ impl AppState {
         let db = self.db.lock();
 
         // Query all envelopes with auto_unlock enabled
-        let mut stmt = match db.prepare(
-            "SELECT id, name FROM vault_envelopes WHERE auto_unlock = 1"
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!(error = %e, "Failed to prepare auto-unlock query");
-                return;
-            }
-        };
+        let mut stmt =
+            match db.prepare("SELECT id, name FROM vault_envelopes WHERE auto_unlock = 1") {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!(error = %e, "Failed to prepare auto-unlock query");
+                    return;
+                }
+            };
 
         let envelopes: Vec<(String, String)> = match stmt
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -466,7 +479,10 @@ impl AppState {
             return;
         }
 
-        tracing::info!("[VAULT] Auto-unlock: found {} envelope(s) to unlock", envelopes.len());
+        tracing::info!(
+            "[VAULT] Auto-unlock: found {} envelope(s) to unlock",
+            envelopes.len()
+        );
 
         for (envelope_id, name) in envelopes {
             // Retrieve passphrase from keyring
@@ -484,7 +500,11 @@ impl AppState {
             };
 
             // Unlock the envelope
-            match self.vault.store.unlock_envelope(&db, &self.vault.lock, &name, passphrase) {
+            match self
+                .vault
+                .store
+                .unlock_envelope(&db, &self.vault.lock, &name, passphrase)
+            {
                 Ok(session_id) => {
                     tracing::info!(
                         envelope_id = %envelope_id,
@@ -530,11 +550,12 @@ pub async fn pty_spawn(
     let tab = {
         let db = state.db.lock();
         match preferred_tab_id.as_deref() {
-            Some(id) => session::create_tab_with_id(&db, id, &shell, &shell, &cwd)
-                .map_err(|e| {
+            Some(id) => {
+                session::create_tab_with_id(&db, id, &shell, &shell, &cwd).map_err(|e| {
                     tracing::error!(error = %e, "Failed to reuse tab id");
                     e.to_string()
-                })?,
+                })?
+            }
             None => session::create_tab(&db, &shell, &shell, &cwd).map_err(|e| {
                 tracing::error!(error = %e, "Failed to create tab in database");
                 e.to_string()
@@ -577,7 +598,9 @@ pub async fn pty_spawn(
     tracing::info!(tab_id = %tab.id, "PTY spawned successfully");
 
     // Register pane with context manager (using tab_id as pane_id for now)
-    state.pane_manager.register_pane(tab.id.clone(), tab.id.clone(), cwd_for_register);
+    state
+        .pane_manager
+        .register_pane(tab.id.clone(), tab.id.clone(), cwd_for_register);
 
     let emit_tab_id = tab_id.clone();
     let pane_ctx_tab_id = tab_id.clone();
@@ -592,12 +615,29 @@ pub async fn pty_spawn(
             // (CommandStart/End/Cwd) — NOT on every Output chunk, which would
             // flood the frontend with hundreds of events per command.
             if let Some((parse_ev, is_lifecycle)) = match &ev {
-                PtyEvent::CommandStart { cmd, .. } => Some((crate::command_parser::ParseEvent::CommandStart { cmd: cmd.clone() }, true)),
-                PtyEvent::CommandEnd { exit_code } => Some((crate::command_parser::ParseEvent::CommandEnd { exit_code: *exit_code }, true)),
-                PtyEvent::Cwd { path } => Some((crate::command_parser::ParseEvent::Cwd(path.clone()), true)),
-                PtyEvent::EnterAltScreen => Some((crate::command_parser::ParseEvent::EnterAltScreen, true)),
-                PtyEvent::ExitAltScreen => Some((crate::command_parser::ParseEvent::ExitAltScreen, true)),
-                PtyEvent::Output { bytes } => Some((crate::command_parser::ParseEvent::Output(bytes.clone()), false)),
+                PtyEvent::CommandStart { cmd, .. } => Some((
+                    crate::command_parser::ParseEvent::CommandStart { cmd: cmd.clone() },
+                    true,
+                )),
+                PtyEvent::CommandEnd { exit_code } => Some((
+                    crate::command_parser::ParseEvent::CommandEnd {
+                        exit_code: *exit_code,
+                    },
+                    true,
+                )),
+                PtyEvent::Cwd { path } => {
+                    Some((crate::command_parser::ParseEvent::Cwd(path.clone()), true))
+                }
+                PtyEvent::EnterAltScreen => {
+                    Some((crate::command_parser::ParseEvent::EnterAltScreen, true))
+                }
+                PtyEvent::ExitAltScreen => {
+                    Some((crate::command_parser::ParseEvent::ExitAltScreen, true))
+                }
+                PtyEvent::Output { bytes } => Some((
+                    crate::command_parser::ParseEvent::Output(bytes.clone()),
+                    false,
+                )),
                 PtyEvent::Exit { .. } => None,
             } {
                 pane_manager.handle_event(&pane_ctx_tab_id, &emit_tab_id, parse_ev);
@@ -654,8 +694,10 @@ pub async fn pty_spawn(
                         if let Some(bid) = current_block.take() {
                             // Notify any waiters on this tab that a block completed.
                             // (No DB write — see CommandStart note above.)
-                            if let Some(waiters) =
-                                block_end_waiters.lock().get_mut(&emit_tab_id).map(|v| std::mem::take(v))
+                            if let Some(waiters) = block_end_waiters
+                                .lock()
+                                .get_mut(&emit_tab_id)
+                                .map(std::mem::take)
                             {
                                 for waiter in waiters {
                                     let _ = waiter.send((bid.clone(), *exit_code));
@@ -775,16 +817,12 @@ pub fn tab_new_api(
         "Creating API tab"
     );
     let db = state.db.lock();
-    session::create_api_tab(
-        &db,
-        &title,
-        target_id.as_deref(),
-        environment.as_deref(),
+    session::create_api_tab(&db, &title, target_id.as_deref(), environment.as_deref()).map_err(
+        |e| {
+            tracing::error!(error = %e, "Failed to create API tab");
+            e.to_string()
+        },
     )
-    .map_err(|e| {
-        tracing::error!(error = %e, "Failed to create API tab");
-        e.to_string()
-    })
 }
 
 /// Close an API Runner tab (no PTY, just a DB close). Safe to call even if
@@ -800,10 +838,7 @@ pub fn tab_close_api(state: State<'_, AppState>, tab_id: String) -> Result<(), S
 /// it inserts a row with `tab_type='netconf'` plus a companion
 /// `netconf_tab_state` row. Sessions open lazily via `netconf_connect`.
 #[tauri::command]
-pub fn tab_new_netconf(
-    state: State<'_, AppState>,
-    title: String,
-) -> Result<session::Tab, String> {
+pub fn tab_new_netconf(state: State<'_, AppState>, title: String) -> Result<session::Tab, String> {
     tracing::info!(title = %title, "Creating NETCONF tab");
     let db = state.db.lock();
     netconf_runner::session_store::create_netconf_tab(&db, &title).map_err(|e| {
@@ -825,10 +860,7 @@ pub fn tab_close_netconf(state: State<'_, AppState>, tab_id: String) -> Result<(
 /// Create a Subnet Calculator tab. Like API/NETCONF tabs, this does NOT
 /// spawn a PTY — it only inserts a row with `tab_type='subnet'`.
 #[tauri::command]
-pub fn tab_new_subnet(
-    state: State<'_, AppState>,
-    title: String,
-) -> Result<session::Tab, String> {
+pub fn tab_new_subnet(state: State<'_, AppState>, title: String) -> Result<session::Tab, String> {
     tracing::info!(title = %title, "Creating Subnet Calculator tab");
     let db = state.db.lock();
     session::create_subnet_tab(&db, &title).map_err(|e| {
@@ -858,11 +890,10 @@ pub fn tab_new_editor(
         "Creating Editor tab"
     );
     let db = state.db.lock();
-    session::create_editor_tab(&db, &title, file_path.as_deref())
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to create Editor tab");
-            e.to_string()
-        })
+    session::create_editor_tab(&db, &title, file_path.as_deref()).map_err(|e| {
+        tracing::error!(error = %e, "Failed to create Editor tab");
+        e.to_string()
+    })
 }
 
 /// Close an Editor tab (no PTY, just a DB close). Safe to call repeatedly.
@@ -872,8 +903,7 @@ pub async fn tab_close_editor(
     state: State<'_, AppState>,
     tab_id: String,
 ) -> Result<(), String> {
-    let validated = validation::validate_tab_id(&tab_id)
-        .map_err(|e| e.to_string())?;
+    let validated = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
     crate::commands::editor_windows::close_detached_editor_windows_for_tab(
         &app,
         &state.editor_window_manager,
@@ -881,8 +911,7 @@ pub async fn tab_close_editor(
     )?;
     state.dap_manager.remove_tab(&validated).await;
     let db = state.db.lock();
-    session::close_tab(&db, &validated)
-        .map_err(|e| e.to_string())
+    session::close_tab(&db, &validated).map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]
@@ -1028,8 +1057,16 @@ pub fn netconf_device_create(
     verify_host_key: bool,
 ) -> Result<crate::netconf_runner::devices::SavedDevice, String> {
     let db = state.db.lock();
-    crate::netconf_runner::devices::create_device(&db, &name, &host, port, &username, &password, verify_host_key)
-        .map_err(|e| e.to_string())
+    crate::netconf_runner::devices::create_device(
+        &db,
+        &name,
+        &host,
+        port,
+        &username,
+        &password,
+        verify_host_key,
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Delete a saved NETCONF device (also removes password from keychain).
@@ -1152,8 +1189,7 @@ pub async fn yang_release_download(
     os: String,
     release: String,
 ) -> Result<i64, String> {
-    let cache_base = crate::netconf_runner::yang_cache::cache_base()
-        .map_err(|e| e.to_string())?;
+    let cache_base = crate::netconf_runner::yang_cache::cache_base().map_err(|e| e.to_string())?;
 
     let params = serde_json::json!({
         "vendor": vendor,
@@ -1167,8 +1203,16 @@ pub async fn yang_release_download(
     let modules_clone = modules.clone();
 
     // Call sidecar with streaming to get progress events
-    eprintln!("=== Starting YANG download stream for {}/{}/{} ===", vendor, os, release);
-    tracing::info!("Starting YANG download stream for {}/{}/{}", vendor, os, release);
+    eprintln!(
+        "=== Starting YANG download stream for {}/{}/{} ===",
+        vendor, os, release
+    );
+    tracing::info!(
+        "Starting YANG download stream for {}/{}/{}",
+        vendor,
+        os,
+        release
+    );
     let result = state
         .agent
         .call_stream_ex("yang_download", params, move |event| {
@@ -1220,14 +1264,22 @@ pub async fn yang_release_download(
         .unwrap_or_else(|arc| arc.lock().unwrap().clone());
 
     // Extract cache_dir from final result (modules already collected in callback)
-    eprintln!("=== Extracting result, modules collected: {} ===", modules.len());
+    eprintln!(
+        "=== Extracting result, modules collected: {} ===",
+        modules.len()
+    );
     tracing::info!("YANG download result: {:?}", result);
-    let cache_dir = result.get("cache_dir")
+    let cache_dir = result
+        .get("cache_dir")
         .and_then(|v| v.as_str())
         .map(String::from)
         .ok_or_else(|| "No cache_dir in response".to_string())?;
 
-    tracing::info!("Extracted cache_dir: {:?}, modules count: {}", cache_dir, modules.len());
+    tracing::info!(
+        "Extracted cache_dir: {:?}, modules count: {}",
+        cache_dir,
+        modules.len()
+    );
 
     // Insert into database
     let db = state.db.lock();
@@ -1239,23 +1291,23 @@ pub async fn yang_release_download(
         &release,
         &source_path,
         &cache_dir,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // Insert modules
     for module in modules {
         let name = module.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let namespace = module.get("namespace").and_then(|v| v.as_str());
         let revision = module.get("revision").and_then(|v| v.as_str());
-        let file_path = module.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+        let file_path = module
+            .get("file_path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         crate::netconf_runner::yang_cache::insert_module(
-            &db,
-            release_id,
-            name,
-            namespace,
-            revision,
-            file_path,
-        ).map_err(|e| e.to_string())?;
+            &db, release_id, name, namespace, revision, file_path,
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Update module count
@@ -1267,8 +1319,7 @@ pub async fn yang_release_download(
 
 #[tauri::command]
 pub async fn yang_module_content(file_path: String) -> Result<String, String> {
-    std::fs::read_to_string(&file_path)
-        .map_err(|e| format!("Failed to read YANG file: {}", e))
+    std::fs::read_to_string(&file_path).map_err(|e| format!("Failed to read YANG file: {}", e))
 }
 
 #[tauri::command]
@@ -1290,17 +1341,13 @@ pub async fn yang_explain_module(
         .map_err(|e| e.to_string())?;
 
     match response {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            result
-                .get("summary")
-                .and_then(|v| v.as_str())
-                .map(String::from)
-                .ok_or_else(|| "No summary in response".to_string())
-        }
-        crate::agent_bridge::AgentResponse::Error { message } => {
-            Err(message)
-        }
-        _ => Err("Unexpected response type".to_string())
+        crate::agent_bridge::AgentResponse::Done { result } => result
+            .get("summary")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .ok_or_else(|| "No summary in response".to_string()),
+        crate::agent_bridge::AgentResponse::Error { message } => Err(message),
+        _ => Err("Unexpected response type".to_string()),
     }
 }
 
@@ -1340,9 +1387,7 @@ pub async fn api_send_request(
     preload_response_refs(&state.db, &mut ctx, &request);
 
     let mut resolved_request = request;
-    if let Err(err) =
-        crate::api_runner::resolver::resolve_request(&mut resolved_request, &ctx)
-    {
+    if let Err(err) = crate::api_runner::resolver::resolve_request(&mut resolved_request, &ctx) {
         // Log the failure AS a history row so the user sees it in history.
         let db = state.db.clone();
         let err_msg = format!("resolve failed: {err}");
@@ -1378,8 +1423,7 @@ pub async fn api_send_request(
         .send(cache_key, resolved_request, state.api_hooks.clone())
         .await;
 
-    if let Err(err) =
-        write_history_row(&db, validated_tab.as_deref(), &request_for_log, &response)
+    if let Err(err) = write_history_row(&db, validated_tab.as_deref(), &request_for_log, &response)
     {
         tracing::warn!(error = %err, "failed to write api_history row");
     }
@@ -1450,8 +1494,7 @@ fn preload_response_refs(
     }
     let db = db.lock();
     for name in names {
-        if let Ok(Some(body)) =
-            crate::api_runner::history::lookup_latest_response_body(&db, &name)
+        if let Ok(Some(body)) = crate::api_runner::history::lookup_latest_response_body(&db, &name)
         {
             ctx.insert_response(name, &body);
         }
@@ -1604,8 +1647,7 @@ pub fn api_set_env_var(
 #[tauri::command]
 pub fn api_delete_env_var(environment: String, key: String) -> Result<(), String> {
     let dir = crate::config::api_environments_dir().map_err(|e| e.to_string())?;
-    crate::api_runner::env_store::delete_var(&dir, &environment, &key)
-        .map_err(|e| e.to_string())
+    crate::api_runner::env_store::delete_var(&dir, &environment, &key).map_err(|e| e.to_string())
 }
 
 // ---- Step 7: history + saved requests ----------------------------------
@@ -1692,10 +1734,7 @@ pub fn api_list_saved_requests(
 }
 
 #[tauri::command]
-pub fn api_delete_saved_request(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub fn api_delete_saved_request(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let db = state.db.lock();
     crate::api_runner::history::delete_saved_request(&db, &id).map_err(|e| e.to_string())
 }
@@ -1781,9 +1820,7 @@ pub fn api_pipe_to_ai(
     let body = if context_snippet.trim().is_empty() {
         prompt
     } else {
-        format!(
-            "{prompt}\n\nContext from API response:\n```json\n{context_snippet}\n```"
-        )
+        format!("{prompt}\n\nContext from API response:\n```json\n{context_snippet}\n```")
     };
     let db = state.db.lock();
     // agent_id = None → general chat bucket; Some("foo") → that agent's
@@ -1877,8 +1914,7 @@ pub async fn api_import_openapi(
             .await
             .map_err(|e| format!("read OpenAPI body: {e}"))?
     } else {
-        std::fs::read_to_string(&source)
-            .map_err(|e| format!("read OpenAPI file {source}: {e}"))?
+        std::fs::read_to_string(&source).map_err(|e| format!("read OpenAPI file {source}: {e}"))?
     };
     crate::api_runner::openapi::parse_spec(&raw).map_err(|e| e.to_string())
 }
@@ -1979,14 +2015,13 @@ async fn build_rag_system_prefix(
     };
     let store = state.rag_store.clone();
     let bridge = state.rag_bridge.clone();
-    let chunks =
-        match crate::rag::retrieve::retrieve(&store, bridge.as_ref(), args).await {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::warn!(error = %e, "rag retrieve failed; chat continues without sources");
-                return None;
-            }
-        };
+    let chunks = match crate::rag::retrieve::retrieve(&store, bridge.as_ref(), args).await {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(error = %e, "rag retrieve failed; chat continues without sources");
+            return None;
+        }
+    };
     if chunks.is_empty() {
         return None;
     }
@@ -2004,9 +2039,7 @@ async fn build_rag_system_prefix(
 /// model can cite by `doc#chunk` references.
 fn format_rag_prefix(chunks: &[crate::rag::retrieve::RetrievedChunk]) -> String {
     let mut out = String::new();
-    out.push_str(
-        "# Retrieved Documentation (use these as authoritative; cite by [doc#chunk])\n",
-    );
+    out.push_str("# Retrieved Documentation (use these as authoritative; cite by [doc#chunk])\n");
     for c in chunks {
         let tags = c.tags.join(",");
         out.push_str(&format!(
@@ -2245,7 +2278,10 @@ pub async fn agent_chat_stream(
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string();
-                        let payload = ev.get("payload").cloned().unwrap_or(serde_json::Value::Null);
+                        let payload = ev
+                            .get("payload")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null);
                         let tool_call_id = format!("tc-{}", uuid_like());
 
                         // Only register the FIRST tool call per turn — if the LLM emitted more,
@@ -2258,15 +2294,10 @@ pub async fn agent_chat_stream(
                         // Register the approval receiver BEFORE telling the frontend,
                         // so the frontend's approve_tool call can find it immediately.
                         let (tx, rx) = tokio::sync::oneshot::channel::<ApprovalDecision>();
-                        pending_approvals_cb
-                            .lock()
-                            .insert(tool_call_id.clone(), tx);
+                        pending_approvals_cb.lock().insert(tool_call_id.clone(), tx);
 
                         let allowed = if kind == "shell" {
-                            let cmd = payload
-                                .get("cmd")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
+                            let cmd = payload.get("cmd").and_then(|v| v.as_str()).unwrap_or("");
                             matches_any(&allowed_cb, cmd)
                         } else {
                             true
@@ -2333,7 +2364,7 @@ pub async fn agent_chat_stream(
         let cancel_watch = async move {
             loop {
                 if cancel_watch_flag.load(std::sync::atomic::Ordering::Acquire) {
-                    return ();
+                    return;
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(150)).await;
             }
@@ -2383,16 +2414,11 @@ pub async fn agent_chat_stream(
                 }));
                 continue;
             }
-            ApprovalDecision::Run(edited_payload) => {
-                match kind.as_str() {
-                    "shell" => execute_shell_tool(&state, &tab_id, &edited_payload).await,
-                    "mcp" => execute_mcp_tool(&state, &edited_payload).await,
-                    _ => (
-                        None,
-                        format!("[unknown tool kind: {}]", kind),
-                    ),
-                }
-            }
+            ApprovalDecision::Run(edited_payload) => match kind.as_str() {
+                "shell" => execute_shell_tool(&state, &tab_id, &edited_payload).await,
+                "mcp" => execute_mcp_tool(&state, &edited_payload).await,
+                _ => (None, format!("[unknown tool kind: {}]", kind)),
+            },
         };
 
         let _ = on_event.send(AgentChatEvent::ToolResult {
@@ -2528,7 +2554,7 @@ async fn execute_shell_tool(
         .block_end_waiters
         .lock()
         .entry(tab_id.to_string())
-        .or_insert_with(Vec::new)
+        .or_default()
         .push(tx);
 
     // Write `cmd + \r` to the PTY
@@ -2536,12 +2562,7 @@ async fn execute_shell_tool(
         let ptys = state.ptys.lock();
         let h = match ptys.get(tab_id) {
             Some(h) => h,
-            None => {
-                return (
-                    None,
-                    "[tab not found — agent cannot execute]".to_string(),
-                )
-            }
+            None => return (None, "[tab not found — agent cannot execute]".to_string()),
         };
         let mut bytes = cmd.as_bytes().to_vec();
         bytes.push(b'\r');
@@ -2645,10 +2666,8 @@ fn trim_trailing_prompt(s: &str) -> String {
     let mut lines: Vec<&str> = s.lines().collect();
     while let Some(last) = lines.last() {
         let l = last.trim_end();
-        let looks_like_prompt = l.ends_with('#')
-            || l.ends_with('$')
-            || l.ends_with('%')
-            || l.ends_with('>');
+        let looks_like_prompt =
+            l.ends_with('#') || l.ends_with('$') || l.ends_with('%') || l.ends_with('>');
         if looks_like_prompt && l.len() < 80 {
             lines.pop();
         } else {
@@ -2658,10 +2677,7 @@ fn trim_trailing_prompt(s: &str) -> String {
     lines.join("\n")
 }
 
-async fn execute_mcp_tool(
-    _state: &AppState,
-    payload: &serde_json::Value,
-) -> (Option<i32>, String) {
+async fn execute_mcp_tool(_state: &AppState, payload: &serde_json::Value) -> (Option<i32>, String) {
     // MCP integration placeholder — we hook into mcp_bridge when the MVP wiring
     // for per-agent MCP tool invocation lands. For now, return a stub so the
     // frontend event flow can be tested.
@@ -2669,10 +2685,7 @@ async fn execute_mcp_tool(
         .get("server")
         .and_then(|v| v.as_str())
         .unwrap_or("?");
-    let tool = payload
-        .get("tool")
-        .and_then(|v| v.as_str())
-        .unwrap_or("?");
+    let tool = payload.get("tool").and_then(|v| v.as_str()).unwrap_or("?");
     (
         None,
         format!(
@@ -2711,7 +2724,6 @@ pub async fn agent_nl_to_command(
         _ => Err("unexpected response type".to_string()),
     }
 }
-
 
 #[derive(Debug, serde::Serialize, Clone)]
 pub struct ExplainErrorResult {
@@ -3276,9 +3288,7 @@ pub fn agent_session_set(
 }
 
 #[tauri::command]
-pub fn agent_session_list_all(
-    state: State<'_, AppState>,
-) -> Result<Vec<AgentSessionRow>, String> {
+pub fn agent_session_list_all(state: State<'_, AppState>) -> Result<Vec<AgentSessionRow>, String> {
     let db = state.db.lock();
     let mut stmt = db
         .prepare("SELECT tab_id, agent_id, updated_at FROM agent_sessions")
@@ -3430,8 +3440,13 @@ pub fn save_current_session(
     tab_ids: Option<Vec<String>>,
 ) -> Result<String, String> {
     let db = state.db.lock();
-    session::save_session_snapshot(&db, "__last__", active_tab_id.as_deref(), tab_ids.as_deref())
-        .map_err(|e| e.to_string())
+    session::save_session_snapshot(
+        &db,
+        "__last__",
+        active_tab_id.as_deref(),
+        tab_ids.as_deref(),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -3517,11 +3532,7 @@ pub fn session_save_named(
     let validated_name = validation::validate_session_name(&name).map_err(|e| e.to_string())?;
 
     // Validate description if provided
-    let validated_description = if let Some(desc) = description {
-        Some(validation::sanitize_for_display(&desc))
-    } else {
-        None
-    };
+    let validated_description = description.map(|desc| validation::sanitize_for_display(&desc));
 
     let db = state.db.lock();
 
@@ -3607,7 +3618,11 @@ pub fn session_import_json(
 }
 
 #[tauri::command]
-pub async fn ai_list_models(provider: String, api_key: Option<String>, base_url: Option<String>) -> Result<Vec<String>, String> {
+pub async fn ai_list_models(
+    provider: String,
+    api_key: Option<String>,
+    base_url: Option<String>,
+) -> Result<Vec<String>, String> {
     match provider.as_str() {
         "anthropic" => {
             // Anthropic doesn't have a models API, return known models
@@ -3646,7 +3661,7 @@ pub async fn ai_list_models(provider: String, api_key: Option<String>, base_url:
             let url = base_url.ok_or("Base URL required for vLLM")?;
             fetch_vllm_models(&url).await
         }
-        _ => Err(format!("Unknown provider: {}", provider))
+        _ => Err(format!("Unknown provider: {}", provider)),
     }
 }
 
@@ -3658,12 +3673,12 @@ async fn fetch_openai_models(api_key: &str) -> Result<Vec<String>, String> {
         .send()
         .await
         .map_err(|e| format!("Failed to fetch OpenAI models: {}", e))?;
-    
+
     let json: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse OpenAI response: {}", e))?;
-    
+
     let models: Vec<String> = json["data"]
         .as_array()
         .ok_or("Invalid response format")?
@@ -3671,7 +3686,7 @@ async fn fetch_openai_models(api_key: &str) -> Result<Vec<String>, String> {
         .filter_map(|m| m["id"].as_str().map(|s| s.to_string()))
         .filter(|id| id.starts_with("gpt-"))
         .collect();
-    
+
     Ok(models)
 }
 
@@ -3707,19 +3722,19 @@ async fn fetch_ollama_models(base_url: &str) -> Result<Vec<String>, String> {
         .send()
         .await
         .map_err(|e| format!("Failed to fetch Ollama models: {}", e))?;
-    
+
     let json: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse Ollama response: {}", e))?;
-    
+
     let models: Vec<String> = json["models"]
         .as_array()
         .ok_or("Invalid response format")?
         .iter()
         .filter_map(|m| m["name"].as_str().map(|s| s.to_string()))
         .collect();
-    
+
     Ok(models)
 }
 
@@ -3731,19 +3746,19 @@ async fn fetch_vllm_models(base_url: &str) -> Result<Vec<String>, String> {
         .send()
         .await
         .map_err(|e| format!("Failed to fetch vLLM models: {}", e))?;
-    
+
     let json: serde_json::Value = response
         .json()
         .await
         .map_err(|e| format!("Failed to parse vLLM response: {}", e))?;
-    
+
     let models: Vec<String> = json["data"]
         .as_array()
         .ok_or("Invalid response format")?
         .iter()
         .filter_map(|m| m["id"].as_str().map(|s| s.to_string()))
         .collect();
-    
+
     Ok(models)
 }
 
@@ -3757,30 +3772,27 @@ pub struct AIProviderConfig {
 }
 
 #[tauri::command]
-pub fn ai_save_config(
-    state: State<'_, AppState>,
-    config: AIProviderConfig,
-) -> Result<(), String> {
+pub fn ai_save_config(state: State<'_, AppState>, config: AIProviderConfig) -> Result<(), String> {
     let db = state.db.lock();
-    
+
     // Save to database
     db.execute(
         "INSERT OR REPLACE INTO ai_config (id, provider, model, api_key, base_url) VALUES (1, ?1, ?2, ?3, ?4)",
         rusqlite::params![&config.provider, &config.model, &config.api_key, &config.base_url],
     )
     .map_err(|e| format!("Failed to save AI config: {}", e))?;
-    
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn ai_get_config(state: State<'_, AppState>) -> Result<Option<AIProviderConfig>, String> {
     let db = state.db.lock();
-    
+
     let mut stmt = db
         .prepare("SELECT provider, model, api_key, base_url FROM ai_config WHERE id = 1")
         .map_err(|e| format!("Failed to query AI config: {}", e))?;
-    
+
     let config = stmt
         .query_row([], |row| {
             Ok(AIProviderConfig {
@@ -3792,7 +3804,7 @@ pub fn ai_get_config(state: State<'_, AppState>) -> Result<Option<AIProviderConf
         })
         .optional()
         .map_err(|e| format!("Failed to read AI config: {}", e))?;
-    
+
     Ok(config)
 }
 
@@ -3826,16 +3838,17 @@ pub fn context_graph_get_enabled(state: State<'_, AppState>) -> Result<bool, Str
         .map_err(|e| format!("Failed to read context-graph flag: {}", e))?;
 
     Ok(matches!(
-        value.as_deref().map(str::trim).map(str::to_ascii_lowercase).as_deref(),
+        value
+            .as_deref()
+            .map(str::trim)
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
         Some("1") | Some("true") | Some("yes") | Some("on")
     ))
 }
 
 #[tauri::command]
-pub fn context_graph_set_enabled(
-    state: State<'_, AppState>,
-    enabled: bool,
-) -> Result<(), String> {
+pub fn context_graph_set_enabled(state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
     let db = state.db.lock();
     db.execute_batch(
         "CREATE TABLE IF NOT EXISTS app_flags (\
@@ -3891,10 +3904,7 @@ pub fn context_graph_get_staleness(state: State<'_, AppState>) -> Result<i64, St
 }
 
 #[tauri::command]
-pub fn context_graph_set_staleness(
-    state: State<'_, AppState>,
-    seconds: i64,
-) -> Result<(), String> {
+pub fn context_graph_set_staleness(state: State<'_, AppState>, seconds: i64) -> Result<(), String> {
     if seconds <= 0 {
         return Err("staleness must be a positive number of seconds".into());
     }
@@ -3949,10 +3959,7 @@ pub fn vendor_keywords_get(state: State<'_, AppState>) -> Result<String, String>
 }
 
 #[tauri::command]
-pub fn vendor_keywords_set(
-    state: State<'_, AppState>,
-    keywords: String,
-) -> Result<(), String> {
+pub fn vendor_keywords_set(state: State<'_, AppState>, keywords: String) -> Result<(), String> {
     // Validate it parses as a JSON object before persisting (defense in depth;
     // the sidecar also degrades gracefully on bad JSON).
     let parsed: serde_json::Value =
@@ -4263,10 +4270,9 @@ pub async fn proxmox_test_connection(
                 .unwrap_or("No response from sidecar")
                 .to_string(),
         }),
-        crate::agent_bridge::AgentResponse::Error { message } => Ok(ProxmoxTestResult {
-            ok: false,
-            message,
-        }),
+        crate::agent_bridge::AgentResponse::Error { message } => {
+            Ok(ProxmoxTestResult { ok: false, message })
+        }
         _ => Err("unexpected response type".to_string()),
     }
 }
@@ -4291,14 +4297,16 @@ pub async fn ai_test_connection(config: AIProviderConfig) -> Result<String, Stri
             test_nvidia(&key, &config.model).await
         }
         "ollama" => {
-            let url = config.base_url.unwrap_or_else(|| "http://localhost:11434".to_string());
+            let url = config
+                .base_url
+                .unwrap_or_else(|| "http://localhost:11434".to_string());
             test_ollama(&url, &config.model).await
         }
         "vllm" => {
             let url = config.base_url.ok_or("Base URL required for vLLM")?;
             test_vllm(&url, &config.model).await
         }
-        _ => Err(format!("Unknown provider: {}", config.provider))
+        _ => Err(format!("Unknown provider: {}", config.provider)),
     }
 }
 
@@ -4317,9 +4325,12 @@ async fn test_anthropic(api_key: &str, model: &str) -> Result<String, String> {
         .send()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
-    
+
     if response.status().is_success() {
-        Ok(format!("✓ Successfully connected to Anthropic with {}", model))
+        Ok(format!(
+            "✓ Successfully connected to Anthropic with {}",
+            model
+        ))
     } else {
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
@@ -4341,7 +4352,7 @@ async fn test_openai(api_key: &str, model: &str) -> Result<String, String> {
         .send()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
-    
+
     if response.status().is_success() {
         Ok(format!("✓ Successfully connected to OpenAI with {}", model))
     } else {
@@ -4353,7 +4364,10 @@ async fn test_openai(api_key: &str, model: &str) -> Result<String, String> {
 
 async fn test_google(api_key: &str, model: &str) -> Result<String, String> {
     let client = reqwest::Client::new();
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}", model, api_key);
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+        model, api_key
+    );
     let response = client
         .post(&url)
         .header("content-type", "application/json")
@@ -4363,7 +4377,7 @@ async fn test_google(api_key: &str, model: &str) -> Result<String, String> {
         .send()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
-    
+
     if response.status().is_success() {
         Ok(format!("✓ Successfully connected to Google with {}", model))
     } else {
@@ -4386,7 +4400,7 @@ async fn test_ollama(base_url: &str, model: &str) -> Result<String, String> {
         .send()
         .await
         .map_err(|e| format!("Connection failed: {}", e))?;
-    
+
     if response.status().is_success() {
         Ok(format!("✓ Successfully connected to Ollama with {}", model))
     } else {
@@ -4468,10 +4482,7 @@ pub fn ftp_config_get(state: State<'_, AppState>) -> Result<ftp::FtpConfig, Stri
 }
 
 #[tauri::command]
-pub fn ftp_config_set(
-    state: State<'_, AppState>,
-    config: ftp::FtpConfig,
-) -> Result<(), String> {
+pub fn ftp_config_set(state: State<'_, AppState>, config: ftp::FtpConfig) -> Result<(), String> {
     let db = state.db.lock();
     db.execute(
         "UPDATE ftp_config SET
@@ -4519,11 +4530,7 @@ pub async fn ftp_start(state: State<'_, AppState>) -> Result<ftp::FtpStatus, Str
         )
         .map_err(|e| e.to_string())?
     };
-    state
-        .ftp
-        .start(config)
-        .await
-        .map_err(|e| e.to_string())?;
+    state.ftp.start(config).await.map_err(|e| e.to_string())?;
     Ok(state.ftp.status())
 }
 
@@ -4842,13 +4849,15 @@ pub fn get_iac_execution(
     use rusqlite::params;
     let db = state.db.lock();
 
-    let mut stmt = db.prepare(
-        "SELECT id, command_block_id, tool, subcommand, project_path,
+    let mut stmt = db
+        .prepare(
+            "SELECT id, command_block_id, tool, subcommand, project_path,
                 git_commit, git_branch, had_uncommitted_changes,
                 blast_radius, resources_changed, resources_failed,
                 metadata_json, created_at
-         FROM iac_executions WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
+         FROM iac_executions WHERE id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
 
     let result = stmt.query_row(params![execution_id], |row| {
         Ok(crate::database::IaCExecution {
@@ -4882,15 +4891,15 @@ pub async fn iac_process_block(
     block_id: String,
 ) -> Result<Option<String>, String> {
     use crate::iac::detector::detect_iac_command;
-    use crate::iac::parser::{parse_terraform_output, parse_ansible_output};
+    use crate::iac::parser::{parse_ansible_output, parse_terraform_output};
     use rusqlite::params;
 
     let db = state.db.lock();
 
     // Read block from database
-    let mut stmt = db.prepare(
-        "SELECT cmd, output, cwd FROM command_blocks WHERE id = ?1"
-    ).map_err(|e| e.to_string())?;
+    let mut stmt = db
+        .prepare("SELECT cmd, output, cwd FROM command_blocks WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
 
     let (cmd, output_raw, cwd): (String, rusqlite::types::Value, String) = stmt
         .query_row(params![&block_id], |row| {
@@ -4921,10 +4930,9 @@ pub async fn iac_process_block(
         crate::iac::types::IaCTool::Terraform => {
             parse_terraform_output(&output_str, &iac_cmd.subcommand)
         }
-        crate::iac::types::IaCTool::Ansible => {
-            parse_ansible_output(&output_str)
-        }
-    }.map_err(|e| format!("Parse error: {}", e))?;
+        crate::iac::types::IaCTool::Ansible => parse_ansible_output(&output_str),
+    }
+    .map_err(|e| format!("Parse error: {}", e))?;
 
     // Get git info
     let git_branch = get_git_branch(&working_dir).ok();
@@ -4942,14 +4950,16 @@ pub async fn iac_process_block(
         false,
         Some("low"), // TODO: blast radius calculation in Phase 2
         &metadata,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // Update command_blocks with iac_execution_id for frontend lookup
     let db = state.db.lock();
     db.execute(
         "UPDATE command_blocks SET iac_execution_id = ?1 WHERE id = ?2",
         params![&exec_id, &block_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(Some(exec_id))
 }
@@ -5167,8 +5177,8 @@ pub fn iac_load_state(
         )
         .ok();
     if let Some(json) = cached {
-        let parsed = crate::iac::state_manager::parse_terraform_state(&json)
-            .map_err(|e| e.to_string())?;
+        let parsed =
+            crate::iac::state_manager::parse_terraform_state(&json).map_err(|e| e.to_string())?;
         return Ok(Some(parsed));
     }
 
@@ -5211,8 +5221,7 @@ pub fn iac_query_state(
         Some(s) => s,
         None => return Ok(Vec::new()),
     };
-    let filtered =
-        crate::iac::state_manager::query_state_resources(&st, query.as_deref());
+    let filtered = crate::iac::state_manager::query_state_resources(&st, query.as_deref());
     Ok(filtered.into_iter().cloned().collect())
 }
 
@@ -5229,7 +5238,11 @@ pub fn iac_add_drift_exception(
         "INSERT OR IGNORE INTO drift_exceptions
            (id, project_path, resource_address, created_at)
          VALUES (?1, ?2, ?3, strftime('%s','now'))",
-        params![uuid::Uuid::new_v4().to_string(), project_path, resource_address],
+        params![
+            uuid::Uuid::new_v4().to_string(),
+            project_path,
+            resource_address
+        ],
     )
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -5271,8 +5284,7 @@ pub async fn iac_check_drift(
     use rusqlite::params;
 
     let path = std::path::PathBuf::from(&project_path);
-    let drift = crate::iac::drift_checker::run_drift_plan(&path)
-        .map_err(|e| e.to_string())?;
+    let drift = crate::iac::drift_checker::run_drift_plan(&path).map_err(|e| e.to_string())?;
 
     // Best-effort AI analysis (only when there's drift to explain).
     let mut analysis = serde_json::json!({"analyses": []});
@@ -5281,10 +5293,10 @@ pub async fn iac_check_drift(
             "drifted": drift.drifted,
             "plan_output": "",
         });
-        if let Ok(resp) = state.agent.call("iac.analyze_drift", rpc_params).await {
-            if let crate::agent_bridge::AgentResponse::Done { result } = resp {
-                analysis = result;
-            }
+        if let Ok(crate::agent_bridge::AgentResponse::Done { result }) =
+            state.agent.call("iac.analyze_drift", rpc_params).await
+        {
+            analysis = result;
         }
     }
 
@@ -5340,12 +5352,14 @@ pub async fn stealthwatch_get_config(
         .query_row(
             "SELECT host, username, password, verify_ssl FROM stealthwatch_config WHERE id = 1",
             [],
-            |row| Ok(StealthwatchConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                verify_ssl: row.get::<_, i64>(3)? == 1,
-            })
+            |row| {
+                Ok(StealthwatchConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    verify_ssl: row.get::<_, i64>(3)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -5370,7 +5384,10 @@ fn enable_stealthwatch_mcp_server(
             .to_string_lossy()
             .to_string()
     });
-    let mcp_script_path = format!("{}/sidecar/src/ccie_sidecar/mcp_servers/stealthwatch_mcp.py", repo_root);
+    let mcp_script_path = format!(
+        "{}/sidecar/src/ccie_sidecar/mcp_servers/stealthwatch_mcp.py",
+        repo_root
+    );
 
     // Prepare command JSON for stdio transport
     let command_json = serde_json::json!({
@@ -5457,16 +5474,14 @@ pub async fn stealthwatch_test_connection(
 
     // Extract ok + message from response
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(StealthwatchTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(StealthwatchTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -5483,21 +5498,21 @@ pub struct IseConfig {
 }
 
 #[tauri::command]
-pub async fn ise_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<IseConfig>, String> {
+pub async fn ise_get_config(state: State<'_, AppState>) -> Result<Option<IseConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<IseConfig> = conn
         .query_row(
             "SELECT host, username, password, verify_ssl FROM ise_config WHERE id = 1",
             [],
-            |row| Ok(IseConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                verify_ssl: row.get::<_, i64>(3)? == 1,
-            })
+            |row| {
+                Ok(IseConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    verify_ssl: row.get::<_, i64>(3)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -5522,7 +5537,10 @@ fn enable_ise_mcp_server(
             .to_string_lossy()
             .to_string()
     });
-    let mcp_script_path = format!("{}/sidecar/src/ccie_sidecar/mcp_servers/ise_mcp.py", repo_root);
+    let mcp_script_path = format!(
+        "{}/sidecar/src/ccie_sidecar/mcp_servers/ise_mcp.py",
+        repo_root
+    );
 
     // Prepare command JSON for stdio transport
     let command_json = serde_json::json!({
@@ -5554,10 +5572,7 @@ fn enable_ise_mcp_server(
 }
 
 #[tauri::command]
-pub async fn ise_save_config(
-    state: State<'_, AppState>,
-    config: IseConfig,
-) -> Result<(), String> {
+pub async fn ise_save_config(state: State<'_, AppState>, config: IseConfig) -> Result<(), String> {
     {
         let conn = state.db.lock();
         conn.execute(
@@ -5609,16 +5624,14 @@ pub async fn ise_test_connection(
 
     // Extract ok + message from response
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(IseTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(IseTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -5669,11 +5682,13 @@ pub async fn grafana_get_config(
         .query_row(
             "SELECT url, token, verify_ssl FROM grafana_config WHERE id = 1",
             [],
-            |row| Ok(GrafanaConfig {
-                url: row.get(0)?,
-                token: row.get(1)?,
-                verify_ssl: row.get::<_, i64>(2)? == 1,
-            }),
+            |row| {
+                Ok(GrafanaConfig {
+                    url: row.get(0)?,
+                    token: row.get(1)?,
+                    verify_ssl: row.get::<_, i64>(2)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -5811,19 +5826,19 @@ pub struct NetboxConfig {
 }
 
 #[tauri::command]
-pub async fn netbox_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<NetboxConfig>, String> {
+pub async fn netbox_get_config(state: State<'_, AppState>) -> Result<Option<NetboxConfig>, String> {
     let conn = state.db.lock();
     let result: Option<NetboxConfig> = conn
         .query_row(
             "SELECT url, token, verify_ssl FROM netbox_config WHERE id = 1",
             [],
-            |row| Ok(NetboxConfig {
-                url: row.get(0)?,
-                token: row.get(1)?,
-                verify_ssl: row.get::<_, i64>(2)? == 1,
-            }),
+            |row| {
+                Ok(NetboxConfig {
+                    url: row.get(0)?,
+                    token: row.get(1)?,
+                    verify_ssl: row.get::<_, i64>(2)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -5886,7 +5901,11 @@ pub async fn sketchfab_get_config(
         .query_row(
             "SELECT api_key FROM sketchfab_config WHERE id = 1",
             [],
-            |row| Ok(SketchfabConfig { api_key: row.get(0)? }),
+            |row| {
+                Ok(SketchfabConfig {
+                    api_key: row.get(0)?,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -5966,7 +5985,10 @@ fn enable_secure_endpoint_mcp_server(
 ) -> Result<(), String> {
     let (python, _) = sidecar_spawn_target();
     let repo_root = std::env::var("CCIE_REPO_ROOT").unwrap_or_else(|_| {
-        std::env::current_dir().unwrap().to_string_lossy().to_string()
+        std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     });
     let mcp_script_path = format!(
         "{}/sidecar/src/ccie_sidecar/mcp_servers/secure_endpoint_mcp.py",
@@ -6098,7 +6120,10 @@ fn enable_cisco_xdr_mcp_server(
 ) -> Result<(), String> {
     let (python, _) = sidecar_spawn_target();
     let repo_root = std::env::var("CCIE_REPO_ROOT").unwrap_or_else(|_| {
-        std::env::current_dir().unwrap().to_string_lossy().to_string()
+        std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     });
     let mcp_script_path = format!(
         "{}/sidecar/src/ccie_sidecar/mcp_servers/cisco_xdr_mcp.py",
@@ -6197,19 +6222,19 @@ pub struct MistConfig {
 }
 
 #[tauri::command]
-pub async fn mist_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<MistConfig>, String> {
+pub async fn mist_get_config(state: State<'_, AppState>) -> Result<Option<MistConfig>, String> {
     let conn = state.db.lock();
     let result: Option<MistConfig> = conn
         .query_row(
             "SELECT region, api_token, verify_ssl FROM mist_config WHERE id = 1",
             [],
-            |row| Ok(MistConfig {
-                region: row.get(0)?,
-                api_token: row.get(1)?,
-                verify_ssl: row.get::<_, i64>(2)? == 1,
-            }),
+            |row| {
+                Ok(MistConfig {
+                    region: row.get(0)?,
+                    api_token: row.get(1)?,
+                    verify_ssl: row.get::<_, i64>(2)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -6225,7 +6250,10 @@ fn enable_mist_mcp_server(
 ) -> Result<(), String> {
     let (python, _) = sidecar_spawn_target();
     let repo_root = std::env::var("CCIE_REPO_ROOT").unwrap_or_else(|_| {
-        std::env::current_dir().unwrap().to_string_lossy().to_string()
+        std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
     });
     let mcp_script_path = format!(
         "{}/sidecar/src/ccie_sidecar/mcp_servers/mist_mcp.py",
@@ -6351,7 +6379,12 @@ pub async fn whatsapp_link(state: State<'_, AppState>) -> Result<serde_json::Val
         "allowlist": cfg.allowlist,
         "bound_chat": cfg.bound_chat_jid,
     });
-    match state.agent.call("whatsapp.link", params).await.map_err(|e| e.to_string())? {
+    match state
+        .agent
+        .call("whatsapp.link", params)
+        .await
+        .map_err(|e| e.to_string())?
+    {
         crate::agent_bridge::AgentResponse::Done { result } => Ok(result),
         crate::agent_bridge::AgentResponse::Error { message } => Err(message),
         _ => Err("Unexpected response from sidecar".to_string()),
@@ -6361,7 +6394,12 @@ pub async fn whatsapp_link(state: State<'_, AppState>) -> Result<serde_json::Val
 /// List joined WhatsApp groups so the Settings UI can offer a chat-scope picker.
 #[tauri::command]
 pub async fn whatsapp_list_groups(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    match state.agent.call("whatsapp.list_groups", serde_json::json!({})).await.map_err(|e| e.to_string())? {
+    match state
+        .agent
+        .call("whatsapp.list_groups", serde_json::json!({}))
+        .await
+        .map_err(|e| e.to_string())?
+    {
         crate::agent_bridge::AgentResponse::Done { result } => Ok(result),
         crate::agent_bridge::AgentResponse::Error { message } => Err(message),
         _ => Err("Unexpected response from sidecar".to_string()),
@@ -6370,7 +6408,12 @@ pub async fn whatsapp_list_groups(state: State<'_, AppState>) -> Result<serde_js
 
 #[tauri::command]
 pub async fn whatsapp_unlink(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    match state.agent.call("whatsapp.unlink", serde_json::json!({})).await.map_err(|e| e.to_string())? {
+    match state
+        .agent
+        .call("whatsapp.unlink", serde_json::json!({}))
+        .await
+        .map_err(|e| e.to_string())?
+    {
         crate::agent_bridge::AgentResponse::Done { result } => Ok(result),
         crate::agent_bridge::AgentResponse::Error { message } => Err(message),
         _ => Err("Unexpected response from sidecar".to_string()),
@@ -6379,7 +6422,12 @@ pub async fn whatsapp_unlink(state: State<'_, AppState>) -> Result<serde_json::V
 
 #[tauri::command]
 pub async fn whatsapp_status(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
-    match state.agent.call("whatsapp.status", serde_json::json!({})).await.map_err(|e| e.to_string())? {
+    match state
+        .agent
+        .call("whatsapp.status", serde_json::json!({}))
+        .await
+        .map_err(|e| e.to_string())?
+    {
         crate::agent_bridge::AgentResponse::Done { result } => Ok(result),
         crate::agent_bridge::AgentResponse::Error { message } => Err(message),
         _ => Err("Unexpected response from sidecar".to_string()),
@@ -6398,21 +6446,21 @@ pub struct CmlConfig {
 }
 
 #[tauri::command]
-pub async fn cml_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<CmlConfig>, String> {
+pub async fn cml_get_config(state: State<'_, AppState>) -> Result<Option<CmlConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<CmlConfig> = conn
         .query_row(
             "SELECT host, username, password, verify_ssl FROM cml_config WHERE id = 1",
             [],
-            |row| Ok(CmlConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                verify_ssl: row.get::<_, i64>(3)? == 1,
-            })
+            |row| {
+                Ok(CmlConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    verify_ssl: row.get::<_, i64>(3)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -6435,7 +6483,10 @@ fn enable_cml_mcp_server(
             .to_string_lossy()
             .to_string()
     });
-    let mcp_script_path = format!("{}/sidecar/src/ccie_sidecar/mcp_servers/cml_mcp.py", repo_root);
+    let mcp_script_path = format!(
+        "{}/sidecar/src/ccie_sidecar/mcp_servers/cml_mcp.py",
+        repo_root
+    );
 
     let command_json = serde_json::json!({
         "cmd": python,
@@ -6464,10 +6515,7 @@ fn enable_cml_mcp_server(
 }
 
 #[tauri::command]
-pub async fn cml_save_config(
-    state: State<'_, AppState>,
-    config: CmlConfig,
-) -> Result<(), String> {
+pub async fn cml_save_config(state: State<'_, AppState>, config: CmlConfig) -> Result<(), String> {
     {
         let conn = state.db.lock();
         conn.execute(
@@ -6515,16 +6563,14 @@ pub async fn cml_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(CmlTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(CmlTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -6550,12 +6596,14 @@ pub async fn catalyst_center_get_config(
         .query_row(
             "SELECT host, username, password, verify_ssl FROM catalyst_center_config WHERE id = 1",
             [],
-            |row| Ok(CatalystCenterConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                verify_ssl: row.get::<_, i64>(3)? == 1,
-            })
+            |row| {
+                Ok(CatalystCenterConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    verify_ssl: row.get::<_, i64>(3)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -6661,16 +6709,14 @@ pub async fn catalyst_center_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(CatalystCenterTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(CatalystCenterTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -6689,9 +6735,7 @@ pub struct SplunkConfig {
 }
 
 #[tauri::command]
-pub async fn splunk_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<SplunkConfig>, String> {
+pub async fn splunk_get_config(state: State<'_, AppState>) -> Result<Option<SplunkConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<SplunkConfig> = conn
@@ -6817,16 +6861,14 @@ pub async fn splunk_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(SplunkTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(SplunkTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -6843,21 +6885,21 @@ pub struct AciConfig {
 }
 
 #[tauri::command]
-pub async fn aci_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<AciConfig>, String> {
+pub async fn aci_get_config(state: State<'_, AppState>) -> Result<Option<AciConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<AciConfig> = conn
         .query_row(
             "SELECT host, username, password, verify_ssl FROM aci_config WHERE id = 1",
             [],
-            |row| Ok(AciConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                verify_ssl: row.get::<_, i64>(3)? == 1,
-            })
+            |row| {
+                Ok(AciConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    verify_ssl: row.get::<_, i64>(3)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -6912,10 +6954,7 @@ fn enable_aci_mcp_server(
 }
 
 #[tauri::command]
-pub async fn aci_save_config(
-    state: State<'_, AppState>,
-    config: AciConfig,
-) -> Result<(), String> {
+pub async fn aci_save_config(state: State<'_, AppState>, config: AciConfig) -> Result<(), String> {
     {
         let conn = state.db.lock();
         conn.execute(
@@ -6963,16 +7002,14 @@ pub async fn aci_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(AciTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(AciTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -7001,9 +7038,7 @@ pub struct GnmiConfig {
 }
 
 #[tauri::command]
-pub async fn gnmi_get_config(
-    state: State<'_, AppState>,
-) -> Result<GnmiConfig, String> {
+pub async fn gnmi_get_config(state: State<'_, AppState>) -> Result<GnmiConfig, String> {
     let conn = state.db.lock();
 
     let raw: Option<String> = conn
@@ -7102,15 +7137,17 @@ pub async fn gnmi_test_connection(
     let targets: Vec<serde_json::Value> = config
         .targets
         .iter()
-        .map(|t| serde_json::json!({
-            "name": t.name,
-            "host": t.host,
-            "port": t.port,
-            "username": t.username,
-            "password": t.password,
-            "vendor": t.vendor,
-            "skip_verify": t.skip_verify,
-        }))
+        .map(|t| {
+            serde_json::json!({
+                "name": t.name,
+                "host": t.host,
+                "port": t.port,
+                "username": t.username,
+                "password": t.password,
+                "vendor": t.vendor,
+                "skip_verify": t.skip_verify,
+            })
+        })
         .collect();
 
     let params = serde_json::json!({ "config": { "targets": targets } });
@@ -7122,16 +7159,14 @@ pub async fn gnmi_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(GnmiTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(GnmiTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -7150,22 +7185,22 @@ pub struct FmcConfig {
 }
 
 #[tauri::command]
-pub async fn fmc_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<FmcConfig>, String> {
+pub async fn fmc_get_config(state: State<'_, AppState>) -> Result<Option<FmcConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<FmcConfig> = conn
         .query_row(
             "SELECT host, username, password, domain_uuid, verify_ssl FROM fmc_config WHERE id = 1",
             [],
-            |row| Ok(FmcConfig {
-                host: row.get(0)?,
-                username: row.get(1)?,
-                password: row.get(2)?,
-                domain_uuid: row.get(3)?,
-                verify_ssl: row.get::<_, i64>(4)? == 1,
-            })
+            |row| {
+                Ok(FmcConfig {
+                    host: row.get(0)?,
+                    username: row.get(1)?,
+                    password: row.get(2)?,
+                    domain_uuid: row.get(3)?,
+                    verify_ssl: row.get::<_, i64>(4)? == 1,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -7221,10 +7256,7 @@ fn enable_fmc_mcp_server(
 }
 
 #[tauri::command]
-pub async fn fmc_save_config(
-    state: State<'_, AppState>,
-    config: FmcConfig,
-) -> Result<(), String> {
+pub async fn fmc_save_config(state: State<'_, AppState>, config: FmcConfig) -> Result<(), String> {
     {
         let conn = state.db.lock();
         conn.execute(
@@ -7274,16 +7306,14 @@ pub async fn fmc_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(FmcTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(FmcTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -7308,10 +7338,12 @@ pub async fn thousandeyes_get_config(
         .query_row(
             "SELECT token, account_group_id FROM thousandeyes_config WHERE id = 1",
             [],
-            |row| Ok(ThousandEyesConfig {
-                token: row.get(0)?,
-                account_group_id: row.get(1)?,
-            })
+            |row| {
+                Ok(ThousandEyesConfig {
+                    token: row.get(0)?,
+                    account_group_id: row.get(1)?,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -7408,16 +7440,14 @@ pub async fn thousandeyes_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(ThousandEyesTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(ThousandEyesTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -7437,19 +7467,19 @@ pub struct MerakiConfig {
 }
 
 #[tauri::command]
-pub async fn meraki_get_config(
-    state: State<'_, AppState>,
-) -> Result<Option<MerakiConfig>, String> {
+pub async fn meraki_get_config(state: State<'_, AppState>) -> Result<Option<MerakiConfig>, String> {
     let conn = state.db.lock();
 
     let result: Option<MerakiConfig> = conn
         .query_row(
             "SELECT api_key, org_id FROM meraki_config WHERE id = 1",
             [],
-            |row| Ok(MerakiConfig {
-                api_key: row.get(0)?,
-                org_id: row.get(1)?,
-            })
+            |row| {
+                Ok(MerakiConfig {
+                    api_key: row.get(0)?,
+                    org_id: row.get(1)?,
+                })
+            },
         )
         .optional()
         .map_err(|e| e.to_string())?;
@@ -7493,16 +7523,14 @@ pub async fn meraki_test_connection(
         .map_err(|e| e.to_string())?;
 
     match resp {
-        crate::agent_bridge::AgentResponse::Done { result } => {
-            Ok(MerakiTestResult {
-                ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
-                message: result
-                    .get("message")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown error")
-                    .to_string(),
-            })
-        }
+        crate::agent_bridge::AgentResponse::Done { result } => Ok(MerakiTestResult {
+            ok: result.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+            message: result
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error")
+                .to_string(),
+        }),
         _ => Err("Unexpected response from sidecar".to_string()),
     }
 }
@@ -7524,19 +7552,23 @@ mod tests {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
 
         // Apply migration
-        conn.execute_batch(include_str!("../../migrations/V0052__stealthwatch_config.sql"))
-            .unwrap();
+        conn.execute_batch(include_str!(
+            "../../migrations/V0052__stealthwatch_config.sql"
+        ))
+        .unwrap();
 
         let result: Option<StealthwatchConfig> = conn
             .query_row(
                 "SELECT host, username, password, verify_ssl FROM stealthwatch_config WHERE id = 1",
                 [],
-                |row| Ok(StealthwatchConfig {
-                    host: row.get(0)?,
-                    username: row.get(1)?,
-                    password: row.get(2)?,
-                    verify_ssl: row.get::<_, i64>(3)? == 1,
-                })
+                |row| {
+                    Ok(StealthwatchConfig {
+                        host: row.get(0)?,
+                        username: row.get(1)?,
+                        password: row.get(2)?,
+                        verify_ssl: row.get::<_, i64>(3)? == 1,
+                    })
+                },
             )
             .optional()
             .unwrap();
@@ -7548,8 +7580,10 @@ mod tests {
     fn test_stealthwatch_save_config_inserts_row() {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
 
-        conn.execute_batch(include_str!("../../migrations/V0052__stealthwatch_config.sql"))
-            .unwrap();
+        conn.execute_batch(include_str!(
+            "../../migrations/V0052__stealthwatch_config.sql"
+        ))
+        .unwrap();
 
         let config = StealthwatchConfig {
             host: "smc.example.com".to_string(),
@@ -7574,19 +7608,21 @@ mod tests {
             .query_row(
                 "SELECT host, username, password, verify_ssl FROM stealthwatch_config WHERE id = 1",
                 [],
-                |row| Ok(StealthwatchConfig {
-                    host: row.get(0)?,
-                    username: row.get(1)?,
-                    password: row.get(2)?,
-                    verify_ssl: row.get::<_, i64>(3)? == 1,
-                })
+                |row| {
+                    Ok(StealthwatchConfig {
+                        host: row.get(0)?,
+                        username: row.get(1)?,
+                        password: row.get(2)?,
+                        verify_ssl: row.get::<_, i64>(3)? == 1,
+                    })
+                },
             )
             .unwrap();
 
         assert_eq!(saved.host, "smc.example.com");
         assert_eq!(saved.username, "admin");
         assert_eq!(saved.password, "secret");
-        assert_eq!(saved.verify_ssl, true);
+        assert!(saved.verify_ssl);
     }
 
     #[test]
@@ -7606,18 +7642,20 @@ mod tests {
             .query_row(
                 "SELECT host, username, password, verify_ssl FROM ise_config WHERE id = 1",
                 [],
-                |row| Ok(IseConfig {
-                    host: row.get(0)?,
-                    username: row.get(1)?,
-                    password: row.get(2)?,
-                    verify_ssl: row.get::<_, i64>(3)? == 1,
-                })
+                |row| {
+                    Ok(IseConfig {
+                        host: row.get(0)?,
+                        username: row.get(1)?,
+                        password: row.get(2)?,
+                        verify_ssl: row.get::<_, i64>(3)? == 1,
+                    })
+                },
             )
             .unwrap();
 
         assert_eq!(saved.host, "ise.example.com");
         assert_eq!(saved.username, "admin");
-        assert_eq!(saved.verify_ssl, false);
+        assert!(!saved.verify_ssl);
     }
 }
 
@@ -7640,12 +7678,10 @@ pub async fn heartbeat_plan(
         "context": context,
     });
 
-    let resp = handle
-        .call("heartbeat.plan", params)
-        .map_err(|e| {
-            eprintln!("Sidecar heartbeat.plan call failed: {}", e);
-            e.to_string()
-        })?;
+    let resp = handle.call("heartbeat.plan", params).map_err(|e| {
+        eprintln!("Sidecar heartbeat.plan call failed: {}", e);
+        e.to_string()
+    })?;
 
     eprintln!("Sidecar response: {:?}", resp);
 
@@ -7660,7 +7696,10 @@ pub async fn heartbeat_plan(
             "error": null
         }))
     } else {
-        eprintln!("No 'result' field in sidecar response. Full response: {:?}", resp);
+        eprintln!(
+            "No 'result' field in sidecar response. Full response: {:?}",
+            resp
+        );
         Ok(serde_json::json!({
             "status": "error",
             "plan": null,

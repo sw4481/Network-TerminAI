@@ -99,7 +99,12 @@ impl SidecarHandle {
 
     /// Call a streaming method - reads multiple lines until "done" or "error".
     /// Token-only callback (backwards-compatible). Non-token events (tool_call, etc.) are dropped.
-    pub fn call_streaming<F>(&mut self, method: &str, params: Value, mut on_token: F) -> Result<Value>
+    pub fn call_streaming<F>(
+        &mut self,
+        method: &str,
+        params: Value,
+        mut on_token: F,
+    ) -> Result<Value>
     where
         F: FnMut(String) -> Result<()>,
     {
@@ -115,7 +120,12 @@ impl SidecarHandle {
 
     /// Call a streaming method, surfacing every event (token, tool_call, custom types) to the callback.
     /// "done" / "error" still terminate the loop (done = Ok(result), error = bail).
-    pub fn call_streaming_ex<F>(&mut self, method: &str, params: Value, mut on_event: F) -> Result<Value>
+    pub fn call_streaming_ex<F>(
+        &mut self,
+        method: &str,
+        params: Value,
+        mut on_event: F,
+    ) -> Result<Value>
     where
         F: FnMut(&Value) -> Result<()>,
     {
@@ -143,7 +153,10 @@ impl SidecarHandle {
                     return Ok(resp.get("result").cloned().unwrap_or(Value::Null));
                 }
                 "error" => {
-                    let msg = resp.get("message").and_then(|v| v.as_str()).unwrap_or("unknown error");
+                    let msg = resp
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown error");
                     bail!("sidecar error: {msg}");
                 }
                 _ => {
@@ -273,10 +286,7 @@ impl SidecarSupervisor {
             // Still alive? try_wait returns Ok(Some(_)) when process has exited.
             let alive = {
                 let mut g = existing.lock();
-                match g.child.try_wait() {
-                    Ok(None) => true,
-                    _ => false,
-                }
+                matches!(g.child.try_wait(), Ok(None))
             };
             if alive {
                 return Ok(existing.clone());
@@ -417,7 +427,11 @@ impl SidecarSupervisor {
     /// to surface sidecar-reported errors as user-visible messages without
     /// tearing down the whole operation should use this instead of matching
     /// on error-string prefixes.
-    pub fn call_typed(&self, method: &str, params: Value) -> std::result::Result<Value, SupervisorError> {
+    pub fn call_typed(
+        &self,
+        method: &str,
+        params: Value,
+    ) -> std::result::Result<Value, SupervisorError> {
         self.call_stream_ex_typed(method, params, |_| Ok(()))
     }
 
@@ -475,8 +489,9 @@ impl SidecarSupervisor {
         let idle_timeout = std::time::Duration::from_secs(720);
         loop {
             match rx.recv_timeout(idle_timeout) {
-                Ok(SupervisorEvent::Intermediate(v)) => on_event(&v)
-                    .map_err(SupervisorError::Infra)?,
+                Ok(SupervisorEvent::Intermediate(v)) => {
+                    on_event(&v).map_err(SupervisorError::Infra)?
+                }
                 Ok(SupervisorEvent::Done(result)) => return Ok(result),
                 Ok(SupervisorEvent::Error(msg)) => return Err(SupervisorError::Sidecar(msg)),
                 Ok(SupervisorEvent::Disconnected(msg)) => {

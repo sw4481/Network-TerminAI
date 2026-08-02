@@ -2,7 +2,9 @@ use crate::commands::AppState;
 use crate::fanout::{
     events::FanoutEvent,
     executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse},
-    model::{CsvImportResult, DeviceKind, FanoutGroup, FanoutMember, FanoutRunDetail, FanoutRunSummary},
+    model::{
+        CsvImportResult, DeviceKind, FanoutGroup, FanoutMember, FanoutRunDetail, FanoutRunSummary,
+    },
     store::FanoutStore,
     worker_live::LiveFactory,
 };
@@ -16,19 +18,13 @@ struct TauriSink {
 
 impl EventSink for TauriSink {
     fn emit(&self, event: &FanoutEvent) {
-        if let Err(e) = self
-            .app
-            .emit(crate::fanout::events::CHANNEL, event)
-        {
+        if let Err(e) = self.app.emit(crate::fanout::events::CHANNEL, event) {
             tracing::warn!(error = %e, "fanout event emit failed");
         }
     }
 }
 
-fn ensure_executor(
-    state: &State<'_, AppState>,
-    app: &AppHandle,
-) -> Executor {
+fn ensure_executor(state: &State<'_, AppState>, app: &AppHandle) -> Executor {
     let mut slot = state.fanout_executor.lock();
     if let Some(ex) = slot.as_ref() {
         return ex.clone();
@@ -315,10 +311,21 @@ pub async fn fanout_device_retry(
             )
             .ok()
             .flatten();
-        (cmd, name.unwrap_or_else(|| "(unknown)".to_string()), to as u64)
+        (
+            cmd,
+            name.unwrap_or_else(|| "(unknown)".to_string()),
+            to as u64,
+        )
     };
     let ex = ensure_executor(&state, &app);
-    ex.retry_device(&run_id, &device_id, kind, &display_name, &command, timeout_ms)
-        .await
-        .map_err(|e| e.to_string())
+    ex.retry_device(
+        &run_id,
+        &device_id,
+        kind,
+        &display_name,
+        &command,
+        timeout_ms,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }

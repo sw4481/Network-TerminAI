@@ -42,10 +42,16 @@ pub fn do_create_browser_window(
     Ok(browser_id)
 }
 
-pub fn do_navigate(app: &AppHandle, mgr: &BrowserManager, browser_id: &str, url: &str) -> Result<(), String> {
+pub fn do_navigate(
+    app: &AppHandle,
+    mgr: &BrowserManager,
+    browser_id: &str,
+    url: &str,
+) -> Result<(), String> {
     let parsed = url.parse().map_err(|e| format!("Invalid URL: {}", e))?;
     let win = get_browser(app, browser_id)?;
-    win.navigate(parsed).map_err(|e| format!("Navigate failed: {}", e))?;
+    win.navigate(parsed)
+        .map_err(|e| format!("Navigate failed: {}", e))?;
     mgr.set_url(browser_id, url.to_string());
     Ok(())
 }
@@ -62,7 +68,9 @@ pub fn do_eval(app: &AppHandle, browser_id: &str, script: &str) -> Result<(), St
 
 pub fn do_get_url(app: &AppHandle, browser_id: &str) -> Result<String, String> {
     let win = get_browser(app, browser_id)?;
-    win.url().map(|u| u.to_string()).map_err(|e| format!("get_url failed: {}", e))
+    win.url()
+        .map(|u| u.to_string())
+        .map_err(|e| format!("get_url failed: {}", e))
 }
 
 pub fn do_close(app: &AppHandle, mgr: &BrowserManager, browser_id: &str) -> Result<(), String> {
@@ -99,7 +107,10 @@ pub async fn list_browser_windows(
     Ok(state.browser_manager.list())
 }
 
-pub(crate) fn get_browser(app: &AppHandle, browser_id: &str) -> Result<tauri::WebviewWindow, String> {
+pub(crate) fn get_browser(
+    app: &AppHandle,
+    browser_id: &str,
+) -> Result<tauri::WebviewWindow, String> {
     app.get_webview_window(browser_id)
         .ok_or_else(|| format!("Browser window '{}' not found", browser_id))
 }
@@ -165,11 +176,10 @@ pub async fn browser_import_cookies(
     tracing::info!(browser_id = %browser_id, source = %source, "browser_import_cookies called");
 
     // Determine host from the window's current URL.
-    let url = state.browser_manager.get_url(&browser_id)
-        .ok_or_else(|| {
-            tracing::warn!(browser_id = %browser_id, "Browser window not found in registry");
-            format!("Browser window '{}' not found", browser_id)
-        })?;
+    let url = state.browser_manager.get_url(&browser_id).ok_or_else(|| {
+        tracing::warn!(browser_id = %browser_id, "Browser window not found in registry");
+        format!("Browser window '{}' not found", browser_id)
+    })?;
 
     tracing::info!(url = %url, "Window URL retrieved from registry");
 
@@ -195,7 +205,12 @@ pub async fn browser_import_cookies(
         format!("Failed to read {} cookies: {}", source, e)
     })?;
 
-    tracing::info!(count = cookies.len(), "Read {} cookies from {}", cookies.len(), source);
+    tracing::info!(
+        count = cookies.len(),
+        "Read {} cookies from {}",
+        cookies.len(),
+        source
+    );
 
     let win = get_browser(&app, &browser_id)?;
     let mut injected = 0usize;
@@ -208,7 +223,7 @@ pub async fn browser_import_cookies(
         let path = if c.path.is_empty() { "/" } else { &c.path };
 
         let cookie = tauri::webview::cookie::Cookie::build((c.name.as_str(), c.value.as_str()))
-            .domain(&c.host)  // Use the host as-is (keep leading dot if present)
+            .domain(&c.host) // Use the host as-is (keep leading dot if present)
             .path(path)
             .secure(c.secure)
             .http_only(c.http_only)
@@ -226,6 +241,11 @@ pub async fn browser_import_cookies(
         }
     }
 
-    tracing::info!(injected = injected, failed = failed, total = cookies.len(), "Manual cookie import complete");
+    tracing::info!(
+        injected = injected,
+        failed = failed,
+        total = cookies.len(),
+        "Manual cookie import complete"
+    );
     Ok(injected)
 }

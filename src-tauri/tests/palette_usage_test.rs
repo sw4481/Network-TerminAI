@@ -63,7 +63,7 @@ fn map_for_type_keys_by_target_id() {
     assert_eq!(map.len(), 2);
     assert_eq!(map.get("c1").unwrap().use_count, 2);
     assert_eq!(map.get("c2").unwrap().use_count, 1);
-    assert!(map.get("b1").is_none(), "must not bleed across types");
+    assert!(!map.contains_key("b1"), "must not bleed across types");
 }
 
 #[test]
@@ -138,11 +138,17 @@ fn trim_noop_when_under_limit() {
 fn record_use_updates_last_used_at_each_time() {
     let (_dir, conn) = open_test_db();
     usage::record(&conn, "block", "b1").unwrap();
-    let first = usage::get(&conn, "block", "b1").unwrap().unwrap().last_used_at;
+    let first = usage::get(&conn, "block", "b1")
+        .unwrap()
+        .unwrap()
+        .last_used_at;
     // Sleep just over a second so strftime('%s','now') ticks.
     std::thread::sleep(std::time::Duration::from_millis(1100));
     usage::record(&conn, "block", "b1").unwrap();
-    let second = usage::get(&conn, "block", "b1").unwrap().unwrap().last_used_at;
+    let second = usage::get(&conn, "block", "b1")
+        .unwrap()
+        .unwrap()
+        .last_used_at;
     assert!(
         second >= first,
         "last_used_at must be monotonic (got {first} then {second})"

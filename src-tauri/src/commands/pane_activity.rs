@@ -1,5 +1,8 @@
 use crate::commands::AppState;
-use crate::pane_context::{AgentSession, NotificationPreferences, PaneActivity, load_notification_preferences, save_notification_preferences};
+use crate::pane_context::{
+    load_notification_preferences, save_notification_preferences, AgentSession,
+    NotificationPreferences, PaneActivity,
+};
 use tauri::{Emitter, State};
 
 #[tauri::command]
@@ -30,7 +33,8 @@ pub async fn clear_pane_notification(
     // Persist to database and emit event
     {
         let db = state.db.lock();
-        state.pane_manager
+        state
+            .pane_manager
             .persist_activity(&db, &pane_id)
             .map_err(|e| e.to_string())?;
     } // Drop lock before event emission
@@ -56,7 +60,8 @@ pub async fn set_pane_focus(
     // Persist to database and emit event
     {
         let db = state.db.lock();
-        state.pane_manager
+        state
+            .pane_manager
             .persist_activity(&db, &pane_id)
             .map_err(|e| e.to_string())?;
     } // Drop lock before event emission
@@ -77,7 +82,9 @@ pub async fn register_agent_session(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    state.pane_manager.register_agent_session(&pane_id, &agent_type);
+    state
+        .pane_manager
+        .register_agent_session(&pane_id, &agent_type);
 
     // Emit event for frontend to update UI
     app.emit("agent_session_updated", ()).ok();
@@ -122,8 +129,7 @@ pub async fn get_notification_preferences(
     state: State<'_, AppState>,
 ) -> Result<NotificationPreferences, String> {
     let db = state.db.lock();
-    load_notification_preferences(&db)
-        .map_err(|e| format!("Failed to load preferences: {}", e))
+    load_notification_preferences(&db).map_err(|e| format!("Failed to load preferences: {}", e))
 }
 
 /// Current foreground agent CLI (`"claude"`/`"codex"`) running in a pane's PTY,

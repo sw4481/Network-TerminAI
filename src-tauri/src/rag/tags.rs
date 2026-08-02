@@ -29,23 +29,21 @@ const RESERVED_PREFIXES: &[&str] = &["cisco-", "juniper-", "arista-"];
 /// retriever to split an incoming tag list into the builtin (OR) set
 /// and the user (AND) set.
 pub fn is_builtin_tag(t: &str) -> bool {
-    TAG_TAXONOMY.iter().any(|x| *x == t)
+    TAG_TAXONOMY.contains(&t)
 }
 
 /// Deprecated transition shim — kept ONLY so `store.rs`, `retrieve.rs`, and
 /// `commands/rag.rs` keep compiling until Tasks 2/3/4 swap them to
 /// `validate_tag_shape`. Behavior matches the pre-refactor `validate_tag`:
 /// strict whitelist against [`TAG_TAXONOMY`]. Do not call from new code.
-#[deprecated(note = "STRICT WHITELIST ONLY — kept for transition. Use validate_tag_shape for shape + reserved-prefix validation.")]
+#[deprecated(
+    note = "STRICT WHITELIST ONLY — kept for transition. Use validate_tag_shape for shape + reserved-prefix validation."
+)]
 pub fn validate_tag(t: &str) -> Result<()> {
     if is_builtin_tag(t) {
         Ok(())
     } else {
-        bail!(
-            "tag '{}' is not in the RAG taxonomy: {:?}",
-            t,
-            TAG_TAXONOMY
-        );
+        bail!("tag '{}' is not in the RAG taxonomy: {:?}", t, TAG_TAXONOMY);
     }
 }
 

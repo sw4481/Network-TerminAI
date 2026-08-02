@@ -74,10 +74,7 @@ pub async fn panes_save_layout(
 
 /// Delete the pane layout for a given tab_id.
 #[tauri::command]
-pub async fn panes_delete_layout(
-    state: State<'_, AppState>,
-    tab_id: String,
-) -> Result<(), String> {
+pub async fn panes_delete_layout(state: State<'_, AppState>, tab_id: String) -> Result<(), String> {
     let conn = state.db.lock();
 
     conn.execute(

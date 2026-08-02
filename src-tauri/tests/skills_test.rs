@@ -1,9 +1,9 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use tempfile::TempDir;
 
 // Helper to create test skill directory structure
-fn create_test_skill(skills_dir: &PathBuf, skill_id: &str, frontmatter: &str, body: &str) {
+fn create_test_skill(skills_dir: &Path, skill_id: &str, frontmatter: &str, body: &str) {
     let skill_dir = skills_dir.join(skill_id);
     fs::create_dir_all(&skill_dir).unwrap();
 

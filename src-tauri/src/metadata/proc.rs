@@ -22,6 +22,31 @@ pub(crate) fn walk_tree(root: u32, children_of: impl Fn(u32) -> Vec<u32>) -> Vec
     order
 }
 
+/// Direct children of `pid` via `pgrep -P <pid>`. Empty on any failure.
+fn pgrep_children(pid: u32) -> Vec<u32> {
+    let out = match std::process::Command::new("pgrep")
+        .arg("-P")
+        .arg(pid.to_string())
+        .output()
+    {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+    if !out.status.success() {
+        return Vec::new(); // pgrep exits 1 when no children — not an error here
+    }
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| l.trim().parse::<u32>().ok())
+        .collect()
+}
+
+/// All descendants of `root` (inclusive), breadth-first. macOS/Unix only;
+/// returns just `[root]` if `pgrep` is unavailable.
+pub fn child_pids(root: u32) -> Vec<u32> {
+    walk_tree(root, pgrep_children)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -52,25 +77,4 @@ mod tests {
         let got = walk_tree(7, |_| vec![]);
         assert_eq!(got, vec![7]);
     }
-}
-
-/// Direct children of `pid` via `pgrep -P <pid>`. Empty on any failure.
-fn pgrep_children(pid: u32) -> Vec<u32> {
-    let out = match std::process::Command::new("pgrep").arg("-P").arg(pid.to_string()).output() {
-        Ok(o) => o,
-        Err(_) => return Vec::new(),
-    };
-    if !out.status.success() {
-        return Vec::new(); // pgrep exits 1 when no children — not an error here
-    }
-    String::from_utf8_lossy(&out.stdout)
-        .lines()
-        .filter_map(|l| l.trim().parse::<u32>().ok())
-        .collect()
-}
-
-/// All descendants of `root` (inclusive), breadth-first. macOS/Unix only;
-/// returns just `[root]` if `pgrep` is unavailable.
-pub fn child_pids(root: u32) -> Vec<u32> {
-    walk_tree(root, pgrep_children)
 }

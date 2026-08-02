@@ -49,17 +49,14 @@ pub fn top_recent_picks(
     }
 
     let rows: Vec<UsageEntry> = if let Some(k) = kind_filter {
-        stmt.query_map(
-            params![k.as_target_type(), limit as i64],
-            |row| {
-                Ok(UsageEntry {
-                    target_type: row.get(0)?,
-                    target_id: row.get(1)?,
-                    last_used_at: row.get(2)?,
-                    use_count: row.get(3)?,
-                })
-            },
-        )?
+        stmt.query_map(params![k.as_target_type(), limit as i64], |row| {
+            Ok(UsageEntry {
+                target_type: row.get(0)?,
+                target_id: row.get(1)?,
+                last_used_at: row.get(2)?,
+                use_count: row.get(3)?,
+            })
+        })?
         .collect::<rusqlite::Result<Vec<_>>>()?
     } else {
         stmt.query_map(params![limit as i64], |row| {
@@ -151,7 +148,7 @@ fn hydrate_kind(conn: &Connection, kind: PaletteKind, ids: &[&str]) -> Result<Ve
 }
 
 fn placeholders(n: usize) -> String {
-    std::iter::repeat("?").take(n).collect::<Vec<_>>().join(",")
+    std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
 }
 
 fn hydrate_commands(conn: &Connection, ids: &[&str]) -> Result<Vec<PaletteHit>> {
@@ -187,9 +184,7 @@ fn hydrate_commands(conn: &Connection, ids: &[&str]) -> Result<Vec<PaletteHit>> 
 
 fn hydrate_blocks(conn: &Connection, ids: &[&str]) -> Result<Vec<PaletteHit>> {
     let ph = placeholders(ids.len());
-    let sql = format!(
-        "SELECT id, tab_id, cmd FROM command_blocks WHERE id IN ({ph})"
-    );
+    let sql = format!("SELECT id, tab_id, cmd FROM command_blocks WHERE id IN ({ph})");
     let mut stmt = conn.prepare(&sql)?;
     let params_vec: Vec<&dyn rusqlite::ToSql> =
         ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
@@ -218,9 +213,8 @@ fn hydrate_workflows(conn: &Connection, ids: &[&str]) -> Result<Vec<PaletteHit>>
         return Ok(Vec::new());
     }
     let ph = placeholders(ids.len());
-    let sql = format!(
-        "SELECT id, name, description, vendor, platform FROM workflows WHERE id IN ({ph})"
-    );
+    let sql =
+        format!("SELECT id, name, description, vendor, platform FROM workflows WHERE id IN ({ph})");
     let mut stmt = conn.prepare(&sql)?;
     let params_vec: Vec<&dyn rusqlite::ToSql> =
         ids.iter().map(|id| id as &dyn rusqlite::ToSql).collect();

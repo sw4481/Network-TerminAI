@@ -1,7 +1,7 @@
 [project]
 name = "ccie-sidecar"
 version = "0.0.1"
-description = "CCIE Terminal Python AI sidecar"
+description = "TerminAI Python AI sidecar"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.40.0",
@@ -50,7 +50,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "scapy>=2.5", "reportlab>=4.0"]
-build = ["huggingface-hub >= 0.24"]
+build = ["hatchling>=1.27,<2", "huggingface-hub >= 0.24"]
 
 [build-system]
 requires = ["hatchling"]

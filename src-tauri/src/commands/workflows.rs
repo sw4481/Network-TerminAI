@@ -30,7 +30,7 @@ pub struct Workflow {
     pub id: String,
     pub name: String,
     pub description: String,
-    pub vendor: String,   // 'cisco'|'juniper'|'arista'|'meraki'|'generic'
+    pub vendor: String, // 'cisco'|'juniper'|'arista'|'meraki'|'generic'
     pub platform: String,
     pub tags: Vec<String>,
     pub steps: Vec<WorkflowStep>,
@@ -64,14 +64,20 @@ pub fn workflow_upsert_impl(conn: &Connection, wf: &Workflow) -> Result<()> {
            updated_at = strftime('%s','now')",
         params![wf.id, wf.name, wf.description, wf.vendor, wf.platform, tags_json],
     )?;
-    conn.execute("DELETE FROM workflow_steps WHERE workflow_id = ?1", params![wf.id])?;
+    conn.execute(
+        "DELETE FROM workflow_steps WHERE workflow_id = ?1",
+        params![wf.id],
+    )?;
     for step in &wf.steps {
         conn.execute(
             "INSERT INTO workflow_steps (workflow_id, idx, command_template) VALUES (?1, ?2, ?3)",
             params![wf.id, step.idx, step.command_template],
         )?;
     }
-    conn.execute("DELETE FROM workflow_params WHERE workflow_id = ?1", params![wf.id])?;
+    conn.execute(
+        "DELETE FROM workflow_params WHERE workflow_id = ?1",
+        params![wf.id],
+    )?;
     for p in &wf.params {
         let enum_json = match &p.enum_values {
             Some(v) => Some(serde_json::to_string(v)?),
@@ -200,18 +206,19 @@ pub fn workflow_delete_impl(conn: &Connection, id: &str) -> Result<()> {
 // Template rendering + run.
 // ---------------------------------------------------------------------------
 
-static PLACEHOLDER_RE: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
-    Regex::new(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}").unwrap()
-});
+static PLACEHOLDER_RE: once_cell::sync::Lazy<Regex> =
+    once_cell::sync::Lazy::new(|| Regex::new(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}").unwrap());
 
 pub fn render_template(template: &str, values: &HashMap<String, String>) -> Result<String> {
     let mut missing: Vec<String> = Vec::new();
     let rendered = PLACEHOLDER_RE
-        .replace_all(template, |caps: &regex::Captures| match values.get(&caps[1]) {
-            Some(v) => v.clone(),
-            None => {
-                missing.push(caps[1].to_string());
-                String::new()
+        .replace_all(template, |caps: &regex::Captures| {
+            match values.get(&caps[1]) {
+                Some(v) => v.clone(),
+                None => {
+                    missing.push(caps[1].to_string());
+                    String::new()
+                }
             }
         })
         .to_string();
@@ -320,8 +327,8 @@ pub async fn workflow_run(
     let wf = workflow_get_impl(&conn, &workflow_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("workflow {} not found", workflow_id))?;
-    let (run_id, commands) = workflow_run_impl(&conn, &workflow_id, &tab_id, &values)
-        .map_err(|e| e.to_string())?;
+    let (run_id, commands) =
+        workflow_run_impl(&conn, &workflow_id, &tab_id, &values).map_err(|e| e.to_string())?;
     Ok(WorkflowRunResult {
         run_id,
         workflow_name: wf.name,

@@ -80,7 +80,15 @@ pub fn get_config(db: &Arc<Mutex<rusqlite::Connection>>) -> WhatsAppConfig {
         .flatten();
 
     match row {
-        Some((enabled, default_agent_id, allowlist_json, notify_json, session_dir, trigger_keyword, bound_chat_jid)) => WhatsAppConfig {
+        Some((
+            enabled,
+            default_agent_id,
+            allowlist_json,
+            notify_json,
+            session_dir,
+            trigger_keyword,
+            bound_chat_jid,
+        )) => WhatsAppConfig {
             enabled,
             default_agent_id: if default_agent_id.is_empty() {
                 "network-architect".to_string()
@@ -170,9 +178,7 @@ pub fn spawn_poll_task(app_handle: tauri::AppHandle) {
                 (*state.agent).clone()
             };
 
-            let poll_result = agent
-                .call("whatsapp.poll", serde_json::json!({}))
-                .await;
+            let poll_result = agent.call("whatsapp.poll", serde_json::json!({})).await;
 
             let messages = match poll_result {
                 Ok(crate::agent_bridge::AgentResponse::Done { result }) => result
@@ -187,18 +193,29 @@ pub fn spawn_poll_task(app_handle: tauri::AppHandle) {
                 // `from` = the human sender (allowlist check); `chat` = where to
                 // reply (a group JID, or the sender for a DM). Sidecar guarantees
                 // both, but fall back to `from` if `chat` is absent.
-                let from = msg.get("from").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let from = msg
+                    .get("from")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 let chat = msg
                     .get("chat")
                     .and_then(|v| v.as_str())
                     .filter(|s| !s.is_empty())
                     .unwrap_or(&from)
                     .to_string();
-                let text = msg.get("text").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let text = msg
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 // Sidecar sets `authorized` once its own allowlist/from_me gate
                 // passes. Trust it — a group own-message `from` is a LID that
                 // won't re-match the allowlist here.
-                let authorized = msg.get("authorized").and_then(|v| v.as_bool()).unwrap_or(false);
+                let authorized = msg
+                    .get("authorized")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
                 if from.is_empty() || text.is_empty() {
                     continue;
                 }
@@ -271,8 +288,14 @@ async fn handle_inbound(
     {
         let mut map = history.lock();
         let turns = map.entry(chat.clone()).or_default();
-        turns.push(ChatTurn { role: "user".to_string(), content: message.clone() });
-        turns.push(ChatTurn { role: "assistant".to_string(), content: reply.clone() });
+        turns.push(ChatTurn {
+            role: "user".to_string(),
+            content: message.clone(),
+        });
+        turns.push(ChatTurn {
+            role: "assistant".to_string(),
+            content: reply.clone(),
+        });
         let len = turns.len();
         if len > HISTORY_MAX_TURNS {
             turns.drain(0..len - HISTORY_MAX_TURNS);
@@ -356,8 +379,16 @@ async fn run_agent(
 
     // Attached-tool catalog + vault are only needed by the plain react path, and
     // optional for code paths (tool_id binds the sandbox client).
-    let tool_id = agent.attached_tools.first().map(|t| t.id.clone()).unwrap_or_default();
-    let vault_entry = agent.attached_tools.first().map(|t| t.vault_entry.clone()).unwrap_or_default();
+    let tool_id = agent
+        .attached_tools
+        .first()
+        .map(|t| t.id.clone())
+        .unwrap_or_default();
+    let vault_entry = agent
+        .attached_tools
+        .first()
+        .map(|t| t.vault_entry.clone())
+        .unwrap_or_default();
     let vault_secrets = if !vault_entry.is_empty() {
         Some(crate::commands::ai::_retrieve_vault_secrets(&state, &vault_entry).await?)
     } else {
@@ -419,10 +450,6 @@ async fn run_agent(
     };
 
     let agent_bridge = (*state.agent).clone();
-    // Release the managed-state borrow before the await so we don't hold it
-    // across the long agent call.
-    drop(state);
-
     let collected = Arc::new(Mutex::new(String::new()));
     let sink = collected.clone();
 
@@ -465,8 +492,10 @@ mod tests {
             .unwrap();
         conn.execute_batch(include_str!("../../migrations/V0075__whatsapp_trigger.sql"))
             .unwrap();
-        conn.execute_batch(include_str!("../../migrations/V0076__whatsapp_bound_chat.sql"))
-            .unwrap();
+        conn.execute_batch(include_str!(
+            "../../migrations/V0076__whatsapp_bound_chat.sql"
+        ))
+        .unwrap();
         Arc::new(Mutex::new(conn))
     }
 
@@ -511,8 +540,14 @@ mod tests {
         assert_eq!(get_config(&db).trigger_keyword, "ccie");
 
         // Matches (case-insensitive), keyword stripped.
-        assert_eq!(strip_trigger("ccie show version", "ccie"), Some("show version".to_string()));
-        assert_eq!(strip_trigger("CCIE  show bgp", "ccie"), Some("show bgp".to_string()));
+        assert_eq!(
+            strip_trigger("ccie show version", "ccie"),
+            Some("show version".to_string())
+        );
+        assert_eq!(
+            strip_trigger("CCIE  show bgp", "ccie"),
+            Some("show bgp".to_string())
+        );
         assert_eq!(strip_trigger("ccie", "ccie"), Some(String::new()));
 
         // Not addressed to CCIE (e.g. a Hermes message) => ignored.

@@ -19,6 +19,12 @@ pub struct AgentSessionTracker {
     sessions: Arc<RwLock<HashMap<String, AgentSession>>>, // key: pane_id
 }
 
+impl Default for AgentSessionTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AgentSessionTracker {
     pub fn new() -> Self {
         Self {
@@ -66,9 +72,7 @@ impl AgentSessionTracker {
         let now = Self::now();
         let mut sessions = self.sessions.write();
         let before_count = sessions.len();
-        sessions.retain(|_, session| {
-            now - session.last_activity < SESSION_TIMEOUT_SECS
-        });
+        sessions.retain(|_, session| now - session.last_activity < SESSION_TIMEOUT_SECS);
         before_count - sessions.len()
     }
 }

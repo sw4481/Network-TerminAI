@@ -37,8 +37,7 @@ impl AgentsLoader {
             return Ok(loaded);
         }
 
-        let entries =
-            fs::read_dir(&self.agents_dir).context("Failed to read agents directory")?;
+        let entries = fs::read_dir(&self.agents_dir).context("Failed to read agents directory")?;
 
         for entry in entries.flatten() {
             let path = entry.path();
@@ -105,8 +104,7 @@ impl AgentsLoader {
         body: &str,
     ) -> Result<Agent> {
         if !self.agents_dir.exists() {
-            fs::create_dir_all(&self.agents_dir)
-                .context("Failed to create agents directory")?;
+            fs::create_dir_all(&self.agents_dir).context("Failed to create agents directory")?;
         }
         let dir = self.agents_dir.join(id);
         if dir.exists() {
@@ -413,7 +411,10 @@ fn serialize_agent_md(
                 "    default-blast-radius-allowed: {}\n",
                 yaml_escape(&tool.default_blast_radius_allowed)
             ));
-            s.push_str(&format!("    vault-entry: {}\n", yaml_escape(&tool.vault_entry)));
+            s.push_str(&format!(
+                "    vault-entry: {}\n",
+                yaml_escape(&tool.vault_entry)
+            ));
         }
     }
     if !allowed_commands.is_empty() {
@@ -493,17 +494,14 @@ allowed-commands:
         let (fm, _body) = parse_agent_content(&content).unwrap();
         assert_eq!(fm.name, "stealthwatch");
         assert_eq!(fm.attached_tools.len(), 1);
-        assert_eq!(
-            fm.attached_tools[0].default_blast_radius_allowed,
-            "low"
-        );
+        assert_eq!(fm.attached_tools[0].default_blast_radius_allowed, "low");
     }
 
     #[test]
     fn test_parse_bundled_ise_agent() {
         // Guard the ISE AGENT.md frontmatter parses and declares its single tool.
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../bundled-agents/ise/AGENT.md");
+        let path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../bundled-agents/ise/AGENT.md");
         let content = std::fs::read_to_string(&path).unwrap();
         let (fm, _body) = parse_agent_content(&content).unwrap();
         assert_eq!(fm.name, "ise");
@@ -560,7 +558,11 @@ allowed-commands:
         let loader = AgentsLoader::new(tmp.path().to_path_buf());
 
         let all = loader.load_all().unwrap();
-        assert_eq!(all.len(), 0, "load_all must not auto-populate bundled agents");
+        assert_eq!(
+            all.len(),
+            0,
+            "load_all must not auto-populate bundled agents"
+        );
     }
 
     #[test]
@@ -658,7 +660,6 @@ allowed-commands:
 
     #[test]
     fn test_parse_agent_with_attached_tools() {
-        use super::super::types::AttachedTool;
         use std::fs;
 
         let tmp = TempDir::new().unwrap();
@@ -687,10 +688,7 @@ attached-tools:
         assert_eq!(fm.name, "meraki-expert");
         assert_eq!(fm.attached_tools.len(), 1);
         assert_eq!(fm.attached_tools[0].id, "meraki");
-        assert_eq!(
-            fm.attached_tools[0].default_blast_radius_allowed,
-            "low"
-        );
+        assert_eq!(fm.attached_tools[0].default_blast_radius_allowed, "low");
         assert_eq!(fm.attached_tools[0].vault_entry, "meraki_default");
         assert!(body.contains("Playbook"));
     }
@@ -826,9 +824,7 @@ attached-tools:
         let agents = loader.load_all().expect("load agents");
 
         // Find our test agent
-        let agent = agents
-            .iter()
-            .find(|a| a.id == "meraki-readonly-expert");
+        let agent = agents.iter().find(|a| a.id == "meraki-readonly-expert");
 
         if agent.is_none() {
             eprintln!("Skipping: meraki-readonly-expert agent not found");
@@ -839,21 +835,17 @@ attached-tools:
 
         // Verify the agent structure
         assert_eq!(agent.name, "meraki-readonly-expert");
-        assert_eq!(
-            agent.description,
-            "Cisco Meraki dashboard read-only expert"
-        );
+        assert_eq!(agent.description, "Cisco Meraki dashboard read-only expert");
         assert!(agent.system_prompt.contains("Meraki dashboard expert"));
 
         // Verify attached_tools
         assert_eq!(agent.attached_tools.len(), 1);
         assert_eq!(agent.attached_tools[0].id, "meraki");
-        assert_eq!(
-            agent.attached_tools[0].default_blast_radius_allowed,
-            "low"
-        );
+        assert_eq!(agent.attached_tools[0].default_blast_radius_allowed, "low");
         assert_eq!(agent.attached_tools[0].vault_entry, "meraki_default");
-        assert!(agent.attached_tools[0].catalog.contains("meraki-tools.json"));
+        assert!(agent.attached_tools[0]
+            .catalog
+            .contains("meraki-tools.json"));
 
         println!("✓ Agent loaded successfully with attached-tools!");
         println!("  - ID: {}", agent.id);

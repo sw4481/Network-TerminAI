@@ -41,15 +41,17 @@
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["ccie-terminal"]
+        "schemes": [
+          "ccie-terminal"
+        ]
       }
     },
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/sw4481/CCIEterminal/releases/latest/download/latest.json"
+        "https://github.com/sw4481/TerminAI/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzMzg3QUQ0NERGMkU1M0QKUldROTVmSk4xSG80NHp5OFpPTVpBdFBRSUN5N0c3MjMveUZtSVVWVFEvN3pmejBFNkZFRUNkZmEK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDMkZBQ0EwMDZGNkZGQ0EKUldUSy8vWUdvS3d2eklZb2N5NDhla3Ixdnp0cW9pa1FGa1ZHaTFLaDJiTFloTFgwK1dyUnQ1a3MK",
       "windows": {
         "installMode": "passive"
       }
@@ -75,7 +77,7 @@
     "shortDescription": "Warp-like AI-powered terminal for network engineers",
     "longDescription": "TerminAI is a modern, AI-powered terminal application designed for network engineers. Features include command blocks, AI assistance via Claude, session persistence, and shell integration.",
     "macOS": {
-      "minimumSystemVersion": "10.13"
+      "minimumSystemVersion": "15.0"
     },
     "windows": {
       "certificateThumbprint": null,

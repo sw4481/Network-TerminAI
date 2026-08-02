@@ -114,7 +114,9 @@ pub async fn rag_upload_inner(
 ) -> Result<i64, String> {
     let kind = validate_upload_args(&args)?;
 
-    let bytes = std::fs::metadata(&args.path).map(|m| m.len() as i64).unwrap_or(0);
+    let bytes = std::fs::metadata(&args.path)
+        .map(|m| m.len() as i64)
+        .unwrap_or(0);
 
     // Capture the path for the progress callback so we don't need to
     // clone it into the bridge closure repeatedly.
@@ -188,9 +190,7 @@ pub async fn rag_upload_inner(
     }
 
     for chunk in &ingested.chunks {
-        if let Err(e) =
-            store.insert_chunk(doc_id, chunk.chunk_idx, &chunk.text, &chunk.embedding)
-        {
+        if let Err(e) = store.insert_chunk(doc_id, chunk.chunk_idx, &chunk.text, &chunk.embedding) {
             let _ = store.delete_document(doc_id);
             return Err(e.to_string());
         }
@@ -224,9 +224,7 @@ pub async fn rag_upload(
 }
 
 #[tauri::command]
-pub async fn rag_list_documents(
-    state: State<'_, AppState>,
-) -> Result<Vec<DocRow>, String> {
+pub async fn rag_list_documents(state: State<'_, AppState>) -> Result<Vec<DocRow>, String> {
     let store = state.rag_store.clone();
     tokio::task::spawn_blocking(move || {
         store
@@ -239,16 +237,11 @@ pub async fn rag_list_documents(
 }
 
 #[tauri::command]
-pub async fn rag_delete_document(
-    doc_id: i64,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn rag_delete_document(doc_id: i64, state: State<'_, AppState>) -> Result<(), String> {
     let store = state.rag_store.clone();
-    tokio::task::spawn_blocking(move || {
-        store.delete_document(doc_id).map_err(|e| e.to_string())
-    })
-    .await
-    .map_err(|e| format!("delete_document join: {e}"))?
+    tokio::task::spawn_blocking(move || store.delete_document(doc_id).map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| format!("delete_document join: {e}"))?
 }
 
 /// Frontend payload for the tag picker. `builtin` is the seven fixed
@@ -261,9 +254,7 @@ pub struct RagTaxonomyPayload {
 }
 
 #[tauri::command]
-pub async fn rag_tag_taxonomy(
-    state: State<'_, AppState>,
-) -> Result<RagTaxonomyPayload, String> {
+pub async fn rag_tag_taxonomy(state: State<'_, AppState>) -> Result<RagTaxonomyPayload, String> {
     let store = state.rag_store.clone();
     let user = tokio::task::spawn_blocking(move || store.list_user_tags())
         .await

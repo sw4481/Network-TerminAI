@@ -80,21 +80,15 @@ static UPDATE_REGEX: OnceLock<Regex> = OnceLock::new();
 static DESTROY_REGEX: OnceLock<Regex> = OnceLock::new();
 
 fn get_create_regex() -> &'static Regex {
-    CREATE_REGEX.get_or_init(|| {
-        Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Creating\.\.\.$").unwrap()
-    })
+    CREATE_REGEX.get_or_init(|| Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Creating\.\.\.$").unwrap())
 }
 
 fn get_update_regex() -> &'static Regex {
-    UPDATE_REGEX.get_or_init(|| {
-        Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Modifying\.\.\.$").unwrap()
-    })
+    UPDATE_REGEX.get_or_init(|| Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Modifying\.\.\.$").unwrap())
 }
 
 fn get_destroy_regex() -> &'static Regex {
-    DESTROY_REGEX.get_or_init(|| {
-        Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Destroying\.\.\.$").unwrap()
-    })
+    DESTROY_REGEX.get_or_init(|| Regex::new(r"(?m)^([a-z_][\w.\[\]]*): Destroying\.\.\.$").unwrap())
 }
 
 // Public API
@@ -161,8 +155,10 @@ fn parse_ansible_json(raw_output: &str) -> Result<IaCMetadata> {
         resources_changed: changed_count,
         resources_failed: failed_count,
         resource_events: events,
-        summary: format!("{} tasks executed, {} changed, {} failed",
-                        total_tasks, changed_count, failed_count),
+        summary: format!(
+            "{} tasks executed, {} changed, {} failed",
+            total_tasks, changed_count, failed_count
+        ),
     })
 }
 
@@ -181,9 +177,8 @@ fn parse_ansible_human_readable(raw_output: &str) -> Result<IaCMetadata> {
     //   "fatal: [web-03]: FAILED! => {"msg": "Connection timeout"}"
     //   "skipping: [172.16.6.2]"
     //   "[WARNING]: ..."  (ignored)
-    let status_regex = Regex::new(
-        r"(?m)^(ok|changed|failed|fatal|skipping|unreachable):\s+\[([^\]]+)\](.*)$",
-    )?;
+    let status_regex =
+        Regex::new(r"(?m)^(ok|changed|failed|fatal|skipping|unreachable):\s+\[([^\]]+)\](.*)$")?;
     let task_regex = Regex::new(r"(?m)^(?:TASK|RUNNING HANDLER)\s+\[(.+?)\]\s*\**\s*$")?;
     let recap_regex = Regex::new(
         r"(?m)^(.+?)\s*:\s*ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)",
@@ -196,7 +191,10 @@ fn parse_ansible_human_readable(raw_output: &str) -> Result<IaCMetadata> {
         let trimmed = line.trim_start();
 
         if let Some(cap) = task_regex.captures(trimmed) {
-            current_task = cap.get(1).map(|m| m.as_str().trim().to_string()).unwrap_or_default();
+            current_task = cap
+                .get(1)
+                .map(|m| m.as_str().trim().to_string())
+                .unwrap_or_default();
             continue;
         }
 
@@ -207,7 +205,12 @@ fn parse_ansible_human_readable(raw_output: &str) -> Result<IaCMetadata> {
         let status = cap.get(1).map(|m| m.as_str()).unwrap_or("");
         // The host token can be "host" or "host -> delegate"; keep the primary host.
         let host_raw = cap.get(2).map(|m| m.as_str()).unwrap_or("unknown");
-        let host = host_raw.split("->").next().unwrap_or(host_raw).trim().to_string();
+        let host = host_raw
+            .split("->")
+            .next()
+            .unwrap_or(host_raw)
+            .trim()
+            .to_string();
         let rest = cap.get(3).map(|m| m.as_str()).unwrap_or("");
 
         let (action, error) = match status {
@@ -238,9 +241,18 @@ fn parse_ansible_human_readable(raw_output: &str) -> Result<IaCMetadata> {
     let mut have_recap = false;
     for cap in recap_regex.captures_iter(raw_output) {
         have_recap = true;
-        recap_ok += cap.get(2).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
-        recap_changed += cap.get(3).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
-        recap_failed += cap.get(5).and_then(|m| m.as_str().parse().ok()).unwrap_or(0);
+        recap_ok += cap
+            .get(2)
+            .and_then(|m| m.as_str().parse().ok())
+            .unwrap_or(0);
+        recap_changed += cap
+            .get(3)
+            .and_then(|m| m.as_str().parse().ok())
+            .unwrap_or(0);
+        recap_failed += cap
+            .get(5)
+            .and_then(|m| m.as_str().parse().ok())
+            .unwrap_or(0);
     }
 
     // If we found neither per-task lines nor a recap, this isn't ansible output.
@@ -253,8 +265,14 @@ fn parse_ansible_human_readable(raw_output: &str) -> Result<IaCMetadata> {
     let (resources_changed, resources_failed) = if have_recap {
         (recap_changed, recap_failed)
     } else {
-        let changed = events.iter().filter(|e| e.action == ResourceAction::Changed).count() as u32;
-        let failed = events.iter().filter(|e| e.action == ResourceAction::Failed).count() as u32;
+        let changed = events
+            .iter()
+            .filter(|e| e.action == ResourceAction::Changed)
+            .count() as u32;
+        let failed = events
+            .iter()
+            .filter(|e| e.action == ResourceAction::Failed)
+            .count() as u32;
         (changed, failed)
     };
 
@@ -297,9 +315,7 @@ fn extract_ansible_error(rest: &str) -> Option<String> {
     }
 
     // Fall back to the human text after a leading "=>"/":" marker.
-    let cleaned = rest
-        .trim_start_matches(|c| c == ':' || c == '=' || c == '>' || c == ' ')
-        .trim();
+    let cleaned = rest.trim_start_matches([':', '=', '>', ' ']).trim();
     if cleaned.is_empty() {
         None
     } else {
@@ -714,11 +730,13 @@ Apply complete! Resources: 1 added, 1 changed, 0 destroyed.
         let result = parse_ansible_output(json_output).unwrap();
 
         assert_eq!(result.resources_changed, 2); // web-01 and web-02 changed
-        assert_eq!(result.resources_failed, 1);   // web-03 failed
+        assert_eq!(result.resources_failed, 1); // web-03 failed
         assert_eq!(result.resource_events.len(), 3);
 
         // Check web-03 failed event
-        let failed_event = result.resource_events.iter()
+        let failed_event = result
+            .resource_events
+            .iter()
             .find(|e| e.resource_id.as_deref() == Some("web-03"))
             .unwrap();
         assert_eq!(failed_event.action, ResourceAction::Failed);
@@ -763,7 +781,12 @@ PLAY RECAP *********************************************************************
         assert_eq!(result.resources_failed, 0);
 
         // 4 ok + 1 skipping = 5 events (the WARNING line is ignored)
-        assert_eq!(result.resource_events.len(), 5, "events: {:#?}", result.resource_events);
+        assert_eq!(
+            result.resource_events.len(),
+            5,
+            "events: {:#?}",
+            result.resource_events
+        );
 
         let ok_events: Vec<_> = result
             .resource_events

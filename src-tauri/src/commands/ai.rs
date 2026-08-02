@@ -119,8 +119,9 @@ pub fn get_history_suggestions(
     let conn = state.db.lock();
 
     // Fuzzy match against command history with frequency + recency scoring
-    let mut stmt = conn.prepare(
-        "SELECT
+    let mut stmt = conn
+        .prepare(
+            "SELECT
             cmd,
             COUNT(*) as frequency,
             MAX(started_at) as last_used,
@@ -130,7 +131,8 @@ pub fn get_history_suggestions(
          GROUP BY cmd
          ORDER BY frequency DESC, last_used DESC
          LIMIT ?",
-    ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
     let pattern = partial.trim();
     let suggestions: Vec<CommandSuggestion> = stmt
@@ -140,7 +142,11 @@ pub fn get_history_suggestions(
             let success_rate: f64 = row.get(3)?;
 
             let description = if success_rate >= 0.8 {
-                format!("Used {} times ({}% success)", frequency, (success_rate * 100.0) as i32)
+                format!(
+                    "Used {} times ({}% success)",
+                    frequency,
+                    (success_rate * 100.0) as i32
+                )
             } else {
                 format!("Used {} times", frequency)
             };
@@ -193,11 +199,7 @@ pub async fn ai_natural_to_command(
     pane_id: Option<String>,
 ) -> Result<NaturalToCommandResponse, String> {
     // Build pane context
-    let pane_context = build_pane_context_prompt(
-        &state.pane_manager,
-        &tab_id,
-        pane_id.as_deref(),
-    );
+    let pane_context = build_pane_context_prompt(&state.pane_manager, &tab_id, pane_id.as_deref());
 
     let mut params = serde_json::json!({
         "natural_language": natural_language,
@@ -234,11 +236,7 @@ pub async fn ai_analyze_error(
     pane_id: Option<String>,
 ) -> Result<ErrorAnalysisResponse, String> {
     // Build pane context
-    let pane_context = build_pane_context_prompt(
-        &state.pane_manager,
-        &tab_id,
-        pane_id.as_deref(),
-    );
+    let pane_context = build_pane_context_prompt(&state.pane_manager, &tab_id, pane_id.as_deref());
 
     let mut params = serde_json::json!({
         "command": command,
@@ -346,7 +344,10 @@ pub async fn agent_react_run(
 
     // 3. Retrieve credentials from vault
     let vault_secrets = if !tool_def.vault_entry.is_empty() {
-        tracing::info!("Attempting to retrieve vault secrets for envelope: {}", tool_def.vault_entry);
+        tracing::info!(
+            "Attempting to retrieve vault secrets for envelope: {}",
+            tool_def.vault_entry
+        );
         match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
             Ok(secrets) => {
                 tracing::info!("Successfully retrieved {} vault secrets", secrets.len());
@@ -356,7 +357,11 @@ pub async fn agent_react_run(
                 Some(secrets)
             }
             Err(e) => {
-                tracing::error!("Failed to retrieve vault secrets for {}: {}", tool_def.vault_entry, e);
+                tracing::error!(
+                    "Failed to retrieve vault secrets for {}: {}",
+                    tool_def.vault_entry,
+                    e
+                );
                 // Return the error to the user so they know what went wrong
                 return Err(format!("Vault error: {}", e));
             }
@@ -368,11 +373,7 @@ pub async fn agent_react_run(
 
     // 4. Build pane context if tab_id provided
     let pane_context = if let Some(ref tid) = tab_id {
-        build_pane_context_prompt(
-            &state.pane_manager,
-            tid,
-            pane_id.as_deref(),
-        )
+        build_pane_context_prompt(&state.pane_manager, tid, pane_id.as_deref())
     } else {
         String::new()
     };
@@ -414,9 +415,17 @@ pub async fn agent_react_run(
                     }
                 }
                 "tool_call" => {
-                    let name = ev.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = ev
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let args = ev.get("args").cloned().unwrap_or(serde_json::Value::Null);
-                    let blast_radius = ev.get("blast_radius").and_then(|v| v.as_str()).unwrap_or("low").to_string();
+                    let blast_radius = ev
+                        .get("blast_radius")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("low")
+                        .to_string();
 
                     let _ = on_event_clone.send(ReactEvent::ToolCall {
                         name,
@@ -426,12 +435,13 @@ pub async fn agent_react_run(
                 }
                 "tool_result" => {
                     let success = ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let result = ev.get("result").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let result = ev
+                        .get("result")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
-                    let _ = on_event_clone.send(ReactEvent::ToolResult {
-                        success,
-                        result,
-                    });
+                    let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -514,7 +524,10 @@ pub async fn agent_code_exec_run(
 
         // Retrieve credentials from vault
         let secrets = if !tool_def.vault_entry.is_empty() {
-            tracing::info!("Attempting to retrieve vault secrets for envelope: {}", tool_def.vault_entry);
+            tracing::info!(
+                "Attempting to retrieve vault secrets for envelope: {}",
+                tool_def.vault_entry
+            );
             match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
                 Ok(secrets) => {
                     tracing::info!("Successfully retrieved {} vault secrets", secrets.len());
@@ -524,7 +537,11 @@ pub async fn agent_code_exec_run(
                     Some(secrets)
                 }
                 Err(e) => {
-                    tracing::error!("Failed to retrieve vault secrets for {}: {}", tool_def.vault_entry, e);
+                    tracing::error!(
+                        "Failed to retrieve vault secrets for {}: {}",
+                        tool_def.vault_entry,
+                        e
+                    );
                     return Err(format!("Vault error: {}", e));
                 }
             }
@@ -541,11 +558,7 @@ pub async fn agent_code_exec_run(
 
     // 4. Build pane context if tab_id provided
     let pane_context = if let Some(ref tid) = tab_id {
-        build_pane_context_prompt(
-            &state.pane_manager,
-            tid,
-            pane_id.as_deref(),
-        )
+        build_pane_context_prompt(&state.pane_manager, tid, pane_id.as_deref())
     } else {
         String::new()
     };
@@ -588,21 +601,23 @@ pub async fn agent_code_exec_run(
                 }
                 "code_result" => {
                     let success = ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let output = ev.get("output").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let output = ev
+                        .get("output")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
 
-                    let _ = on_event_clone.send(CodeExecEvent::CodeResult {
-                        success,
-                        output,
-                    });
+                    let _ = on_event_clone.send(CodeExecEvent::CodeResult { success, output });
                 }
                 "code_error" => {
-                    let error = ev.get("error").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let error = ev
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let attempt = ev.get("attempt").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
-                    let _ = on_event_clone.send(CodeExecEvent::CodeError {
-                        error,
-                        attempt,
-                    });
+                    let _ = on_event_clone.send(CodeExecEvent::CodeError { error, attempt });
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -612,7 +627,7 @@ pub async fn agent_code_exec_run(
                     }
                 }
                 "diagram" => {
-                    let (title, format, xml, source, url, image_url) = parse_diagram_event(&ev);
+                    let (title, format, xml, source, url, image_url) = parse_diagram_event(ev);
                     let _ = on_event_clone.send(CodeExecEvent::Diagram {
                         title,
                         format,
@@ -707,11 +722,7 @@ pub async fn agent_react_code_run(
 
     // 3. Build pane context if tab_id provided
     let pane_context = if let Some(ref tid) = tab_id {
-        build_pane_context_prompt(
-            &state.pane_manager,
-            tid,
-            pane_id.as_deref(),
-        )
+        build_pane_context_prompt(&state.pane_manager, tid, pane_id.as_deref())
     } else {
         String::new()
     };
@@ -753,17 +764,19 @@ pub async fn agent_react_code_run(
             match ev_type {
                 "thought_start" => {
                     let step = ev.get("step").and_then(|v| v.as_u64()).unwrap_or(0) as i32;
-                    let thought = ev.get("thought")
+                    let thought = ev
+                        .get("thought")
                         .and_then(|v| v.as_str())
                         .unwrap_or(&format!("Step {}", step))
                         .to_string();
-                    let _ = on_event_clone.send(ReactEvent::ThoughtStart {
-                        thought,
-                        step,
-                    });
+                    let _ = on_event_clone.send(ReactEvent::ThoughtStart { thought, step });
                 }
                 "tool_call" => {
-                    let name = ev.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = ev
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let args = ev.get("args").cloned().unwrap_or(serde_json::Value::Null);
                     let _ = on_event_clone.send(ReactEvent::ToolCall {
                         name,
@@ -773,11 +786,12 @@ pub async fn agent_react_code_run(
                 }
                 "tool_result" => {
                     let success = ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let result = ev.get("result").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                    let _ = on_event_clone.send(ReactEvent::ToolResult {
-                        success,
-                        result,
-                    });
+                    let result = ev
+                        .get("result")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -787,7 +801,7 @@ pub async fn agent_react_code_run(
                     }
                 }
                 "diagram" => {
-                    let (title, format, xml, source, url, image_url) = parse_diagram_event(&ev);
+                    let (title, format, xml, source, url, image_url) = parse_diagram_event(ev);
                     let _ = on_event_clone.send(ReactEvent::Diagram {
                         title,
                         format,
@@ -806,11 +820,30 @@ pub async fn agent_react_code_run(
                 }
                 "iac_approval_request" => {
                     let _ = on_event_clone.send(ReactEvent::IacApprovalRequest {
-                        thread_id: ev.get("thread_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        working_dir: ev.get("working_dir").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        tool: ev.get("tool").and_then(|v| v.as_str()).unwrap_or("terraform").to_string(),
-                        classification: ev.get("classification").cloned().unwrap_or(serde_json::Value::Null),
+                        thread_id: ev
+                            .get("thread_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        working_dir: ev
+                            .get("working_dir")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        tool: ev
+                            .get("tool")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("terraform")
+                            .to_string(),
+                        classification: ev
+                            .get("classification")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
                     });
                 }
                 _ => {
@@ -871,7 +904,11 @@ pub async fn agent_react_resume(
                     let _ = on_event_clone.send(ReactEvent::ThoughtStart { thought, step });
                 }
                 "tool_call" => {
-                    let name = ev.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let name = ev
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let args = ev.get("args").cloned().unwrap_or(serde_json::Value::Null);
                     let _ = on_event_clone.send(ReactEvent::ToolCall {
                         name,
@@ -881,7 +918,11 @@ pub async fn agent_react_resume(
                 }
                 "tool_result" => {
                     let success = ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let result = ev.get("result").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                    let result = ev
+                        .get("result")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
                 }
                 "final" => {
@@ -892,22 +933,50 @@ pub async fn agent_react_resume(
                     }
                 }
                 "diagram" => {
-                    let (title, format, xml, source, url, image_url) = parse_diagram_event(&ev);
-                    let _ = on_event_clone.send(ReactEvent::Diagram { title, format, xml, source, url, image_url });
+                    let (title, format, xml, source, url, image_url) = parse_diagram_event(ev);
+                    let _ = on_event_clone.send(ReactEvent::Diagram {
+                        title,
+                        format,
+                        xml,
+                        source,
+                        url,
+                        image_url,
+                    });
                 }
                 "error" => {
                     if let Some(message) = ev.get("message").and_then(|v| v.as_str()) {
-                        let _ = on_event_clone.send(ReactEvent::Error { message: message.to_string() });
+                        let _ = on_event_clone.send(ReactEvent::Error {
+                            message: message.to_string(),
+                        });
                     }
                 }
                 "iac_approval_request" => {
                     // A resumed graph could pause again (e.g. a second apply).
                     let _ = on_event_clone.send(ReactEvent::IacApprovalRequest {
-                        thread_id: ev.get("thread_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        working_dir: ev.get("working_dir").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        tool: ev.get("tool").and_then(|v| v.as_str()).unwrap_or("terraform").to_string(),
-                        classification: ev.get("classification").cloned().unwrap_or(serde_json::Value::Null),
+                        thread_id: ev
+                            .get("thread_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        working_dir: ev
+                            .get("working_dir")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        tool: ev
+                            .get("tool")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("terraform")
+                            .to_string(),
+                        classification: ev
+                            .get("classification")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
                     });
                 }
                 _ => {}
@@ -923,7 +992,9 @@ pub async fn agent_react_resume(
         }
         Err(e) => {
             tracing::error!(error = %e, "agent_react_resume failed");
-            let _ = on_event.send(ReactEvent::Error { message: e.to_string() });
+            let _ = on_event.send(ReactEvent::Error {
+                message: e.to_string(),
+            });
             Err(e.to_string())
         }
     }
@@ -948,7 +1019,10 @@ pub(crate) async fn _retrieve_vault_secrets(
         .map_err(|e| format!("Failed to query envelope: {}", e))?;
 
     let envelope_id = envelope_id.ok_or_else(|| {
-        format!("Vault envelope '{}' not found. Create it in Settings → Vault.", envelope_name)
+        format!(
+            "Vault envelope '{}' not found. Create it in Settings → Vault.",
+            envelope_name
+        )
     })?;
 
     // Get all secrets in the envelope

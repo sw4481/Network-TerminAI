@@ -9,10 +9,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
-pub fn intent_create(
-    state: State<'_, AppState>,
-    tpl: IntentTemplate,
-) -> Result<String, String> {
+pub fn intent_create(state: State<'_, AppState>, tpl: IntentTemplate) -> Result<String, String> {
     IntentRepo::create(&state.db.lock(), tpl).map_err(|e| e.to_string())
 }
 
@@ -72,11 +69,7 @@ pub fn intent_update_match_mode(
 }
 
 #[tauri::command]
-pub fn intent_rename(
-    state: State<'_, AppState>,
-    id: String,
-    name: String,
-) -> Result<(), String> {
+pub fn intent_rename(state: State<'_, AppState>, id: String, name: String) -> Result<(), String> {
     IntentRepo::rename(&state.db.lock(), &id, &name).map_err(|e| e.to_string())
 }
 
@@ -101,11 +94,7 @@ pub fn intent_render(
 
 /// Normalize a raw running-config string using per-vendor rules.
 #[tauri::command]
-pub fn config_normalize(
-    vendor: String,
-    platform: String,
-    raw: String,
-) -> Result<String, String> {
+pub fn config_normalize(vendor: String, platform: String, raw: String) -> Result<String, String> {
     let v = Vendor::parse(&vendor, &platform);
     Ok(normalize(v, &raw))
 }
@@ -150,7 +139,9 @@ pub async fn drift_schedule_create(
     template_id: String,
     cron_expr: String,
 ) -> Result<crate::drift::schedule::DriftSchedule, String> {
-    let sched = ensure_drift_scheduler(&state, &app).await.map_err(|e| e.to_string())?;
+    let sched = ensure_drift_scheduler(&state, &app)
+        .await
+        .map_err(|e| e.to_string())?;
     sched
         .add_schedule(&template_id, &cron_expr)
         .await
@@ -163,7 +154,9 @@ pub async fn drift_schedule_pause(
     app: AppHandle,
     id: String,
 ) -> Result<(), String> {
-    let sched = ensure_drift_scheduler(&state, &app).await.map_err(|e| e.to_string())?;
+    let sched = ensure_drift_scheduler(&state, &app)
+        .await
+        .map_err(|e| e.to_string())?;
     sched.pause(&id).await.map_err(|e| e.to_string())
 }
 
@@ -173,7 +166,9 @@ pub async fn drift_schedule_resume(
     app: AppHandle,
     id: String,
 ) -> Result<(), String> {
-    let sched = ensure_drift_scheduler(&state, &app).await.map_err(|e| e.to_string())?;
+    let sched = ensure_drift_scheduler(&state, &app)
+        .await
+        .map_err(|e| e.to_string())?;
     sched.resume(&id).await.map_err(|e| e.to_string())
 }
 
@@ -183,7 +178,9 @@ pub async fn drift_schedule_delete(
     app: AppHandle,
     id: String,
 ) -> Result<(), String> {
-    let sched = ensure_drift_scheduler(&state, &app).await.map_err(|e| e.to_string())?;
+    let sched = ensure_drift_scheduler(&state, &app)
+        .await
+        .map_err(|e| e.to_string())?;
     sched.delete(&id).await.map_err(|e| e.to_string())
 }
 
@@ -191,8 +188,7 @@ pub async fn drift_schedule_delete(
 pub fn drift_schedule_list(
     state: State<'_, AppState>,
 ) -> Result<Vec<crate::drift::schedule::DriftSchedule>, String> {
-    crate::drift::schedule::DriftScheduleRepo::list(&state.db.lock())
-        .map_err(|e| e.to_string())
+    crate::drift::schedule::DriftScheduleRepo::list(&state.db.lock()).map_err(|e| e.to_string())
 }
 
 async fn ensure_drift_scheduler(
@@ -294,8 +290,7 @@ pub fn drift_diff(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("intent {intent_id} not found"))?;
     let v = Vendor::parse(&tpl.vendor, &tpl.platform);
-    let rendered =
-        render_intent(&tpl, override_vars_yaml.as_deref()).map_err(|e| e.to_string())?;
+    let rendered = render_intent(&tpl, override_vars_yaml.as_deref()).map_err(|e| e.to_string())?;
     let intent_norm = normalize(v, &rendered);
     let running_norm = normalize(v, &running_raw);
     Ok(crate::drift::diff::diff_intent_vs_running(
@@ -319,8 +314,7 @@ pub async fn drift_snapshot_device(
     // internally; call it BEFORE acquiring any other db lock. Returns
     // (SshTarget, name). Verified: ssh_exec/mod.rs:67 resolve_target,
     // :175 run_command, :114 DEFAULT_CMD_TIMEOUT.
-    let (target, _name) =
-        crate::ssh_exec::resolve_target(&state.db, &connection_id, password)?;
+    let (target, _name) = crate::ssh_exec::resolve_target(&state.db, &connection_id, password)?;
     let raw = crate::ssh_exec::run_command(
         &target,
         "show running-config",
@@ -332,8 +326,16 @@ pub async fn drift_snapshot_device(
     let norm = normalize(v, &raw);
     // Acquire the db lock only AFTER the SSH call completes.
     let db = state.db.lock();
-    ConfigSnapshotRepo::insert(&db, &connection_id, "ssh", &vendor, &platform, &norm, "manual")
-        .map_err(|e| e.to_string())
+    ConfigSnapshotRepo::insert(
+        &db,
+        &connection_id,
+        "ssh",
+        &vendor,
+        &platform,
+        &norm,
+        "manual",
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -343,8 +345,13 @@ pub fn config_snapshots_list(
     device_kind: String,
     limit: Option<i64>,
 ) -> Result<Vec<ConfigSnapshot>, String> {
-    ConfigSnapshotRepo::list_for_device(&state.db.lock(), &device_id, &device_kind, limit.unwrap_or(15))
-        .map_err(|e| e.to_string())
+    ConfigSnapshotRepo::list_for_device(
+        &state.db.lock(),
+        &device_id,
+        &device_kind,
+        limit.unwrap_or(15),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -361,7 +368,8 @@ pub fn config_snapshot_set_label(
     id: String,
     label: Option<String>,
 ) -> Result<(), String> {
-    ConfigSnapshotRepo::set_label(&state.db.lock(), &id, label.as_deref()).map_err(|e| e.to_string())
+    ConfigSnapshotRepo::set_label(&state.db.lock(), &id, label.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 /// Diff two archived snapshots (a = older/left, b = newer/right).
@@ -372,11 +380,16 @@ pub fn config_snapshots_diff(
     b_id: String,
 ) -> Result<crate::drift::diff::DriftPatch, String> {
     let db = state.db.lock();
-    let a = ConfigSnapshotRepo::get(&db, &a_id).map_err(|e| e.to_string())?
+    let a = ConfigSnapshotRepo::get(&db, &a_id)
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("snapshot {a_id} not found"))?;
-    let b = ConfigSnapshotRepo::get(&db, &b_id).map_err(|e| e.to_string())?
+    let b = ConfigSnapshotRepo::get(&db, &b_id)
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("snapshot {b_id} not found"))?;
-    Ok(crate::drift::diff::diff_intent_vs_running(&a.normalized_config, &b.normalized_config))
+    Ok(crate::drift::diff::diff_intent_vs_running(
+        &a.normalized_config,
+        &b.normalized_config,
+    ))
 }
 
 #[tauri::command]

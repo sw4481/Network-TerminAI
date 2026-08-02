@@ -29,13 +29,13 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use super::AppState;
+use crate::agent_bridge::AgentResponse;
 use crate::troubleshoot::context::{RunContext, RunStatus, StepResult};
 use crate::troubleshoot::engine::{run_tree, run_tree_from, StepExecutor};
 use crate::troubleshoot::narrator_bridge::{
     is_terminal, produce_conclusion, LiveNarratorBridge, NarratorBridge,
 };
 use crate::troubleshoot::playbook::Playbook;
-use crate::agent_bridge::AgentResponse;
 
 /// Lightweight metadata row returned by [`list_playbooks`]. Frontend uses
 /// this to render the picker without paying the cost of loading every
@@ -55,9 +55,7 @@ pub struct PlaybookMeta {
 /// Return the catalogue of available playbooks ordered builtin-first
 /// (so the picker shows the curated set on top), then by name.
 #[tauri::command]
-pub async fn list_playbooks(
-    state: State<'_, AppState>,
-) -> Result<Vec<PlaybookMeta>, String> {
+pub async fn list_playbooks(state: State<'_, AppState>) -> Result<Vec<PlaybookMeta>, String> {
     let conn = state.db.lock();
     let mut stmt = conn
         .prepare(
@@ -69,8 +67,7 @@ pub async fn list_playbooks(
     let rows = stmt
         .query_map([], |r| {
             let keywords_json: String = r.get(4)?;
-            let keywords: Vec<String> =
-                serde_json::from_str(&keywords_json).unwrap_or_default();
+            let keywords: Vec<String> = serde_json::from_str(&keywords_json).unwrap_or_default();
             let builtin: i64 = r.get(5)?;
             Ok(PlaybookMeta {
                 id: r.get(0)?,
@@ -96,10 +93,7 @@ pub async fn list_playbooks(
 /// struct from this command — the engine and the editor each have their
 /// own parse paths and we want a single source of truth (the YAML).
 #[tauri::command]
-pub async fn get_playbook(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<String, String> {
+pub async fn get_playbook(id: String, state: State<'_, AppState>) -> Result<String, String> {
     let conn = state.db.lock();
     conn.query_row(
         "SELECT body_yaml FROM troubleshoot_playbooks WHERE id = ?1",
@@ -294,8 +288,7 @@ fn build_troubleshoot_ssh(
 ) -> Result<Arc<dyn crate::troubleshoot::live_executor::SshExec>, String> {
     match connection_id {
         Some(conn_id) => {
-            let (target, _name) =
-                crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
+            let (target, _name) = crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
             Ok(Arc::new(crate::ssh_exec::TroubleshootSshExec::from_target(
                 target,
             )))
@@ -388,23 +381,18 @@ async fn spawn_engine_task<R: tauri::Runtime>(
                 )
                 .await
             } else {
-                run_tree(
-                    &pb,
-                    &mut ctx,
-                    exec,
-                    move |r: &StepResult| {
-                        let step_type = step_type_for(&pb_for_record, &r.step_id);
-                        history_for_record.lock().push((r.clone(), step_type));
-                        persist_step_result(
-                            &db_for_record,
-                            &app_for_record,
-                            &run_id_for_record,
-                            step_type,
-                            r,
-                        )
-                        .map_err(|e| anyhow::anyhow!(e))
-                    },
-                )
+                run_tree(&pb, &mut ctx, exec, move |r: &StepResult| {
+                    let step_type = step_type_for(&pb_for_record, &r.step_id);
+                    history_for_record.lock().push((r.clone(), step_type));
+                    persist_step_result(
+                        &db_for_record,
+                        &app_for_record,
+                        &run_id_for_record,
+                        step_type,
+                        r,
+                    )
+                    .map_err(|e| anyhow::anyhow!(e))
+                })
                 .await
             };
 
@@ -417,10 +405,7 @@ async fn spawn_engine_task<R: tauri::Runtime>(
             // Paused, only update status (ended_at stays NULL).
             {
                 let conn = db.lock();
-                let ended = matches!(
-                    final_status,
-                    RunStatus::Completed | RunStatus::Failed
-                );
+                let ended = matches!(final_status, RunStatus::Completed | RunStatus::Failed);
                 if ended {
                     let _ = conn.execute(
                         "UPDATE troubleshoot_runs
@@ -457,8 +442,8 @@ async fn spawn_engine_task<R: tauri::Runtime>(
                     &types,
                 )
                 .await;
-                let conclusion_str = serde_json::to_string(&conclusion)
-                    .unwrap_or_else(|_| "{}".to_string());
+                let conclusion_str =
+                    serde_json::to_string(&conclusion).unwrap_or_else(|_| "{}".to_string());
 
                 {
                     let conn = db.lock();
@@ -555,15 +540,16 @@ pub async fn start_run(
     // the UI surfaces a clear message rather than silently
     // succeeding.
     let ssh = build_troubleshoot_ssh(&state, &connection_id, password)?;
-    let exec: Arc<dyn StepExecutor> = Arc::new(crate::troubleshoot::live_executor::LiveStepExecutor::new(
-        state.agent.clone(),
-        state.guardrails_ruleset.clone(),
-        state.parser_bridge.clone(),
-        ssh,
-        pb.vendor.clone(),
-        pb.platform.clone(),
-        app.clone(),
-    ));
+    let exec: Arc<dyn StepExecutor> =
+        Arc::new(crate::troubleshoot::live_executor::LiveStepExecutor::new(
+            state.agent.clone(),
+            state.guardrails_ruleset.clone(),
+            state.parser_bridge.clone(),
+            ssh,
+            pb.vendor.clone(),
+            pb.platform.clone(),
+            app.clone(),
+        ));
 
     let vars_map: HashMap<String, serde_json::Value> = match vars {
         serde_json::Value::Object(m) => m.into_iter().collect(),
@@ -571,8 +557,7 @@ pub async fn start_run(
         _ => return Err("vars must be an object or null".into()),
     };
 
-    let narrator: Arc<dyn NarratorBridge> =
-        Arc::new(LiveNarratorBridge::new(state.agent.clone()));
+    let narrator: Arc<dyn NarratorBridge> = Arc::new(LiveNarratorBridge::new(state.agent.clone()));
 
     spawn_engine_task(
         app,
@@ -686,8 +671,8 @@ pub async fn resume_run(
         None => pb.steps.first().map(|s| s.id().to_string()),
     };
     let start_idx = last_idx.map(|v| v + 1).unwrap_or(0);
-    let last_parsed: Option<serde_json::Value> = last_result_json
-        .and_then(|j| serde_json::from_str(&j).ok());
+    let last_parsed: Option<serde_json::Value> =
+        last_result_json.and_then(|j| serde_json::from_str(&j).ok());
 
     {
         let conn = state.db.lock();
@@ -716,18 +701,18 @@ pub async fn resume_run(
     }
 
     let ssh = build_troubleshoot_ssh(&state, &connection_id, password)?;
-    let exec: Arc<dyn StepExecutor> = Arc::new(crate::troubleshoot::live_executor::LiveStepExecutor::new(
-        state.agent.clone(),
-        state.guardrails_ruleset.clone(),
-        state.parser_bridge.clone(),
-        ssh,
-        pb.vendor.clone(),
-        pb.platform.clone(),
-        app.clone(),
-    ));
+    let exec: Arc<dyn StepExecutor> =
+        Arc::new(crate::troubleshoot::live_executor::LiveStepExecutor::new(
+            state.agent.clone(),
+            state.guardrails_ruleset.clone(),
+            state.parser_bridge.clone(),
+            ssh,
+            pb.vendor.clone(),
+            pb.platform.clone(),
+            app.clone(),
+        ));
 
-    let narrator: Arc<dyn NarratorBridge> =
-        Arc::new(LiveNarratorBridge::new(state.agent.clone()));
+    let narrator: Arc<dyn NarratorBridge> = Arc::new(LiveNarratorBridge::new(state.agent.clone()));
 
     spawn_engine_task(
         app,
@@ -871,7 +856,10 @@ pub async fn mark_root_cause(
         .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
         .unwrap_or_else(|| serde_json::json!({}));
     if let Some(map) = value.as_object_mut() {
-        map.insert("root_cause".to_string(), serde_json::Value::String(note.clone()));
+        map.insert(
+            "root_cause".to_string(),
+            serde_json::Value::String(note.clone()),
+        );
     }
     let result_json = serde_json::to_string(&value).unwrap_or_else(|_| "{}".into());
     conn.execute(
@@ -895,10 +883,7 @@ pub async fn mark_root_cause(
 }
 
 #[tauri::command]
-pub async fn get_run(
-    run_id: String,
-    state: State<'_, AppState>,
-) -> Result<RunDetails, String> {
+pub async fn get_run(run_id: String, state: State<'_, AppState>) -> Result<RunDetails, String> {
     let conn = state.db.lock();
     let (playbook_id, tab_id, symptom, status, started_at, ended_at, conclusion_json): (
         String,
@@ -1070,8 +1055,8 @@ pub async fn match_symptom(
                 .get("matches")
                 .cloned()
                 .unwrap_or(serde_json::Value::Null);
-            let matches: Vec<MatchResult> = serde_json::from_value(matches_value)
-                .unwrap_or_default();
+            let matches: Vec<MatchResult> =
+                serde_json::from_value(matches_value).unwrap_or_default();
             Ok(matches)
         }
         AgentResponse::Error { message } => Err(format!("matcher error: {message}")),
@@ -1122,9 +1107,9 @@ pub async fn generate_playbook(
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
             if yaml.is_empty() {
-                return Err(error.unwrap_or_else(|| {
-                    "AI generation returned no playbook".to_string()
-                }));
+                return Err(
+                    error.unwrap_or_else(|| "AI generation returned no playbook".to_string())
+                );
             }
             Ok(GeneratedPlaybook { yaml, error })
         }
@@ -1137,10 +1122,7 @@ pub async fn generate_playbook(
 
 /// Delete a USER playbook. Refuses to delete builtins.
 #[tauri::command]
-pub async fn delete_playbook(
-    id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn delete_playbook(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let conn = state.db.lock();
     let builtin: Option<i64> = conn
         .query_row(

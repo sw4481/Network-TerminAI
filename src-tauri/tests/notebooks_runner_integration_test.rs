@@ -5,8 +5,8 @@
 use ccie_terminal_lib::notebooks::model::*;
 use ccie_terminal_lib::notebooks::parser::parse_markdown;
 use ccie_terminal_lib::notebooks::runner::{
-    self, AssertionEvaluator, AssertionOutcome, CellStatus, ControlMsg, NotebookRunner,
-    PtyExecutor, PtyRunResult, RunEvent, RunStatus, RunnerConfig, RunnerContext,
+    self, AssertionEvaluator, AssertionOutcome, ControlMsg, NotebookRunner, PtyExecutor,
+    PtyRunResult, RunEvent, RunStatus, RunnerConfig, RunnerContext,
 };
 
 use async_trait::async_trait;
@@ -189,7 +189,10 @@ async fn bgp_fixture_runs_to_completion_with_approval_and_assertion() {
             |r| r.get(0),
         )
         .unwrap();
-    assert!(cell_count >= 4, "≥4 cells executed (incl. markdown skips), got {cell_count}");
+    assert!(
+        cell_count >= 4,
+        "≥4 cells executed (incl. markdown skips), got {cell_count}"
+    );
 }
 
 #[tokio::test]
@@ -257,7 +260,10 @@ async fn assertion_failure_marks_run_failed_with_resumable_idx() {
     assert_eq!(h.await.unwrap().unwrap(), RunStatus::Failed);
 
     let failed_idx = runner::last_failed_cell_idx(&db, "run-int-2").unwrap();
-    assert!(failed_idx.is_some(), "run must record a failed cell idx for resume");
+    assert!(
+        failed_idx.is_some(),
+        "run must record a failed cell idx for resume"
+    );
 }
 
 #[tokio::test]

@@ -69,7 +69,11 @@ export function createTerminaiViteConfig({ mode }: ConfigEnv) {
           }
         : undefined,
       watch: {
-        ignored: ["**/src-tauri/**"],
+        ignored: [
+          "**/src-tauri/**",
+          "**/sidecar/dist/**",
+          "**/.claude/worktrees/**",
+        ],
       },
     },
     ...(testMode

@@ -370,9 +370,7 @@ impl FanoutStore {
         cancelled: usize,
     ) -> Result<()> {
         let total = succeeded + failed + cancelled;
-        let status = if total == 0 {
-            "success"
-        } else if succeeded == total {
+        let status = if succeeded == total {
             "success"
         } else if failed == total {
             "failed"
@@ -494,9 +492,8 @@ impl FanoutStore {
     /// their pending/running results. Called at app startup to clean up runs
     /// interrupted by a crash.
     pub fn cleanup_orphan_runs(conn: &Connection) -> Result<usize> {
-        let mut stmt = conn.prepare(
-            "SELECT id FROM fanout_runs WHERE status='running' AND ended_at IS NULL",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id FROM fanout_runs WHERE status='running' AND ended_at IS NULL")?;
         let orphan_ids: Vec<String> = stmt
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<Result<Vec<_>, _>>()?;

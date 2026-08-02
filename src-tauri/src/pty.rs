@@ -70,7 +70,10 @@ pub enum PtyEvent {
     /// Raw output bytes from the PTY
     Output { bytes: Vec<u8> },
     /// Command started (detected via OSC 133 A sequence)
-    CommandStart { cmd: String, block_id: Option<String> },
+    CommandStart {
+        cmd: String,
+        block_id: Option<String>,
+    },
     /// Command ended (detected via OSC 133 D sequence)
     CommandEnd { exit_code: Option<i32> },
     /// Working directory reported by the shell (OSC 7). Lets the frontend track
@@ -279,7 +282,10 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
     if opts.args.is_empty() && (opts.shell.ends_with("/zsh") || opts.shell.ends_with("/bash")) {
         // -i = interactive mode (enables line editing, history, and echo)
         // -l = login shell (loads profile, sets up environment properly)
-        tracing::info!("Adding -il flags for interactive login shell: {}", opts.shell);
+        tracing::info!(
+            "Adding -il flags for interactive login shell: {}",
+            opts.shell
+        );
         cmd.arg("-il");
     } else {
         tracing::info!("Using provided args for shell: {:?}", opts.args);
@@ -347,7 +353,10 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
                     for ev in parser.feed(&buf[..n]) {
                         let pty_ev = match ev {
                             ParseEvent::Output(bytes) => PtyEvent::Output { bytes },
-                            ParseEvent::CommandStart { cmd } => PtyEvent::CommandStart { cmd, block_id: None },
+                            ParseEvent::CommandStart { cmd } => PtyEvent::CommandStart {
+                                cmd,
+                                block_id: None,
+                            },
                             ParseEvent::CommandEnd { exit_code } => {
                                 PtyEvent::CommandEnd { exit_code }
                             }
@@ -394,13 +403,8 @@ fn proc_name_macos(pid: libc::pid_t) -> Option<String> {
     let mut buf = [0u8; PROC_PIDPATHINFO_MAXSIZE];
     // SAFETY: buf is valid for `buf.len()` bytes; proc_pidpath writes at most
     // that many and returns the number written (<=0 on failure).
-    let n = unsafe {
-        libc::proc_pidpath(
-            pid,
-            buf.as_mut_ptr() as *mut libc::c_void,
-            buf.len() as u32,
-        )
-    };
+    let n =
+        unsafe { libc::proc_pidpath(pid, buf.as_mut_ptr() as *mut libc::c_void, buf.len() as u32) };
     if n <= 0 {
         return None;
     }
@@ -500,8 +504,6 @@ mod tests {
         // happens via spawn() modifications in a future task when
         // we understand the PTY architecture better.
         let _manager = crate::pane_context::PaneContextManager::new();
-        // Manager exists and is accessible from pty module
-        assert!(true);
     }
 
     #[tokio::test]

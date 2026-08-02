@@ -1,8 +1,8 @@
 use crate::commands::AppState;
+use base64::{engine::general_purpose, Engine as _};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SshConnection {
@@ -141,7 +141,11 @@ pub fn ssh_update_connection(
     // never touches the password_encrypted column.
     match request.password {
         Some(pw) => {
-            let encrypted = if pw.is_empty() { None } else { Some(encrypt_password(&pw)) };
+            let encrypted = if pw.is_empty() {
+                None
+            } else {
+                Some(encrypt_password(&pw))
+            };
             db.execute(
                 "UPDATE ssh_connections
                  SET name = ?1, host = ?2, user = ?3, port = ?4,

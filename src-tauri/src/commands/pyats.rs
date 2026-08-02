@@ -1,12 +1,12 @@
 //! Tauri commands backing the Settings → pyATS tab.
 
+use crate::commands::AppState;
 use crate::pyats::{pyats_dir, render_env, render_testbed_yaml, PyatsDevice};
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use tauri::State;
-use crate::commands::AppState;
 
 /// Write testbed.yaml + .env to `dir` with chmod 600 on the secrets file.
 /// Returns the testbed.yaml path. Factored out for testability.
@@ -18,7 +18,9 @@ pub fn write_testbed_files(dir: &PathBuf, devices: &[PyatsDevice]) -> Result<Str
     fs::write(&env_path, render_env(devices)).map_err(|e| e.to_string())?;
     #[cfg(unix)]
     {
-        let mut perms = fs::metadata(&env_path).map_err(|e| e.to_string())?.permissions();
+        let mut perms = fs::metadata(&env_path)
+            .map_err(|e| e.to_string())?
+            .permissions();
         perms.set_mode(0o600);
         fs::set_permissions(&env_path, perms).map_err(|e| e.to_string())?;
     }
@@ -92,9 +94,14 @@ mod tests {
     fn write_testbed_files_creates_both_files_and_chmods_env() {
         let tmp = std::env::temp_dir().join(format!("pyats_test_{}", std::process::id()));
         let devices = vec![PyatsDevice {
-            name: "CORE1".into(), host: "10.0.0.1".into(), os: "iosxe".into(),
-            port: 22, username: "admin".into(), password: "secret".into(),
-            enable_password: "en".into(), platform: None,
+            name: "CORE1".into(),
+            host: "10.0.0.1".into(),
+            os: "iosxe".into(),
+            port: 22,
+            username: "admin".into(),
+            password: "secret".into(),
+            enable_password: "en".into(),
+            platform: None,
         }];
         let path = write_testbed_files(&tmp, &devices).unwrap();
         assert!(path.ends_with("testbed.yaml"));
@@ -104,7 +111,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(tmp.join(".env")).unwrap().permissions().mode();
+            let mode = std::fs::metadata(tmp.join(".env"))
+                .unwrap()
+                .permissions()
+                .mode();
             assert_eq!(mode & 0o777, 0o600);
         }
         let _ = std::fs::remove_dir_all(&tmp);

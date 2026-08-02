@@ -83,8 +83,7 @@ pub async fn retrieve(
     }
     let k = args.k.min(MAX_K);
     for t in &args.tags {
-        validate_tag_shape(t)
-            .with_context(|| format!("retrieve: invalid tag '{t}'"))?;
+        validate_tag_shape(t).with_context(|| format!("retrieve: invalid tag '{t}'"))?;
     }
 
     // Split incoming tags into the builtin (OR) set and the user (AND)
@@ -227,17 +226,15 @@ fn fetch_candidates(store: &RagStore, q_json: &str, limit: i64) -> Result<Vec<Ca
     Ok(out)
 }
 
-fn fetch_tags_for_docs(
-    store: &RagStore,
-    doc_ids: &[i64],
-) -> Result<HashMap<i64, Vec<String>>> {
+fn fetch_tags_for_docs(store: &RagStore, doc_ids: &[i64]) -> Result<HashMap<i64, Vec<String>>> {
     let mut map: HashMap<i64, Vec<String>> = HashMap::new();
     if doc_ids.is_empty() {
         return Ok(map);
     }
     // Build "(?,?,?)" placeholder list of the right length.
-    let placeholders: String =
-        std::iter::repeat("?").take(doc_ids.len()).collect::<Vec<_>>().join(",");
+    let placeholders: String = std::iter::repeat_n("?", doc_ids.len())
+        .collect::<Vec<_>>()
+        .join(",");
     let sql = format!(
         "SELECT document_id, tag FROM rag_document_tags WHERE document_id IN ({placeholders}) ORDER BY tag"
     );
@@ -258,4 +255,3 @@ fn fetch_tags_for_docs(
     }
     Ok(map)
 }
-

@@ -1,4 +1,4 @@
-use crate::pane_context::{PaneActivity, PaneContextManager, NotificationState};
+use crate::pane_context::{NotificationState, PaneActivity, PaneContextManager};
 
 /// Build pane context prompt section for agent system prompt.
 ///
@@ -96,10 +96,9 @@ pub fn build_pane_context_prompt(
         for pane in other_panes {
             if let Some(ref cmd) = pane.active_command {
                 let duration = format_duration(cmd.start_time);
-                let status = if cmd.exit_code.is_none() {
-                    format!("running for {}", duration)
-                } else {
-                    format!("exit code {}, {} ago", cmd.exit_code.unwrap(), duration)
+                let status = match cmd.exit_code {
+                    Some(exit_code) => format!("exit code {}, {} ago", exit_code, duration),
+                    None => format!("running for {}", duration),
                 };
 
                 lines.push(format!(
@@ -229,7 +228,11 @@ mod tests {
     #[test]
     fn test_build_single_pane_context() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         let context = build_pane_context_prompt(&manager, "tab-1", Some("pane-1"));
         assert!(context.contains("## Current Terminal Context"));
@@ -241,8 +244,16 @@ mod tests {
     #[test]
     fn test_build_multi_pane_context() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
-        manager.register_pane("pane-2".to_string(), "tab-1".to_string(), "/tmp".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
+        manager.register_pane(
+            "pane-2".to_string(),
+            "tab-1".to_string(),
+            "/tmp".to_string(),
+        );
 
         // Simulate command in pane-2
         manager.handle_event(
@@ -262,8 +273,16 @@ mod tests {
     #[test]
     fn test_build_context_with_multiple_agents() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
-        manager.register_pane("pane-2".to_string(), "tab-1".to_string(), "/project".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
+        manager.register_pane(
+            "pane-2".to_string(),
+            "tab-1".to_string(),
+            "/project".to_string(),
+        );
 
         manager.register_agent_session("pane-1", "claude-code");
         manager.register_agent_session("pane-2", "ccie-agent");
@@ -285,7 +304,11 @@ mod tests {
     #[test]
     fn test_build_context_without_other_agents() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         // Only register agent in focused pane
         manager.register_agent_session("pane-1", "claude-code");
@@ -300,8 +323,16 @@ mod tests {
     #[test]
     fn test_build_context_with_waiting_agent() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
-        manager.register_pane("pane-2".to_string(), "tab-1".to_string(), "/project".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
+        manager.register_pane(
+            "pane-2".to_string(),
+            "tab-1".to_string(),
+            "/project".to_string(),
+        );
 
         manager.register_agent_session("pane-1", "claude-code");
         manager.register_agent_session("pane-2", "ccie-agent");

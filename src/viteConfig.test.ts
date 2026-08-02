@@ -24,3 +24,17 @@ describe("Vite Monaco test resolver", () => {
     expect(createTerminaiViteConfig({ command: "serve", mode: "test" }).resolve?.alias).toEqual(aliases);
   });
 });
+
+describe("Vite development watcher", () => {
+  it("ignores generated portable runtimes and nested worktrees", () => {
+    const ignored = createTerminaiViteConfig({
+      command: "serve",
+      mode: "development",
+    }).server.watch.ignored;
+
+    expect(ignored).toEqual(expect.arrayContaining([
+      "**/sidecar/dist/**",
+      "**/.claude/worktrees/**",
+    ]));
+  });
+});

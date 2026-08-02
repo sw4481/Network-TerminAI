@@ -28,8 +28,12 @@
 #[derive(Debug, Clone)]
 pub enum ParseEvent {
     Output(Vec<u8>),
-    CommandStart { cmd: String },
-    CommandEnd { exit_code: Option<i32> },
+    CommandStart {
+        cmd: String,
+    },
+    CommandEnd {
+        exit_code: Option<i32>,
+    },
     /// Working directory reported by the shell via OSC 7 (`\e]7;file://host/path\a`).
     /// Emitted on every prompt so the tab's live cwd tracks `cd`.
     Cwd(String),
@@ -260,7 +264,7 @@ impl Parser {
                     // Two supported forms:
                     //   inline   -> "133;C;<cmd>"  (our zsh/bash integration)
                     //   buffered -> "133;C"        (command tee'd between B and C)
-                    let inline = rest.splitn(2, ';').nth(1).unwrap_or("");
+                    let inline = rest.split_once(';').map(|x| x.1).unwrap_or("");
                     let cmd = if !inline.is_empty() {
                         inline.to_string()
                     } else if self.capturing_cmd {
@@ -416,20 +420,26 @@ mod tests {
 
     #[test]
     fn osc7_file_uri_with_host() {
-        assert_eq!(cwds("\x1b]7;file://myhost/tmp/tf-drift-test\x07"),
-                   vec!["/tmp/tf-drift-test".to_string()]);
+        assert_eq!(
+            cwds("\x1b]7;file://myhost/tmp/tf-drift-test\x07"),
+            vec!["/tmp/tf-drift-test".to_string()]
+        );
     }
 
     #[test]
     fn osc7_file_uri_empty_host() {
-        assert_eq!(cwds("\x1b]7;file:///Users/me/infra\x07"),
-                   vec!["/Users/me/infra".to_string()]);
+        assert_eq!(
+            cwds("\x1b]7;file:///Users/me/infra\x07"),
+            vec!["/Users/me/infra".to_string()]
+        );
     }
 
     #[test]
     fn osc7_percent_decoded_path() {
-        assert_eq!(cwds("\x1b]7;file://h/tmp/has%20space\x07"),
-                   vec!["/tmp/has space".to_string()]);
+        assert_eq!(
+            cwds("\x1b]7;file://h/tmp/has%20space\x07"),
+            vec!["/tmp/has space".to_string()]
+        );
     }
 
     #[test]
@@ -466,7 +476,10 @@ mod tests {
                 _ => {}
             }
         }
-        assert!(saw_cwd && saw_cmd, "both OSC 7 cwd and OSC 133 command must parse");
+        assert!(
+            saw_cwd && saw_cmd,
+            "both OSC 7 cwd and OSC 133 command must parse"
+        );
     }
 
     fn output_of(input: &[u8]) -> Vec<u8> {
@@ -546,7 +559,10 @@ mod tests {
             )),
             "ordinary CSI must not be misread as alt-screen"
         );
-        assert_eq!(output_of(b"\x1b[0m\x1b[2J\x1b[?25l"), b"\x1b[0m\x1b[2J\x1b[?25l".to_vec());
+        assert_eq!(
+            output_of(b"\x1b[0m\x1b[2J\x1b[?25l"),
+            b"\x1b[0m\x1b[2J\x1b[?25l".to_vec()
+        );
     }
 
     #[test]

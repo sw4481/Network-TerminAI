@@ -101,10 +101,7 @@ pub fn recording_get(
 }
 
 #[tauri::command]
-pub fn recording_delete(
-    state: State<'_, AppState>,
-    recording_id: String,
-) -> Result<(), String> {
+pub fn recording_delete(state: State<'_, AppState>, recording_id: String) -> Result<(), String> {
     state
         .recording
         .delete(&recording_id)

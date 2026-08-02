@@ -108,18 +108,22 @@ describe("ArrayTableView", () => {
     expect(row).toEqual({ id: 1, name: "first" });
   });
 
-  it("tolerates a 10k-row array without crashing", () => {
-    const rows = Array.from({ length: 10_000 }, (_, i) => ({
-      id: i,
-      kind: i % 2 === 0 ? "even" : "odd",
-    }));
-    const t0 = performance.now();
-    render(<ArrayTableView rows={rows} />);
-    const dt = performance.now() - t0;
-    // Generous: CI machines are slow. We're mostly asserting "doesn't time out".
-    expect(dt).toBeLessThan(5000);
-    // Spot-check the first and last rows.
-    expect(screen.getByTestId("api-table-row-0")).toBeDefined();
-    expect(screen.getByTestId("api-table-row-9999")).toBeDefined();
-  });
+  it(
+    "tolerates a 10k-row array without crashing",
+    () => {
+      const rows = Array.from({ length: 10_000 }, (_, i) => ({
+        id: i,
+        kind: i % 2 === 0 ? "even" : "odd",
+      }));
+      const t0 = performance.now();
+      render(<ArrayTableView rows={rows} />);
+      const dt = performance.now() - t0;
+      // Generous: shared CI runners are variable; this is a crash guard, not a benchmark.
+      expect(dt).toBeLessThan(10_000);
+      // Spot-check the first and last rows.
+      expect(screen.getByTestId("api-table-row-0")).toBeDefined();
+      expect(screen.getByTestId("api-table-row-9999")).toBeDefined();
+    },
+    15_000,
+  );
 });

@@ -85,20 +85,15 @@ pub fn remove_tag(conn: &Connection, block_id: &str, tag: &str) -> Result<()> {
 }
 
 pub fn list_tags(conn: &Connection, block_id: &str) -> Result<Vec<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT tag FROM block_tags WHERE block_id = ? ORDER BY tag ASC",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT tag FROM block_tags WHERE block_id = ? ORDER BY tag ASC")?;
     let tags = stmt
         .query_map(params![block_id], |row| row.get::<_, String>(0))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tags)
 }
 
-pub fn blocks_by_tag_inner(
-    conn: &Connection,
-    tab_id: &str,
-    tag: &str,
-) -> Result<Vec<BlockDto>> {
+pub fn blocks_by_tag_inner(conn: &Connection, tab_id: &str, tag: &str) -> Result<Vec<BlockDto>> {
     let mut stmt = conn.prepare(
         "SELECT b.id, b.tab_id, b.cmd, b.output, b.exit_code, b.started_at, b.ended_at
          FROM command_blocks b
@@ -298,10 +293,7 @@ pub async fn blocks_list(
 }
 
 #[tauri::command]
-pub async fn blocks_upsert(
-    state: State<'_, AppState>,
-    block: Block,
-) -> Result<(), String> {
+pub async fn blocks_upsert(state: State<'_, AppState>, block: Block) -> Result<(), String> {
     let conn = state.db.lock();
 
     conn.execute(
@@ -345,10 +337,7 @@ pub async fn blocks_upsert(
 }
 
 #[tauri::command]
-pub async fn blocks_delete(
-    state: State<'_, AppState>,
-    block_id: String,
-) -> Result<(), String> {
+pub async fn blocks_delete(state: State<'_, AppState>, block_id: String) -> Result<(), String> {
     let conn = state.db.lock();
 
     conn.execute(
@@ -525,9 +514,7 @@ pub async fn block_share_revoke(
 }
 
 #[tauri::command]
-pub async fn blocks_get_bookmarked(
-    state: State<'_, AppState>,
-) -> Result<Vec<Block>, String> {
+pub async fn blocks_get_bookmarked(state: State<'_, AppState>) -> Result<Vec<Block>, String> {
     let conn = state.db.lock();
 
     let mut stmt = conn

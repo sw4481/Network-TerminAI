@@ -46,7 +46,12 @@ pub(crate) fn parse_ssh_argv(argv: &[String]) -> Option<SshInfo> {
         i += 1;
     }
 
-    host.map(|host| SshInfo { host, user, port, source: SshSource::Process })
+    host.map(|host| SshInfo {
+        host,
+        user,
+        port,
+        source: SshSource::Process,
+    })
 }
 
 /// Read a pid's argv (macOS/Unix `ps -o command= -p <pid>`), split on spaces.
@@ -59,7 +64,6 @@ fn argv_of(pid: u32) -> Vec<String> {
         Err(_) => return Vec::new(),
     };
     String::from_utf8_lossy(&out.stdout)
-        .trim()
         .split_whitespace()
         .map(|s| s.to_string())
         .collect()

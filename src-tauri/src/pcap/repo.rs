@@ -82,15 +82,15 @@ pub fn create(
 }
 
 fn is_valid_transition(from: &str, to: &str) -> bool {
-    match (from, to) {
+    matches!(
+        (from, to),
         ("setup", "capturing")
-        | ("capturing", "pulling")
-        | ("pulling", "ready")
-        | ("setup", "failed")
-        | ("capturing", "failed")
-        | ("pulling", "failed") => true,
-        _ => false,
-    }
+            | ("capturing", "pulling")
+            | ("pulling", "ready")
+            | ("setup", "failed")
+            | ("capturing", "failed")
+            | ("pulling", "failed")
+    )
 }
 
 pub fn update_status(
@@ -108,9 +108,7 @@ pub fn update_status(
         .optional()?
         .ok_or_else(|| anyhow!("capture {id} not found"))?;
     if !is_valid_transition(&current, new_status) {
-        return Err(anyhow!(
-            "invalid transition {current} → {new_status}"
-        ));
+        return Err(anyhow!("invalid transition {current} → {new_status}"));
     }
     let started_at_clause = if new_status == "capturing" {
         ", started_at = strftime('%s','now')"
@@ -178,9 +176,7 @@ pub fn list(conn: &Connection, session_id: Option<&str>) -> Result<Vec<PcapCaptu
             (q, rows)
         }
         None => {
-            let q = format!(
-                "SELECT {SELECT_FIELDS} FROM pcap_captures ORDER BY created_at DESC"
-            );
+            let q = format!("SELECT {SELECT_FIELDS} FROM pcap_captures ORDER BY created_at DESC");
             let mut stmt = conn.prepare(&q)?;
             let rows: Vec<_> = stmt
                 .query_map([], row_to_capture)?
@@ -227,7 +223,16 @@ mod tests {
     #[test]
     fn create_starts_in_setup() {
         let (_g, conn) = fresh();
-        create(&conn, "c1", None, "router1", DeviceKind::IosXe, "Gi0/0", None).unwrap();
+        create(
+            &conn,
+            "c1",
+            None,
+            "router1",
+            DeviceKind::IosXe,
+            "Gi0/0",
+            None,
+        )
+        .unwrap();
         let row = get(&conn, "c1").unwrap().unwrap();
         assert_eq!(row.status, "setup");
         assert_eq!(row.device_kind, DeviceKind::IosXe);

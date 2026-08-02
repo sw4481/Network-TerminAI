@@ -41,7 +41,7 @@ fn split_frontmatter(src: &str) -> Result<(&str, &str)> {
                     && after[abs + 3..]
                         .chars()
                         .next()
-                        .map_or(true, |c| c == '\n' || c == '\r');
+                        .is_none_or(|c| c == '\n' || c == '\r');
                 if is_line {
                     break abs;
                 }
@@ -64,12 +64,9 @@ fn next_fence(body: &str, start: usize) -> Option<FenceMatch> {
     while i < bytes.len() {
         // Find a line that begins with ``` (allow up to 3 leading spaces).
         let line_start = i;
-        let line_end = body[i..]
-            .find('\n')
-            .map(|n| i + n)
-            .unwrap_or(bytes.len());
+        let line_end = body[i..].find('\n').map(|n| i + n).unwrap_or(bytes.len());
         let line = &body[line_start..line_end];
-        let trimmed = line.trim_start_matches(|c: char| c == ' ');
+        let trimmed = line.trim_start_matches(' ');
         if trimmed.starts_with("```") {
             let lang = trimmed.trim_start_matches('`').trim().to_string();
             // Code block body starts after the newline following the open fence.
@@ -88,7 +85,7 @@ fn next_fence(body: &str, start: usize) -> Option<FenceMatch> {
                     .map(|n| scan + n)
                     .unwrap_or(bytes.len());
                 let l = body[scan..nl].trim_end_matches('\r');
-                let lt = l.trim_start_matches(|c: char| c == ' ');
+                let lt = l.trim_start_matches(' ');
                 if lt.starts_with("```") && lt.trim_end().chars().all(|c| c == '`') {
                     close_line_start = Some(scan);
                     break;
@@ -100,11 +97,10 @@ fn next_fence(body: &str, start: usize) -> Option<FenceMatch> {
             }
             let body_end = close_line_start.unwrap_or(bytes.len());
             let fence_end = if let Some(cls) = close_line_start {
-                let nl = body[cls..]
+                body[cls..]
                     .find('\n')
                     .map(|n| cls + n + 1)
-                    .unwrap_or(bytes.len());
-                nl
+                    .unwrap_or(bytes.len())
             } else {
                 bytes.len()
             };
@@ -296,10 +292,13 @@ mod tests {
 
         use NotebookCell::*;
         assert!(matches!(nb.cells[0], Parameter { .. }));
-        let has_show = nb.cells.iter().any(|c| {
-            matches!(c, Command { content, .. } if content.contains("show ip bgp summary"))
-        });
-        assert!(has_show, "expected a Command cell containing 'show ip bgp summary'");
+        let has_show = nb.cells.iter().any(
+            |c| matches!(c, Command { content, .. } if content.contains("show ip bgp summary")),
+        );
+        assert!(
+            has_show,
+            "expected a Command cell containing 'show ip bgp summary'"
+        );
         assert!(nb.cells.iter().any(|c| matches!(c, Approval { .. })));
         let assertion = nb
             .cells
@@ -336,7 +335,10 @@ mod tests {
         let src = "# Hello\n\nSome prose.\n";
         let nb = parse_markdown(src).unwrap();
         assert_eq!(nb.frontmatter.title, "Untitled");
-        assert!(nb.cells.iter().any(|c| matches!(c, NotebookCell::Markdown { .. })));
+        assert!(nb
+            .cells
+            .iter()
+            .any(|c| matches!(c, NotebookCell::Markdown { .. })));
     }
 
     #[test]
@@ -344,12 +346,15 @@ mod tests {
         let src = "---\ntitle: x\n---\n```bash\necho hi\n```\n";
         let nb = parse_markdown(src).unwrap();
         assert_eq!(nb.cells.len(), 1);
-        assert!(matches!(&nb.cells[0], NotebookCell::Markdown { content } if content.contains("```bash")));
+        assert!(
+            matches!(&nb.cells[0], NotebookCell::Markdown { content } if content.contains("```bash"))
+        );
     }
 
     #[test]
     fn crlf_input_does_not_panic() {
-        let src = "---\r\ntitle: x\r\n---\r\n\r\n# Heading\r\n\r\n```command\r\nshow version\r\n```\r\n";
+        let src =
+            "---\r\ntitle: x\r\n---\r\n\r\n# Heading\r\n\r\n```command\r\nshow version\r\n```\r\n";
         let nb = parse_markdown(src).expect("parse CRLF");
         assert!(nb
             .cells

@@ -47,7 +47,9 @@ struct CompiledPattern {
 
 impl std::fmt::Debug for CompiledPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompiledPattern").field("id", &self.id).finish()
+        f.debug_struct("CompiledPattern")
+            .field("id", &self.id)
+            .finish()
     }
 }
 
@@ -71,7 +73,8 @@ pub struct Redactor {
 
 impl Redactor {
     pub fn new(user_patterns: &[UserPattern]) -> Result<Self, RedactorError> {
-        let mut patterns: Vec<CompiledPattern> = Vec::with_capacity(BUILTIN.len() + user_patterns.len());
+        let mut patterns: Vec<CompiledPattern> =
+            Vec::with_capacity(BUILTIN.len() + user_patterns.len());
         for (id, src) in BUILTIN {
             let re = Regex::new(src).map_err(|e| RedactorError::Compile(format!("{id}: {e}")))?;
             patterns.push(CompiledPattern {
@@ -135,8 +138,8 @@ impl Redactor {
                 if end > prev_len {
                     hits += 1;
                 }
-                for i in start..end {
-                    mask[i] = true;
+                for masked in mask.iter_mut().take(end).skip(start) {
+                    *masked = true;
                 }
                 if cp.id == "ssh_password_prompt" {
                     self.masking_active = true;

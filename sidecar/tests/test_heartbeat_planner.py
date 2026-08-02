@@ -1,6 +1,7 @@
 """Unit tests for heartbeat_planner agent."""
 import pytest
 
+from ccie_sidecar.agents import heartbeat_planner
 from ccie_sidecar.agents.heartbeat_planner import (
     extract_interval,
     extract_entities,
@@ -8,6 +9,16 @@ from ccie_sidecar.agents.heartbeat_planner import (
     generate_agent_prompt,
     plan_heartbeat,
 )
+
+
+@pytest.fixture(autouse=True)
+def use_deterministic_prompt_fallback(monkeypatch):
+    """Keep planner unit tests independent of a developer's saved LLM config."""
+
+    def no_test_llm(*_args, **_kwargs):
+        raise RuntimeError("LLM disabled in heartbeat planner unit tests")
+
+    monkeypatch.setattr(heartbeat_planner, "_generate_prompt_with_llm", no_test_llm)
 
 
 class TestExtractInterval:

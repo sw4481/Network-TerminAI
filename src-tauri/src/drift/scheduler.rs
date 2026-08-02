@@ -79,11 +79,12 @@ impl DriftScheduler {
     /// Stop the scheduler. Currently shutdown is best-effort: outstanding
     /// jobs that have already started complete their async future.
     pub async fn shutdown(&self) -> Result<()> {
-        let mut slot = self.inner.sched.lock();
-        if let Some(mut s) = slot.take() {
-            // Drop the borrow before awaiting.
-            drop(slot);
-            s.shutdown().await.ok();
+        let scheduler = {
+            let mut slot = self.inner.sched.lock();
+            slot.take()
+        };
+        if let Some(mut scheduler) = scheduler {
+            scheduler.shutdown().await.ok();
         }
         self.inner.jobs.lock().clear();
         Ok(())
@@ -146,12 +147,8 @@ impl DriftScheduler {
             let schedule_id = schedule_id.clone();
             let template_id = template_id.clone();
             Box::pin(async move {
-                let result = run_on_demand(
-                    inner.db.clone(),
-                    inner.executor.clone(),
-                    &template_id,
-                )
-                .await;
+                let result =
+                    run_on_demand(inner.db.clone(), inner.executor.clone(), &template_id).await;
                 let (ok, summary) = match &result {
                     Ok(reports) => {
                         let drift = reports.iter().filter(|r| r.status == "drift").count();
@@ -172,7 +169,9 @@ impl DriftScheduler {
                     let conn = inner.db.lock();
                     let _ = DriftScheduleRepo::touch_last_run(&conn, &schedule_id);
                 }
-                inner.sink.emit_run_completed(&schedule_id, &template_id, ok, &summary);
+                inner
+                    .sink
+                    .emit_run_completed(&schedule_id, &template_id, ok, &summary);
             })
         })
         .with_context(|| format!("Job::new_async for cron '{}'", row.cron_expr))?;

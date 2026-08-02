@@ -13,8 +13,8 @@
 //! which is out of scope for the in-repo test suite.
 
 use ccie_terminal_lib::db;
-use ccie_terminal_lib::structured::{auto_parse, diff_snapshots, snapshot, DiffStatus};
 use ccie_terminal_lib::structured::auto_parse::testing::FakeParser;
+use ccie_terminal_lib::structured::{auto_parse, diff_snapshots, snapshot, DiffStatus};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection};
 use std::path::PathBuf;
@@ -99,7 +99,7 @@ fn perturb(value: &serde_json::Value) -> serde_json::Value {
                         .iter()
                         .filter(|(_, v)| v.is_string())
                         .map(|(k, _)| k.clone())
-                        .last();
+                        .next_back();
                     if let Some(k) = last_key {
                         obj.insert(k, serde_json::json!("PERTURBED"));
                     }
@@ -129,8 +129,8 @@ async fn round_trip(cmd: &str, fixture_name: &str) {
     let a = parse_and_pin(&db, &tab, cmd, &golden, "before").await;
     let b = parse_and_pin(&db, &tab, cmd, &perturbed, "after").await;
 
-    let cells = diff_snapshots(a, b, db.clone())
-        .unwrap_or_else(|e| panic!("diff failed for {cmd}: {e}"));
+    let cells =
+        diff_snapshots(a, b, db.clone()).unwrap_or_else(|e| panic!("diff failed for {cmd}: {e}"));
 
     assert!(!cells.is_empty(), "{cmd}: diff produced no rows");
 
@@ -150,7 +150,11 @@ async fn show_version_round_trip() {
 
 #[tokio::test]
 async fn show_ip_interface_brief_round_trip() {
-    round_trip("show ip interface brief", "show_ip_interface_brief.golden.json").await;
+    round_trip(
+        "show ip interface brief",
+        "show_ip_interface_brief.golden.json",
+    )
+    .await;
 }
 
 #[tokio::test]

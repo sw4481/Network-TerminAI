@@ -10,8 +10,9 @@
 ## 1. Installation & First Launch
 
 - [ ] App installs without errors
-- [ ] No Gatekeeper warnings on macOS (properly signed)
-- [ ] No SmartScreen warnings on Windows (properly signed)
+- [ ] macOS checksum matches and the documented Gatekeeper override succeeds
+- [ ] Windows checksum matches and the documented SmartScreen path is recorded
+- [ ] Linux AppImage and Debian installs each select their matching signed updater
 - [ ] First launch creates config directory (`~/.config/ccie-terminal/`)
 - [ ] Default shell integration installs successfully
 - [ ] SQLite database initializes correctly
@@ -489,8 +490,9 @@
 - [ ] Version number correct in About dialog
 - [ ] Release notes written
 - [ ] Installers built for all platforms
-- [ ] Code signing successful
-- [ ] Notarization successful (macOS)
+- [ ] Tauri updater signatures verified for all supported platforms
+- [ ] `SHA256SUMS.txt` covers every public installer
+- [ ] Unsigned macOS/Windows warning limitations are stated in release notes
 - [ ] Ready for v1.0 release
 
 **Overall Grade:** _____ / 10

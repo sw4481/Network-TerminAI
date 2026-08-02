@@ -13,11 +13,7 @@ fn to_str(e: VaultError) -> String {
 #[tauri::command]
 pub fn vault_list_envelopes(state: State<'_, AppState>) -> Result<Vec<EnvelopeDto>, String> {
     let db = state.db.lock();
-    state
-        .vault
-        .store
-        .list_envelopes(&db)
-        .map_err(to_str)
+    state.vault.store.list_envelopes(&db).map_err(to_str)
 }
 
 #[tauri::command]
@@ -97,7 +93,15 @@ pub fn vault_add_secret(
     state
         .vault
         .store
-        .add_secret(&db, &state.vault.lock, &envelope_id, &kind, &label, pt, metadata)
+        .add_secret(
+            &db,
+            &state.vault.lock,
+            &envelope_id,
+            &kind,
+            &label,
+            pt,
+            metadata,
+        )
         .map_err(to_str)
 }
 
@@ -126,15 +130,11 @@ pub fn vault_reveal_secret(
         .read_secret(&db, &state.vault.lock, &secret_id)
         .map_err(to_str)?;
     // Move into a String — caller is responsible for clearing on the JS side.
-    String::from_utf8(pt.to_vec())
-        .map_err(|e| format!("non-utf8 secret: {e}"))
+    String::from_utf8(pt.to_vec()).map_err(|e| format!("non-utf8 secret: {e}"))
 }
 
 #[tauri::command]
-pub fn vault_delete_secret(
-    state: State<'_, AppState>,
-    secret_id: String,
-) -> Result<(), String> {
+pub fn vault_delete_secret(state: State<'_, AppState>, secret_id: String) -> Result<(), String> {
     let db = state.db.lock();
     state
         .vault
@@ -180,10 +180,7 @@ pub fn vault_set_auto_unlock(
 }
 
 #[tauri::command]
-pub fn vault_idle_sweep(
-    state: State<'_, AppState>,
-    app: AppHandle,
-) -> Result<Vec<String>, String> {
+pub fn vault_idle_sweep(state: State<'_, AppState>, app: AppHandle) -> Result<Vec<String>, String> {
     let swept = state.vault.lock.sweep_idle();
     let db = state.db.lock();
     let mut envelope_ids = Vec::new();
@@ -228,8 +225,15 @@ pub fn vault_import_csv(
     };
     let path = std::path::PathBuf::from(&csv_path);
     let db = state.db.lock();
-    let result = import_csv(&db, &state.vault.lock, &state.vault.store, &envelope_id, &path, fmt)
-        .map_err(to_str)?;
+    let result = import_csv(
+        &db,
+        &state.vault.lock,
+        &state.vault.store,
+        &envelope_id,
+        &path,
+        fmt,
+    )
+    .map_err(to_str)?;
     drop(db);
     if secure_delete_after.unwrap_or(false) {
         let _ = secure_delete(&path);

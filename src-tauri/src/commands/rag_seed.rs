@@ -57,7 +57,10 @@ pub struct SeedRunResult {
 /// 3. Walk upward from `current_exe()` looking for the same path.
 fn locate_seed_script() -> Result<PathBuf, String> {
     if let Ok(repo_root) = std::env::var("CCIE_REPO_ROOT") {
-        let p = PathBuf::from(repo_root).join("scripts").join("seed-rag").join("seed.py");
+        let p = PathBuf::from(repo_root)
+            .join("scripts")
+            .join("seed-rag")
+            .join("seed.py");
         if p.is_file() {
             return Ok(p);
         }
@@ -86,11 +89,9 @@ fn locate_seed_script() -> Result<PathBuf, String> {
             }
         }
     }
-    Err(
-        "Could not locate scripts/seed-rag/seed.py. \
+    Err("Could not locate scripts/seed-rag/seed.py. \
          Set CCIE_REPO_ROOT to the repo root or run from a dev build."
-            .to_string(),
-    )
+        .to_string())
 }
 
 /// Pick the python interpreter to execute the seed script with. We
@@ -214,11 +215,7 @@ pub async fn rag_run_seed_script(app: AppHandle) -> Result<SeedRunResult, String
     // network deadlock the UI must not stay stuck on "Downloading…"
     // forever. On timeout we kill the child; the streaming reader task
     // exits naturally once the stdout pipe closes.
-    let status = match tokio::time::timeout(
-        std::time::Duration::from_secs(600),
-        child.wait(),
-    )
-    .await
+    let status = match tokio::time::timeout(std::time::Duration::from_secs(600), child.wait()).await
     {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => return Err(format!("wait seed.py: {e}")),
@@ -236,7 +233,10 @@ pub async fn rag_run_seed_script(app: AppHandle) -> Result<SeedRunResult, String
     let exit_code = status.code().unwrap_or(-1);
     if exit_code != 0 && !stderr_text.trim().is_empty() {
         // Surface stderr as a final synthetic line so the UI sees it.
-        let line = format!("seed: error 0/0 url=- message=stderr text={}", stderr_text.trim());
+        let line = format!(
+            "seed: error 0/0 url=- message=stderr text={}",
+            stderr_text.trim()
+        );
         let ev = parse_seed_line(&line);
         let _ = app.emit(SEED_PROGRESS_EVENT, &ev);
     }
@@ -410,19 +410,15 @@ mod tests {
         };
 
         let started = std::time::Instant::now();
-        let result: Result<(), String> = match tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            child.wait(),
-        )
-        .await
-        {
-            Ok(Ok(_)) => Ok(()),
-            Ok(Err(e)) => Err(format!("wait: {e}")),
-            Err(_) => {
-                let _ = child.kill().await;
-                Err("seed script timed out after 10 minutes".to_string())
-            }
-        };
+        let result: Result<(), String> =
+            match tokio::time::timeout(std::time::Duration::from_secs(1), child.wait()).await {
+                Ok(Ok(_)) => Ok(()),
+                Ok(Err(e)) => Err(format!("wait: {e}")),
+                Err(_) => {
+                    let _ = child.kill().await;
+                    Err("seed script timed out after 10 minutes".to_string())
+                }
+            };
         let elapsed = started.elapsed();
 
         let err = result.expect_err("expected timeout error, got Ok");

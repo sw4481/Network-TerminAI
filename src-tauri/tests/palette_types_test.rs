@@ -34,7 +34,7 @@ fn palette_kind_lowercase_round_trip() {
         PaletteKind::Block,
         PaletteKind::Ssh,
     ] {
-        let s = serde_json::to_value(&kind).unwrap();
+        let s = serde_json::to_value(kind).unwrap();
         assert!(s.is_string(), "{kind:?} must serialise as a string");
         let restored: PaletteKind = serde_json::from_value(s.clone()).unwrap();
         assert_eq!(restored, kind);

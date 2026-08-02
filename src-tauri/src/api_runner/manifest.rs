@@ -59,7 +59,9 @@ fn default_schema_version() -> u32 {
 /// manifests can declare `token_login` / `session_cookie` / `hook` directly.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Default)]
 pub enum ManifestAuth {
+    #[default]
     None,
     Header {
         header_name: String,
@@ -107,11 +109,18 @@ pub struct ManifestSessionCookieLogin {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ManifestLoginCredentials {
-    Basic { username: String, password: String },
-    JsonBody { body: String },
+    Basic {
+        username: String,
+        password: String,
+    },
+    JsonBody {
+        body: String,
+    },
     /// application/x-www-form-urlencoded body, e.g. SNA's
     /// `username=...&password=...` login.
-    FormBody { body: String },
+    FormBody {
+        body: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -119,12 +128,6 @@ pub enum ManifestLoginCredentials {
 pub enum ManifestTokenApply {
     Header { name: String },
     Bearer,
-}
-
-impl Default for ManifestAuth {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -219,8 +222,7 @@ pub fn parse_manifest(yaml: &str) -> Result<TargetManifest> {
     if yaml.contains("!!python/") || yaml.contains("!!binary") {
         return Err(anyhow!("manifest contains disallowed YAML tag"));
     }
-    let manifest: TargetManifest =
-        serde_yaml::from_str(yaml).context("parse target manifest")?;
+    let manifest: TargetManifest = serde_yaml::from_str(yaml).context("parse target manifest")?;
     if manifest.schema_version > SCHEMA_VERSION {
         return Err(anyhow!(
             "manifest schema_version {} is newer than supported ({})",
@@ -255,9 +257,7 @@ pub fn load_dir(dir: &Path) -> Result<Vec<(TargetManifest, PathBuf)>> {
         return Ok(Vec::new());
     }
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(dir)
-        .with_context(|| format!("read_dir {}", dir.display()))?
-    {
+    for entry in std::fs::read_dir(dir).with_context(|| format!("read_dir {}", dir.display()))? {
         let entry = entry?;
         let path = entry.path();
         if !path.is_file() {
@@ -290,10 +290,9 @@ pub fn endpoints_from_manifest(m: &TargetManifest) -> Vec<Endpoint> {
     m.endpoints
         .iter()
         .map(|e| {
-            let id = e
-                .id
-                .clone()
-                .unwrap_or_else(|| synth_endpoint_id(&e.method, &e.path));
+            let id =
+                e.id.clone()
+                    .unwrap_or_else(|| synth_endpoint_id(&e.method, &e.path));
             let path_params = extract_path_params(&e.path);
             Endpoint {
                 id,

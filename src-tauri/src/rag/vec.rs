@@ -45,9 +45,11 @@ pub fn register_vec_auto_extension() {
         // sqlite-vec's official Rust guide and the upstream crate's own
         // tests.
         unsafe {
-            rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
-                sqlite_vec::sqlite3_vec_init as *const (),
-            )));
+            let entrypoint = std::mem::transmute::<
+                *const (),
+                rusqlite::auto_extension::RawAutoExtension,
+            >(sqlite_vec::sqlite3_vec_init as *const ());
+            rusqlite::ffi::sqlite3_auto_extension(Some(entrypoint));
         }
     });
 }

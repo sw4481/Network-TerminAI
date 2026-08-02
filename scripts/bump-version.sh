@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Bump the app version in lockstep across all three manifests that must agree:
+# Bump the app version in lockstep across every manifest that must agree:
 #   - package.json
 #   - src-tauri/Cargo.toml   (the [package] version)
+#   - src-tauri/Cargo.lock   (the local package entry)
 #   - src-tauri/tauri.conf.json
 #
 # The updater compares the running app's version (from tauri.conf.json) against
@@ -19,27 +20,20 @@ if [ $# -ne 1 ]; then
   exit 1
 fi
 
-VERSION="$1"
-if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.]+)?$'; then
-  echo "error: '$VERSION' is not a valid semver" >&2
-  exit 1
-fi
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+VERSION="$1"
 
-# package.json — first top-level "version" key.
-perl -0pi -e 's/("version"\s*:\s*")[^"]+(")/${1}'"$VERSION"'${2}/ if !$done++;' package.json
-
-# tauri.conf.json — top-level "version" key (line 4, but match structurally).
-perl -0pi -e 's/("version"\s*:\s*")[^"]+(")/${1}'"$VERSION"'${2}/ if !$done++;' src-tauri/tauri.conf.json
-
-# Cargo.toml — the version line inside [package] (the first `version = "..."`).
-perl -0pi -e 's/^(version\s*=\s*")[^"]+(")/${1}'"$VERSION"'${2}/m if !$done++;' src-tauri/Cargo.toml
+python3 scripts/release_preflight.py validate-version "$VERSION"
+python3 scripts/release_preflight.py set-version "$VERSION"
+python3 scripts/release_preflight.py check --no-git --skip-changelog
 
 echo "Bumped to $VERSION in:"
 echo "  package.json           -> $(grep -m1 '"version"' package.json | tr -d ' ,')"
 echo "  src-tauri/tauri.conf.json -> $(grep -m1 '"version"' src-tauri/tauri.conf.json | tr -d ' ,')"
 echo "  src-tauri/Cargo.toml   -> $(grep -m1 '^version' src-tauri/Cargo.toml | tr -d ' ')"
+echo "  src-tauri/Cargo.lock   -> $(sed -n '/name = "ccie-terminal"/{n;p;q;}' src-tauri/Cargo.lock | tr -d ' ')"
 echo
-echo "Next: review the diff, commit, then:  git tag v$VERSION && git push --tags"
+echo "Next: review the diff, commit, create an annotated tag, then push only it:"
+echo "  git tag -a v$VERSION -m 'TerminAI v$VERSION'"
+echo "  git push origin v$VERSION"

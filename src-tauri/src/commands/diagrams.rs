@@ -46,7 +46,11 @@ pub fn diagram_save(state: State<'_, AppState>, diagram: SavedDiagram) -> Result
             diagram.image_url,
             diagram.agent_id,
             diagram.tab_id,
-            if diagram.created_at > 0 { Some(diagram.created_at) } else { None },
+            if diagram.created_at > 0 {
+                Some(diagram.created_at)
+            } else {
+                None
+            },
         ],
     )
     .map_err(|e| e.to_string())?;

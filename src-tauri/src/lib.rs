@@ -35,7 +35,6 @@ pub mod editor;
 pub mod fanout;
 pub mod ftp;
 pub mod git;
-pub mod tftp;
 pub mod guardrails;
 pub mod heartbeat;
 pub mod iac;
@@ -51,23 +50,33 @@ pub mod pane_context;
 pub mod parsers;
 pub mod pcap;
 pub mod pty;
-pub mod pyats;
 pub mod pty_runner;
+pub mod pyats;
 pub mod rag;
+pub mod recording;
 pub mod search;
 pub mod session;
 pub mod shell_integration;
 pub mod skills;
 pub mod ssh_exec;
 pub mod structured;
-pub mod whatsapp;
+pub mod tftp;
 pub mod topology;
 pub mod troubleshoot;
 pub mod validation;
 pub mod vault;
-pub mod recording;
+pub mod whatsapp;
 
 use commands::AppState;
+
+/// Return at most `maximum` Unicode scalar values without slicing through a
+/// multi-byte UTF-8 character.
+fn truncate_chars(value: &str, maximum: usize) -> &str {
+    value
+        .char_indices()
+        .nth(maximum)
+        .map_or(value, |(boundary, _)| &value[..boundary])
+}
 
 /// Main entry point for the CCIE Terminal application.
 ///
@@ -1529,7 +1538,7 @@ pub fn run() {
                                 if !message.trim().is_empty() {
                                     // Keep each finding readable but bounded.
                                     let msg = message.trim();
-                                    let msg = if msg.len() > 300 { &msg[..300] } else { msg };
+                                    let msg = truncate_chars(msg, 300);
                                     line.push_str(&format!("\n   {}", msg.replace('\n', "\n   ")));
                                 }
                                 lines.push(line);
@@ -1658,11 +1667,7 @@ pub fn run() {
                     == app_lifecycle::ExitRequestDisposition::Intercept
                 {
                     api.prevent_exit();
-                    app_lifecycle::request_shutdown(
-                        app_handle,
-                        &shutdown,
-                        "application-quit",
-                    );
+                    app_lifecycle::request_shutdown(app_handle, &shutdown, "application-quit");
                 }
             }
             tauri::RunEvent::Exit => {
@@ -1671,4 +1676,28 @@ pub fn run() {
             _ => {}
         }
     });
+}
+
+#[cfg(test)]
+mod unicode_truncation_tests {
+    use super::truncate_chars;
+
+    #[test]
+    fn truncates_ascii_at_the_requested_character_count() {
+        assert_eq!(truncate_chars("abcdef", 3), "abc");
+    }
+
+    #[test]
+    fn does_not_split_multi_byte_characters() {
+        let message = format!("{}tail", "🔴".repeat(300));
+        let truncated = truncate_chars(&message, 300);
+
+        assert_eq!(truncated.chars().count(), 300);
+        assert_eq!(truncated, "🔴".repeat(300));
+    }
+
+    #[test]
+    fn leaves_short_messages_unchanged() {
+        assert_eq!(truncate_chars("Meraki ✅", 300), "Meraki ✅");
+    }
 }

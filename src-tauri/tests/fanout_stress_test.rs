@@ -1,7 +1,5 @@
 use ccie_terminal_lib::fanout::events::FanoutEvent;
-use ccie_terminal_lib::fanout::executor::{
-    EventSink, ExecuteArgs, Executor, MemberRef, NoopParse,
-};
+use ccie_terminal_lib::fanout::executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse};
 use ccie_terminal_lib::fanout::model::DeviceKind;
 use ccie_terminal_lib::fanout::store::FanoutStore;
 use ccie_terminal_lib::fanout::worker::MockWorkerFactory;
@@ -27,12 +25,8 @@ fn fifty_mock_members(db: &Arc<Mutex<rusqlite::Connection>>) -> Vec<MemberRef> {
     let conn = db.lock();
     (0..50)
         .map(|i| {
-            let id = FanoutStore::seed_test_ssh(
-                &conn,
-                &format!("dev{i}"),
-                &format!("10.{i}.0.1"),
-            )
-            .unwrap();
+            let id = FanoutStore::seed_test_ssh(&conn, &format!("dev{i}"), &format!("10.{i}.0.1"))
+                .unwrap();
             MemberRef {
                 device_id: id,
                 device_kind: DeviceKind::Ssh,
@@ -51,7 +45,12 @@ async fn fanout_p95_under_2x_single_device() {
         let db = open_db();
         let members = fifty_mock_members(&db);
         let factory = MockWorkerFactory::with_delay(Duration::from_millis(DELAY_MS));
-        let ex = Executor::new(db, Arc::new(factory), Arc::new(NoopSink), Arc::new(NoopParse));
+        let ex = Executor::new(
+            db,
+            Arc::new(factory),
+            Arc::new(NoopSink),
+            Arc::new(NoopParse),
+        );
         let args = ExecuteArgs {
             command: "show version".into(),
             group_id: None,
@@ -90,23 +89,24 @@ async fn fanout_p95_under_2x_single_device() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 async fn semaphore_caps_in_flight_workers() {
     let db = open_db();
-    let conn = db.lock();
-    let members: Vec<MemberRef> = (0..120)
-        .map(|i| {
-            let id = FanoutStore::seed_test_ssh(
-                &conn,
-                &format!("d{i}"),
-                &format!("10.0.0.{}", i % 250 + 1),
-            )
-            .unwrap();
-            MemberRef {
-                device_id: id,
-                device_kind: DeviceKind::Ssh,
-                display_name: format!("d{i}"),
-            }
-        })
-        .collect();
-    drop(conn);
+    let members: Vec<MemberRef> = {
+        let conn = db.lock();
+        (0..120)
+            .map(|i| {
+                let id = FanoutStore::seed_test_ssh(
+                    &conn,
+                    &format!("d{i}"),
+                    &format!("10.0.0.{}", i % 250 + 1),
+                )
+                .unwrap();
+                MemberRef {
+                    device_id: id,
+                    device_kind: DeviceKind::Ssh,
+                    display_name: format!("d{i}"),
+                }
+            })
+            .collect()
+    };
 
     let factory = MockWorkerFactory::with_delay(Duration::from_millis(20));
     let ex = Executor::new(
@@ -135,25 +135,28 @@ async fn semaphore_caps_in_flight_workers() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 8)]
 async fn backpressure_does_not_starve() {
     let db = open_db();
-    let conn = db.lock();
-    let members: Vec<MemberRef> = (0..100)
-        .map(|i| {
-            let id = FanoutStore::seed_test_ssh(
-                &conn,
-                &format!("d{i}"),
-                &format!("10.0.{}.1", i),
-            )
-            .unwrap();
-            MemberRef {
-                device_id: id,
-                device_kind: DeviceKind::Ssh,
-                display_name: format!("d{i}"),
-            }
-        })
-        .collect();
-    drop(conn);
+    let members: Vec<MemberRef> = {
+        let conn = db.lock();
+        (0..100)
+            .map(|i| {
+                let id =
+                    FanoutStore::seed_test_ssh(&conn, &format!("d{i}"), &format!("10.0.{}.1", i))
+                        .unwrap();
+                MemberRef {
+                    device_id: id,
+                    device_kind: DeviceKind::Ssh,
+                    display_name: format!("d{i}"),
+                }
+            })
+            .collect()
+    };
     let factory = MockWorkerFactory::with_delay(Duration::from_millis(30));
-    let ex = Executor::new(db, Arc::new(factory), Arc::new(NoopSink), Arc::new(NoopParse));
+    let ex = Executor::new(
+        db,
+        Arc::new(factory),
+        Arc::new(NoopSink),
+        Arc::new(NoopParse),
+    );
     let args = ExecuteArgs {
         command: "show".into(),
         group_id: None,

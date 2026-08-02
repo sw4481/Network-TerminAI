@@ -89,8 +89,15 @@ pub async fn topology_ingest_from_block(
     // 4. Persist into neighbor_cache + topology_{nodes,edges}.
     let summary = {
         let conn = state.db.lock();
-        ingest::ingest_neighbors(&conn, &device_ref, &device_kind, &cmd, &raw_output, &records)
-            .map_err(|e| e.to_string())?
+        ingest::ingest_neighbors(
+            &conn,
+            &device_ref,
+            &device_kind,
+            &cmd,
+            &raw_output,
+            &records,
+        )
+        .map_err(|e| e.to_string())?
     };
 
     Ok(summary)
@@ -128,8 +135,15 @@ pub async fn topology_ingest_from_text(
     // 3. Persist into neighbor_cache + topology_{nodes,edges}.
     let summary = {
         let conn = state.db.lock();
-        ingest::ingest_neighbors(&conn, &device_ref, &device_kind, &command, &output, &records)
-            .map_err(|e| e.to_string())?
+        ingest::ingest_neighbors(
+            &conn,
+            &device_ref,
+            &device_kind,
+            &command,
+            &output,
+            &records,
+        )
+        .map_err(|e| e.to_string())?
     };
 
     Ok(summary)
@@ -167,29 +181,20 @@ pub fn topology_create_graph(
 ) -> Result<TopologyGraph, String> {
     let id = uuid::Uuid::new_v4().to_string();
     let conn = state.db.lock();
-    graph::create_graph(&conn, &id, &name, description.as_deref())
-        .map_err(|e| e.to_string())?;
+    graph::create_graph(&conn, &id, &name, description.as_deref()).map_err(|e| e.to_string())?;
     graph::get_graph(&conn, &id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| {
-            "topology_create_graph: row vanished immediately after insert".to_string()
-        })
+        .ok_or_else(|| "topology_create_graph: row vanished immediately after insert".to_string())
 }
 
 #[tauri::command]
-pub fn topology_delete_graph(
-    state: State<'_, AppState>,
-    graph_id: String,
-) -> Result<(), String> {
+pub fn topology_delete_graph(state: State<'_, AppState>, graph_id: String) -> Result<(), String> {
     let conn = state.db.lock();
     graph::delete_graph(&conn, &graph_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn topology_clear_graph(
-    state: State<'_, AppState>,
-    graph_id: String,
-) -> Result<(), String> {
+pub fn topology_clear_graph(state: State<'_, AppState>, graph_id: String) -> Result<(), String> {
     let conn = state.db.lock();
     graph::clear_graph(&conn, &graph_id).map_err(|e| e.to_string())
 }
@@ -255,19 +260,16 @@ pub async fn topology_discover_device(
     let mut total_edges = 0;
 
     for (protocol, cmd) in commands {
-        let raw_output = match crate::ssh_exec::run_command(
-            &target,
-            cmd,
-            crate::ssh_exec::DEFAULT_CMD_TIMEOUT,
-        )
-        .await
-        {
-            Ok(out) => out,
-            Err(e) => {
-                eprintln!("{} command failed: {}", protocol.to_uppercase(), e);
-                continue; // Try next protocol even if this one fails
-            }
-        };
+        let raw_output =
+            match crate::ssh_exec::run_command(&target, cmd, crate::ssh_exec::DEFAULT_CMD_TIMEOUT)
+                .await
+            {
+                Ok(out) => out,
+                Err(e) => {
+                    eprintln!("{} command failed: {}", protocol.to_uppercase(), e);
+                    continue; // Try next protocol even if this one fails
+                }
+            };
 
         // Parse and ingest this protocol
         match state

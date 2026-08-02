@@ -31,11 +31,9 @@ pub async fn get_pane_metadata(
     // whole assembly off the async runtime's core threads. SSH context is
     // resolved purely from the foreground process (no chain binding anymore).
     let now = chrono::Utc::now().timestamp();
-    let meta = tokio::task::spawn_blocking(move || {
-        metadata::get_metadata(&cwd, pid, None, now)
-    })
-    .await
-    .map_err(|e| format!("metadata join error: {}", e))?;
+    let meta = tokio::task::spawn_blocking(move || metadata::get_metadata(&cwd, pid, None, now))
+        .await
+        .map_err(|e| format!("metadata join error: {}", e))?;
 
     Ok(meta)
 }

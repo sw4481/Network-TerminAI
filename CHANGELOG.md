@@ -1,11 +1,21 @@
 # Changelog
 
-All notable changes to CCIE Terminal will be documented in this file.
+All notable changes to TerminAI will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-04-23
+## [Unreleased]
+
+### Planned
+
+- Enhanced keyboard shortcuts and customization
+- Themes and color scheme customization
+- Plugin system for community extensions
+- Cloud sync for skills and settings
+- Advanced command history analytics
+
+## [1.0.0] - 2026-07-31
 
 ### Added
 
@@ -65,6 +75,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MCP server configuration with environment variables
 - Structured logging with tracing-subscriber
 
+#### Installers and Updates
+
+- Native installers for Apple Silicon macOS 15+, x64 Windows, and x64 Linux
+- Bundled portable Python and `ccie_sidecar` runtime in every installer
+- Signed Tauri updater artifacts and a multi-platform `latest.json` feed,
+  including installer-specific AppImage and Debian updates on Linux
+- SHA-256 checksum manifest for every first-download installer
+- Documented Gatekeeper and SmartScreen handling for the zero-cost unsigned
+  macOS and Windows installers
+- Launch-time and manual update checks with versioned release notes
+- Update notification, status-bar indicator, and Settings → Updates controls
+- Pre-migration database backups with retention of the three newest snapshots
+- Frozen Bun, Cargo, and Python dependency locks for release builds
+- Draft-only publication until installers, signatures, and updater metadata pass
+  the complete release gate
+
 ### Fixed
 - Python test isolation issues with mocking
 - Rust clippy warnings for better code quality
@@ -91,27 +117,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Secure credential storage in environment files (not checked into git)
 - SQL injection prevention with parameterized queries
 - Process isolation for Python sidecar
-
-## [Unreleased]
-
-### Added
-- Auto-update: the app checks GitHub Releases on launch, shows an "update
-  available" toast and a status-bar pill, and can download, verify (signed),
-  install, and relaunch in place. A Settings → Updates tab shows the installed
-  version and a manual "Check now" button.
-- Pre-migration database backup: before applying new schema migrations, the
-  app snapshots `sessions.db` to a timestamped `.bak-*` file (keeps the 3 most
-  recent), protecting sessions/vault/RAG data across upgrades.
-- `scripts/bump-version.sh` to bump the version across package.json,
-  Cargo.toml, and tauri.conf.json in lockstep for releases.
-
-### Planned
-- macOS and Windows code signing for production releases
-- Enhanced keyboard shortcuts and customization
-- Themes and color scheme customization
-- Plugin system for community extensions
-- Cloud sync for skills and settings
-- Advanced command history analytics
 
 ---
 

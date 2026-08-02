@@ -2,6 +2,75 @@
 
 A Warp-inspired AI-powered terminal built for network engineers. TerminAI combines a modern terminal emulator with deeply integrated AI capabilities, intelligent command assistance, and powerful automation through skills and MCP (Model Context Protocol) tools.
 
+## Downloads
+
+Download the current release from [TerminAI Releases](https://github.com/sw4481/TerminAI/releases/latest).
+
+| Platform | Supported system | Download |
+| --- | --- | --- |
+| macOS | macOS 15 or newer, Apple Silicon | `.dmg` |
+| Windows | Windows 11, x64 | NSIS `-setup.exe` |
+| Linux | Ubuntu 22.04 or 24.04, x64 | `.AppImage` or `.deb` |
+
+Python and the TerminAI sidecar are included in every installer; end users do
+not need Rust, Bun, or Python.
+
+> **Zero-cost distribution notice:** Tauri signs every in-app update, and each
+> release includes `SHA256SUMS.txt`, but the first-download macOS and Windows
+> installers do not carry paid Apple Developer ID or Windows Authenticode
+> publisher signatures. macOS will show a Gatekeeper warning, and Windows can
+> show or enforce a SmartScreen/Smart App Control block. Verify the checksum
+> before using either operating-system override.
+
+### Install on macOS
+
+1. Download the Apple Silicon `.dmg`.
+2. Download `SHA256SUMS.txt`, run `shasum -a 256 TerminAI*.dmg`, and confirm the
+   result matches the `.dmg` line in the checksum file.
+3. Open the DMG and drag **TerminAI** to **Applications**.
+4. Try to open TerminAI once. macOS will block the unnotarized app.
+5. Open **System Settings → Privacy & Security**, scroll to **Security**, select
+   **Open Anyway**, authenticate, and then select **Open**. Apple makes this
+   override available for about an hour after the blocked launch attempt.
+
+### Install on Windows
+
+1. Download the x64 `-setup.exe` installer.
+2. Download `SHA256SUMS.txt`, run
+   `Get-FileHash .\TerminAI*-setup.exe -Algorithm SHA256` in PowerShell, and
+   confirm the result matches the installer line in the checksum file.
+3. Run the installer. If Microsoft Defender SmartScreen offers **More info →
+   Run anyway**, use it only after verifying the checksum and GitHub download
+   source. Smart App Control or an organization policy can block an unsigned
+   installer completely; there is no supported zero-cost bypass for that case.
+4. Follow the NSIS installer prompts.
+
+### Install on Linux
+
+For the AppImage:
+
+```bash
+sha256sum TerminAI_*.AppImage
+chmod +x TerminAI_*.AppImage
+./TerminAI_*.AppImage
+```
+
+For the Debian package:
+
+```bash
+sha256sum TerminAI_*.deb
+sudo apt install ./TerminAI_*.deb
+```
+
+Compare each printed hash with its entry in `SHA256SUMS.txt` before launching
+or installing the file.
+
+TerminAI checks the signed GitHub updater feed at launch and from **Settings →
+Updates**. It downloads an update only after its Tauri signature verifies. The
+historical identifier (`com.ccie.terminal`) and `ccie-terminal` data roots are
+intentionally retained, so upgrading or reinstalling preserves sessions,
+credentials, vaults, and RAG data.
+
 ## Key Features
 
 - **Split Panes**: View multiple terminals side-by-side within a single tab
@@ -46,39 +115,40 @@ A Warp-inspired AI-powered terminal built for network engineers. TerminAI combin
 
 ## Quick Start
 
-### Requirements
+### Development requirements
 
 - Rust stable (`rustup`)
 - Node 22+ and [Bun](https://bun.sh)
 - Python 3.12
 - At least one AI provider API key (see Configuration)
 
-### Installation
+### Run from source
 
 ```bash
-git clone <repo>
-cd "CCIE Terminal"
+git clone https://github.com/sw4481/TerminAI.git
+cd TerminAI
 
 # Install frontend dependencies
 bun install
 
-# Set up Python sidecar virtual environment
+# Set up the frozen Python sidecar environment
 cd sidecar
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -e '.[dev]'
+uv sync --frozen --extra dev
 cd ..
 
 # Run the application
-CCIE_REPO_ROOT="$PWD" bun tauri dev
+./run.sh
 ```
 
 ### Configuration
 
-1. On first launch, CCIE Terminal creates configuration files:
-   - `~/.config/ccie-terminal/config.toml` - LLM profiles and settings
-   - `~/.config/ccie-terminal/.env` - API keys and secrets
-   - `~/.config/ccie-terminal/sessions.db` - SQLite database
+1. On first launch, TerminAI creates configuration and application-data files
+   under the historical `ccie-terminal` roots. These names are retained for
+   upgrade compatibility:
+   - macOS: `~/Library/Application Support/ccie-terminal`
+   - Windows: `%APPDATA%\ccie-terminal`
+   - Linux config: `~/.config/ccie-terminal`
+   - Linux application data: `~/.local/share/ccie-terminal`
 
 2. Add your API key to `~/.config/ccie-terminal/.env`:
 ```bash
@@ -105,8 +175,9 @@ Both files support live reloading - changes take effect immediately.
 ## Building for Production
 
 ```bash
-# Build the application
-bun tauri build
+# Build the portable sidecar, then the application
+cd sidecar && ./scripts/build_sidecar.sh && cd ..
+bun tauri build -- --locked
 
 # Output will be in src-tauri/target/release/bundle/
 ```
@@ -136,7 +207,7 @@ cd sidecar && pytest              # Python tests
 bun test                          # TypeScript tests
 
 # Run in development mode
-CCIE_REPO_ROOT="$PWD" bun tauri dev
+./run.sh
 
 # Watch TypeScript changes
 bun run dev
@@ -144,7 +215,7 @@ bun run dev
 
 ## Project Status
 
-CCIE Terminal v1.0 - All core features implemented and tested:
+TerminAI v1.0 - All core features implemented and tested:
 - Phase 0: Scaffolding and sidecar communication
 - Phase 1: Multi-tab terminal with xterm.js
 - Phase 2: AI chat panel with streaming
@@ -165,7 +236,7 @@ CCIE Terminal v1.0 - All core features implemented and tested:
 
 ## Architecture
 
-CCIE Terminal uses a three-layer architecture:
+TerminAI uses a three-layer architecture:
 
 1. **Frontend (React)**: User interface, xterm.js terminals, state management
 2. **Core (Rust/Tauri)**: PTY management, database, MCP client, skills loader
@@ -193,4 +264,5 @@ We welcome contributions! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for
 
 ## Support
 
-For issues, questions, or feature requests, please open an issue on GitHub.
+For issues, questions, or feature requests, open an issue in the
+[TerminAI repository](https://github.com/sw4481/TerminAI/issues).

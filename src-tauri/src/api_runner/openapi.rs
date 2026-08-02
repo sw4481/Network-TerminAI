@@ -128,18 +128,16 @@ fn operations_of(item: &openapiv3::PathItem) -> Vec<(&'static str, &openapiv3::O
     ops
 }
 
-fn default_query_value(
-    format: &openapiv3::ParameterSchemaOrContent,
-) -> Option<String> {
+fn default_query_value(format: &openapiv3::ParameterSchemaOrContent) -> Option<String> {
     // Try to pull a `default` out of the schema, stringified.
-    if let openapiv3::ParameterSchemaOrContent::Schema(sch) = format {
-        if let openapiv3::ReferenceOr::Item(s) = sch {
-            if let Some(v) = s.schema_data.default.as_ref() {
-                return Some(match v {
-                    serde_json::Value::String(s) => s.clone(),
-                    other => other.to_string(),
-                });
-            }
+    if let openapiv3::ParameterSchemaOrContent::Schema(openapiv3::ReferenceOr::Item(schema)) =
+        format
+    {
+        if let Some(value) = schema.schema_data.default.as_ref() {
+            return Some(match value {
+                serde_json::Value::String(value) => value.clone(),
+                other => other.to_string(),
+            });
         }
     }
     None

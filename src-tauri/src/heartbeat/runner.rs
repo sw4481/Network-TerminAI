@@ -59,7 +59,7 @@ pub async fn run_heartbeat(
     for check in checks {
         check_groups
             .entry(check.check_group_name.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(check);
     }
 
@@ -152,7 +152,11 @@ pub async fn run_heartbeat(
     let total_checks = all_findings.len();
     let failed_checks = all_findings.iter().filter(|(_, r)| r.is_err()).count();
     let summary = if failed_checks > 0 {
-        format!("{}/{} checks completed", total_checks - failed_checks, total_checks)
+        format!(
+            "{}/{} checks completed",
+            total_checks - failed_checks,
+            total_checks
+        )
     } else {
         format!("{} checks completed", total_checks)
     };
@@ -225,7 +229,10 @@ async fn execute_single_check(
                                 message: f.get("message")?.as_str()?.to_string(),
                                 metadata_json: f
                                     .get("metadata")
-                                    .map(|m| serde_json::to_string(m).unwrap_or_else(|_| "{}".to_string()))
+                                    .map(|m| {
+                                        serde_json::to_string(m)
+                                            .unwrap_or_else(|_| "{}".to_string())
+                                    })
                                     .unwrap_or_else(|| "{}".to_string()),
                             })
                         })

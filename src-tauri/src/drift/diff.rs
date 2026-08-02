@@ -53,7 +53,7 @@ pub struct DriftBlock {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DriftPatch {
-    pub status: String,    // "in_sync" | "drift"
+    pub status: String, // "in_sync" | "drift"
     pub severity: DriftSeverity,
     pub blocks: Vec<DriftBlock>,
     pub stats: DriftStats,
@@ -93,7 +93,7 @@ pub fn diff_intent_vs_running(intent: &str, running: &str) -> DriftPatch {
             for change in diff.iter_changes(op) {
                 let line = change.value().trim_end_matches('\n').to_string();
                 if let Some(idx) = change.old_index() {
-                    if earliest_intent_line.map_or(true, |cur| idx < cur) {
+                    if earliest_intent_line.is_none_or(|cur| idx < cur) {
                         earliest_intent_line = Some(idx);
                     }
                 }

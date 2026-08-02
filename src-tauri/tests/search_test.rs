@@ -233,7 +233,7 @@ fn test_search_skills() {
 
     // Test multiple matches ranked by relevance
     let results = search_skills(&conn, "npm", 10).unwrap();
-    assert!(results.len() >= 1);
+    assert!(!results.is_empty());
     assert_eq!(results[0].name, "npm-package"); // Should rank highest
 }
 
@@ -282,8 +282,8 @@ fn test_search_all() {
     let results = search_all(&conn, "docker", 10).unwrap();
 
     // Should find both command and skill
-    assert!(results.commands.len() >= 1);
-    assert!(results.skills.len() >= 1);
+    assert!(!results.commands.is_empty());
+    assert!(!results.skills.is_empty());
 
     // Verify command result
     assert_eq!(results.commands[0].cmd, "docker build -t myapp .");

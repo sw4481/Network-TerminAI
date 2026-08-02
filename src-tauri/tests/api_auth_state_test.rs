@@ -13,7 +13,7 @@ use ccie_terminal_lib::api_runner::types::{
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use wiremock::matchers::{body_string, header, method as mmethod, path as mpath};
+use wiremock::matchers::{header, method as mmethod, path as mpath};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn base_req(url: impl Into<String>) -> ApiRequest {
@@ -37,8 +37,7 @@ fn base_req(url: impl Into<String>) -> ApiRequest {
 
 #[test]
 fn extract_token_handles_dollar_prefix() {
-    let v: serde_json::Value =
-        serde_json::from_str(r#"{"Token":"abc123"}"#).unwrap();
+    let v: serde_json::Value = serde_json::from_str(r#"{"Token":"abc123"}"#).unwrap();
     assert_eq!(extract_token(&v, "$.Token").as_deref(), Some("abc123"));
     assert_eq!(extract_token(&v, "Token").as_deref(), Some("abc123"));
 }
@@ -46,8 +45,7 @@ fn extract_token_handles_dollar_prefix() {
 #[test]
 fn extract_token_handles_nested_and_arrays() {
     let v: serde_json::Value =
-        serde_json::from_str(r#"{"data": {"tokens": [{"val":"t0"},{"val":"t1"}]}}"#)
-            .unwrap();
+        serde_json::from_str(r#"{"data": {"tokens": [{"val":"t0"},{"val":"t1"}]}}"#).unwrap();
     assert_eq!(
         extract_token(&v, "$.data.tokens[1].val").as_deref(),
         Some("t1")
@@ -224,7 +222,7 @@ async fn token_login_concurrent_calls_share_one_login_request() {
     // not ten. This is the single-flight guarantee under shared cache keys.
     let server = MockServer::start().await;
     let login_hits = Arc::new(AtomicUsize::new(0));
-    let login_hits_c = login_hits.clone();
+    let _login_hits_c = login_hits.clone();
     // WireMock doesn't easily return dynamic bodies per-call, so we count
     // via a simple mock that returns the same token and rely on a hit counter
     // via header capture in a separate Mock. Instead: use .expect() to assert
@@ -325,9 +323,7 @@ async fn token_login_bearer_apply_sends_authorization_header() {
         apply: TokenApply::Bearer,
         refresh_on_status: vec![],
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 200);
 }
 
@@ -364,9 +360,7 @@ async fn token_login_relative_url_resolves_against_request_origin() {
         },
         refresh_on_status: vec![],
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 200);
 }
 
@@ -395,9 +389,7 @@ async fn token_login_surfaces_login_failure_as_error_response() {
         apply: TokenApply::Bearer,
         refresh_on_status: vec![],
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 0);
     assert!(resp.error.unwrap_or_default().contains("login"));
 }
@@ -411,8 +403,7 @@ async fn session_cookie_logs_in_once_and_reuses_cookie_on_subsequent_requests() 
     Mock::given(mmethod("POST"))
         .and(mpath("/login"))
         .respond_with(
-            ResponseTemplate::new(204)
-                .insert_header("Set-Cookie", "SESSION=abc123; Path=/"),
+            ResponseTemplate::new(204).insert_header("Set-Cookie", "SESSION=abc123; Path=/"),
         )
         .mount(&server)
         .await;
@@ -518,14 +509,12 @@ async fn session_cookie_form_body_sends_urlencoded_not_json() {
     // 404 unmatched requests, which we'll treat as a test failure.
     Mock::given(mmethod("POST"))
         .and(mpath("/token/v2/authenticate"))
-        .and(header(
-            "content-type",
-            "application/x-www-form-urlencoded",
+        .and(header("content-type", "application/x-www-form-urlencoded"))
+        .and(wiremock::matchers::body_string(
+            "username=admin&password=pw",
         ))
-        .and(wiremock::matchers::body_string("username=admin&password=pw"))
         .respond_with(
-            ResponseTemplate::new(204)
-                .insert_header("Set-Cookie", "sw_session=abc; Path=/"),
+            ResponseTemplate::new(204).insert_header("Set-Cookie", "sw_session=abc; Path=/"),
         )
         .mount(&server)
         .await;
@@ -576,9 +565,7 @@ async fn session_cookie_surfaces_bad_login_as_error_response() {
             },
         },
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 0);
     assert!(resp.error.unwrap_or_default().contains("session"));
 }
@@ -679,9 +666,7 @@ async fn hook_error_surfaces_as_response_error() {
         module: "x".into(),
         function: "y".into(),
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 0);
     let msg = resp.error.unwrap_or_default();
     assert!(
@@ -729,9 +714,7 @@ async fn hook_rejects_returning_stateful_auth() {
         module: "m".into(),
         function: "f".into(),
     };
-    let resp = store
-        .send(AuthCacheKey::new("x", "env"), req, hooks)
-        .await;
+    let resp = store.send(AuthCacheKey::new("x", "env"), req, hooks).await;
     assert_eq!(resp.status_code, 0);
     assert!(resp.error.unwrap_or_default().contains("stateful"));
 }
@@ -775,7 +758,10 @@ async fn invalidate_clears_cached_token_forcing_new_login() {
             refresh_on_status: vec![],
         };
         assert_eq!(
-            store.send(key.clone(), req, hooks.clone()).await.status_code,
+            store
+                .send(key.clone(), req, hooks.clone())
+                .await
+                .status_code,
             200
         );
     }
@@ -808,7 +794,10 @@ async fn invalidate_clears_cached_token_forcing_new_login() {
         refresh_on_status: vec![],
     };
     assert_eq!(
-        store.send(key.clone(), req, hooks.clone()).await.status_code,
+        store
+            .send(key.clone(), req, hooks.clone())
+            .await
+            .status_code,
         200
     );
     let after = server

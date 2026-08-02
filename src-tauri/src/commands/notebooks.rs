@@ -50,7 +50,7 @@ pub async fn notebooks_list(
             "SELECT id, name, description, blocks_json, created_at, updated_at
              FROM block_notebooks
              ORDER BY created_at DESC
-             LIMIT ?"
+             LIMIT ?",
         )
         .map_err(|e| e.to_string())?;
 
@@ -94,7 +94,7 @@ pub async fn notebooks_get(
                     created_at: row.get(4)?,
                     updated_at: row.get(5)?,
                 })
-            }
+            },
         )
         .map_err(|e| e.to_string())?;
 

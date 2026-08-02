@@ -29,6 +29,8 @@ fn bench_pty_write(c: &mut Criterion) {
                         cwd: "/tmp".to_string(),
                         cols: 80,
                         rows: 24,
+                        pane_id: None,
+                        claude_config_dir: None,
                     };
 
                     // Measure write operation
@@ -59,7 +61,7 @@ fn bench_command_parser(c: &mut Criterion) {
 
             b.iter(|| {
                 let mut parser = Parser::new();
-                let events: Vec<_> = parser.feed(black_box(&input)).collect();
+                let events = parser.feed(black_box(&input));
                 black_box(events);
             });
         });
@@ -89,6 +91,8 @@ fn bench_pty_read_throughput(c: &mut Criterion) {
                     cwd: "/tmp".to_string(),
                     cols: 80,
                     rows: 24,
+                    pane_id: None,
+                    claude_config_dir: None,
                 };
 
                 if let Ok(handle) = ccie_terminal_lib::pty::spawn_pty(opts, tx).await {
@@ -131,6 +135,8 @@ fn bench_pty_resize(c: &mut Criterion) {
                     cwd: "/tmp".to_string(),
                     cols: 80,
                     rows: 24,
+                    pane_id: None,
+                    claude_config_dir: None,
                 };
 
                 if let Ok(handle) = ccie_terminal_lib::pty::spawn_pty(opts, tx).await {

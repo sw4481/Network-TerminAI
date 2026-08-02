@@ -1,11 +1,19 @@
-use crate::change_verify::{bundles, model::{CheckBundle, NewCheckBundle, ChangeSnapshot, SnapshotLabel}, runner, transport_live::LiveTransport};
+use crate::change_verify::{
+    bundles,
+    model::{ChangeSnapshot, CheckBundle, NewCheckBundle, SnapshotLabel},
+    runner,
+    transport_live::LiveTransport,
+};
 use crate::commands::AppState;
 use crate::pty_runner::AppStatePtyExecutor;
 use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
-pub fn bundle_create(state: State<'_, AppState>, new: NewCheckBundle) -> Result<CheckBundle, String> {
+pub fn bundle_create(
+    state: State<'_, AppState>,
+    new: NewCheckBundle,
+) -> Result<CheckBundle, String> {
     let mut db = state.db.lock();
     bundles::create(&mut db, new).map_err(|e| e.to_string())
 }
@@ -42,8 +50,7 @@ pub fn bundle_rename(
     name: String,
     description: Option<String>,
 ) -> Result<(), String> {
-    bundles::rename(&state.db.lock(), &id, &name, description.as_deref())
-        .map_err(|e| e.to_string())
+    bundles::rename(&state.db.lock(), &id, &name, description.as_deref()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -59,7 +66,15 @@ pub async fn change_run_pre(
     vendor: String,
     platform: String,
 ) -> Result<ChangeSnapshot, String> {
-    run_change_snapshot(state, tab_id, bundle_id, vendor, platform, SnapshotLabel::Pre).await
+    run_change_snapshot(
+        state,
+        tab_id,
+        bundle_id,
+        vendor,
+        platform,
+        SnapshotLabel::Pre,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -70,7 +85,15 @@ pub async fn change_run_post(
     vendor: String,
     platform: String,
 ) -> Result<ChangeSnapshot, String> {
-    run_change_snapshot(state, tab_id, bundle_id, vendor, platform, SnapshotLabel::Post).await
+    run_change_snapshot(
+        state,
+        tab_id,
+        bundle_id,
+        vendor,
+        platform,
+        SnapshotLabel::Post,
+    )
+    .await
 }
 
 /// SSH-direct pre-snapshot: runs the bundle's commands over a one-shot SSH
@@ -87,7 +110,13 @@ pub async fn change_run_pre_ssh(
     password: Option<String>,
 ) -> Result<ChangeSnapshot, String> {
     run_change_snapshot_ssh(
-        state, tab_id, connection_id, bundle_id, vendor, platform, password,
+        state,
+        tab_id,
+        connection_id,
+        bundle_id,
+        vendor,
+        platform,
+        password,
         SnapshotLabel::Pre,
     )
     .await
@@ -105,7 +134,13 @@ pub async fn change_run_post_ssh(
     password: Option<String>,
 ) -> Result<ChangeSnapshot, String> {
     run_change_snapshot_ssh(
-        state, tab_id, connection_id, bundle_id, vendor, platform, password,
+        state,
+        tab_id,
+        connection_id,
+        bundle_id,
+        vendor,
+        platform,
+        password,
         SnapshotLabel::Post,
     )
     .await
@@ -126,11 +161,19 @@ async fn run_change_snapshot(
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =
         Arc::new(LiveTransport::new(executor, vendor, platform));
-    let parser: Arc<dyn crate::structured::auto_parse::Parser> = Arc::new(state.parser_bridge.clone());
+    let parser: Arc<dyn crate::structured::auto_parse::Parser> =
+        Arc::new(state.parser_bridge.clone());
 
-    runner::run_snapshot(state.db.clone(), transport, parser, &tab_id, &bundle_id, label)
-        .await
-        .map_err(|e| format!("{e:#}"))
+    runner::run_snapshot(
+        state.db.clone(),
+        transport,
+        parser,
+        &tab_id,
+        &bundle_id,
+        label,
+    )
+    .await
+    .map_err(|e| format!("{e:#}"))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -153,9 +196,16 @@ async fn run_change_snapshot_ssh(
     let parser: Arc<dyn crate::structured::auto_parse::Parser> =
         Arc::new(state.parser_bridge.clone());
 
-    runner::run_snapshot(state.db.clone(), transport, parser, &tab_id, &bundle_id, label)
-        .await
-        .map_err(|e| format!("{e:#}"))
+    runner::run_snapshot(
+        state.db.clone(),
+        transport,
+        parser,
+        &tab_id,
+        &bundle_id,
+        label,
+    )
+    .await
+    .map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -197,7 +247,8 @@ pub async fn change_run_post_and_report(
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =
         Arc::new(LiveTransport::new(executor, vendor, platform));
-    let parser: Arc<dyn crate::structured::auto_parse::Parser> = Arc::new(state.parser_bridge.clone());
+    let parser: Arc<dyn crate::structured::auto_parse::Parser> =
+        Arc::new(state.parser_bridge.clone());
 
     runner::run_post_and_report(
         state.db.clone(),

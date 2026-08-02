@@ -72,14 +72,17 @@ fn encode_cell(c: &NotebookCell) -> (&'static str, String, String) {
     }
 }
 
-fn decode_cell(cell_type: &str, content: &str, metadata_json: &str) -> Result<NotebookCell, String> {
+fn decode_cell(
+    cell_type: &str,
+    content: &str,
+    metadata_json: &str,
+) -> Result<NotebookCell, String> {
     match cell_type {
         "markdown" => Ok(NotebookCell::Markdown {
             content: content.to_string(),
         }),
         "command" => {
-            let metadata: CommandMeta =
-                serde_json::from_str(metadata_json).unwrap_or_default();
+            let metadata: CommandMeta = serde_json::from_str(metadata_json).unwrap_or_default();
             Ok(NotebookCell::Command {
                 content: content.to_string(),
                 metadata,
@@ -96,10 +99,9 @@ fn decode_cell(cell_type: &str, content: &str, metadata_json: &str) -> Result<No
         "parameter" => {
             let v: serde_json::Value = serde_json::from_str(metadata_json)
                 .map_err(|e| format!("invalid parameter metadata: {e}"))?;
-            let params: Vec<ParameterSpec> = serde_json::from_value(
-                v.get("params").cloned().unwrap_or(serde_json::Value::Null),
-            )
-            .map_err(|e| format!("invalid parameter list: {e}"))?;
+            let params: Vec<ParameterSpec> =
+                serde_json::from_value(v.get("params").cloned().unwrap_or(serde_json::Value::Null))
+                    .map_err(|e| format!("invalid parameter list: {e}"))?;
             Ok(NotebookCell::Parameter { params })
         }
         other => Err(format!("unknown cell_type in DB: {other}")),
@@ -219,15 +221,14 @@ pub fn get_runnable_impl(conn: &Connection, id: &str) -> Result<RunnableNotebook
         )
         .map_err(|e| e.to_string())?;
 
-    let frontmatter: Frontmatter = serde_json::from_str(&frontmatter_json).unwrap_or_else(|_| {
-        Frontmatter {
+    let frontmatter: Frontmatter =
+        serde_json::from_str(&frontmatter_json).unwrap_or_else(|_| Frontmatter {
             title: title.clone(),
             description: description.clone(),
             vendor: vendor.clone(),
             platform: platform.clone(),
             parameters: Vec::new(),
-        }
-    });
+        });
 
     let mut stmt = conn
         .prepare(
@@ -351,7 +352,9 @@ pub async fn notebook_import_url(
     }
     if let Some(len) = resp.content_length() {
         if (len as usize) > MAX_NOTEBOOK_BODY_BYTES {
-            return Err(format!("response too large: {len} bytes (max {MAX_NOTEBOOK_BODY_BYTES})"));
+            return Err(format!(
+                "response too large: {len} bytes (max {MAX_NOTEBOOK_BODY_BYTES})"
+            ));
         }
     }
     let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
@@ -423,10 +426,7 @@ fn build_notebook_guardrail(
         )
         .ok()
     };
-    let is_device_tab = matches!(
-        tab_type.as_deref(),
-        Some("netconf") | Some("ssh")
-    );
+    let is_device_tab = matches!(tab_type.as_deref(), Some("netconf") | Some("ssh"));
     if is_device_tab {
         Some(runner::NotebookGuardrail {
             ruleset: state.guardrails_ruleset.clone(),
@@ -508,8 +508,7 @@ pub async fn notebook_run_start(
     // legacy OSC-133 PTY runner.
     let pty: Arc<dyn PtyExecutor> = match &connection_id {
         Some(conn_id) => {
-            let (target, _name) =
-                crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
+            let (target, _name) = crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
             Arc::new(crate::ssh_exec::SshPtyExecutor::from_target(target))
         }
         None => build_pty_executor(&state),
@@ -564,11 +563,7 @@ pub async fn notebook_run_start(
     Ok(run_id)
 }
 
-async fn send_control(
-    state: &AppState,
-    run_id: &str,
-    msg: ControlMsg,
-) -> Result<(), String> {
+async fn send_control(state: &AppState, run_id: &str, msg: ControlMsg) -> Result<(), String> {
     let tx = state
         .notebook_runs
         .get(run_id)
@@ -585,18 +580,12 @@ pub async fn notebook_run_approve(
 }
 
 #[tauri::command]
-pub async fn notebook_run_cancel(
-    state: State<'_, AppState>,
-    run_id: String,
-) -> Result<(), String> {
+pub async fn notebook_run_cancel(state: State<'_, AppState>, run_id: String) -> Result<(), String> {
     send_control(&state, &run_id, ControlMsg::Cancel).await
 }
 
 #[tauri::command]
-pub async fn notebook_run_pause(
-    state: State<'_, AppState>,
-    run_id: String,
-) -> Result<(), String> {
+pub async fn notebook_run_pause(state: State<'_, AppState>, run_id: String) -> Result<(), String> {
     send_control(&state, &run_id, ControlMsg::Pause).await
 }
 
@@ -664,8 +653,7 @@ pub async fn notebook_run_resume(
     // legacy OSC-133 PTY runner.
     let pty: Arc<dyn PtyExecutor> = match &connection_id {
         Some(conn_id) => {
-            let (target, _name) =
-                crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
+            let (target, _name) = crate::ssh_exec::resolve_target(&state.db, conn_id, password)?;
             Arc::new(crate::ssh_exec::SshPtyExecutor::from_target(target))
         }
         None => build_pty_executor(&state),
@@ -770,7 +758,10 @@ pub async fn notebook_run_status(
         .map_err(|e| e.to_string())?;
     let current_cell_idx = rows
         .iter()
-        .find(|r| r.status == CellStatus::Running.as_str() || r.status == CellStatus::AwaitingApproval.as_str())
+        .find(|r| {
+            r.status == CellStatus::Running.as_str()
+                || r.status == CellStatus::AwaitingApproval.as_str()
+        })
         .map(|r| r.cell_idx);
 
     Ok(RunStatusDto {

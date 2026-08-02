@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# CCIE Terminal - Quick Launch Script for macOS
-# This script sets up and runs CCIE Terminal in development mode
+# TerminAI - Quick Launch Script for macOS
+# This script sets up and runs TerminAI in development mode
 
-echo "🚀 CCIE Terminal v1.0.0 - Quick Launch"
+echo "🚀 TerminAI v1.0.0 - Quick Launch"
 echo "======================================="
 echo ""
 
@@ -48,6 +48,8 @@ if [ ! -d ".venv" ]; then
 fi
 
 echo "   Activating virtual environment..."
+# The environment is created immediately above.
+# shellcheck disable=SC1091
 source .venv/bin/activate
 
 if ! python -c "import ccie_sidecar, debugpy" 2>/dev/null; then
@@ -72,7 +74,7 @@ fi
 echo ""
 
 # Run the app
-echo "🎯 Launching CCIE Terminal..."
+echo "🎯 Launching TerminAI..."
 echo ""
 echo -e "${YELLOW}📝 Note: First-time compilation may take 2-3 minutes${NC}"
 echo -e "${YELLOW}📝 The app window will open automatically when ready${NC}"
@@ -81,7 +83,8 @@ echo "Press Ctrl+C to stop the development server"
 echo "======================================="
 echo ""
 
-export CCIE_REPO_ROOT="$(pwd)"
+CCIE_REPO_ROOT="$(pwd)"
+export CCIE_REPO_ROOT
 # Force the dev sidecar to use sidecar/.venv, never a stale bundled python.
 # A leftover target/{debug,release}/python/ tree (from a past build_sidecar.sh
 # run) otherwise shadows live sidecar/src edits and surfaces as "unknown method"

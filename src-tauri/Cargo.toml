@@ -5,6 +5,21 @@ description = "Warp-like AI-powered terminal for network engineers"
 authors = ["TerminAI Team"]
 edition = "2021"
 
+# These established interfaces are intentionally wider/more nested than
+# Clippy's defaults (primarily Tauri IPC and persistence boundaries). Keep
+# actionable warnings denied in CI without forcing release-only API churn.
+[lints.clippy]
+doc_lazy_continuation = "allow"
+doc_overindented_list_items = "allow"
+field_reassign_with_default = "allow"
+large_enum_variant = "allow"
+module_inception = "allow"
+new_ret_no_self = "allow"
+should_implement_trait = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+wrong_self_convention = "allow"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -28,7 +43,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-updater = "=2.10.1"
 tauri-plugin-process = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }

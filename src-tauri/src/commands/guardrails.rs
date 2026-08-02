@@ -99,13 +99,9 @@ pub fn guardrail_rules_list(state: State<'_, AppState>) -> Result<Vec<Rule>, Str
 }
 
 #[tauri::command]
-pub fn guardrail_rule_upsert(
-    state: State<'_, AppState>,
-    rule: Rule,
-) -> Result<String, String> {
+pub fn guardrail_rule_upsert(state: State<'_, AppState>, rule: Rule) -> Result<String, String> {
     // Reject malformed regex *before* we touch the DB.
-    regex::Regex::new(&rule.pattern_regex)
-        .map_err(|e| format!("invalid regex: {}", e))?;
+    regex::Regex::new(&rule.pattern_regex).map_err(|e| format!("invalid regex: {}", e))?;
     let mut r = rule;
     if r.id.is_empty() {
         r.id = uuid::Uuid::new_v4().to_string();
@@ -203,7 +199,10 @@ pub fn guardrail_rules_export(state: State<'_, AppState>) -> Result<String, Stri
 }
 
 #[tauri::command]
-pub fn guardrail_rules_import(state: State<'_, AppState>, json: String) -> Result<ImportReport, String> {
+pub fn guardrail_rules_import(
+    state: State<'_, AppState>,
+    json: String,
+) -> Result<ImportReport, String> {
     let parsed: Vec<Rule> = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     let mut report = ImportReport {
         imported: 0,
@@ -227,9 +226,7 @@ pub fn guardrail_rules_import(state: State<'_, AppState>, json: String) -> Resul
         }
         match upsert_rule_inner(&conn, &r) {
             Ok(()) => report.imported += 1,
-            Err(e) => report
-                .errors
-                .push(format!("rule {}: {}", r.id, e)),
+            Err(e) => report.errors.push(format!("rule {}: {}", r.id, e)),
         }
     }
     drop(conn);
@@ -399,10 +396,7 @@ pub async fn guardrail_second_opinion(
     let merged = ambiguity::merge(rule_decision.tier, &llm);
     Ok(SecondOpinionResponse {
         tier: merged.as_str().to_string(),
-        reasoning: format!(
-            "{} | LLM: {}",
-            rule_decision.reasoning, llm.reasoning
-        ),
+        reasoning: format!("{} | LLM: {}", rule_decision.reasoning, llm.reasoning),
     })
 }
 

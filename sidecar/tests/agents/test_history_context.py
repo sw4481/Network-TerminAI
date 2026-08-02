@@ -7,10 +7,12 @@ now forwarded from the frontend via ctx["history"].
 """
 from __future__ import annotations
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from ccie_sidecar.agents.code_exec import build_history_messages
 from ccie_sidecar.agents.deepagents_runtime import _build_input_messages
+from ccie_sidecar.agents import graph_autocapture
 
 
 SAMPLE_CTX = {
@@ -21,6 +23,12 @@ SAMPLE_CTX = {
         {"role": "tool_result", "content": "ignored"},  # non-chat role — dropped
     ]
 }
+
+
+@pytest.fixture(autouse=True)
+def isolate_context_graph_recall(monkeypatch):
+    """History tests must not read facts from the developer's sessions.db."""
+    monkeypatch.setattr(graph_autocapture, "recall_context_message", lambda _msg: "")
 
 
 class TestLegacyHistory:

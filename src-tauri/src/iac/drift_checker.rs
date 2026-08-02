@@ -57,7 +57,11 @@ pub fn parse_drift(plan_json: &str) -> Vec<DriftedResource> {
             .and_then(|c| c.get("resource"))
             .cloned()
             .unwrap_or(serde_json::Value::Null);
-        let address = res.get("addr").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let address = res
+            .get("addr")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
         let resource_type = res
             .get("resource_type")
             .and_then(|v| v.as_str())
@@ -100,11 +104,14 @@ pub fn run_drift_plan(project_path: &Path) -> Result<DriftResult> {
         .current_dir(project_path)
         .output()?;
     let code = output.status.code().unwrap_or(-1);
-    let has_drift = interpret_exit_code(code).map_err(|e| {
-        anyhow::anyhow!("{e}: {}", String::from_utf8_lossy(&output.stderr).trim())
-    })?;
+    let has_drift = interpret_exit_code(code)
+        .map_err(|e| anyhow::anyhow!("{e}: {}", String::from_utf8_lossy(&output.stderr).trim()))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let drifted = if has_drift { parse_drift(&stdout) } else { Vec::new() };
+    let drifted = if has_drift {
+        parse_drift(&stdout)
+    } else {
+        Vec::new()
+    };
     Ok(DriftResult {
         has_drift: has_drift && !drifted.is_empty(),
         drifted,
@@ -117,9 +124,9 @@ mod tests {
 
     #[test]
     fn interpret_exit_code_clean_drift_error() {
-        assert_eq!(interpret_exit_code(0).unwrap(), false); // no drift
-        assert_eq!(interpret_exit_code(2).unwrap(), true);  // drift present
-        assert!(interpret_exit_code(1).is_err());           // plan error
+        assert!(!interpret_exit_code(0).unwrap()); // no drift
+        assert!(interpret_exit_code(2).unwrap()); // drift present
+        assert!(interpret_exit_code(1).is_err()); // plan error
     }
 
     #[test]

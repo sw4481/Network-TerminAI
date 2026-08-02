@@ -85,7 +85,8 @@ pub fn validate_tab_id(tab_id: &str) -> Result<String, ValidationError> {
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
         return Err(ValidationError::InvalidTabId(
-            "Tab ID must contain only alphanumeric characters, hyphens, and underscores".to_string(),
+            "Tab ID must contain only alphanumeric characters, hyphens, and underscores"
+                .to_string(),
         ));
     }
 
@@ -115,10 +116,7 @@ pub fn validate_command(cmd: &str) -> Result<String, ValidationError> {
     }
 
     if cmd.len() > MAX_COMMAND_LENGTH {
-        return Err(ValidationError::InputTooLong(
-            cmd.len(),
-            MAX_COMMAND_LENGTH,
-        ));
+        return Err(ValidationError::InputTooLong(cmd.len(), MAX_COMMAND_LENGTH));
     }
 
     // Check for null bytes (can cause issues in C interfaces)
@@ -170,7 +168,8 @@ pub fn validate_session_name(name: &str) -> Result<String, ValidationError> {
     // Check for path traversal attempts
     if trimmed.contains("..") || trimmed.contains('/') || trimmed.contains('\\') {
         return Err(ValidationError::InvalidSessionName(
-            "Session name cannot contain path separators or parent directory references".to_string(),
+            "Session name cannot contain path separators or parent directory references"
+                .to_string(),
         ));
     }
 
@@ -244,8 +243,8 @@ pub fn validate_search_query(query: &str) -> Result<String, ValidationError> {
 /// can never survive into generated SQL or log output.
 fn scrub_sql_keywords(input: &str) -> String {
     const KEYWORDS: &[&str] = &[
-        "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER",
-        "UNION", "EXEC", "EXECUTE", "TABLE",
+        "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "UNION", "EXEC",
+        "EXECUTE", "TABLE",
     ];
     // Tokenize on non-alphanumeric boundaries; rebuild the string with
     // keyword tokens replaced by spaces of equal length.
@@ -262,7 +261,7 @@ fn scrub_sql_keywords(input: &str) -> String {
             }
             let token = &input[start..i];
             let upper = token.to_ascii_uppercase();
-            if KEYWORDS.iter().any(|k| *k == upper.as_str()) {
+            if KEYWORDS.contains(&upper.as_str()) {
                 // Replace with spaces so lengths/positions stay stable.
                 out.push_str(&" ".repeat(token.len()));
             } else {
@@ -307,9 +306,9 @@ pub fn validate_path(path: &str, allowed_dirs: &[&Path]) -> Result<String, Valid
     let path_buf = std::path::PathBuf::from(path);
 
     // Canonicalize to resolve symlinks and .. references
-    let canonical = path_buf.canonicalize().map_err(|e| {
-        ValidationError::InvalidPath(format!("Cannot resolve path: {}", e))
-    })?;
+    let canonical = path_buf
+        .canonicalize()
+        .map_err(|e| ValidationError::InvalidPath(format!("Cannot resolve path: {}", e)))?;
 
     // Canonicalize allowed_dirs too. macOS resolves /var -> /private/var and
     // /tmp -> /private/tmp via symlinks, so a raw starts_with check against
@@ -367,23 +366,8 @@ pub fn validate_path(path: &str, allowed_dirs: &[&Path]) -> Result<String, Valid
 pub fn validate_sql_param(param: &str) -> Result<String, ValidationError> {
     // Substring patterns — any occurrence anywhere rejects.
     let suspicious_substrings = [
-        "';",
-        "\";",
-        "--",
-        "/*",
-        "*/",
-        "xp_",
-        "sp_",
-        "UNION",
-        "SELECT",
-        "INSERT",
-        "UPDATE",
-        "DELETE",
-        "DROP",
-        "CREATE",
-        "ALTER",
-        "EXEC",
-        "EXECUTE",
+        "';", "\";", "--", "/*", "*/", "xp_", "sp_", "UNION", "SELECT", "INSERT", "UPDATE",
+        "DELETE", "DROP", "CREATE", "ALTER", "EXEC", "EXECUTE",
     ];
 
     let upper = param.to_uppercase();
@@ -409,11 +393,7 @@ pub fn validate_sql_param(param: &str) -> Result<String, ValidationError> {
             // ("1=1", "2=2", etc.) — after split on non-alphanum, "1=1" becomes
             // ["1", "1"]. Two identical numeric tokens following OR/AND is the
             // signature.
-            if window[1]
-                .chars()
-                .all(|c: char| c.is_ascii_digit())
-                && window[1] == window[2]
-            {
+            if window[1].chars().all(|c: char| c.is_ascii_digit()) && window[1] == window[2] {
                 return Err(ValidationError::SqlInjectionDetected(format!(
                     "Boolean tautology detected: {} {}={}",
                     window[0], window[1], window[2]
@@ -520,7 +500,10 @@ mod tests {
     #[test]
     fn test_sanitize_for_display() {
         assert_eq!(sanitize_for_display("normal text"), "normal text");
-        assert_eq!(sanitize_for_display("text\nwith\nnewlines"), "text\nwith\nnewlines");
+        assert_eq!(
+            sanitize_for_display("text\nwith\nnewlines"),
+            "text\nwith\nnewlines"
+        );
 
         // Control characters should be removed
         let with_control = "text\x00\x01\x02with\x1Bcontrol";
@@ -531,7 +514,6 @@ mod tests {
 
     #[test]
     fn test_path_validation() {
-        use std::env;
         use tempfile::TempDir;
 
         let temp = TempDir::new().unwrap();
@@ -542,10 +524,7 @@ mod tests {
         std::fs::write(&test_file, "test").unwrap();
 
         // Valid path within allowed directory
-        let result = validate_path(
-            test_file.to_str().unwrap(),
-            &[temp_path],
-        );
+        let result = validate_path(test_file.to_str().unwrap(), &[temp_path]);
         assert!(result.is_ok());
 
         // Path outside allowed directory should fail

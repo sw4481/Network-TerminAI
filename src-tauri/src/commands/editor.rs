@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
 use super::AppState;
-use std::path::{Path, PathBuf};
-use std::fs;
 use rusqlite::{Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Emitter, State};
 
 // =====================================================================
 // Path-safety helper (final security review — Finding 2).
@@ -29,13 +29,11 @@ use rusqlite::{Connection, OptionalExtension};
 fn effective_workspace_root(workspace_root: Option<&str>) -> Result<PathBuf, String> {
     let raw = match workspace_root {
         Some(r) if !r.is_empty() => PathBuf::from(r),
-        _ => dirs::home_dir().ok_or_else(|| {
-            "no workspace_root supplied and home dir unavailable".to_string()
-        })?,
+        _ => dirs::home_dir()
+            .ok_or_else(|| "no workspace_root supplied and home dir unavailable".to_string())?,
     };
-    fs::canonicalize(&raw).map_err(|e| {
-        format!("workspace_root {:?} could not be canonicalized: {e}", raw)
-    })
+    fs::canonicalize(&raw)
+        .map_err(|e| format!("workspace_root {:?} could not be canonicalized: {e}", raw))
 }
 
 /// Validate a candidate path against the workspace root.
@@ -52,10 +50,7 @@ fn effective_workspace_root(workspace_root: Option<&str>) -> Result<PathBuf, Str
 ///      root as a prefix.
 ///
 /// Returns the canonicalized candidate path on success.
-fn validate_path(
-    candidate: &str,
-    workspace_root: Option<&str>,
-) -> Result<PathBuf, String> {
+fn validate_path(candidate: &str, workspace_root: Option<&str>) -> Result<PathBuf, String> {
     if candidate.is_empty() {
         return Err("path is empty".to_string());
     }
@@ -96,7 +91,10 @@ fn validate_path(
         }
     };
     let canon_ancestor = fs::canonicalize(&existing_ancestor).map_err(|e| {
-        format!("could not canonicalize ancestor {:?}: {e}", existing_ancestor)
+        format!(
+            "could not canonicalize ancestor {:?}: {e}",
+            existing_ancestor
+        )
     })?;
     let canon = if suffix.as_os_str().is_empty() {
         canon_ancestor
@@ -194,10 +192,7 @@ pub fn editor_mode_get(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn editor_mode_set(
-    state: State<'_, AppState>,
-    mode: String,
-) -> Result<(), String> {
+pub fn editor_mode_set(state: State<'_, AppState>, mode: String) -> Result<(), String> {
     let conn = state.db.lock();
     store_editor_mode(&conn, &mode)
 }
@@ -294,8 +289,8 @@ pub async fn editor_open_file(
     tracing::info!(tab_id = %tab_id, file_path = %file_path, "Opening file in editor");
 
     // Read file from filesystem
-    let content = fs::read_to_string(&file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let content =
+        fs::read_to_string(&file_path).map_err(|e| format!("Failed to read file: {}", e))?;
 
     // Detect language from extension
     let language = detect_language(&file_path);
@@ -306,7 +301,8 @@ pub async fn editor_open_file(
         "INSERT OR REPLACE INTO editor_recent_files (file_path, last_opened, language, line_count)
          VALUES (?, strftime('%s','now'), ?, ?)",
         (&file_path, &language, content.lines().count() as i64),
-    ).map_err(|e| format!("Failed to update recent files: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to update recent files: {}", e))?;
 
     // Update tab state
     conn.execute(
@@ -338,8 +334,7 @@ pub async fn editor_save_file(
     tracing::info!(tab_id = %tab_id, file_path = %file_path, "Saving file");
 
     // Write to filesystem
-    fs::write(&file_path, &content)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    fs::write(&file_path, &content).map_err(|e| format!("Failed to write file: {}", e))?;
 
     // Update database state
     let conn = state.db.lock();
@@ -347,7 +342,8 @@ pub async fn editor_save_file(
         "UPDATE editor_tab_state SET is_dirty = 0, updated_at = strftime('%s','now')
          WHERE tab_id = ?",
         [&tab_id],
-    ).map_err(|e| format!("Failed to update state: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to update state: {}", e))?;
 
     // Update recent files
     let language = detect_language(&file_path);
@@ -355,7 +351,8 @@ pub async fn editor_save_file(
         "INSERT OR REPLACE INTO editor_recent_files (file_path, last_opened, language, line_count)
          VALUES (?, strftime('%s','now'), ?, ?)",
         (&file_path, &language, content.lines().count() as i64),
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -366,27 +363,35 @@ pub async fn editor_get_state(
     tab_id: String,
 ) -> Result<Option<EditorFile>, String> {
     let conn = state.db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT file_path, language, cursor_line, cursor_column, is_dirty
-         FROM editor_tab_state WHERE tab_id = ?"
-    ).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT file_path, language, cursor_line, cursor_column, is_dirty
+         FROM editor_tab_state WHERE tab_id = ?",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let file = stmt.query_row([&tab_id], |row| {
-        let file_path: String = row.get(0)?;
-        let content = fs::read_to_string(&file_path).unwrap_or_default();
-        Ok(EditorFile {
-            id: uuid::Uuid::new_v4().to_string(),
-            tab_id: tab_id.clone(),
-            file_path,
-            content,
-            language: row.get(1)?,
-            is_dirty: row.get::<_, i64>(4)? != 0,
-            cursor_position: Some(format!("{{\"line\":{},\"column\":{}}}",
-                row.get::<_, i64>(2)?, row.get::<_, i64>(3)?)),
-            created_at: 0,
-            updated_at: 0,
+    let file = stmt
+        .query_row([&tab_id], |row| {
+            let file_path: String = row.get(0)?;
+            let content = fs::read_to_string(&file_path).unwrap_or_default();
+            Ok(EditorFile {
+                id: uuid::Uuid::new_v4().to_string(),
+                tab_id: tab_id.clone(),
+                file_path,
+                content,
+                language: row.get(1)?,
+                is_dirty: row.get::<_, i64>(4)? != 0,
+                cursor_position: Some(format!(
+                    "{{\"line\":{},\"column\":{}}}",
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?
+                )),
+                created_at: 0,
+                updated_at: 0,
+            })
         })
-    }).optional().map_err(|e| e.to_string())?;
+        .optional()
+        .map_err(|e| e.to_string())?;
 
     Ok(file)
 }
@@ -397,12 +402,15 @@ pub async fn editor_list_recent(
     limit: usize,
 ) -> Result<Vec<String>, String> {
     let conn = state.db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT file_path FROM editor_recent_files
-         ORDER BY last_opened DESC LIMIT ?"
-    ).map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT file_path FROM editor_recent_files
+         ORDER BY last_opened DESC LIMIT ?",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let paths = stmt.query_map([limit], |row| row.get(0))
+    let paths = stmt
+        .query_map([limit], |row| row.get(0))
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| e.to_string())?;
@@ -411,9 +419,7 @@ pub async fn editor_list_recent(
 }
 
 #[tauri::command]
-pub async fn editor_list_directory(
-    path: String,
-) -> Result<Vec<FileNode>, String> {
+pub async fn editor_list_directory(path: String) -> Result<Vec<FileNode>, String> {
     tracing::info!(path = %path, "Listing directory");
 
     let path_obj = Path::new(&path);
@@ -425,8 +431,8 @@ pub async fn editor_list_directory(
     }
 
     let mut entries = Vec::new();
-    let read_dir = fs::read_dir(path_obj)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    let read_dir =
+        fs::read_dir(path_obj).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in read_dir {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
@@ -453,12 +459,10 @@ pub async fn editor_list_directory(
     }
 
     // Sort: directories first, then files (alphabetically)
-    entries.sort_by(|a, b| {
-        match (&a.node_type, &b.node_type) {
-            (FileNodeType::Directory, FileNodeType::File) => std::cmp::Ordering::Less,
-            (FileNodeType::File, FileNodeType::Directory) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    entries.sort_by(|a, b| match (&a.node_type, &b.node_type) {
+        (FileNodeType::Directory, FileNodeType::File) => std::cmp::Ordering::Less,
+        (FileNodeType::File, FileNodeType::Directory) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Ok(entries)
@@ -466,8 +470,7 @@ pub async fn editor_list_directory(
 
 #[tauri::command]
 pub async fn editor_get_home_directory() -> Result<String, String> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
     Ok(home.to_string_lossy().to_string())
 }
 
@@ -483,8 +486,7 @@ pub async fn editor_create_file(
 
     // Create parent directories if needed
     if let Some(parent) = safe.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directories: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directories: {}", e))?;
     }
 
     // A "new file" action must never truncate an existing file.
@@ -534,8 +536,7 @@ pub async fn editor_rename_file(
     let src = validate_path(&old_path, workspace_root.as_deref())?;
     let dst = validate_path(&new_path, workspace_root.as_deref())?;
 
-    fs::rename(&src, &dst)
-        .map_err(|e| format!("Failed to rename: {}", e))
+    fs::rename(&src, &dst).map_err(|e| format!("Failed to rename: {}", e))
 }
 
 #[tauri::command]
@@ -553,8 +554,7 @@ pub async fn editor_create_directory(
     // SECURITY: validate against workspace root first.
     let safe = validate_path(&path, workspace_root.as_deref())?;
 
-    fs::create_dir_all(&safe)
-        .map_err(|e| format!("Failed to create directory: {}", e))
+    fs::create_dir_all(&safe).map_err(|e| format!("Failed to create directory: {}", e))
 }
 
 // =====================================================================
@@ -586,8 +586,7 @@ pub async fn iac_studio_read_file(
     workspace_root: Option<String>,
 ) -> Result<IacStudioFile, String> {
     let safe = validate_path(&file_path, workspace_root.as_deref())?;
-    let content = fs::read_to_string(&safe)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let content = fs::read_to_string(&safe).map_err(|e| format!("Failed to read file: {}", e))?;
     let language = detect_language(&safe.to_string_lossy());
     Ok(IacStudioFile {
         file_path: safe.to_string_lossy().to_string(),
@@ -609,13 +608,15 @@ pub async fn iac_studio_write_file(
         fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create parent directories: {}", e))?;
     }
-    fs::write(&safe, &content)
-        .map_err(|e| format!("Failed to write file: {}", e))
+    fs::write(&safe, &content).map_err(|e| format!("Failed to write file: {}", e))
 }
 
 /// Check if a file/directory should be ignored
 fn should_ignore(name: &str) -> bool {
-    matches!(name, ".git" | "node_modules" | "__pycache__" | "target" | ".venv")
+    matches!(
+        name,
+        ".git" | "node_modules" | "__pycache__" | "target" | ".venv"
+    )
 }
 
 /// Detect programming language from file extension
@@ -643,7 +644,8 @@ fn detect_language(file_path: &str) -> String {
         "rs" => "rust",
         "go" => "go",
         _ => "plaintext",
-    }.to_string()
+    }
+    .to_string()
 }
 
 #[cfg(test)]
@@ -707,7 +709,10 @@ mod iac_studio_tests {
             Some(root.clone()),
         ))
         .expect("write should succeed");
-        assert_eq!(std::fs::read_to_string(&file).unwrap(), "resource \"y\" {}\n");
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "resource \"y\" {}\n"
+        );
     }
 
     #[test]
@@ -715,7 +720,11 @@ mod iac_studio_tests {
         let dir = TempDir::new().unwrap();
         let root = dir.path().to_string_lossy().to_string();
         // A traversal that escapes the workspace must be rejected.
-        let escape = dir.path().join("../../etc/hosts").to_string_lossy().to_string();
+        let escape = dir
+            .path()
+            .join("../../etc/hosts")
+            .to_string_lossy()
+            .to_string();
         let res = rt().block_on(iac_studio_read_file(escape, Some(root)));
         assert!(res.is_err(), "path outside workspace must be rejected");
     }
@@ -724,7 +733,11 @@ mod iac_studio_tests {
     fn write_creates_missing_parent_dirs_within_workspace() {
         let dir = TempDir::new().unwrap();
         let root = dir.path().to_string_lossy().to_string();
-        let nested = dir.path().join(".github").join("workflows").join("terraform.yml");
+        let nested = dir
+            .path()
+            .join(".github")
+            .join("workflows")
+            .join("terraform.yml");
         let fp = nested.to_string_lossy().to_string();
 
         rt().block_on(iac_studio_write_file(
@@ -734,7 +747,10 @@ mod iac_studio_tests {
         ))
         .expect("write should create parent dirs and succeed");
 
-        assert_eq!(std::fs::read_to_string(&nested).unwrap(), "name: terraform\n");
+        assert_eq!(
+            std::fs::read_to_string(&nested).unwrap(),
+            "name: terraform\n"
+        );
     }
 }
 

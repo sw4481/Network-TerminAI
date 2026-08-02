@@ -62,10 +62,8 @@ pub fn insert(
     let now = chrono::Utc::now().to_rfc3339();
 
     let (stored_response, truncated) = match response_xml {
-        Some(r) if r.len() > MAX_RESPONSE_SIZE => {
-            (Some(&r[..MAX_RESPONSE_SIZE]), true)
-        }
-        Some(r) => (Some(r.as_ref()), false),
+        Some(r) if r.len() > MAX_RESPONSE_SIZE => (Some(&r[..MAX_RESPONSE_SIZE]), true),
+        Some(r) => (Some(r), false),
         None => (None, false),
     };
 
@@ -97,7 +95,12 @@ pub fn insert(
 }
 
 /// List history for a specific tab, most recent first.
-pub fn list_for_tab(db: &Connection, tab_id: &str, limit: i64, offset: i64) -> Result<Vec<HistoryItem>> {
+pub fn list_for_tab(
+    db: &Connection,
+    tab_id: &str,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<HistoryItem>> {
     let mut stmt = db
         .prepare(
             "SELECT id, tab_id, device_id, host, operation, status, duration_ms, sent_at
@@ -235,7 +238,10 @@ mod tests {
         assert_eq!(detail.operation, "edit-config");
         assert_eq!(detail.target_datastore, Some("candidate".to_string()));
         assert_eq!(detail.request_xml, "<edit-config>...</edit-config>");
-        assert_eq!(detail.response_xml, Some("<rpc-reply><ok/></rpc-reply>".to_string()));
+        assert_eq!(
+            detail.response_xml,
+            Some("<rpc-reply><ok/></rpc-reply>".to_string())
+        );
         assert!(!detail.response_truncated);
     }
 
@@ -260,6 +266,9 @@ mod tests {
 
         let detail = get_detail(&db, &id).unwrap();
         assert!(detail.response_truncated);
-        assert_eq!(detail.response_xml.as_ref().unwrap().len(), MAX_RESPONSE_SIZE);
+        assert_eq!(
+            detail.response_xml.as_ref().unwrap().len(),
+            MAX_RESPONSE_SIZE
+        );
     }
 }

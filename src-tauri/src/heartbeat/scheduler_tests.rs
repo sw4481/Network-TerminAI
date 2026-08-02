@@ -336,10 +336,12 @@ async fn manual_trigger_does_not_shift_periodic_phase() {
     scheduler.trigger_now(&heartbeat.id).await.unwrap();
     assert_eq!(heartbeat_due(&db, &heartbeat.id), due_before);
 
-    let conn = db.lock();
-    let executions = HeartbeatRepo::get_execution_history(&conn, &heartbeat.id, Some(10)).unwrap();
-    assert_eq!(executions.len(), 1);
-    drop(conn);
+    {
+        let conn = db.lock();
+        let executions =
+            HeartbeatRepo::get_execution_history(&conn, &heartbeat.id, Some(10)).unwrap();
+        assert_eq!(executions.len(), 1);
+    }
     scheduler.shutdown().await.unwrap();
 }
 
@@ -361,11 +363,12 @@ async fn delete_removes_the_heartbeat_gate_after_runs_are_drained() {
 
     scheduler.delete(&heartbeat.id).await.unwrap();
     assert!(!scheduler.inner.admission.has_heartbeat_gate(&heartbeat.id));
-    let conn = db.lock();
-    assert!(HeartbeatRepo::get_heartbeat(&conn, &heartbeat.id)
-        .unwrap()
-        .is_none());
-    drop(conn);
+    {
+        let conn = db.lock();
+        assert!(HeartbeatRepo::get_heartbeat(&conn, &heartbeat.id)
+            .unwrap()
+            .is_none());
+    }
     scheduler.shutdown().await.unwrap();
 }
 

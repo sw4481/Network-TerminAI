@@ -23,14 +23,8 @@ use crate::notebooks::runner::{PtyExecutor, PtyRunResult};
 pub struct AppStatePtyExecutor {
     pub state_db: Arc<Mutex<Connection>>,
     pub ptys: Arc<Mutex<HashMap<String, crate::pty::PtyHandle>>>,
-    pub waiters: Arc<
-        Mutex<
-            HashMap<
-                String,
-                Vec<tokio::sync::oneshot::Sender<(String, Option<i32>)>>,
-            >,
-        >,
-    >,
+    pub waiters:
+        Arc<Mutex<HashMap<String, Vec<tokio::sync::oneshot::Sender<(String, Option<i32>)>>>>>,
 }
 
 #[async_trait]
@@ -52,7 +46,7 @@ impl PtyExecutor for AppStatePtyExecutor {
         self.waiters
             .lock()
             .entry(tab_id.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tx);
 
         {

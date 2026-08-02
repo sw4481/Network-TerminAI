@@ -62,22 +62,16 @@ pub enum BodyKind {
 /// Built-in auth strategies. Step 5 fills out the stateful ones.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ApiAuth {
+    #[default]
     None,
     /// Add a single header with a fixed name/value (e.g. Meraki).
-    Header {
-        name: String,
-        value: String,
-    },
+    Header { name: String, value: String },
     /// HTTP Basic authentication.
-    Basic {
-        username: String,
-        password: String,
-    },
+    Basic { username: String, password: String },
     /// Static Bearer token.
-    Bearer {
-        token: String,
-    },
+    Bearer { token: String },
     /// Cisco Catalyst Center / DNA-C style: POST creds to a login path,
     /// extract a token from the response, apply it as a header on every
     /// subsequent call. Cached per (target,env). Refreshed automatically
@@ -95,9 +89,7 @@ pub enum ApiAuth {
     /// NDFC / vManage / ISE-config style: POST creds once, rely on the
     /// server setting a Set-Cookie that we keep in a cookie jar. Cached
     /// per (target,env).
-    SessionCookie {
-        login: SessionCookieLogin,
-    },
+    SessionCookie { login: SessionCookieLogin },
     /// Escape hatch: call a Python function in the sidecar to produce
     /// whatever exotic auth the target needs (Intersight HMAC-SHA256, etc.).
     Hook {
@@ -152,12 +144,6 @@ pub struct SessionCookieLogin {
     pub method: HttpMethod,
     pub url: String,
     pub credentials: TokenLoginCredentials,
-}
-
-impl Default for ApiAuth {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// One HTTP request, sent by `api_send_request`.
@@ -250,7 +236,9 @@ mod bytes_as_base64 {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
         let s = String::deserialize(d)?;
-        STANDARD.decode(s.as_bytes()).map_err(serde::de::Error::custom)
+        STANDARD
+            .decode(s.as_bytes())
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -258,10 +246,7 @@ mod opt_bytes_as_base64 {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(
-        bytes: &Option<Vec<u8>>,
-        s: S,
-    ) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(bytes: &Option<Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
         match bytes {
             Some(b) => s.serialize_str(&STANDARD.encode(b)),
             None => s.serialize_none(),

@@ -13,9 +13,7 @@ pub(crate) fn parse_lsof_f(output: &str) -> Vec<PortInfo> {
     let mut by_port: BTreeMap<u16, String> = BTreeMap::new();
     let mut cur_cmd = String::new();
     for line in output.lines() {
-        let (tag, rest) = match line.split_at(line.char_indices().nth(1).map(|(i, _)| i).unwrap_or(0)) {
-            (t, r) => (t, r),
-        };
+        let (tag, rest) = line.split_at(line.char_indices().nth(1).map(|(i, _)| i).unwrap_or(0));
         match tag {
             "c" => cur_cmd = rest.to_string(),
             "n" => {
@@ -29,7 +27,10 @@ pub(crate) fn parse_lsof_f(output: &str) -> Vec<PortInfo> {
             _ => {}
         }
     }
-    by_port.into_iter().map(|(port, proc_name)| PortInfo { port, proc_name }).collect()
+    by_port
+        .into_iter()
+        .map(|(port, proc_name)| PortInfo { port, proc_name })
+        .collect()
 }
 
 pub fn gather_ports(pid: u32) -> Vec<PortInfo> {
@@ -37,7 +38,11 @@ pub fn gather_ports(pid: u32) -> Vec<PortInfo> {
     if pids.is_empty() {
         return Vec::new();
     }
-    let csv = pids.iter().map(|p| p.to_string()).collect::<Vec<_>>().join(",");
+    let csv = pids
+        .iter()
+        .map(|p| p.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
     let out = match std::process::Command::new("lsof")
         .args(["-nP", "-iTCP", "-sTCP:LISTEN", "-FpcPn", "-p", &csv])
         .output()
@@ -56,14 +61,26 @@ mod tests {
     fn test_parse_lsof_extracts_port_and_command() {
         let sample = "p1234\ncpython3\nn*:8000\n";
         let got = parse_lsof_f(sample);
-        assert_eq!(got, vec![PortInfo { port: 8000, proc_name: "python3".into() }]);
+        assert_eq!(
+            got,
+            vec![PortInfo {
+                port: 8000,
+                proc_name: "python3".into()
+            }]
+        );
     }
 
     #[test]
     fn test_parse_lsof_dedups_by_port_and_handles_ipv6() {
         let sample = "p1\ncnode\nn127.0.0.1:3000\nn[::1]:3000\n";
         let got = parse_lsof_f(sample);
-        assert_eq!(got, vec![PortInfo { port: 3000, proc_name: "node".into() }]);
+        assert_eq!(
+            got,
+            vec![PortInfo {
+                port: 3000,
+                proc_name: "node".into()
+            }]
+        );
     }
 
     #[test]

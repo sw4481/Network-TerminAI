@@ -256,13 +256,7 @@ impl Executor {
                 &params_json,
             )?;
             for m in &args.members {
-                FanoutStore::insert_pending_result(
-                    &conn,
-                    &run_id,
-                    &m.device_id,
-                    m.device_kind,
-                    1,
-                )?;
+                FanoutStore::insert_pending_result(&conn, &run_id, &m.device_id, m.device_kind, 1)?;
             }
         }
 
@@ -392,7 +386,7 @@ impl Executor {
     ) -> RunOutcome {
         let started = Instant::now();
         let mut handles: Vec<JoinHandle<()>> = Vec::with_capacity(args.members.len());
-        let cap = args.concurrency.min(SEMAPHORE_CAP).max(1);
+        let cap = args.concurrency.clamp(1, SEMAPHORE_CAP);
         let local_sem = Arc::new(Semaphore::new(cap));
 
         for member in args.members {
@@ -484,7 +478,12 @@ impl Executor {
                     SET status='running',
                         started_at=COALESCE(started_at, strftime('%s','now'))
                   WHERE run_id=?1 AND device_id=?2 AND device_kind=?3 AND attempt_number=?4",
-                params![run_id, &member.device_id, member.device_kind.as_str(), attempt],
+                params![
+                    run_id,
+                    &member.device_id,
+                    member.device_kind.as_str(),
+                    attempt
+                ],
             );
         }
 
@@ -524,8 +523,16 @@ impl Executor {
         let dur = start.elapsed().as_millis() as u64;
         match outcome {
             Ok(WorkerOutcome { raw_output, .. }) => {
-                self.record_success(run_id, &member, attempt, &command, &raw_output, dur, &counters)
-                    .await;
+                self.record_success(
+                    run_id,
+                    &member,
+                    attempt,
+                    &command,
+                    &raw_output,
+                    dur,
+                    &counters,
+                )
+                .await;
             }
             Err(e) => {
                 let kind = e.kind();
@@ -554,7 +561,13 @@ impl Executor {
                 if let Err(e) = conn.execute(
                     "INSERT INTO command_blocks(id, tab_id, cmd, output, started_at, ended_at)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                    params![&block_id, format!("fanout:{run_id}"), command, raw.as_bytes(), now],
+                    params![
+                        &block_id,
+                        format!("fanout:{run_id}"),
+                        command,
+                        raw.as_bytes(),
+                        now
+                    ],
                 ) {
                     tracing::warn!(error=%e, "fanout: command_blocks insert failed");
                 }
@@ -564,25 +577,23 @@ impl Executor {
                 ) {
                     tracing::warn!(error=%e, "fanout: block_tags insert failed");
                 }
-                match crate::structured::auto_parse::upsert_parsed_output(
-                    &conn,
-                    &block_id,
-                    &parser,
-                    command,
-                    &vendor,
-                    &platform,
-                    &data_json,
-                ) {
-                    Ok(id) => Some(id),
-                    Err(_) => None,
-                }
+                crate::structured::auto_parse::upsert_parsed_output(
+                    &conn, &block_id, &parser, command, &vendor, &platform, &data_json,
+                )
+                .ok()
             }
             _ => {
                 let conn = self.inner.db.lock();
                 if let Err(e) = conn.execute(
                     "INSERT INTO command_blocks(id, tab_id, cmd, output, started_at, ended_at)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                    params![&block_id, format!("fanout:{run_id}"), command, raw.as_bytes(), now],
+                    params![
+                        &block_id,
+                        format!("fanout:{run_id}"),
+                        command,
+                        raw.as_bytes(),
+                        now
+                    ],
                 ) {
                     tracing::warn!(error=%e, "fanout: command_blocks insert failed");
                 }
@@ -707,12 +718,7 @@ impl Executor {
         });
     }
 
-    pub fn cancel_device(
-        &self,
-        run_id: &str,
-        device_id: &str,
-        kind: DeviceKind,
-    ) -> Result<()> {
+    pub fn cancel_device(&self, run_id: &str, device_id: &str, kind: DeviceKind) -> Result<()> {
         let handle = self
             .inner
             .runs
