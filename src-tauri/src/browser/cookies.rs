@@ -1,4 +1,6 @@
-use anyhow::{Context, Result};
+#[cfg(target_os = "macos")]
+use anyhow::Context;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -13,23 +15,20 @@ pub struct Cookie {
 }
 
 /// PBKDF2-derive the AES-128 key for macOS Chrome cookie decryption.
+#[cfg(any(target_os = "macos", test))]
 fn chrome_derive_key(keychain_password: &str) -> [u8; 16] {
     use hmac::Hmac;
     use sha1::Sha1;
     let mut key = [0u8; 16];
-    pbkdf2::pbkdf2::<Hmac<Sha1>>(
-        keychain_password.as_bytes(),
-        b"saltysalt",
-        1003,
-        &mut key,
-    )
-    .expect("pbkdf2 key derivation");
+    pbkdf2::pbkdf2::<Hmac<Sha1>>(keychain_password.as_bytes(), b"saltysalt", 1003, &mut key)
+        .expect("pbkdf2 key derivation");
     key
 }
 
 /// Strip the SHA256(host) prefix if present. Chrome v24+ prepends this 32-byte
 /// hash to cookie plaintext. Returns the stripped value, or the original if
 /// the prefix is not detected.
+#[cfg(any(target_os = "macos", test))]
 fn strip_host_hash(pt: &[u8], host: &str) -> Vec<u8> {
     use sha2::{Digest, Sha256};
     let expected = Sha256::digest(host.as_bytes());
@@ -45,7 +44,14 @@ fn strip_host_hash(pt: &[u8], host: &str) -> Vec<u8> {
 #[cfg(target_os = "macos")]
 fn chrome_keychain_password() -> Result<String> {
     let output = std::process::Command::new("security")
-        .args(["find-generic-password", "-w", "-s", "Chrome Safe Storage", "-a", "Chrome"])
+        .args([
+            "find-generic-password",
+            "-w",
+            "-s",
+            "Chrome Safe Storage",
+            "-a",
+            "Chrome",
+        ])
         .output()
         .context("running `security find-generic-password`")?;
     if !output.status.success() {
@@ -171,38 +177,55 @@ fn parse_binarycookies(data: &[u8], host_filter: &str) -> Result<Vec<Cookie>> {
     let mut page_sizes = Vec::with_capacity(page_count);
     let mut off = 8;
     for _ in 0..page_count {
-        if off + 4 > data.len() { anyhow::bail!("truncated page sizes"); }
-        page_sizes.push(u32::from_be_bytes([data[off], data[off+1], data[off+2], data[off+3]]) as usize);
+        if off + 4 > data.len() {
+            anyhow::bail!("truncated page sizes");
+        }
+        page_sizes.push(
+            u32::from_be_bytes([data[off], data[off + 1], data[off + 2], data[off + 3]]) as usize,
+        );
         off += 4;
     }
 
     let mut cookies = Vec::new();
     let mut page_start = off;
     for &size in &page_sizes {
-        if page_start + size > data.len() { break; }
+        if page_start + size > data.len() {
+            break;
+        }
         let page = &data[page_start..page_start + size];
         page_start += size;
 
-        if page.len() < 8 { continue; }
+        if page.len() < 8 {
+            continue;
+        }
         let cookie_count = u32::from_le_bytes([page[4], page[5], page[6], page[7]]) as usize;
         let mut cookie_offsets = Vec::with_capacity(cookie_count);
         let mut p = 8;
         for _ in 0..cookie_count {
-            if p + 4 > page.len() { break; }
-            cookie_offsets.push(u32::from_le_bytes([page[p], page[p+1], page[p+2], page[p+3]]) as usize);
+            if p + 4 > page.len() {
+                break;
+            }
+            cookie_offsets.push(
+                u32::from_le_bytes([page[p], page[p + 1], page[p + 2], page[p + 3]]) as usize,
+            );
             p += 4;
         }
 
         for &co in &cookie_offsets {
-            if co + 40 > page.len() { continue; }
+            if co + 40 > page.len() {
+                continue;
+            }
             let rec = &page[co..];
             let url_off = u32::from_le_bytes([rec[16], rec[17], rec[18], rec[19]]) as usize;
             let name_off = u32::from_le_bytes([rec[20], rec[21], rec[22], rec[23]]) as usize;
             let path_off = u32::from_le_bytes([rec[24], rec[25], rec[26], rec[27]]) as usize;
             let value_off = u32::from_le_bytes([rec[28], rec[29], rec[30], rec[31]]) as usize;
 
-            if url_off >= rec.len() || name_off >= rec.len()
-                || path_off >= rec.len() || value_off >= rec.len() {
+            if url_off >= rec.len()
+                || name_off >= rec.len()
+                || path_off >= rec.len()
+                || value_off >= rec.len()
+            {
                 continue; // skip malformed cookie record
             }
 
@@ -221,7 +244,14 @@ fn parse_binarycookies(data: &[u8], host_filter: &str) -> Result<Vec<Cookie>> {
             };
 
             if host.contains(host_filter) {
-                cookies.push(Cookie { host, name, value, path, secure, http_only });
+                cookies.push(Cookie {
+                    host,
+                    name,
+                    value,
+                    path,
+                    secure,
+                    http_only,
+                });
             }
         }
     }
@@ -300,10 +330,13 @@ mod tests {
         // Valid magic "cook", 1 page, page_size 20, then a too-small/garbage page.
         let mut data = Vec::new();
         data.extend_from_slice(b"cook");
-        data.extend_from_slice(&1u32.to_be_bytes());   // page_count = 1
-        data.extend_from_slice(&20u32.to_be_bytes());  // page size = 20
-        data.extend_from_slice(&[0u8; 20]);            // a page of zeros (cookie_count=0 etc.)
-        // must not panic:
+        // page_count = 1
+        data.extend_from_slice(&1u32.to_be_bytes());
+        // page size = 20
+        data.extend_from_slice(&20u32.to_be_bytes());
+        // a page of zeros (cookie_count=0 etc.)
+        data.extend_from_slice(&[0u8; 20]);
+        // Must not panic.
         let result = parse_binarycookies(&data, "");
         assert!(result.is_ok());
     }
