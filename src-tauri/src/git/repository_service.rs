@@ -1899,10 +1899,15 @@ mod tests {
                 .ok
         );
         let edited = service.state(temp.path().to_str().unwrap()).unwrap();
-        let second_display = display_path(&second);
         assert_eq!(
-            edited.repository.remotes[0].fetch_url.as_deref(),
-            Some(second_display.as_str())
+            fs::canonicalize(
+                edited.repository.remotes[0]
+                    .fetch_url
+                    .as_deref()
+                    .expect("edited remote fetch URL"),
+            )
+            .unwrap(),
+            fs::canonicalize(&second).unwrap()
         );
         assert!(
             service

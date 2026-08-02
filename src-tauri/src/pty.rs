@@ -509,11 +509,12 @@ mod tests {
     #[tokio::test]
     async fn test_spawn_pty_captures_pid() {
         let (tx, _rx) = tokio::sync::mpsc::channel(16);
+        let shell = if cfg!(windows) { "cmd.exe" } else { "/bin/sh" };
         let handle = spawn_pty(
             PtyOptions {
-                shell: "/bin/sh".to_string(),
+                shell: shell.to_string(),
                 args: vec![],
-                cwd: "/".to_string(),
+                cwd: std::env::temp_dir().to_string_lossy().into_owned(),
                 cols: 80,
                 rows: 24,
                 pane_id: None,

@@ -13,14 +13,25 @@ fn shell() -> String {
     }
 }
 
+fn shell_args() -> Vec<String> {
+    if cfg!(windows) {
+        vec![
+            "/C".into(),
+            "echo first & ping -n 2 127.0.0.1 >NUL & echo second".into(),
+        ]
+    } else {
+        vec!["-c".into(), "echo first; sleep 0.5; echo second".into()]
+    }
+}
+
 #[tokio::test]
 async fn tap_receives_pty_bytes_and_detach_stops_them() {
     let (tx, mut rx) = mpsc::channel::<PtyEvent>(64);
     let handle = spawn_pty(
         PtyOptions {
             shell: shell(),
-            args: vec!["-c".into(), "echo first; sleep 0.5; echo second".into()],
-            cwd: "/tmp".into(),
+            args: shell_args(),
+            cwd: std::env::temp_dir().to_string_lossy().into_owned(),
             cols: 80,
             rows: 24,
             pane_id: None,

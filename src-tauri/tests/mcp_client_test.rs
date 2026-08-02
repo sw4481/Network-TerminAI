@@ -8,6 +8,14 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 use tokio::time::sleep;
 
+fn python_executable() -> &'static str {
+    if cfg!(windows) {
+        "python"
+    } else {
+        "python3"
+    }
+}
+
 /// Mock MCP server that echoes back JSON-RPC responses.
 /// Usage: Spawn as a child process and communicate via stdin/stdout.
 fn mock_server_script() -> &'static str {
@@ -113,7 +121,7 @@ async fn test_mock_server_direct() -> Result<()> {
         std::fs::set_permissions(&script_path, perms)?;
     }
 
-    let mut child = Command::new("python3")
+    let mut child = Command::new(python_executable())
         .arg(&script_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -170,7 +178,7 @@ async fn test_mcp_client_initialize() -> Result<()> {
 
     let client = McpClient::new(
         "test-server".to_string(),
-        "python3".to_string(),
+        python_executable().to_string(),
         vec![script_path.to_string_lossy().to_string()],
         HashMap::new(),
         McpTransport::Stdio,
@@ -202,7 +210,7 @@ async fn test_mcp_client_list_tools() -> Result<()> {
 
     let client = McpClient::new(
         "test-server".to_string(),
-        "python3".to_string(),
+        python_executable().to_string(),
         vec![script_path.to_string_lossy().to_string()],
         HashMap::new(),
         McpTransport::Stdio,
@@ -237,7 +245,7 @@ async fn test_mcp_client_call_tool() -> Result<()> {
 
     let client = McpClient::new(
         "test-server".to_string(),
-        "python3".to_string(),
+        python_executable().to_string(),
         vec![script_path.to_string_lossy().to_string()],
         HashMap::new(),
         McpTransport::Stdio,
@@ -276,7 +284,7 @@ async fn test_mcp_client_reconnect_on_crash() -> Result<()> {
 
     let client = McpClient::new(
         "test-server".to_string(),
-        "python3".to_string(),
+        python_executable().to_string(),
         vec![script_path.to_string_lossy().to_string()],
         HashMap::new(),
         McpTransport::Stdio,

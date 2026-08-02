@@ -48,7 +48,10 @@ pub struct ConfigManager {
 
 impl ConfigManager {
     pub fn new() -> Result<Self> {
-        let config_dir = get_config_dir()?;
+        Self::new_in(get_config_dir()?)
+    }
+
+    fn new_in(config_dir: PathBuf) -> Result<Self> {
         std::fs::create_dir_all(&config_dir).context("create config dir")?;
 
         let config_path = config_dir.join("config.toml");
@@ -384,11 +387,7 @@ OPENAI_API_KEY=sk-test456
     #[test]
     fn test_config_manager_save_and_get() {
         let temp_dir = setup_test_config_dir();
-
-        // Temporarily override config dir
-        std::env::set_var("HOME", temp_dir.path());
-
-        let manager = ConfigManager::new().unwrap();
+        let manager = ConfigManager::new_in(temp_dir.path().join("ccie-terminal")).unwrap();
 
         // Test default profiles exist
         let fast_profile = manager.get_profile("fast").unwrap();
@@ -413,9 +412,7 @@ OPENAI_API_KEY=sk-test456
     #[test]
     fn test_env_var_operations() {
         let temp_dir = setup_test_config_dir();
-        std::env::set_var("HOME", temp_dir.path());
-
-        let manager = ConfigManager::new().unwrap();
+        let manager = ConfigManager::new_in(temp_dir.path().join("ccie-terminal")).unwrap();
 
         // Set an env var
         manager

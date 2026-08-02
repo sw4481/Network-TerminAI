@@ -20,6 +20,10 @@ fn python_cmd() -> (String, Vec<String>) {
     )
 }
 
+fn temp_cwd() -> String {
+    std::env::temp_dir().to_string_lossy().into_owned()
+}
+
 #[tokio::test]
 async fn spawn_agent_and_ping() {
     let (cmd, args) = python_cmd();
@@ -52,7 +56,7 @@ async fn agent_nl_to_command() {
     let params = serde_json::json!({
         "nl_query": "list files",
         "shell": "bash",
-        "cwd": "/tmp",
+        "cwd": temp_cwd(),
     });
 
     let resp = bridge.call("nl_to_command", params).await.expect("call");
@@ -89,7 +93,7 @@ async fn agent_explain_error() {
         "cmd": "nonexistent-command",
         "output": "bash: nonexistent-command: command not found",
         "exit_code": 127,
-        "cwd": "/tmp"
+        "cwd": temp_cwd()
     });
 
     let resp = bridge.call("explain_error", params).await.expect("call");
