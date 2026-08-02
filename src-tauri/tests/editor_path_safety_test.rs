@@ -55,26 +55,24 @@ async fn test_absolute_path_outside_workspace_rejected() {
     );
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn test_symlink_escape_rejected() {
     let (_td, root) = fresh_workspace();
     // Place a symlink inside the workspace that points to /tmp (which
     // sits outside the workspace root). Any path that traverses it
     // resolves to outside-the-root and must be rejected.
-    #[cfg(unix)]
-    {
-        let link_path = root.join("link-to-etc");
-        std::os::unix::fs::symlink("/etc", &link_path).expect("create symlink");
+    let link_path = root.join("link-to-etc");
+    std::os::unix::fs::symlink("/etc", &link_path).expect("create symlink");
 
-        let candidate = format!("{}/link-to-etc/passwd-test", root.display());
-        let err = editor_delete_file(candidate, Some(root.to_string_lossy().into()))
-            .await
-            .expect_err("expected validate_path to reject path that traverses symlink");
-        assert!(
-            err.contains("outside workspace root") || err.contains("could not be canonicalized"),
-            "expected rejection, got {err:?}",
-        );
-    }
+    let candidate = format!("{}/link-to-etc/passwd-test", root.display());
+    let err = editor_delete_file(candidate, Some(root.to_string_lossy().into()))
+        .await
+        .expect_err("expected validate_path to reject path that traverses symlink");
+    assert!(
+        err.contains("outside workspace root") || err.contains("could not be canonicalized"),
+        "expected rejection, got {err:?}",
+    );
 }
 
 #[tokio::test]

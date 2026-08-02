@@ -73,6 +73,12 @@ jobs:
   rust-test:
     name: rust-test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      # Keep the large Tauri test graph within hosted-runner linker memory and
+      # disk limits. CI does not need incremental objects or debug symbols.
+      CARGO_BUILD_JOBS: "2"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
     strategy:
       fail-fast: false
       matrix:
