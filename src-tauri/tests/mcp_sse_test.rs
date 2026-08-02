@@ -1,6 +1,19 @@
 use ccie_terminal_lib::mcp::{SseTransport, Transport};
-use serde_json::json;
+use serde_json::{json, Value};
 use tokio::time::{timeout, Duration};
+
+async fn receive_response_for_id(transport: &SseTransport, request_id: u64) -> Value {
+    timeout(Duration::from_secs(5), async {
+        loop {
+            let message = transport.receive().await.expect("receive error");
+            if message.get("id").and_then(Value::as_u64) == Some(request_id) {
+                return message;
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("timed out waiting for JSON-RPC response id {request_id}"))
+}
 
 // Mock HTTP server for testing
 struct MockSseServer {
@@ -158,10 +171,7 @@ async fn test_sse_transport_initialize() {
     });
 
     transport.send(request.clone()).await.unwrap();
-    let response = timeout(Duration::from_secs(5), transport.receive())
-        .await
-        .expect("timeout")
-        .expect("receive error");
+    let response = receive_response_for_id(&transport, 1).await;
 
     assert_eq!(response["jsonrpc"], "2.0");
     assert_eq!(response["id"], 1);
@@ -181,10 +191,7 @@ async fn test_sse_transport_list_tools() {
     });
 
     transport.send(request).await.unwrap();
-    let response = timeout(Duration::from_secs(5), transport.receive())
-        .await
-        .expect("timeout")
-        .expect("receive error");
+    let response = receive_response_for_id(&transport, 2).await;
 
     assert_eq!(response["jsonrpc"], "2.0");
     assert_eq!(response["id"], 2);
@@ -211,10 +218,7 @@ async fn test_sse_transport_call_tool() {
     });
 
     transport.send(request).await.unwrap();
-    let response = timeout(Duration::from_secs(5), transport.receive())
-        .await
-        .expect("timeout")
-        .expect("receive error");
+    let response = receive_response_for_id(&transport, 3).await;
 
     assert_eq!(response["jsonrpc"], "2.0");
     assert_eq!(response["id"], 3);
@@ -230,27 +234,12 @@ async fn test_sse_transport_with_direct_calls() {
     let server = MockSseServer::start().await;
     let transport = SseTransport::new(&server.url()).await.unwrap();
 
-    // Wait a bit for SSE connection to establish and process any initial notifications
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    // Drain any SSE notifications that were sent on connection
-    loop {
-        let result = timeout(Duration::from_millis(50), transport.receive()).await;
-        if result.is_err() {
-            break; // No more messages in queue
-        }
-        if let Ok(Ok(msg)) = result {
-            // Check if it's a notification (has no "id" field)
-            if msg.get("id").is_none() {
-                // This is a notification, continue draining
-                continue;
-            } else {
-                // This is a response, something went wrong
-                panic!("Unexpected response while draining: {:?}", msg);
-            }
-        }
-        break;
-    }
+    let notification = timeout(Duration::from_secs(5), transport.receive())
+        .await
+        .expect("timeout waiting for SSE notification")
+        .expect("receive error");
+    assert!(notification.get("id").is_none());
+    assert_eq!(notification["method"], "notifications/initialized");
 
     // Now test multiple sequential requests
     // Initialize
@@ -269,7 +258,7 @@ async fn test_sse_transport_with_direct_calls() {
     });
 
     transport.send(init_request).await.unwrap();
-    let init_response = transport.receive().await.unwrap();
+    let init_response = receive_response_for_id(&transport, 1).await;
     assert_eq!(init_response["jsonrpc"], "2.0");
     assert_eq!(init_response["id"], 1);
 
@@ -282,7 +271,7 @@ async fn test_sse_transport_with_direct_calls() {
     });
 
     transport.send(list_request).await.unwrap();
-    let list_response = transport.receive().await.unwrap();
+    let list_response = receive_response_for_id(&transport, 2).await;
     let tools = &list_response["result"]["tools"];
     assert!(
         tools.is_array(),
@@ -303,7 +292,7 @@ async fn test_sse_transport_with_direct_calls() {
     });
 
     transport.send(call_request).await.unwrap();
-    let call_response = transport.receive().await.unwrap();
+    let call_response = receive_response_for_id(&transport, 3).await;
     assert_eq!(call_response["result"]["content"][0]["text"], "Echo: test");
 }
 
@@ -329,20 +318,9 @@ async fn test_sse_connection_lifecycle() {
 
     transport.send(request.clone()).await.unwrap();
     // The mock's /sse stream also pushes a `notifications/initialized` message
-    // (id = null). That notification races the POST initialize response, so
-    // skip any id-less notifications and correlate on the request id — exactly
-    // what a real MCP client does. Bounded by a timeout like the sibling tests.
-    let mut response1 = json!(null);
-    for _ in 0..5 {
-        let msg = timeout(Duration::from_secs(5), transport.receive())
-            .await
-            .expect("timeout")
-            .expect("receive error");
-        if msg["id"] == json!(1) {
-            response1 = msg;
-            break;
-        }
-    }
+    // (id = null). Correlate on the request id rather than assuming the next
+    // queued message is the POST response.
+    let response1 = receive_response_for_id(&transport, 1).await;
     assert_eq!(response1["id"], 1);
 
     // Close transport
