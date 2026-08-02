@@ -117,7 +117,10 @@ fn test_search_query_fts5_escaping() {
 
     // Verify the exact escaping
     assert_eq!(validate_search_query("test").unwrap(), "test");
-    assert_eq!(validate_search_query("test\"quote").unwrap(), "test\"\"quote");
+    assert_eq!(
+        validate_search_query("test\"quote").unwrap(),
+        "test\"\"quote"
+    );
 }
 
 #[test]
@@ -200,6 +203,7 @@ fn test_path_sensitive_file_protection() {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn test_path_symlink_resolution() {
     let temp = TempDir::new().unwrap();
@@ -210,22 +214,18 @@ fn test_path_symlink_resolution() {
     std::fs::write(&real_file, "content").unwrap();
 
     let symlink_path = temp_path.join("link.txt");
-    #[cfg(unix)]
     std::os::unix::fs::symlink(&real_file, &symlink_path).unwrap();
 
-    #[cfg(unix)]
-    {
-        // Symlink should be resolved to the real file
-        let result = validate_path(symlink_path.to_str().unwrap(), &[temp_path]);
-        assert!(result.is_ok());
+    // Symlink should be resolved to the real file
+    let result = validate_path(symlink_path.to_str().unwrap(), &[temp_path]);
+    assert!(result.is_ok());
 
-        // Resolved path should be the real file
-        let resolved = result.unwrap();
-        assert_eq!(
-            std::path::Path::new(&resolved),
-            real_file.canonicalize().unwrap()
-        );
-    }
+    // Resolved path should be the real file
+    let resolved = result.unwrap();
+    assert_eq!(
+        std::path::Path::new(&resolved),
+        real_file.canonicalize().unwrap()
+    );
 }
 
 #[test]
@@ -254,10 +254,7 @@ fn test_sanitize_for_display_control_chars() {
     assert_eq!(sanitize_for_display("col1\tcol2"), "col1\tcol2");
 
     // Normal text should be unchanged
-    assert_eq!(
-        sanitize_for_display("Hello World!"),
-        "Hello World!"
-    );
+    assert_eq!(sanitize_for_display("Hello World!"), "Hello World!");
 }
 
 #[test]
@@ -340,16 +337,10 @@ fn test_length_limit_edge_cases() {
 #[test]
 fn test_trimming_behavior() {
     // Session names should be trimmed
-    assert_eq!(
-        validate_session_name("  session  ").unwrap(),
-        "session"
-    );
+    assert_eq!(validate_session_name("  session  ").unwrap(), "session");
 
     // Search queries should be trimmed
-    assert_eq!(
-        validate_search_query("  query  ").unwrap(),
-        "query"
-    );
+    assert_eq!(validate_search_query("  query  ").unwrap(), "query");
 
     // But whitespace-only input should still fail
     assert!(validate_session_name("    ").is_err());
