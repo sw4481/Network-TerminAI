@@ -1,7 +1,5 @@
 use ccie_terminal_lib::fanout::events::FanoutEvent;
-use ccie_terminal_lib::fanout::executor::{
-    EventSink, ExecuteArgs, Executor, MemberRef, NoopParse,
-};
+use ccie_terminal_lib::fanout::executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse};
 use ccie_terminal_lib::fanout::model::DeviceKind;
 use ccie_terminal_lib::fanout::store::FanoutStore;
 use ccie_terminal_lib::fanout::worker::{MockWorkerFactory, WorkerError};
@@ -25,10 +23,11 @@ impl EventSink for VecSink {
 }
 
 fn open_db() -> Arc<Mutex<rusqlite::Connection>> {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let path = tmp.path().to_path_buf();
-    std::mem::forget(tmp); // keep the file alive for the duration of the test
-    let conn = ccie_terminal_lib::db::open_and_migrate(&path).unwrap();
+    ccie_terminal_lib::rag::vec::register_vec_auto_extension();
+    let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+    ccie_terminal_lib::rag::vec::enable_vec_extension(&conn).unwrap();
+    ccie_terminal_lib::db::apply_migrations(&mut conn).unwrap();
     Arc::new(Mutex::new(conn))
 }
 
@@ -94,7 +93,9 @@ async fn executor_fans_out_50_and_caps_concurrency() {
 
     // Sink saw a RunStarted and a RunCompleted
     let events = sink.snapshot();
-    assert!(events.iter().any(|e| matches!(e, FanoutEvent::RunStarted { .. })));
+    assert!(events
+        .iter()
+        .any(|e| matches!(e, FanoutEvent::RunStarted { .. })));
     assert!(events
         .iter()
         .any(|e| matches!(e, FanoutEvent::RunCompleted { succeeded: 50, .. })));
@@ -193,7 +194,8 @@ async fn executor_partial_run_status() {
                 .unwrap();
             stmt.query_row([], |r| r.get::<_, String>(0)).unwrap()
         };
-        ex.cancel_device(&run_id, &device_id, DeviceKind::Ssh).unwrap();
+        ex.cancel_device(&run_id, &device_id, DeviceKind::Ssh)
+            .unwrap();
     }
     let outcome = ex.await_run(&run_id).await.unwrap();
     let summary = FanoutStore::get_run_summary(&db.lock(), &run_id).unwrap();
