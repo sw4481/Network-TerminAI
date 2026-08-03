@@ -11,6 +11,8 @@
 //! polling. Empty / unknown tags are rejected BEFORE the bridge call
 //! to avoid burning sidecar work on a doomed upload.
 
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 
@@ -65,16 +67,40 @@ impl From<DocSummary> for DocRow {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct UploadProgressEvent<'a> {
+pub struct UploadProgressEvent {
     #[serde(rename = "docPath")]
-    doc_path: &'a str,
-    phase: &'a str,
+    doc_path: String,
+    phase: &'static str,
     #[serde(rename = "chunksDone", skip_serializing_if = "Option::is_none")]
     chunks_done: Option<i64>,
     #[serde(rename = "chunksTotal", skip_serializing_if = "Option::is_none")]
     chunks_total: Option<i64>,
     #[serde(rename = "errorMessage", skip_serializing_if = "Option::is_none")]
     error_message: Option<String>,
+}
+
+/// Platform-neutral progress callback used by the upload core. Keeping Tauri's
+/// `AppHandle` out of `rag_upload_inner` lets headless integration tests link
+/// without pulling in the Windows GUI runtime.
+pub type UploadProgressCallback = Arc<dyn Fn(UploadProgressEvent) + Send + Sync>;
+
+fn report_upload_progress(
+    callback: Option<&UploadProgressCallback>,
+    doc_path: &str,
+    phase: &'static str,
+    chunks_done: Option<i64>,
+    chunks_total: Option<i64>,
+    error_message: Option<String>,
+) {
+    if let Some(callback) = callback {
+        callback(UploadProgressEvent {
+            doc_path: doc_path.to_string(),
+            phase,
+            chunks_done,
+            chunks_total,
+            error_message,
+        });
+    }
 }
 
 /// Validate the upload args before any sidecar work happens. Returns
@@ -103,14 +129,13 @@ fn validate_upload_args(args: &UploadArgs) -> Result<String, String> {
 }
 
 /// Test-friendly inner for `rag_upload`: takes the bridge + store as
-/// trait objects so tests can swap in a mock. Emits progress events
-/// when an `app` handle is provided; tests pass `None` to short-circuit
-/// the Tauri event bus.
+/// trait objects so tests can swap in a mock. Reports progress through a
+/// platform-neutral callback when one is provided; tests pass `None`.
 pub async fn rag_upload_inner(
     store: &RagStore,
     bridge: &dyn RagBridgeApi,
     args: UploadArgs,
-    app: Option<&AppHandle>,
+    progress: Option<UploadProgressCallback>,
 ) -> Result<i64, String> {
     let kind = validate_upload_args(&args)?;
 
@@ -121,21 +146,17 @@ pub async fn rag_upload_inner(
     // Capture the path for the progress callback so we don't need to
     // clone it into the bridge closure repeatedly.
     let progress_path = args.path.clone();
-    let app_for_progress = app.cloned();
+    let ingest_progress = progress.clone();
     let on_progress: Box<dyn Fn(IngestProgress) + Send + Sync> =
         Box::new(move |p: IngestProgress| {
-            if let Some(handle) = &app_for_progress {
-                let _ = handle.emit(
-                    PROGRESS_EVENT,
-                    UploadProgressEvent {
-                        doc_path: &progress_path,
-                        phase: PHASE_EMBEDDING,
-                        chunks_done: Some(p.chunks_done),
-                        chunks_total: Some(p.chunks_total),
-                        error_message: None,
-                    },
-                );
-            }
+            report_upload_progress(
+                ingest_progress.as_ref(),
+                &progress_path,
+                PHASE_EMBEDDING,
+                Some(p.chunks_done),
+                Some(p.chunks_total),
+                None,
+            );
         });
 
     let ingested: IngestedDoc = match bridge
@@ -145,34 +166,26 @@ pub async fn rag_upload_inner(
         Ok(d) => d,
         Err(e) => {
             let msg = e.to_string();
-            if let Some(app) = app {
-                let _ = app.emit(
-                    PROGRESS_EVENT,
-                    UploadProgressEvent {
-                        doc_path: &args.path,
-                        phase: PHASE_ERROR,
-                        chunks_done: None,
-                        chunks_total: None,
-                        error_message: Some(msg.clone()),
-                    },
-                );
-            }
+            report_upload_progress(
+                progress.as_ref(),
+                &args.path,
+                PHASE_ERROR,
+                None,
+                None,
+                Some(msg.clone()),
+            );
             return Err(msg);
         }
     };
 
-    if let Some(app) = app {
-        let _ = app.emit(
-            PROGRESS_EVENT,
-            UploadProgressEvent {
-                doc_path: &args.path,
-                phase: PHASE_PERSISTING,
-                chunks_done: None,
-                chunks_total: None,
-                error_message: None,
-            },
-        );
-    }
+    report_upload_progress(
+        progress.as_ref(),
+        &args.path,
+        PHASE_PERSISTING,
+        None,
+        None,
+        None,
+    );
 
     // Persist: insert document, set tags, then write each chunk. The
     // store applies the same up-front tag validation, but we already
@@ -196,18 +209,14 @@ pub async fn rag_upload_inner(
         }
     }
 
-    if let Some(app) = app {
-        let _ = app.emit(
-            PROGRESS_EVENT,
-            UploadProgressEvent {
-                doc_path: &args.path,
-                phase: PHASE_DONE,
-                chunks_done: Some(ingested.chunks.len() as i64),
-                chunks_total: Some(ingested.chunks.len() as i64),
-                error_message: None,
-            },
-        );
-    }
+    report_upload_progress(
+        progress.as_ref(),
+        &args.path,
+        PHASE_DONE,
+        Some(ingested.chunks.len() as i64),
+        Some(ingested.chunks.len() as i64),
+        None,
+    );
 
     Ok(doc_id)
 }
@@ -220,7 +229,11 @@ pub async fn rag_upload(
 ) -> Result<i64, String> {
     let store = state.rag_store.clone();
     let bridge = state.rag_bridge.clone();
-    rag_upload_inner(&store, bridge.as_ref(), args, Some(&app)).await
+    let progress_app = app.clone();
+    let progress: UploadProgressCallback = Arc::new(move |event| {
+        let _ = progress_app.emit(PROGRESS_EVENT, event);
+    });
+    rag_upload_inner(&store, bridge.as_ref(), args, Some(progress)).await
 }
 
 #[tauri::command]

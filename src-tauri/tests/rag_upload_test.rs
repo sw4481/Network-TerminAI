@@ -8,13 +8,11 @@
 //! bridge is invoked).
 
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use ccie_terminal_lib::commands::rag::{rag_upload_inner, UploadArgs};
-use ccie_terminal_lib::rag::bridge::{
-    IngestProgress, IngestedChunk, IngestedDoc, RagBridgeApi,
-};
+use ccie_terminal_lib::commands::rag::{rag_upload_inner, UploadArgs, UploadProgressCallback};
+use ccie_terminal_lib::rag::bridge::{IngestProgress, IngestedChunk, IngestedDoc, RagBridgeApi};
 use ccie_terminal_lib::rag::store::RagStore;
 
 fn make_vec(seed: usize) -> Vec<f32> {
@@ -132,6 +130,48 @@ async fn rag_upload_persists_and_returns_doc_id() {
 }
 
 #[tokio::test]
+async fn rag_upload_reports_progress_without_a_tauri_handle() {
+    let store = RagStore::open_in_memory().expect("open store");
+    let (bridge, _calls) = three_chunk_bridge();
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let captured_events = events.clone();
+    let progress: UploadProgressCallback = Arc::new(move |event| {
+        captured_events
+            .lock()
+            .expect("progress lock")
+            .push(serde_json::to_value(event).expect("serialize progress"));
+    });
+
+    rag_upload_inner(
+        &store,
+        &bridge,
+        UploadArgs {
+            path: "/tmp/progress.md".into(),
+            kind: "md".into(),
+            title: "Progress Doc".into(),
+            tags: vec!["generic".into()],
+        },
+        Some(progress),
+    )
+    .await
+    .expect("upload should succeed");
+
+    let events = events.lock().expect("progress lock");
+    let phases: Vec<&str> = events
+        .iter()
+        .map(|event| event["phase"].as_str().expect("phase"))
+        .collect();
+    assert_eq!(phases, ["embedding", "persisting", "done"]);
+    assert!(events
+        .iter()
+        .all(|event| event["docPath"] == "/tmp/progress.md"));
+    assert_eq!(events[0]["chunksDone"], 3);
+    assert_eq!(events[0]["chunksTotal"], 3);
+    assert_eq!(events[2]["chunksDone"], 3);
+    assert_eq!(events[2]["chunksTotal"], 3);
+}
+
+#[tokio::test]
 async fn rag_upload_rejects_empty_tags_before_bridge() {
     let store = RagStore::open_in_memory().expect("open store");
     let (bridge, calls) = three_chunk_bridge();
@@ -150,10 +190,7 @@ async fn rag_upload_rejects_empty_tags_before_bridge() {
     .await
     .expect_err("empty tags must be rejected");
 
-    assert!(
-        err.contains("tag"),
-        "error must mention tags, got {err:?}"
-    );
+    assert!(err.contains("tag"), "error must mention tags, got {err:?}");
     assert_eq!(
         calls.load(Ordering::SeqCst),
         0,
@@ -287,7 +324,10 @@ async fn rag_upload_accepts_zero_chunks() {
         .iter()
         .find(|d| d.id == doc_id)
         .expect("doc row should be listed");
-    assert_eq!(row.chunk_count, 0, "list_documents must surface chunk_count=0");
+    assert_eq!(
+        row.chunk_count, 0,
+        "list_documents must surface chunk_count=0"
+    );
     assert_eq!(
         store.list_tags(doc_id).expect("list tags"),
         vec!["generic".to_string()],
