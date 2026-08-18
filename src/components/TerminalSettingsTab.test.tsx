@@ -56,6 +56,7 @@ const preferences = {
 
 describe("TerminalSettingsTab", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     vi.spyOn(window, "alert").mockImplementation(() => {});
     vi.spyOn(paneActivityLib, "getNotificationPreferences").mockResolvedValue(
       preferences,
@@ -76,6 +77,7 @@ describe("TerminalSettingsTab", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   it("loads and displays current preferences", async () => {
@@ -83,6 +85,47 @@ describe("TerminalSettingsTab", () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText(/Minimum duration/i)).toHaveValue(30);
+    });
+  });
+
+  it("defaults both AI suggestion controls on and persists each toggle locally", () => {
+    const firstRender = render(<TerminalSettingsTab />);
+    const requireFiveCharacters = screen.getByRole("checkbox", {
+      name: "Require 5 characters for AI suggestions",
+    });
+    const waitForInactivity = screen.getByRole("checkbox", {
+      name: "Wait for 2 seconds of inactivity",
+    });
+
+    expect(requireFiveCharacters).toBeChecked();
+    expect(waitForInactivity).toBeChecked();
+
+    fireEvent.click(requireFiveCharacters);
+    expect(requireFiveCharacters).not.toBeChecked();
+    expect(JSON.parse(
+      window.localStorage.getItem("ccie.commandSuggestionPreferences") ?? "{}",
+    )).toEqual({
+      requireFiveCharactersForAi: false,
+      waitForTwoSecondsOfInactivity: true,
+    });
+
+    firstRender.unmount();
+    render(<TerminalSettingsTab />);
+    expect(screen.getByRole("checkbox", {
+      name: "Require 5 characters for AI suggestions",
+    })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", {
+      name: "Wait for 2 seconds of inactivity",
+    })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("checkbox", {
+      name: "Wait for 2 seconds of inactivity",
+    }));
+    expect(JSON.parse(
+      window.localStorage.getItem("ccie.commandSuggestionPreferences") ?? "{}",
+    )).toEqual({
+      requireFiveCharactersForAi: false,
+      waitForTwoSecondsOfInactivity: false,
     });
   });
 

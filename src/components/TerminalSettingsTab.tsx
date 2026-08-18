@@ -20,6 +20,7 @@ import type {
 } from "../theme/types";
 import { APPEARANCE_LIMITS, normalizeHexColor } from "../theme/validation";
 import { terminalSettingsForPreset } from "../lib/terminalAppearance";
+import { useCommandSuggestionPreferences } from "../hooks/useCommandSuggestionPreferences";
 import "./TerminalSettingsTab.css";
 
 const ANSI_FIELDS: Array<[keyof TerminalAnsiPalette, string]> = [
@@ -86,6 +87,10 @@ const TerminalSettingsTab: React.FC = () => {
   const [logLocations, setLogLocations] = useState<LogLocations | null>(null);
   const [logError, setLogError] = useState("");
   const [openingLogId, setOpeningLogId] = useState<string | null>(null);
+  const {
+    preferences: commandSuggestionPreferences,
+    updatePreferences: updateCommandSuggestionPreferences,
+  } = useCommandSuggestionPreferences();
   const terminalSettingsSaving = appearanceSaving || isSavingNotifications;
   const terminalAppearanceReady = appearanceHydrated && appearanceAuthoritativeState === "ready";
 
@@ -350,6 +355,38 @@ const TerminalSettingsTab: React.FC = () => {
           <label><input type="checkbox" checked={terminalDraft.terminal.cursorBlink} onChange={(event) => updateTerminal({ cursorBlink: event.target.checked })} /> Blinking cursor</label>
           <button type="button" className="secondary-btn" onClick={resetCursor}>Reset cursor</button>
         </fieldset>
+      </section>
+
+      <section aria-labelledby="command-suggestions-heading">
+        <h2 id="command-suggestions-heading">Command suggestions</h2>
+        <p>
+          Command history matches remain instant from two characters onward.
+          These controls apply only to AI-generated suggestions.
+        </p>
+        <div className="settings-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={commandSuggestionPreferences.requireFiveCharactersForAi}
+              onChange={(event) => updateCommandSuggestionPreferences({
+                requireFiveCharactersForAi: event.target.checked,
+              })}
+            />
+            Require 5 characters for AI suggestions
+          </label>
+        </div>
+        <div className="settings-group">
+          <label>
+            <input
+              type="checkbox"
+              checked={commandSuggestionPreferences.waitForTwoSecondsOfInactivity}
+              onChange={(event) => updateCommandSuggestionPreferences({
+                waitForTwoSecondsOfInactivity: event.target.checked,
+              })}
+            />
+            Wait for 2 seconds of inactivity
+          </label>
+        </div>
       </section>
 
       <h2>Notification Settings</h2>

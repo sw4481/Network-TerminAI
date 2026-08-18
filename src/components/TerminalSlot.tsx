@@ -72,12 +72,11 @@ export function TerminalSlot({
     return () => disposable.dispose();
   }, [terminalId, clearSuggestions]);
 
-  // Trigger suggestions when input changes.
-  // Only fire on short inputs (2-4 chars) so the panel doesn't keep spinning
-  // while typing longer commands (e.g. in claude/codex prompts).
+  // History suggestions stay active for the complete typed prefix. The hook
+  // applies the independent AI length and inactivity preferences.
   useEffect(() => {
     const trimmed = currentInput.trim();
-    if (trimmed.length >= 2 && trimmed.length <= 4) {
+    if (trimmed.length >= 2) {
       getSuggestions(currentInput);
       setShowSuggestions(true);
       setSelectedIndex(0);
@@ -108,6 +107,36 @@ export function TerminalSlot({
     ptyWrite(ptyTabId, new TextEncoder().encode(textToWrite)).catch(() => {});
     lineBufferRef.current = command;
   }, [terminalId, clearSuggestions]);
+
+  // xterm forwards its onData event to the PTY before passive observers can
+  // cancel it. Capture Tab at the DOM boundary so accepting a visible result
+  // never also sends a literal Tab to the shell.
+  useEffect(() => {
+    if (!showSuggestions || suggestions.length === 0 || selectedIndex < 0) return;
+
+    const handleTabCapture = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Tab'
+        || event.shiftKey
+        || event.metaKey
+        || event.ctrlKey
+        || event.altKey
+      ) return;
+
+      const target = event.target as Node | null;
+      if (!target || !slotRef.current?.contains(target)) return;
+
+      const selectedCommand = suggestions[selectedIndex]?.command;
+      if (!selectedCommand) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      handleSelectSuggestion(selectedCommand);
+    };
+
+    window.addEventListener('keydown', handleTabCapture, true);
+    return () => window.removeEventListener('keydown', handleTabCapture, true);
+  }, [handleSelectSuggestion, selectedIndex, showSuggestions, suggestions]);
 
   return (
     <>

@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useCommandSuggestionPreferences } from './useCommandSuggestionPreferences';
 
 export interface CommandSuggestion {
   command: string;
@@ -7,93 +8,154 @@ export interface CommandSuggestion {
   category?: string;
 }
 
-const DEBOUNCE_MS = 300;
-const MIN_CHARS = 2;
+const HISTORY_MIN_CHARS = 2;
+const AI_DEFAULT_MIN_CHARS = 5;
+const AI_LEGACY_MIN_CHARS = 2;
+const AI_INACTIVITY_DELAY_MS = 2_000;
+const AI_LEGACY_DELAY_MS = 300;
+
+function mergeSuggestions(
+  history: CommandSuggestion[],
+  ai: CommandSuggestion[],
+): CommandSuggestion[] {
+  const seen = new Set(history.map((suggestion) => suggestion.command));
+  return [
+    ...history,
+    ...ai.filter((suggestion) => {
+      if (seen.has(suggestion.command)) return false;
+      seen.add(suggestion.command);
+      return true;
+    }),
+  ];
+}
 
 export function useCommandSuggestions(cwd: string = '/') {
   const [suggestions, setSuggestions] = useState<CommandSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const historySuggestionsRef = useRef<CommandSuggestion[]>([]);
+  const aiSuggestionsRef = useRef<CommandSuggestion[]>([]);
+  const { preferences } = useCommandSuggestionPreferences();
 
-  const getSuggestions = useCallback((partialCommand: string) => {
-    // Clear existing timeout
+  const cancelPendingAi = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-
-    // Cancel any in-flight request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
+  }, []);
 
-    // Don't suggest for very short input
-    if (partialCommand.trim().length < MIN_CHARS) {
-      setSuggestions([]);
-      return;
-    }
+  const getSuggestions = useCallback((partialCommand: string) => {
+    const requestId = ++requestIdRef.current;
+    cancelPendingAi();
 
-    const partial = partialCommand.trim();
+    historySuggestionsRef.current = [];
+    aiSuggestionsRef.current = [];
+    setSuggestions([]);
+    setLoading(false);
 
-    // Step 1: Get instant history matches (no debounce, fire-and-forget so it
-    // never delays the debounce timer below).
+    const meaningfulLength = partialCommand.trim().length;
+    if (meaningfulLength < HISTORY_MIN_CHARS) return;
+
+    // Preserve the complete typed prefix, including meaningful spacing. The
+    // trimmed value is used only for the minimum-character gates above/below.
+    const partial = partialCommand;
+
+    // History is independent from AI: query it immediately for every prefix
+    // from two characters onward, with no upper length limit.
     invoke<CommandSuggestion[]>('get_history_suggestions', { partial, limit: 3 })
       .then((historyResult) => {
-        if (historyResult && historyResult.length > 0) {
-          setSuggestions(historyResult);
-        }
+        if (requestIdRef.current !== requestId) return;
+        historySuggestionsRef.current = Array.isArray(historyResult) ? historyResult : [];
+        setSuggestions(mergeSuggestions(
+          historySuggestionsRef.current,
+          aiSuggestionsRef.current,
+        ));
       })
       .catch((error) => {
+        if (requestIdRef.current !== requestId) return;
         console.warn('[useCommandSuggestions] History lookup failed:', error);
       });
 
-    // Step 2: Debounce the AI call and merge with history
-    timeoutRef.current = setTimeout(async () => {
-      setLoading(true);
+    const aiMinChars = preferences.requireFiveCharactersForAi
+      ? AI_DEFAULT_MIN_CHARS
+      : AI_LEGACY_MIN_CHARS;
+    if (meaningfulLength < aiMinChars) return;
 
-      // Create new AbortController for this request
+    const aiDelayMs = preferences.waitForTwoSecondsOfInactivity
+      ? AI_INACTIVITY_DELAY_MS
+      : AI_LEGACY_DELAY_MS;
+
+    timeoutRef.current = setTimeout(async () => {
+      timeoutRef.current = null;
+      if (requestIdRef.current !== requestId) return;
+
+      setLoading(true);
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       try {
         const result = await invoke<{ suggestions: CommandSuggestion[] }>(
           'ai_suggest_command',
-          { partialCommand: partial, cwd }
+          { partialCommand: partial, cwd },
         );
 
-        // Only update state if this request wasn't aborted
-        if (!abortController.signal.aborted) {
-          // Merge AI suggestions with existing history, dedupe by command
-          setSuggestions((prev) => {
-            const aiSuggestions = result.suggestions || [];
-            const seen = new Set(prev.map(s => s.command));
-            const newSuggestions = aiSuggestions.filter(s => !seen.has(s.command));
-            return [...prev, ...newSuggestions];
-          });
-        }
+        if (
+          requestIdRef.current !== requestId
+          || abortController.signal.aborted
+        ) return;
+
+        aiSuggestionsRef.current = Array.isArray(result?.suggestions)
+          ? result.suggestions
+          : [];
+        setSuggestions(mergeSuggestions(
+          historySuggestionsRef.current,
+          aiSuggestionsRef.current,
+        ));
       } catch (error) {
-        // Don't log errors for aborted requests
-        if (!abortController.signal.aborted) {
+        if (
+          requestIdRef.current === requestId
+          && !abortController.signal.aborted
+        ) {
           console.error('[useCommandSuggestions] ❌ AI suggestions failed:', error);
         }
       } finally {
-        if (!abortController.signal.aborted) {
+        if (
+          requestIdRef.current === requestId
+          && !abortController.signal.aborted
+        ) {
           setLoading(false);
         }
+        if (abortControllerRef.current === abortController) {
+          abortControllerRef.current = null;
+        }
       }
-    }, DEBOUNCE_MS);
-  }, [cwd]);
+    }, aiDelayMs);
+  }, [
+    cancelPendingAi,
+    cwd,
+    preferences.requireFiveCharactersForAi,
+    preferences.waitForTwoSecondsOfInactivity,
+  ]);
 
   const clearSuggestions = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    ++requestIdRef.current;
+    cancelPendingAi();
+    historySuggestionsRef.current = [];
+    aiSuggestionsRef.current = [];
     setSuggestions([]);
     setLoading(false);
-  }, []);
+  }, [cancelPendingAi]);
+
+  useEffect(() => () => {
+    ++requestIdRef.current;
+    cancelPendingAi();
+  }, [cancelPendingAi]);
 
   return {
     suggestions,

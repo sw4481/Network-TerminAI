@@ -207,6 +207,36 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       });
   }, [handle, clearSuggestions]);
 
+  // Capture Tab before xterm turns it into onData and the PTY writer forwards
+  // it to the shell. With no visible result, no listener is installed and
+  // native shell completion continues unchanged.
+  useEffect(() => {
+    if (!showSuggestions || suggestions.length === 0 || selectedSuggestionIndex < 0) return;
+
+    const handleTabCapture = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Tab'
+        || event.shiftKey
+        || event.metaKey
+        || event.ctrlKey
+        || event.altKey
+      ) return;
+
+      const target = event.target as Node | null;
+      if (!target || !wrapRef.current?.contains(target)) return;
+
+      const selectedCommand = suggestions[selectedSuggestionIndex]?.command;
+      if (!selectedCommand) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      handleSuggestionAccept(selectedCommand);
+    };
+
+    window.addEventListener('keydown', handleTabCapture, true);
+    return () => window.removeEventListener('keydown', handleTabCapture, true);
+  }, [handleSuggestionAccept, selectedSuggestionIndex, showSuggestions, suggestions]);
+
   // Terminal input tracking for suggestions
   // Listen passively to track what user is typing, but don't intercept or prevent anything
   useEffect(() => {
@@ -219,17 +249,6 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
 
     const disposable = handle.term.onData((data: string) => {
       const charCode = data.charCodeAt(0);
-
-      // Handle Tab (ASCII 9) - only intercept if we have suggestions to accept
-      if (charCode === 9 && showSuggestions && suggestions.length > 0 && selectedSuggestionIndex >= 0) {
-        const selectedCommand = suggestions[selectedSuggestionIndex]?.command;
-        if (selectedCommand) {
-          // We have a suggestion to accept - intercept tab
-          handleSuggestionAccept(selectedCommand);
-          return; // Don't pass tab to shell or continue tracking
-        }
-      }
-      // Otherwise, let tab pass through to shell for native tab completion
 
       // Track input for AI suggestions (passive observation only)
       // Handle multi-character input (paste)
@@ -275,7 +294,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
     });
 
     return () => disposable.dispose();
-  }, [handle, clearSuggestions, showSuggestions, suggestions, selectedSuggestionIndex, handleSuggestionAccept, showParameterForm, showNLInput, showTemplates]);
+  }, [handle, clearSuggestions, showParameterForm, showNLInput, showTemplates]);
 
   // Keyboard navigation for suggestions (Arrow keys with Cmd modifier)
   // Use Cmd+Up/Down to navigate suggestions, leaving plain arrow keys for xterm
@@ -456,20 +475,17 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
 
     const trimmed = currentInput.trim();
 
-    // Clear suggestions if input is too short or too long
-    if (trimmed.length < 2 || trimmed.length > 4) {
+    // The two-character history minimum remains, with no upper limit. The hook
+    // applies AI-only length and inactivity controls.
+    if (trimmed.length < 2) {
       setShowSuggestions(false);
       clearSuggestions();
       return;
     }
 
-    // Only trigger suggestions on short inputs (2-4 chars)
-    // This prevents constant API calls while typing longer commands
-    if (trimmed.length >= 2 && trimmed.length <= 4) {
-      getSuggestions(currentInput);
-      setShowSuggestions(true);
-      setSelectedSuggestionIndex(0);
-    }
+    getSuggestions(currentInput);
+    setShowSuggestions(true);
+    setSelectedSuggestionIndex(0);
   }, [currentInput, getSuggestions, clearSuggestions]);
 
   // Show parameter form when detected
