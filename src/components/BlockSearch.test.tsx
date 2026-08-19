@@ -137,4 +137,33 @@ describe('BlockSearch', () => {
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('supports a terminal-specific label and placeholder without changing defaults', () => {
+    const props = {
+      searchQuery: '',
+      onSearchChange: vi.fn(),
+      matchCount: 0,
+      currentMatch: 0,
+      onNext: vi.fn(),
+      onPrev: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(
+      <BlockSearch
+        {...props}
+        inputLabel="Search terminal scrollback"
+        placeholder="Search terminal scrollback…"
+      />,
+    );
+    expect(screen.getByLabelText('Search terminal scrollback')).toHaveAttribute(
+      'placeholder',
+      'Search terminal scrollback…',
+    );
+
+    rerender(<BlockSearch {...props} />);
+    expect(screen.getByLabelText('Search in output')).toHaveAttribute(
+      'placeholder',
+      'Search in output...',
+    );
+  });
 });

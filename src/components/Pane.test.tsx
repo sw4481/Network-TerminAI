@@ -282,6 +282,79 @@ describe('Pane blocks-mode does not affect terminal registry lifecycle', () => {
   });
 });
 
+describe('Pane terminal buffer search', () => {
+  it('scopes Ctrl+F to the focused terminal and routes result navigation', async () => {
+    vi.resetModules();
+    const findNext = vi.fn(() => true);
+    const findPrevious = vi.fn(() => true);
+    const clearDecorations = vi.fn();
+    const focus = vi.fn();
+    let resultsListener: ((value: { resultIndex: number; resultCount: number }) => void) | null = null;
+    const searchHandle = {
+      findNext,
+      findPrevious,
+      clearDecorations,
+      focus,
+      onDidChangeResults: vi.fn((listener) => {
+        resultsListener = listener;
+        return { dispose: vi.fn() };
+      }),
+    };
+    vi.doMock('./Terminal', () => ({
+      Terminal: ({ terminalId }: { terminalId: string }) => (
+        <textarea className="terminal-registry-surface" data-testid={`surface-${terminalId}`} />
+      ),
+    }));
+    vi.doMock('../lib/terminalRegistry', () => ({
+      getSelection: vi.fn(() => ''),
+      searchHandleFor: vi.fn(() => searchHandle),
+    }));
+    vi.doMock('../state/agentsStore', () => ({
+      useAgentsStore: (selector: (s: unknown) => unknown) => selector({ agents: [] }),
+    }));
+    vi.doMock('../state/panesStore', () => ({
+      usePanesStore: (selector: (s: unknown) => unknown) =>
+        selector({
+          focusedPaneId: 'pane-a',
+          setFocusedPane: vi.fn(),
+          updatePaneTerminalId: vi.fn(),
+          closePane: vi.fn(),
+        }),
+      shouldReconcileTerminalId: () => false,
+    }));
+
+    const platform = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64');
+    const rtl = await import('@testing-library/react');
+    const { Pane } = await import('./Pane');
+    const view = rtl.render(
+      <>
+        <Pane paneId="pane-a" terminalId="term-a" shell="/bin/zsh" cwd="/home" />
+        <Pane paneId="pane-b" terminalId="term-b" shell="/bin/zsh" cwd="/home" />
+      </>,
+    );
+
+    rtl.fireEvent.keyDown(view.getByTestId('surface-term-b'), { key: 'f', ctrlKey: true });
+    expect(view.queryByLabelText('Search terminal scrollback')).toBeNull();
+
+    rtl.fireEvent.keyDown(view.getByTestId('surface-term-a'), { key: 'f', ctrlKey: true });
+    const input = view.getByLabelText('Search terminal scrollback');
+    rtl.fireEvent.change(input, { target: { value: 'needle' } });
+    expect(findNext).toHaveBeenCalledWith(
+      'needle',
+      expect.objectContaining({ caseSensitive: false, regex: false, wholeWord: false }),
+    );
+
+    act(() => resultsListener?.({ resultIndex: 1, resultCount: 4 }));
+    expect(view.getByText('2 / 4')).toBeTruthy();
+    rtl.fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(findPrevious).toHaveBeenCalledWith('needle', expect.anything());
+    rtl.fireEvent.keyDown(input, { key: 'Escape' });
+    await rtl.waitFor(() => expect(view.queryByLabelText('Search terminal scrollback')).toBeNull());
+    expect(clearDecorations).toHaveBeenCalled();
+    platform.mockRestore();
+  });
+});
+
 describe('Pane context menu', () => {
   it('opens on right-click, shows Ask AI + Copy only when there is a selection, and closes on outside click', async () => {
     vi.resetModules();
@@ -290,6 +363,7 @@ describe('Pane context menu', () => {
     }));
     vi.doMock('../lib/terminalRegistry', () => ({
       getSelection: vi.fn(() => 'show version output'),
+      searchHandleFor: vi.fn(() => null),
     }));
     vi.doMock('../state/agentsStore', () => ({
       useAgentsStore: (selector: (s: unknown) => unknown) => selector({ agents: [] }),
@@ -330,6 +404,7 @@ describe('Pane context menu', () => {
     }));
     vi.doMock('../lib/terminalRegistry', () => ({
       getSelection: vi.fn(() => ''),
+      searchHandleFor: vi.fn(() => null),
     }));
     vi.doMock('../state/agentsStore', () => ({
       useAgentsStore: (selector: (s: unknown) => unknown) => selector({ agents: [] }),
@@ -368,6 +443,52 @@ describe('Pane context menu', () => {
   });
 });
 
+describe('Pane redacted scrollback export', () => {
+  it('uses the resolved backend PTY id and keeps the menu action available without a selection', async () => {
+    vi.resetModules();
+    const chooseAndExportTerminalScrollback = vi.fn(async () => 'exported');
+    vi.doMock('./Terminal', () => ({
+      Terminal: (props: { onRegistered?: (id: string) => void }) => {
+        setTimeout(() => props.onRegistered?.('resolved-backend-pty'), 0);
+        return null;
+      },
+    }));
+    vi.doMock('../lib/terminalRegistry', () => ({
+      getSelection: vi.fn(() => ''),
+      searchHandleFor: vi.fn(() => null),
+    }));
+    vi.doMock('../lib/terminalExport', () => ({ chooseAndExportTerminalScrollback }));
+    vi.doMock('../state/agentsStore', () => ({
+      useAgentsStore: (selector: (s: unknown) => unknown) => selector({ agents: [] }),
+    }));
+    vi.doMock('../state/panesStore', () => ({
+      usePanesStore: (selector: (s: unknown) => unknown) =>
+        selector({
+          focusedPaneId: 'pane-abc',
+          setFocusedPane: vi.fn(),
+          updatePaneTerminalId: vi.fn(),
+          closePane: vi.fn(),
+        }),
+      shouldReconcileTerminalId: () => false,
+    }));
+
+    const rtl = await import('@testing-library/react');
+    const { Pane } = await import('./Pane');
+    const view = rtl.render(
+      <Pane paneId="pane-abc" terminalId="stable-layout-id" shell="/bin/zsh" cwd="/home" />,
+    );
+    await rtl.waitFor(() => {
+      const paneEl = view.container.querySelector('[data-pane-id="pane-abc"]')!;
+      rtl.fireEvent.contextMenu(paneEl, { clientX: 10, clientY: 20 });
+      expect(view.getByText(/Export redacted scrollback/)).not.toBeDisabled();
+    });
+    rtl.fireEvent.click(view.getByText(/Export redacted scrollback/));
+    await rtl.waitFor(() =>
+      expect(chooseAndExportTerminalScrollback).toHaveBeenCalledWith('resolved-backend-pty'),
+    );
+  });
+});
+
 describe('Pane "Run as Structured..." menu item', () => {
   it('opens RunStructuredModal pre-filled with the first line of the selection, and closes it on modal close', async () => {
     vi.resetModules();
@@ -376,6 +497,7 @@ describe('Pane "Run as Structured..." menu item', () => {
     }));
     vi.doMock('../lib/terminalRegistry', () => ({
       getSelection: vi.fn(() => 'show ip interface brief\nGigabitEthernet1  up  up'),
+      searchHandleFor: vi.fn(() => null),
     }));
     vi.doMock('../state/agentsStore', () => ({
       useAgentsStore: (selector: (s: unknown) => unknown) => selector({ agents: [] }),

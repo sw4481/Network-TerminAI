@@ -57,7 +57,15 @@ export function RecordingsTab() {
     await remove(rec.id);
   };
 
-  const onExport = async (rec: RecordingDto) => {
+  const showExportError = async (kind: string, error: unknown) => {
+    const { message } = await import("@tauri-apps/plugin-dialog");
+    await message(`Unable to export recording ${kind}: ${String(error)}`, {
+      title: "Recording export failed",
+      kind: "error",
+    });
+  };
+
+  const onExportCast = async (rec: RecordingDto) => {
     const { save } = await import("@tauri-apps/plugin-dialog");
     const path = await save({
       defaultPath: `recording-${rec.id}.cast`,
@@ -65,7 +73,26 @@ export function RecordingsTab() {
     });
     if (!path) return;
     const { recording } = await import("../../lib/recording");
-    await recording.export(rec.id, path as string);
+    try {
+      await recording.export(rec.id, path as string);
+    } catch (error) {
+      await showExportError("cast", error);
+    }
+  };
+
+  const onExportText = async (rec: RecordingDto) => {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const path = await save({
+      defaultPath: `recording-${rec.id}.txt`,
+      filters: [{ name: "Text", extensions: ["txt"] }],
+    });
+    if (!path) return;
+    const { recording } = await import("../../lib/recording");
+    try {
+      await recording.exportText(rec.id, path as string);
+    } catch (error) {
+      await showExportError("text", error);
+    }
   };
 
   return (
@@ -115,10 +142,19 @@ export function RecordingsTab() {
                 </button>
                 <button
                   className="rec-btn"
-                  onClick={() => void onExport(r)}
+                  onClick={() => void onExportCast(r)}
                   disabled={!r.endedAt}
+                  data-testid={`recording-cast-${r.id}`}
                 >
-                  Export
+                  Cast
+                </button>
+                <button
+                  className="rec-btn"
+                  onClick={() => void onExportText(r)}
+                  disabled={!r.endedAt}
+                  data-testid={`recording-text-${r.id}`}
+                >
+                  Text
                 </button>
                 <button
                   className={`rec-btn ${

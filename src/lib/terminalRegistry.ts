@@ -12,6 +12,14 @@ import {
   createTerminalOptions,
   terminalMetricsChanged,
 } from './terminalAppearance';
+import {
+  createTerminalSearchHandle,
+  type TerminalSearchHandle,
+} from './terminalSearch';
+import {
+  handleTerminalClipboardShortcut,
+  normalizeTerminalPlatform,
+} from './terminalClipboard';
 
 export interface CreateOpts {
   shell: string;
@@ -33,6 +41,8 @@ export interface CreateOpts {
 export interface TerminalEntry {
   xterm: any;
   fitAddon: any;
+  searchAddon: any;
+  search: TerminalSearchHandle;
   el: HTMLDivElement;
   ptyTabId: string | null;
   disposed: boolean;
@@ -99,6 +109,11 @@ export function getSelection(terminalId: string): string {
   return entry.xterm.getSelection() ?? '';
 }
 
+/** Return the narrow search controller for one persistent xterm. */
+export function searchHandleFor(terminalId: string): TerminalSearchHandle | null {
+  return registry.get(terminalId)?.search ?? null;
+}
+
 export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry {
   const existing = registry.get(terminalId);
   if (existing) return existing;
@@ -108,7 +123,8 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
   const FitAddonCtor = (window as any).FitAddon?.FitAddon || (window as any).FitAddon;
   const WebLinksCtor = (window as any).WebLinksAddon?.WebLinksAddon || (window as any).WebLinksAddon;
   const ClipboardCtor = (window as any).ClipboardAddon?.ClipboardAddon || (window as any).ClipboardAddon;
-  if (!XTerm || !FitAddonCtor) {
+  const SearchAddonCtor = (window as any).SearchAddon?.SearchAddon || (window as any).SearchAddon;
+  if (!XTerm || !FitAddonCtor || !SearchAddonCtor) {
     throw new Error('terminalRegistry: xterm not loaded from CDN yet');
   }
 
@@ -119,9 +135,11 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
 
   const xterm = new XTerm(createTerminalOptions(currentAppearance));
   const fitAddon = new FitAddonCtor();
+  const searchAddon = new SearchAddonCtor();
   xterm.loadAddon(fitAddon);
   if (WebLinksCtor) xterm.loadAddon(new WebLinksCtor());
   if (ClipboardCtor) xterm.loadAddon(new ClipboardCtor());
+  xterm.loadAddon(searchAddon);
   // NOTE: do NOT call xterm.open(el) here — `el` is detached from the DOM at
   // this point, and xterm's renderer initializes against a 0x0/offscreen node
   // and never paints (blank terminal: no prompt, no echo). open() is deferred
@@ -136,6 +154,8 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
   const entry: TerminalEntry = {
     xterm,
     fitAddon,
+    searchAddon,
+    search: createTerminalSearchHandle(xterm, searchAddon),
     el,
     ptyTabId: null,
     disposed: false,
@@ -244,59 +264,17 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   let blockStartTime = 0;
   let outputBuffer = '';
 
-  // (1) Copy / paste shortcuts.
-  //   • macOS: Cmd+C / Cmd+V (the platform-standard clipboard shortcut).
-  //   • Windows/Linux: Ctrl+C / Ctrl+V.
-  // On macOS the terminal's SIGINT stays on Ctrl+C (unchanged); Cmd+C is a
-  // copy-only key there, so it never needs to fall through as an interrupt.
-  const isMac = navigator.platform.toUpperCase().includes('MAC');
+  const terminalPlatform = normalizeTerminalPlatform();
   xterm.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
-    if (e.type !== 'keydown') return true;
-    if (e.altKey) return true;
-
-    // The copy/paste modifier is Cmd on Mac, Ctrl elsewhere. Require ONLY that
-    // modifier (so e.g. Ctrl+Cmd combos don't accidentally trigger).
-    const copyPasteChord = isMac
-      ? e.metaKey && !e.ctrlKey
-      : e.ctrlKey && !e.metaKey;
-    if (!copyPasteChord) return true;
-
-    // Copy: copy selection if present.
-    // On Windows/Linux with no selection, Ctrl+C must still pass through as the
-    // shell interrupt (SIGINT). On Mac, Cmd+C is copy-only.
-    if (e.key === 'c' || e.key === 'C') {
-      const selection = xterm.getSelection();
-      if (selection && selection.length > 0) {
-        e.preventDefault();
-        navigator.clipboard.writeText(selection).catch((err) => {
-          console.error('[terminalRegistry] clipboard copy failed:', err);
-        });
-        return false; // handled — don't send ^C
-      }
-      // No selection: on Mac swallow Cmd+C (not an interrupt key); on
-      // Windows/Linux let Ctrl+C through so it reaches the shell as SIGINT.
-      return !isMac;
-    }
-
-    // Paste: write clipboard contents into the PTY.
-    if (e.key === 'v' || e.key === 'V') {
-      e.preventDefault();
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          if (text && ptyTabId) {
-            ptyWrite(ptyTabId, new TextEncoder().encode(text)).catch((err) => {
-              console.error('[terminalRegistry] paste ptyWrite failed:', err);
-            });
-          }
-        })
-        .catch((err) => {
-          console.error('[terminalRegistry] clipboard read failed:', err);
-        });
-      return false; // handled — don't send ^V
-    }
-
-    return true; // every other chord behaves normally
+    return handleTerminalClipboardShortcut(e, {
+      platform: terminalPlatform,
+      selection: xterm.getSelection() ?? '',
+      write: async (text) => {
+        if (!ptyTabId) return;
+        await ptyWrite(ptyTabId, new TextEncoder().encode(text));
+      },
+      onError: (err) => console.error('[terminalRegistry] clipboard action failed:', err),
+    });
   });
 
   const onEvent = (e: PtyEvent) => {

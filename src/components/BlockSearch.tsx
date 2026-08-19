@@ -9,6 +9,8 @@ type BlockSearchProps = {
   onNext: () => void;
   onPrev: () => void;
   onClose: () => void;
+  inputLabel?: string;
+  placeholder?: string;
 };
 
 /**
@@ -23,6 +25,8 @@ export function BlockSearch({
   onNext,
   onPrev,
   onClose,
+  inputLabel = 'Search in output',
+  placeholder = 'Search in output...',
 }: BlockSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -49,11 +53,11 @@ export function BlockSearch({
         ref={inputRef}
         type="text"
         className="search-input"
-        placeholder="Search in output..."
+        placeholder={placeholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        aria-label="Search in output"
+        aria-label={inputLabel}
       />
       <div className="search-controls">
         {matchCount > 0 && (

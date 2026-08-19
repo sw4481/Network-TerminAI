@@ -878,6 +878,10 @@ export const apiDeleteEnvVar = (environment: string, key: string) =>
 export const tabScrollback = (tabId: string) =>
   invoke<number[]>("tab_scrollback", { tabId });
 
+/** Export the bounded backend scrollback ring as redacted UTF-8 text. */
+export const terminalExportScrollback = (tabId: string, targetPath: string) =>
+  invoke<void>("terminal_export_scrollback", { tabId, targetPath });
+
 /**
  * Get output for a specific command block.
  *

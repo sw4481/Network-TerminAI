@@ -10,13 +10,14 @@ describe("xterm 5.5 appearance adapter", () => {
 
     expect(options).toMatchObject({
       convertEol: true,
+      scrollback: 32000,
       fontFamily: 'Menlo, "SF Mono", Monaco, monospace',
       fontSize: 13,
       fontWeight: 400,
       lineHeight: 1,
       cursorStyle: "block",
       cursorBlink: true,
-      rightClickSelectsWord: true,
+      rightClickSelectsWord: false,
       allowProposedApi: true,
       theme: {
         background: "#0F1114",
@@ -84,7 +85,7 @@ describe("xterm 5.5 appearance adapter", () => {
     expect(terminal.options.rows).toBe(24);
     expect(terminal.assigned).toEqual(expect.arrayContaining([
       "theme", "fontFamily", "fontSize", "fontWeight", "lineHeight",
-      "cursorStyle", "cursorBlink",
+      "cursorStyle", "cursorBlink", "scrollback",
     ]));
     expect(terminal.assigned).not.toContain("cols");
     expect(terminal.assigned).not.toContain("rows");

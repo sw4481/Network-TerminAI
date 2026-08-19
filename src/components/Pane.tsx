@@ -10,10 +10,18 @@ import * as terminalRegistry from '../lib/terminalRegistry';
 import { useBlockShortcuts } from '../hooks/useBlockShortcuts';
 import { BlockList } from './BlockList';
 import { InputEditor } from './InputEditor';
+import { BlockSearch } from './BlockSearch';
 import { useBlocksStore, type Block } from '../state/blocksStore';
 import { useAgentsStore } from '../state/agentsStore';
 import { useTopologyStore } from '../state/topologyStore';
 import { TOPOLOGY_TRIGGER_CMD_RE } from '../lib/topology';
+import { useTerminalBufferSearch } from '../hooks/useTerminalBufferSearch';
+import { isTerminalSearchShortcut } from '../lib/terminalSearch';
+import {
+  copyTerminalSelection,
+  pasteClipboardToTerminal,
+} from '../lib/terminalClipboard';
+import { chooseAndExportTerminalScrollback } from '../lib/terminalExport';
 import './Pane.css';
 
 type PaneProps = {
@@ -52,6 +60,9 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
   // ENABLE_TERMINAL_REGISTRY specifically to prevent the 2026-06-23 infinite
   // PTY-respawn bug (see handleTerminalRegistered below).
   const [resolvedPtyTabId, setResolvedPtyTabId] = useState<string | null>(null);
+  const terminalSearch = useTerminalBufferSearch(
+    terminalRegistry.searchHandleFor(terminalId),
+  );
 
   const { focusedBlockId, setFocusedBlockId } = useBlockShortcuts({
     tabId: resolvedPtyTabId,
@@ -105,6 +116,21 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
       return () => clearTimeout(timer);
     }
   }, [isFocused, paneId]);
+
+  // Search belongs to the focused terminal surface, not the browser/WebView.
+  useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (!isFocused || blocksMode || !isTerminalSearchShortcut(event)) return;
+      const target = event.target as Node | null;
+      const terminalSurface = containerRef.current?.querySelector('.terminal-registry-surface');
+      if (!target || !terminalSurface?.contains(target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      terminalSearch.openSearch();
+    };
+    window.addEventListener('keydown', handleSearchShortcut, true);
+    return () => window.removeEventListener('keydown', handleSearchShortcut, true);
+  }, [blocksMode, isFocused, terminalSearch.openSearch]);
 
   const handleClick = () => {
     setFocusedPane(paneId);
@@ -196,25 +222,35 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
     setContextMenu(null);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!contextMenu) return;
-    navigator.clipboard.writeText(contextMenu.selection).catch(() => {});
+    const selection = contextMenu.selection;
     setContextMenu(null);
+    try {
+      await copyTerminalSelection(selection);
+    } catch (err) {
+      console.error('[Pane] clipboard copy failed:', err);
+    }
   };
 
   const handlePaste = async () => {
     if (!resolvedPtyTabId) return;
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(text);
-        await ptyWrite(resolvedPtyTabId, bytes);
-      }
-    } catch (err) {
-      console.error('Failed to paste:', err);
-    }
+    const ptyTabId = resolvedPtyTabId;
     setContextMenu(null);
+    try {
+      await pasteClipboardToTerminal((text) =>
+        ptyWrite(ptyTabId, new TextEncoder().encode(text)),
+      );
+    } catch (err) {
+      console.error('[Pane] clipboard paste failed:', err);
+    }
+  };
+
+  const handleExportScrollback = async () => {
+    const ptyTabId = resolvedPtyTabId;
+    setContextMenu(null);
+    if (!ptyTabId) return;
+    await chooseAndExportTerminalScrollback(ptyTabId);
   };
 
   const handleIngestTopology = async () => {
@@ -353,6 +389,20 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
         </button>
       </div>
 
+      {terminalSearch.open && !blocksMode && (
+        <BlockSearch
+          searchQuery={terminalSearch.query}
+          onSearchChange={terminalSearch.setQuery}
+          matchCount={terminalSearch.resultCount}
+          currentMatch={terminalSearch.resultIndex}
+          onNext={terminalSearch.next}
+          onPrev={terminalSearch.previous}
+          onClose={terminalSearch.closeSearch}
+          inputLabel="Search terminal scrollback"
+          placeholder="Search terminal scrollback…"
+        />
+      )}
+
       {/* Terminal stays mounted unconditionally — blocksMode only hides it
           via CSS, exactly the technique LegacyTerminal used, and for the same
           reason: toggling must never remount/re-key TerminalSlot's registry
@@ -439,6 +489,21 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             📄 Paste
+          </button>
+          <button
+            onClick={() => void handleExportScrollback()}
+            disabled={!resolvedPtyTabId}
+            style={{
+              ...menuButtonStyle,
+              opacity: resolvedPtyTabId ? 1 : 0.5,
+              cursor: resolvedPtyTabId ? 'pointer' : 'not-allowed',
+            }}
+            onMouseOver={(e) => {
+              if (resolvedPtyTabId) e.currentTarget.style.background = 'var(--surface-3)';
+            }}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            🧾 Export redacted scrollback…
           </button>
           <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
           {contextMenu.selection && contextMenu.selection.trim() && (

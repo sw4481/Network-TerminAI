@@ -6,11 +6,12 @@ import type { AppearanceSettingsV1 } from "../theme/types";
 
 const ptySpawn = vi.fn(async () => "legacy-pty");
 const ptyResize = vi.fn(async () => undefined);
+const ptyWrite = vi.fn(async (_id?: string, _bytes?: Uint8Array) => undefined);
 const appearance = vi.hoisted(() => ({ settings: null as unknown as AppearanceSettingsV1 }));
 
 vi.mock("../lib/tauri", () => ({
   ptySpawn: (args: unknown) => ptySpawn(args),
-  ptyWrite: vi.fn(async () => undefined),
+  ptyWrite: (id: string, bytes: Uint8Array) => ptyWrite(id, bytes),
   ptyResize: (id: string, cols: number, rows: number) => ptyResize(id, cols, rows),
 }));
 vi.mock("../theme/AppearanceProvider", () => ({ useAppearance: () => appearance }));
@@ -23,11 +24,16 @@ import { usePty } from "./usePty";
 
 function installXterm() {
   const terminals: Array<{ options: Record<string, unknown>; refresh: ReturnType<typeof vi.fn>; cols: number; rows: number }> = [];
+  searchAddons.length = 0;
   (window as any).Terminal = class {
     cols = 80;
     rows = 24;
     options: Record<string, unknown>;
-    open = vi.fn(); loadAddon = vi.fn(); write = vi.fn(); dispose = vi.fn();
+    loadedAddons: any[] = [];
+    open = vi.fn();
+    loadAddon = vi.fn((addon: any) => this.loadedAddons.push(addon));
+    write = vi.fn();
+    dispose = vi.fn(() => this.loadedAddons.forEach((addon) => addon.dispose?.()));
     refresh = vi.fn(); onData = vi.fn(() => ({ dispose: vi.fn() }));
     onResize = vi.fn(() => ({ dispose: vi.fn() })); attachCustomKeyEventHandler = vi.fn(); getSelection = vi.fn(() => "");
     constructor(options: Record<string, unknown>) { this.options = options; terminals.push(this); }
@@ -35,8 +41,20 @@ function installXterm() {
   (window as any).FitAddon = { FitAddon: class { fit = vi.fn(); } };
   (window as any).WebLinksAddon = { WebLinksAddon: class {} };
   (window as any).ClipboardAddon = { ClipboardAddon: class {} };
+  (window as any).SearchAddon = {
+    SearchAddon: class {
+      findNext = vi.fn(() => true);
+      findPrevious = vi.fn(() => true);
+      clearDecorations = vi.fn();
+      onDidChangeResults = vi.fn(() => ({ dispose: vi.fn() }));
+      dispose = vi.fn();
+      constructor() { searchAddons.push(this); }
+    },
+  };
   return terminals;
 }
+
+const searchAddons: any[] = [];
 
 function Harness() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -49,6 +67,7 @@ describe("usePty legacy appearance updates", () => {
     appearance.settings = createDefaultAppearanceSettings();
     ptySpawn.mockClear();
     ptyResize.mockClear();
+    ptyWrite.mockClear();
   });
 
   it("updates the same legacy xterm and PTY when appearance settings change", async () => {
@@ -68,5 +87,43 @@ describe("usePty legacy appearance updates", () => {
     expect(terminals).toHaveLength(1);
     expect(ptySpawn).toHaveBeenCalledTimes(1);
     expect(ptyResize).toHaveBeenCalledWith("legacy-pty", terminal.cols, terminal.rows);
+  });
+
+  it("loads one search addon and disposes it with the fallback xterm", async () => {
+    installXterm();
+    const view = render(<Harness />);
+    await waitFor(() => expect(searchAddons).toHaveLength(1));
+    const addon = searchAddons[0];
+    view.unmount();
+    expect(addon.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the shared Linux Ctrl+Shift paste policy in the fallback handler", async () => {
+    const platform = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64');
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        readText: vi.fn(async () => 'show clock'),
+        writeText: vi.fn(async () => undefined),
+      },
+    });
+    const terminals = installXterm();
+    render(<Harness />);
+    await waitFor(() => expect(ptySpawn).toHaveBeenCalledTimes(1));
+    const terminal = terminals[0] as any;
+    const handler = terminal.attachCustomKeyEventHandler.mock.calls[0][0];
+    expect(handler({
+      type: 'keydown',
+      key: 'V',
+      ctrlKey: true,
+      shiftKey: true,
+      metaKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    })).toBe(false);
+    await waitFor(() => expect(ptyWrite).toHaveBeenCalledTimes(1));
+    expect(ptyWrite.mock.calls[0][0]).toBe('legacy-pty');
+    expect(new TextDecoder().decode(ptyWrite.mock.calls[0][1])).toBe('show clock');
+    platform.mockRestore();
   });
 });

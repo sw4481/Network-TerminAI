@@ -36,6 +36,8 @@ export const recording = {
     invoke<void>("recording_delete", { recordingId }),
   export: (recordingId: string, targetPath: string) =>
     invoke<void>("recording_export", { recordingId, targetPath }),
+  exportText: (recordingId: string, targetPath: string) =>
+    invoke<void>("recording_export_text", { recordingId, targetPath }),
   redactionSummary: (recordingId: string) =>
     invoke<RedactionRow[]>("recording_redaction_summary", { recordingId }),
   readCast: (recordingId: string) =>

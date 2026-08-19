@@ -62,6 +62,7 @@ pub mod ssh_exec;
 pub mod structured;
 pub mod tftp;
 pub mod topology;
+pub mod transcript_export;
 pub mod troubleshoot;
 pub mod validation;
 pub mod vault;
@@ -449,6 +450,7 @@ pub fn run() {
             commands::api_set_env_var,
             commands::api_delete_env_var,
             commands::tab_scrollback,
+            commands::terminal_export_scrollback,
             commands::block_output,
             commands::install_shell_integration,
             commands::agent_chat_stream,
@@ -804,6 +806,7 @@ pub fn run() {
             commands::recording::recording_get,
             commands::recording::recording_delete,
             commands::recording::recording_export,
+            commands::recording::recording_export_text,
             commands::recording::recording_redaction_summary,
             commands::recording::recording_read_cast,
             // Plan 15 — AI-Driven Troubleshooting Tree (Phase 1: catalogue CRUD).

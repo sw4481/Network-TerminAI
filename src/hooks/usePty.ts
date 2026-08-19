@@ -12,6 +12,14 @@ import {
   createTerminalOptions,
   terminalMetricsChanged,
 } from "../lib/terminalAppearance";
+import {
+  createTerminalSearchHandle,
+  type TerminalSearchHandle,
+} from "../lib/terminalSearch";
+import {
+  handleTerminalClipboardShortcut,
+  normalizeTerminalPlatform,
+} from "../lib/terminalClipboard";
 
 // Use xterm from CDN (loaded via script tags in index.html)
 declare global {
@@ -20,6 +28,7 @@ declare global {
     FitAddon: any;
     WebLinksAddon: any;
     ClipboardAddon: any;
+    SearchAddon: any;
   }
 }
 
@@ -49,6 +58,8 @@ export type PtyHandle = {
   tabId: string;
   /** Mark that we're in a remote session (SSH/telnet) to disable local echo */
   setRemoteSession: (isRemote: boolean) => void;
+  /** Search controller bound to this fallback xterm instance. */
+  search: TerminalSearchHandle;
 };
 
 /**
@@ -106,8 +117,9 @@ export function usePty(
     const FitAddon = window.FitAddon?.FitAddon || window.FitAddon;
     const WebLinksAddon = window.WebLinksAddon?.WebLinksAddon || window.WebLinksAddon;
     const ClipboardAddon = window.ClipboardAddon?.ClipboardAddon || window.ClipboardAddon;
+    const SearchAddon = window.SearchAddon?.SearchAddon || window.SearchAddon;
 
-    if (!XTerm || !FitAddon || !WebLinksAddon || !ClipboardAddon) {
+    if (!XTerm || !FitAddon || !WebLinksAddon || !ClipboardAddon || !SearchAddon) {
       console.error("xterm not loaded from CDN yet");
       boundRef.current = false;
       return;
@@ -117,9 +129,11 @@ export function usePty(
 
     const fit = new FitAddon();
     const clipboard = new ClipboardAddon();
+    const searchAddon = new SearchAddon();
     term.loadAddon(fit);
     term.loadAddon(new WebLinksAddon());
     term.loadAddon(clipboard);
+    term.loadAddon(searchAddon);
     term.open(container);
     fit.fit();
 
@@ -127,49 +141,17 @@ export function usePty(
     let disposed = false;
     const pendingDisposables: (() => void)[] = [];
 
-    // Windows-Terminal-style copy/paste, mapped onto the keys you'd expect:
-    //   • Ctrl+C  → copy when there's a selection; otherwise fall through to the
-    //               shell as the SIGINT interrupt (^C) so you can still kill a
-    //               runaway ping / traceroute / "show tech".
-    //   • Ctrl+V  → always paste the clipboard into the PTY.
-    // Returning false from the handler tells xterm to swallow the key (no
-    // onData, no default), which is what we want once we've handled it here.
+    const terminalPlatform = normalizeTerminalPlatform();
     term.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
-      if (e.type !== "keydown") return true;
-      if (!e.ctrlKey || e.metaKey || e.altKey) return true;
-
-      // Ctrl+C: copy selection if present, else let it pass as interrupt.
-      if (e.key === "c" || e.key === "C") {
-        const selection = term.getSelection();
-        if (selection && selection.length > 0) {
-          e.preventDefault();
-          navigator.clipboard.writeText(selection).catch((err) => {
-            console.error("[usePty] clipboard copy failed:", err);
-          });
-          return false; // handled — don't send ^C
-        }
-        return true; // no selection → pass ^C through to the shell (SIGINT)
-      }
-
-      // Ctrl+V: paste clipboard contents into the PTY.
-      if (e.key === "v" || e.key === "V") {
-        e.preventDefault();
-        navigator.clipboard
-          .readText()
-          .then((text) => {
-            if (text && tabId) {
-              ptyWrite(tabId, new TextEncoder().encode(text)).catch((err) => {
-                console.error("[usePty] paste ptyWrite failed:", err);
-              });
-            }
-          })
-          .catch((err) => {
-            console.error("[usePty] clipboard read failed:", err);
-          });
-        return false; // handled — don't send ^V
-      }
-
-      return true; // every other Ctrl+key behaves normally
+      return handleTerminalClipboardShortcut(e, {
+        platform: terminalPlatform,
+        selection: term.getSelection() ?? '',
+        write: async (text) => {
+          if (!tabId) return;
+          await ptyWrite(tabId, new TextEncoder().encode(text));
+        },
+        onError: (err) => console.error('[usePty] clipboard action failed:', err),
+      });
     });
 
     const onEvent = (e: PtyEvent) => {
@@ -364,6 +346,7 @@ export function usePty(
           console.log('[usePty] setRemoteSession called with:', isRemote);
           inRemoteSessionRef.current = isRemote;
         },
+        search: createTerminalSearchHandle(term, searchAddon),
       });
     }).catch((err) => {
       console.error("ptySpawn failed", err);

@@ -13,7 +13,7 @@ const READONLY_OPTIONS = new Set(["cols", "rows"]);
 const PUBLIC_OPTION_KEYS = [
   "cols", "rows", "theme", "fontFamily", "fontSize", "fontWeight",
   "lineHeight", "cursorStyle", "cursorBlink", "convertEol",
-  "rightClickSelectsWord", "allowProposedApi",
+  "scrollback", "rightClickSelectsWord", "allowProposedApi",
 ] as const;
 
 export class Terminal {

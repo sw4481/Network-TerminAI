@@ -1929,6 +1929,24 @@ pub fn tab_scrollback(state: State<'_, AppState>, tab_id: String) -> Result<Vec<
 }
 
 #[tauri::command]
+pub fn terminal_export_scrollback(
+    state: State<'_, AppState>,
+    tab_id: String,
+    target_path: String,
+) -> Result<(), String> {
+    let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+    let scrollback = {
+        let db = state.db.lock();
+        session::read_scrollback(&db, &validated_tab_id).map_err(|e| e.to_string())?
+    };
+    crate::transcript_export::write_redacted_scrollback(
+        &scrollback,
+        std::path::Path::new(&target_path),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn block_output(state: State<'_, AppState>, block_id: String) -> Result<Vec<u8>, String> {
     // Validate block_id (same format as tab_id)
     let validated_block_id = validation::validate_tab_id(&block_id).map_err(|e| e.to_string())?;

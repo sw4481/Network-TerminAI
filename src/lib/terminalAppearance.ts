@@ -13,6 +13,7 @@ import type {
  */
 export type MutableXtermOptions = {
   convertEol: boolean;
+  scrollback: number;
   rightClickSelectsWord: boolean;
   allowProposedApi: boolean;
   fontFamily: string;
@@ -68,7 +69,8 @@ export function createTerminalOptions(
 
   return {
     convertEol: true,
-    rightClickSelectsWord: true,
+    scrollback: 32000,
+    rightClickSelectsWord: false,
     allowProposedApi: true,
     fontFamily: terminal.fontFamily,
     fontSize: terminal.fontSize,

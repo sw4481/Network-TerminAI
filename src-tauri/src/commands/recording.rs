@@ -125,6 +125,23 @@ pub fn recording_export(
     Ok(())
 }
 
+#[tauri::command]
+pub fn recording_export_text(
+    state: State<'_, AppState>,
+    recording_id: String,
+    target_path: String,
+) -> Result<(), String> {
+    let dto = state
+        .recording
+        .get(&recording_id)
+        .map_err(|e| e.to_string())?;
+    crate::transcript_export::export_recording_text(
+        dto.as_ref(),
+        std::path::Path::new(&target_path),
+    )
+    .map_err(|e| e.to_string())
+}
+
 #[derive(serde::Serialize)]
 pub struct RedactionRow {
     pub pattern: String,

@@ -20,14 +20,16 @@ function writtenText(call: any[]): string {
 // Minimal fake xterm + addons on window (CDN shape).
 function installFakeXterm() {
   const made: any[] = [];
+  searchAddons.length = 0;
   (window as any).Terminal = class {
     cols = 80; rows = 24;
     onData = vi.fn(() => ({ dispose: vi.fn() }));
-    loadAddon = vi.fn();
+    loadedAddons: any[] = [];
+    loadAddon = vi.fn((addon: any) => this.loadedAddons.push(addon));
     open = vi.fn();
     refresh = vi.fn();
     focus = vi.fn();
-    dispose = vi.fn();
+    dispose = vi.fn(() => this.loadedAddons.forEach((addon) => addon.dispose?.()));
     write = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     getSelection = vi.fn(() => '');
@@ -37,8 +39,20 @@ function installFakeXterm() {
   (window as any).FitAddon = { FitAddon: class { fit = vi.fn(); } };
   (window as any).WebLinksAddon = { WebLinksAddon: class {} };
   (window as any).ClipboardAddon = { ClipboardAddon: class {} };
+  (window as any).SearchAddon = {
+    SearchAddon: class {
+      findNext = vi.fn(() => true);
+      findPrevious = vi.fn(() => true);
+      clearDecorations = vi.fn();
+      onDidChangeResults = vi.fn(() => ({ dispose: vi.fn() }));
+      dispose = vi.fn();
+      constructor() { searchAddons.push(this); }
+    },
+  };
   return made;
 }
+
+const searchAddons: any[] = [];
 
 import * as reg from './terminalRegistry';
 
@@ -66,6 +80,34 @@ describe('terminalRegistry lifecycle', () => {
     const b = reg.getOrCreate('t1', OPTS);
     expect(a).toBe(b);
     expect(ptySpawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('owns one search addon per xterm and retains it across detach/reattach', () => {
+    const first = reg.getOrCreate('search-1', OPTS);
+    const second = reg.getOrCreate('search-2', OPTS);
+    expect(searchAddons).toHaveLength(2);
+    expect(first.searchAddon).not.toBe(second.searchAddon);
+
+    const slot = document.createElement('div');
+    reg.attach('search-1', slot);
+    reg.detach('search-1');
+    reg.attach('search-1', slot);
+    expect(reg.getOrCreate('search-1', OPTS).searchAddon).toBe(first.searchAddon);
+  });
+
+  it('routes narrow search operations to the owning addon', () => {
+    const entry = reg.getOrCreate('search-route', OPTS);
+    const handle = reg.searchHandleFor('search-route');
+    expect(handle).not.toBeNull();
+    handle!.findNext('needle', expect.anything() as never);
+    handle!.findPrevious('needle', expect.anything() as never);
+    handle!.clearDecorations();
+    handle!.focus();
+    expect(entry.searchAddon.findNext).toHaveBeenCalledWith('needle', expect.anything());
+    expect(entry.searchAddon.findPrevious).toHaveBeenCalledWith('needle', expect.anything());
+    expect(entry.searchAddon.clearDecorations).toHaveBeenCalled();
+    expect(entry.xterm.focus).toHaveBeenCalled();
+    expect(reg.searchHandleFor('missing')).toBeNull();
   });
 
   it('attach appends the persistent el into the slot and fits', () => {
@@ -123,6 +165,7 @@ describe('terminalRegistry lifecycle', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(ptyKill).toHaveBeenCalledTimes(1);
     expect(e.xterm.dispose).toHaveBeenCalledTimes(1);
+    expect(e.searchAddon.dispose).toHaveBeenCalledTimes(1);
     expect(reg.has('t1')).toBe(false);
     reg.dispose('t1'); // no throw, no extra calls
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -203,6 +246,40 @@ describe('terminalRegistry session wiring', () => {
     const onEvent = ptySpawn.mock.calls[0][0].onEvent as (ev: any) => void;
     onEvent({ type: 'exit' });
     expect(reg.has('t1')).toBe(false);
+  });
+
+  it('applies the Linux copy/paste matrix while preserving no-selection Ctrl+C', async () => {
+    const platform = vi.spyOn(navigator, 'platform', 'get').mockReturnValue('Linux x86_64');
+    const readText = vi.fn(async () => 'show version');
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText, writeText },
+    });
+    const entry = reg.getOrCreate('clipboard-linux', OPTS);
+    await Promise.resolve();
+    const handler = entry.xterm.attachCustomKeyEventHandler.mock.calls[0][0];
+    const base = {
+      type: 'keydown',
+      altKey: false,
+      metaKey: false,
+      preventDefault: vi.fn(),
+    };
+
+    entry.xterm.getSelection.mockReturnValue('selected output');
+    expect(handler({ ...base, key: 'C', ctrlKey: true, shiftKey: true })).toBe(false);
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith('selected output');
+
+    entry.xterm.getSelection.mockReturnValue('');
+    expect(handler({ ...base, key: 'c', ctrlKey: true, shiftKey: false })).toBe(true);
+
+    ptyWrite.mockClear();
+    expect(handler({ ...base, key: 'V', ctrlKey: true, shiftKey: true })).toBe(false);
+    await vi.waitFor(() => expect(ptyWrite).toHaveBeenCalledTimes(1));
+    expect(readText).toHaveBeenCalledTimes(1);
+    expect(writtenText(ptyWrite.mock.calls[0])).toBe('show version');
+    platform.mockRestore();
   });
 });
 

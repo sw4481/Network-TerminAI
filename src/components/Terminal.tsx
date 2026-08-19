@@ -15,10 +15,18 @@ import { ParameterForm } from "./ParameterForm";
 import { NaturalLanguageInput } from "./NaturalLanguageInput";
 import { CommandTemplates } from "./CommandTemplates";
 import { TerminalSlot } from "./TerminalSlot";
+import { BlockSearch } from "./BlockSearch";
 import { useCommandSuggestions } from "../hooks/useCommandSuggestions";
 import { useParameterDetection } from "../hooks/useParameterDetection";
 import { useBlockShortcuts } from "../hooks/useBlockShortcuts";
 import { ptyWrite } from "../lib/tauri";
+import { useTerminalBufferSearch } from "../hooks/useTerminalBufferSearch";
+import { isTerminalSearchShortcut } from "../lib/terminalSearch";
+import {
+  copyTerminalSelection,
+  pasteClipboardToTerminal,
+} from "../lib/terminalClipboard";
+import { chooseAndExportTerminalScrollback } from "../lib/terminalExport";
 
 type TerminalProps = {
   shell: string;
@@ -48,6 +56,7 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
   const [xtermContainer, setXtermContainer] = useState<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const handle = usePty(xtermContainer, shell, cwd, skipTabRegistration);
+  const terminalSearch = useTerminalBufferSearch(handle?.search ?? null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const agents = useAgentsStore((s) => s.agents);
@@ -136,6 +145,20 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
     ro.observe(wrapRef.current);
     return () => ro.disconnect();
   }, [handle]);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (blocksMode || !isTerminalSearchShortcut(event)) return;
+      const target = event.target as Node | null;
+      const terminalSurface = wrapRef.current?.querySelector('.xterm-container');
+      if (!target || !terminalSurface?.contains(target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      terminalSearch.openSearch();
+    };
+    window.addEventListener('keydown', handleSearchShortcut, true);
+    return () => window.removeEventListener('keydown', handleSearchShortcut, true);
+  }, [blocksMode, terminalSearch.openSearch]);
 
   // Clear buffer when tab changes to prevent corruption
   useEffect(() => {
@@ -561,30 +584,36 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
     setContextMenu(null);
   };
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     if (!contextMenu) return;
-    navigator.clipboard.writeText(contextMenu.selection).catch(() => {});
+    const selection = contextMenu.selection;
     setContextMenu(null);
+    try {
+      await copyTerminalSelection(selection);
+    } catch (err) {
+      console.error('[Terminal] clipboard copy failed:', err);
+    }
   };
 
   const handlePaste = async () => {
     if (!handle) return;
+    setContextMenu(null);
     try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
+      await pasteClipboardToTerminal(async (text) => {
         // Echo to terminal display first (for immediate feedback). With echo
         // off the shell renders the pasted text itself.
         if (ENABLE_LOCAL_ECHO) handle.term.write(text);
-
-        // Then send to PTY
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(text);
-        await ptyWrite(handle.tabId, bytes);
-      }
+        await ptyWrite(handle.tabId, new TextEncoder().encode(text));
+      });
     } catch (err) {
-      console.error('Failed to paste:', err);
+      console.error('[Terminal] clipboard paste failed:', err);
     }
+  };
+
+  const handleExportScrollback = async () => {
+    if (!handle) return;
     setContextMenu(null);
+    await chooseAndExportTerminalScrollback(handle.tabId);
   };
 
   const handleIngestTopology = async () => {
@@ -923,6 +952,20 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
         </button>
       </div>
 
+      {terminalSearch.open && !blocksMode && (
+        <BlockSearch
+          searchQuery={terminalSearch.query}
+          onSearchChange={terminalSearch.setQuery}
+          matchCount={terminalSearch.resultCount}
+          currentMatch={terminalSearch.resultIndex}
+          onNext={terminalSearch.next}
+          onPrev={terminalSearch.previous}
+          onClose={terminalSearch.closeSearch}
+          inputLabel="Search terminal scrollback"
+          placeholder="Search terminal scrollback…"
+        />
+      )}
+
       {/* IMPORTANT: keep this wrapper FIRST and ALWAYS mounted, in a fixed
           tree position. The xterm container below must never change sibling
           order or be conditionally unmounted — doing so makes React call the
@@ -1124,6 +1167,18 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
               }
             >
               📄 Paste
+            </button>
+            <button
+              onClick={() => void handleExportScrollback()}
+              style={menuButtonStyle}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.background = "var(--surface-selected)")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              🧾 Export redacted scrollback…
             </button>
           </div>
         </div>
