@@ -7,17 +7,8 @@
  * discovery commands automatically.
  */
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { sshListConnections, type SshConnection } from "../../lib/sshConnections";
 import "./DeviceDiscoveryModal.css";
-
-export interface SavedConnection {
-  id: string;
-  host: string;
-  port: number;
-  username: string;
-  nickname?: string;
-  password_encrypted?: string;
-}
 
 export interface DeviceDiscoveryModalProps {
   isOpen: boolean;
@@ -30,7 +21,7 @@ export function DeviceDiscoveryModal({
   onClose,
   onDiscover,
 }: DeviceDiscoveryModalProps) {
-  const [connections, setConnections] = useState<SavedConnection[]>([]);
+  const [connections, setConnections] = useState<SshConnection[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [passwords, setPasswords] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -42,7 +33,7 @@ export function DeviceDiscoveryModal({
     // Load saved SSH connections
     setLoading(true);
     setError(null);
-    invoke<SavedConnection[]>("ssh_list_connections")
+    sshListConnections()
       .then((conns) => {
         setConnections(conns);
         setLoading(false);
@@ -84,7 +75,7 @@ export function DeviceDiscoveryModal({
     );
 
     if (needsPassword.length > 0) {
-      alert(`Please enter passwords for: ${needsPassword.map(c => c.nickname || c.host).join(', ')}`);
+      alert(`Please enter passwords for: ${needsPassword.map(c => c.name || c.host).join(', ')}`);
       return;
     }
 
@@ -169,7 +160,7 @@ export function DeviceDiscoveryModal({
                         />
                         <div className="discovery-modal__device-info">
                           <div className="discovery-modal__device-name">
-                            {conn.nickname || conn.host}
+                            {conn.name || conn.host}
                             {!conn.password_encrypted && (
                               <span style={{ color: 'var(--text-primary)', fontSize: 11, marginLeft: 8 }}>
                                 (password required)
@@ -177,7 +168,7 @@ export function DeviceDiscoveryModal({
                             )}
                           </div>
                           <div className="discovery-modal__device-details">
-                            {conn.username}@{conn.host}:{conn.port}
+                            {conn.user ? `${conn.user}@` : ""}{conn.host}:{conn.port ?? 22}
                           </div>
                         </div>
                       </label>

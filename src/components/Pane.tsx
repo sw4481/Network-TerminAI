@@ -16,12 +16,14 @@ import { useAgentsStore } from '../state/agentsStore';
 import { useTopologyStore } from '../state/topologyStore';
 import { TOPOLOGY_TRIGGER_CMD_RE } from '../lib/topology';
 import { useTerminalBufferSearch } from '../hooks/useTerminalBufferSearch';
+import { useTerminalConnectionStore } from '../state/terminalConnectionStore';
 import { isTerminalSearchShortcut } from '../lib/terminalSearch';
 import {
   copyTerminalSelection,
   pasteClipboardToTerminal,
 } from '../lib/terminalClipboard';
 import { chooseAndExportTerminalScrollback } from '../lib/terminalExport';
+import { reconnectSavedSsh, useLocalShell } from '../lib/sshReconnect';
 import './Pane.css';
 
 type PaneProps = {
@@ -46,6 +48,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
   const setFocusedPane = usePanesStore((s) => s.setFocusedPane);
   const updatePaneTerminalId = usePanesStore((s) => s.updatePaneTerminalId);
   const closePane = usePanesStore((s) => s.closePane);
+  const terminalConnection = useTerminalConnectionStore((s) => s.byTerminalId[terminalId] ?? null);
 
   // Blocks mode: per-pane toggle between the raw terminal and the structured
   // command-block list. Lives here (not in TerminalSlot) so toggling it can
@@ -137,6 +140,46 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
     // setTimeout to ensure xterm is rendered before focusing.
     setTimeout(focusPaneTextarea, 0);
   };
+
+  const handleReconnect = useCallback(() => {
+    void reconnectSavedSsh(terminalId);
+  }, [terminalId]);
+
+  const handleUseLocalShell = useCallback(() => {
+    useLocalShell(terminalId);
+    setTimeout(focusPaneTextarea, 0);
+  }, [terminalId]);
+
+  // While a saved SSH command is disconnected, an unmodified Enter on the
+  // focused xterm means the same thing as the Reconnect button. Capture it at
+  // the DOM boundary so it never leaks through to the local shell.
+  useEffect(() => {
+    const handleDisconnectedEnter = (event: KeyboardEvent) => {
+      if (
+        !isFocused ||
+        blocksMode ||
+        terminalSearch.open ||
+        terminalConnection?.lifecycle !== 'disconnected' ||
+        event.key !== 'Enter' ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.isComposing
+      ) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !containerRef.current?.contains(target)) return;
+      const isTerminalInput = target.matches('.xterm-helper-textarea') ||
+        !!target.closest('.xterm, .terminal-registry-surface, .xterm-container');
+      if (!isTerminalInput) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      handleReconnect();
+    };
+    window.addEventListener('keydown', handleDisconnectedEnter, true);
+    return () => window.removeEventListener('keydown', handleDisconnectedEnter, true);
+  }, [blocksMode, handleReconnect, isFocused, terminalConnection?.lifecycle, terminalSearch.open]);
 
   // useCallback: this is passed as Terminal's onRegistered prop, so a stable
   // identity keeps Terminal/TerminalSlot from re-rendering on every Pane
@@ -351,6 +394,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       data-pane-id={paneId}
+      data-accent={terminalConnection?.accent_color ?? undefined}
       style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       {/* Activity indicators key off terminalId, not the layout paneId: the
@@ -387,6 +431,12 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
         >
           Blocks
         </button>
+        {terminalConnection && (
+          <span className="connected-device-chip" title={`${terminalConnection.vendor}/${terminalConnection.platform}`}>
+            <span className="connected-device-chip__accent" aria-hidden="true" />
+            {terminalConnection.display_name}
+          </span>
+        )}
       </div>
 
       {terminalSearch.open && !blocksMode && (
@@ -401,6 +451,32 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
           inputLabel="Search terminal scrollback"
           placeholder="Search terminal scrollback…"
         />
+      )}
+
+      {terminalConnection && ['disconnected', 'reconnecting', 'error'].includes(terminalConnection.lifecycle) && !blocksMode && (
+        <div className="ssh-reconnect-banner" role="status">
+          <div className="ssh-reconnect-banner__message">
+            <strong>{terminalConnection.display_name}</strong>
+            {terminalConnection.lifecycle === 'reconnecting'
+              ? ' — reconnecting…'
+              : terminalConnection.lifecycle === 'error'
+                ? ` — ${terminalConnection.error ?? 'Reconnect failed.'}`
+                : ` — disconnected${terminalConnection.exit_status == null ? '' : ` (exit ${terminalConnection.exit_status})`}`}
+          </div>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); handleReconnect(); }}
+            disabled={terminalConnection.lifecycle === 'reconnecting'}
+          >
+            {terminalConnection.lifecycle === 'reconnecting' ? 'Reconnecting…' : 'Reconnect'}
+          </button>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); handleUseLocalShell(); }}
+          >
+            Use local shell
+          </button>
+        </div>
       )}
 
       {/* Terminal stays mounted unconditionally — blocksMode only hides it

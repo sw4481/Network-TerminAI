@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Vendor } from "./deviceProfiles";
 
-export type Vendor = "cisco" | "juniper" | "arista" | "meraki" | "generic";
+export type { Vendor } from "./deviceProfiles";
 export type ParamType = "string" | "enum" | "ip" | "int" | "interface";
 
 export interface WorkflowStep {
@@ -36,6 +37,11 @@ export interface WorkflowRunResult {
   commands: string[];
 }
 
+export interface GlobalCommandBarSettingsV1 {
+  schema_version: 1;
+  workflow_ids: string[];
+}
+
 export async function workflowList(
   filter: { vendor?: Vendor; platform?: string; namePrefix?: string } = {},
 ): Promise<Workflow[]> {
@@ -68,4 +74,14 @@ export async function workflowRun(
 
 export async function workflowRunComplete(runId: string): Promise<void> {
   return invoke<void>("workflow_run_complete", { runId });
+}
+
+export async function globalCommandBarGet(): Promise<GlobalCommandBarSettingsV1> {
+  return invoke<GlobalCommandBarSettingsV1>("global_command_bar_get");
+}
+
+export async function globalCommandBarSet(
+  settings: GlobalCommandBarSettingsV1,
+): Promise<void> {
+  return invoke<void>("global_command_bar_set", { settings });
 }

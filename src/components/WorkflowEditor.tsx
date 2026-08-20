@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Workflow, WorkflowParam, WorkflowStep, Vendor, ParamType } from '../lib/workflows';
+import { DEVICE_VENDORS } from '../lib/deviceProfiles';
 import './WorkflowEditor.css';
 
 interface WorkflowEditorProps {
@@ -8,7 +9,6 @@ interface WorkflowEditorProps {
   onCancel: () => void;
 }
 
-const VENDORS: Vendor[] = ['cisco', 'juniper', 'arista', 'meraki', 'generic'];
 const PARAM_TYPES: ParamType[] = ['string', 'enum', 'ip', 'int', 'interface'];
 
 export function WorkflowEditor({ workflow, onSave, onCancel }: WorkflowEditorProps) {
@@ -115,7 +115,7 @@ export function WorkflowEditor({ workflow, onSave, onCancel }: WorkflowEditorPro
             <label>
               Vendor
               <select value={vendor} onChange={(e) => setVendor(e.target.value as Vendor)}>
-                {VENDORS.map((v) => (
+              {DEVICE_VENDORS.map((v) => (
                   <option key={v} value={v}>
                     {v}
                   </option>

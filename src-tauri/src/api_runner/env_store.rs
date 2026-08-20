@@ -84,13 +84,56 @@ pub fn validate_key(key: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_value(value: &str) -> Result<()> {
+pub fn validate_value(value: &str) -> Result<()> {
     if value.len() > MAX_VALUE_LEN {
         return Err(anyhow!("env var value too long: {}", value.len()));
     }
     // Disallow embedded NUL — it can't survive the .env format.
-    if value.contains('\0') {
-        return Err(anyhow!("env var value contains NUL byte"));
+    if value
+        .chars()
+        .any(|character| matches!(character, '\0' | '\n' | '\r'))
+    {
+        return Err(anyhow!(
+            "env var value contains an unsupported control character"
+        ));
+    }
+    Ok(())
+}
+
+/// Replace one environment with a fully validated set of variables. This is
+/// used by importers that normalize the complete environment before writing.
+/// Both files are owner-only on Unix; callers remove them if a surrounding
+/// database transaction later fails.
+pub fn write_environment(dir: &Path, env: &str, vars: &[EnvVar]) -> Result<()> {
+    validate_env_name(env)?;
+    if env_file_path(dir, env)?.exists() || meta_file_path(dir, env)?.exists() {
+        return Err(anyhow!("environment already exists: {env}"));
+    }
+    let mut values = BTreeMap::new();
+    let mut secret_keys = std::collections::BTreeSet::new();
+    for variable in vars {
+        validate_key(&variable.key)?;
+        validate_value(&variable.value)?;
+        if values
+            .insert(variable.key.clone(), variable.value.clone())
+            .is_some()
+        {
+            return Err(anyhow!("duplicate env var key: {}", variable.key));
+        }
+        if variable.is_secret {
+            secret_keys.insert(variable.key.clone());
+        }
+    }
+    write_all(dir, env, &values)?;
+    if let Err(error) = save_meta(
+        dir,
+        env,
+        &EnvMeta {
+            secret_keys: secret_keys.into_iter().collect(),
+        },
+    ) {
+        let _ = delete_environment(dir, env);
+        return Err(error.context("write imported environment metadata"));
     }
     Ok(())
 }
@@ -173,8 +216,7 @@ pub fn load_env(dir: &Path, env: &str) -> Result<Vec<EnvVar>> {
     if !path.exists() {
         return Ok(Vec::new());
     }
-    let raw = std::fs::read_to_string(&path)
-        .with_context(|| format!("read {}", path.display()))?;
+    let raw = std::fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     let mut out = Vec::new();
     for (line_no, line) in raw.lines().enumerate() {
         let trimmed = line.trim_start();
@@ -243,8 +285,7 @@ pub fn set_var(dir: &Path, env: &str, key: &str, value: &str, is_secret: bool) -
 
     // Update secret-keys metadata.
     let mut meta = load_meta(dir, env)?;
-    let set: std::collections::BTreeSet<String> =
-        meta.secret_keys.iter().cloned().collect();
+    let set: std::collections::BTreeSet<String> = meta.secret_keys.iter().cloned().collect();
     let mut set = set;
     if is_secret {
         set.insert(key.to_string());
@@ -310,9 +351,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 
     std::fs::write(&tmp, bytes).with_context(|| format!("write {}", tmp.display()))?;
     set_secure_perms(&tmp)?;
-    std::fs::rename(&tmp, path).with_context(|| {
-        format!("rename {} -> {}", tmp.display(), path.display())
-    })?;
+    std::fs::rename(&tmp, path)
+        .with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
     // Also tighten the final file in case `rename` preserved broader perms
     // from a pre-existing destination.
     set_secure_perms(path)?;
@@ -323,9 +363,8 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 fn set_secure_perms(path: &Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
     let perms = std::fs::Permissions::from_mode(0o600);
-    std::fs::set_permissions(path, perms).with_context(|| {
-        format!("chmod 600 {}", path.display())
-    })?;
+    std::fs::set_permissions(path, perms)
+        .with_context(|| format!("chmod 600 {}", path.display()))?;
     Ok(())
 }
 

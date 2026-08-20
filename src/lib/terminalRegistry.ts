@@ -20,6 +20,16 @@ import {
   handleTerminalClipboardShortcut,
   normalizeTerminalPlatform,
 } from './terminalClipboard';
+import type { SshConnectEventDetail } from './sshConnections';
+import { useTerminalConnectionStore } from '../state/terminalConnectionStore';
+import {
+  TerminalSyntaxHighlighter,
+  writeTerminalOutput,
+} from './terminalSyntaxHighlighter';
+import {
+  handleSavedSshCommandEnd,
+  handleSavedSshCommandStart,
+} from './sshLifecycle';
 
 export interface CreateOpts {
   shell: string;
@@ -53,6 +63,8 @@ export interface TerminalEntry {
   _resizeObserver?: ResizeObserver;
   _workflowHandler?: EventListener;
   _sshConnectHandler?: EventListener;
+  syntaxHighlighter: TerminalSyntaxHighlighter;
+  _connectionUnsubscribe?: () => void;
 }
 
 const registry = new Map<string, TerminalEntry>();
@@ -151,6 +163,16 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
     xterm.write("\r\n\x1b[2m──── session restored ────\x1b[0m\r\n");
   }
 
+  const syntaxHighlighter = new TerminalSyntaxHighlighter(xterm, () => {
+    const connection = useTerminalConnectionStore.getState().get(terminalId);
+    if (!connection) return null;
+    return {
+      enabled: connection.syntax_highlighting_enabled,
+      profile: connection.syntax_profile,
+      vendor: connection.vendor,
+      platform: connection.platform,
+    };
+  });
   const entry: TerminalEntry = {
     xterm,
     fitAddon,
@@ -160,8 +182,19 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
     ptyTabId: null,
     disposed: false,
     opened: false,
+    syntaxHighlighter,
   };
   registry.set(terminalId, entry);
+  let previousSyntaxKey = "";
+  entry._connectionUnsubscribe = useTerminalConnectionStore.subscribe((state) => {
+    const connection = state.byTerminalId[terminalId];
+    const nextSyntaxKey = connection
+      ? `${connection.syntax_highlighting_enabled}:${connection.syntax_profile}:${connection.vendor}:${connection.platform}`
+      : "";
+    if (nextSyntaxKey === previousSyntaxKey) return;
+    previousSyntaxKey = nextSyntaxKey;
+    syntaxHighlighter.refreshVisible();
+  });
 
   // Wire input/output/resize + spawn the PTY (Task 3 fills wireSession).
   wireSession(entry, terminalId, opts);
@@ -235,6 +268,8 @@ export function dispose(terminalId: string): void {
   if (entry._sshConnectHandler) {
     window.removeEventListener('ssh-connect', entry._sshConnectHandler);
   }
+  entry._connectionUnsubscribe?.();
+  entry.syntaxHighlighter.dispose();
   // If PTY spawn is pending, wait for it then kill
   if (entry._ptySpawnPromise) {
     entry._ptySpawnPromise.then((id) => {
@@ -250,6 +285,7 @@ export function dispose(terminalId: string): void {
   }
   entry.el.remove();
   registry.delete(terminalId);
+  useTerminalConnectionStore.getState().clear(terminalId);
 }
 
 // Full PTY event wiring, ported from usePty.ts (lines 70-370).
@@ -263,6 +299,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   let currentBlockId: string | null = null;
   let blockStartTime = 0;
   let outputBuffer = '';
+  let currentShellCommand: string | null = null;
 
   const terminalPlatform = normalizeTerminalPlatform();
   xterm.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
@@ -283,7 +320,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
       case 'output': {
         // Port from usePty.ts:177-250 (write bytes; SSH-exit detect; password autofill)
         const text = new TextDecoder().decode(new Uint8Array(e.bytes));
-        xterm.write(new Uint8Array(e.bytes));
+        writeTerminalOutput(xterm, entry.syntaxHighlighter, new Uint8Array(e.bytes));
 
         // Track recent output for password detection and SSH exit detection
         lastOutput += text;
@@ -345,7 +382,9 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         break;
       }
       case 'command_start': {
+        currentShellCommand = e.cmd;
         if (ptyTabId) {
+          if (handleSavedSshCommandStart(ptyTabId, e.cmd)) inRemote = true;
           const blockId = useBlocksStore.getState().addBlock(ptyTabId, e.cmd, liveCwd);
           currentBlockId = blockId;
           blockStartTime = Date.now();
@@ -354,6 +393,10 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         break;
       }
       case 'command_end': {
+        if (ptyTabId) {
+          handleSavedSshCommandEnd(ptyTabId, currentShellCommand, e.exit_code ?? null);
+        }
+        currentShellCommand = null;
         if (currentBlockId) {
           // Complete current block - strip ANSI codes from output
           const duration = Date.now() - blockStartTime;
@@ -376,6 +419,14 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
           useIacStateStore.getState().setTerminalCwd(ptyTabId, e.path);
           useTabs.getState().setCwd(ptyTabId, e.path);
         }
+        break;
+      }
+      case 'enter_alt_screen': {
+        entry.syntaxHighlighter.enterAlternateScreen();
+        break;
+      }
+      case 'exit_alt_screen': {
+        entry.syntaxHighlighter.exitAlternateScreen();
         break;
       }
       case 'exit': {
@@ -490,33 +541,46 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   //      This used to live in LegacyTerminal, but with the terminal registry
   //      enabled that component never mounts, so the event was dropped and
   //      "Connect" did nothing. Route it to the targeted PTY here instead.
-  const handleSshConnect = (
-    e: CustomEvent<{
-      command: string;
-      targetTabId: string | null;
-      metadata: { host: string; user: string | null; password: string | null };
-    }>,
-  ) => {
+  const handleSshConnect = (e: CustomEvent<SshConnectEventDetail>) => {
     if (!ptyTabId) return;
+    const acceptedPtyId = ptyTabId;
     // Match the resolved target against BOTH ids (see workflow handler). A
     // null target (older callers) falls through so a single terminal still
     // responds.
     const { targetTabId } = e.detail;
-    if (targetTabId != null && targetTabId !== ptyTabId && targetTabId !== terminalId) {
+    if (targetTabId != null && targetTabId !== acceptedPtyId && targetTabId !== terminalId) {
       return;
     }
 
-    const { command, metadata } = e.detail;
+    const { command, connection, credentials } = e.detail;
+    useTerminalConnectionStore.getState().bind({
+      terminalId,
+      backendPtyId: acceptedPtyId,
+      connectionId: connection.id,
+      displayName: connection.display_name,
+      vendor: connection.vendor,
+      platform: connection.platform,
+      accentColor: connection.accent_color,
+      syntaxHighlightingEnabled: connection.syntax_highlighting_enabled,
+      syntaxProfile: connection.syntax_profile,
+      sshCommand: command,
+      lifecycle: 'connecting',
+    });
     // Store the password so the output-scanner (case 'output' above) can
     // auto-fill it when the switch prompts. Keyed by ptyTabId.
-    if (metadata.host && metadata.password) {
+    useSshPasswordStore.getState().clearPasswordContext(acceptedPtyId);
+    if (credentials.host && credentials.password) {
       useSshPasswordStore
         .getState()
-        .setPasswordContext(ptyTabId, metadata.host, metadata.user, metadata.password);
+        .setPasswordContext(acceptedPtyId, credentials.host, credentials.user, credentials.password);
     }
 
-    ptyWrite(ptyTabId, new TextEncoder().encode(command + '\n')).catch((err) => {
+    ptyWrite(acceptedPtyId, new TextEncoder().encode(command + '\n')).catch((err) => {
       console.error('[terminalRegistry] Failed to execute SSH command:', err);
+      useSshPasswordStore.getState().clearPasswordContext(acceptedPtyId);
+      useTerminalConnectionStore.getState().setLifecycle(terminalId, 'error', {
+        error: String(err),
+      });
     });
   };
 
@@ -535,6 +599,11 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
 }
 
 export function __resetForTest(): void {
+  for (const entry of registry.values()) {
+    entry._connectionUnsubscribe?.();
+    entry.syntaxHighlighter.dispose();
+  }
   registry.clear();
+  useTerminalConnectionStore.setState({ byTerminalId: {}, terminalIdByBackendPtyId: {} });
   currentAppearance = createDefaultAppearanceSettings();
 }

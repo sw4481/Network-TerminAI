@@ -8,7 +8,7 @@ import {
 } from "../lib/resolveTabConnection";
 import { useSshPasswordStore } from "../state/sshPasswordStore";
 import { useTabs } from "../state/tabsStore";
-import type { Tab } from "../lib/types";
+import { PARSER_DEVICE_PROFILES } from "../lib/deviceProfiles";
 import { PasswordPromptModal } from "./PasswordPromptModal";
 import { StructuredTab } from "./StructuredTab";
 import { StructuredDiff } from "./StructuredDiff";
@@ -16,20 +16,7 @@ import { SnapshotPinDialog } from "./SnapshotPinDialog";
 import { toCsv, toJson, toMarkdownTable, downloadFile, copyToClipboard } from "../lib/export";
 import "./RunStructuredModal.css";
 
-/**
- * Device types the sidecar parser supports. Duplicated from
- * ChangeWindowPanel.tsx's DEVICE_TYPES (5 entries) rather than shared, since
- * introducing a shared-constants module for one small list is unwarranted
- * until a third consumer needs it. `vendor` is typed against `Tab["vendor"]`
- * (not a bare `string`) so `setTabVendor` below needs no cast.
- */
-const DEVICE_TYPES: { label: string; vendor: NonNullable<Tab["vendor"]>; platform: string }[] = [
-  { label: "Cisco IOS-XE", vendor: "cisco", platform: "iosxe" },
-  { label: "Cisco IOS", vendor: "cisco", platform: "ios" },
-  { label: "Cisco NX-OS", vendor: "cisco", platform: "nxos" },
-  { label: "Juniper Junos", vendor: "juniper", platform: "junos" },
-  { label: "Arista EOS", vendor: "arista", platform: "eos" },
-];
+const DEVICE_TYPES = PARSER_DEVICE_PROFILES;
 
 type Stage = "input" | "running" | "result" | "error";
 

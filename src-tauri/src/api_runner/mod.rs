@@ -13,10 +13,13 @@ pub mod executor;
 pub mod history;
 pub mod manifest;
 pub mod openapi;
+pub mod postman;
 pub mod resolver;
 pub mod types;
 
-pub use auth_state::{AuthCacheKey, AuthStateStore, DisabledHookRunner, HookRunner, SidecarHookRunner};
+pub use auth_state::{
+    AuthCacheKey, AuthStateStore, DisabledHookRunner, HookRunner, SidecarHookRunner,
+};
 pub use executor::execute_request;
 pub use manifest::{Endpoint, TargetManifest, TargetSummary};
 pub use types::{ApiAuth, ApiRequest, ApiResponse, BodyKind};

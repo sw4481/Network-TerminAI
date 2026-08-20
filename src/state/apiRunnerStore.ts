@@ -272,6 +272,7 @@ export function applySavedRequestToState(
 ): ApiTabState {
   const headers = recordToPairs(safeParseRecord(saved.headers_json));
   const query = recordToPairs(safeParseRecord(saved.query_json));
+  const auth = safeParseAuth(saved.auth_json);
   return {
     ...current,
     method: saved.method as HttpMethod,
@@ -280,9 +281,23 @@ export function applySavedRequestToState(
     query,
     body_kind: (saved.body_kind as BodyKind) ?? "none",
     body_text: saved.body_text ?? "",
+    auth,
     response: null,
     last_error: null,
   };
+}
+
+function safeParseAuth(raw: string | null | undefined): ApiAuth {
+  if (!raw) return { type: "none" };
+  try {
+    const value = JSON.parse(raw) as ApiAuth;
+    if (value && typeof value === "object" && typeof value.type === "string") {
+      return value;
+    }
+  } catch {
+    // Imported/auth metadata must never prevent loading the raw request.
+  }
+  return { type: "none" };
 }
 
 /**
@@ -368,5 +383,5 @@ export function isSendable(s: ApiTabState): boolean {
   if (s.sending) return false;
   const u = s.url.trim();
   if (!u) return false;
-  return /^https?:\/\//i.test(u);
+  return /^(?:https?:\/\/|\$\{env:[A-Za-z0-9_-]+\}(?:[/:?#]|$))/i.test(u);
 }

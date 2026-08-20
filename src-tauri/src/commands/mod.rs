@@ -1739,6 +1739,31 @@ pub fn api_delete_saved_request(state: State<'_, AppState>, id: String) -> Resul
     crate::api_runner::history::delete_saved_request(&db, &id).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn api_preview_postman_import(
+    source_path: String,
+) -> Result<crate::api_runner::postman::PostmanImportPreview, String> {
+    crate::api_runner::postman::preview_file(std::path::Path::new(&source_path))
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn api_commit_postman_import(
+    state: State<'_, AppState>,
+    source_path: String,
+    fingerprint: String,
+) -> Result<crate::api_runner::postman::PostmanImportResult, String> {
+    let environments_dir = crate::config::api_environments_dir().map_err(|error| error.to_string())?;
+    let mut database = state.db.lock();
+    crate::api_runner::postman::commit_file(
+        &mut database,
+        &environments_dir,
+        std::path::Path::new(&source_path),
+        &fingerprint,
+    )
+    .map_err(|error| error.to_string())
+}
+
 // ---- Step 6: pipe-to-terminal + pipe-to-AI ------------------------------
 
 /// Send bytes to a terminal tab's PTY stdin.

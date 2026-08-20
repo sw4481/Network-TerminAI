@@ -4,6 +4,11 @@ import { WorkflowRunner } from "./WorkflowRunner";
 import { useWorkflowsStore } from "../state/workflowsStore";
 import type { Workflow } from "../lib/workflows";
 
+const runWorkflowOnTerminalMock = vi.fn();
+vi.mock("../lib/workflowDispatcher", () => ({
+  runWorkflowOnTerminal: (...args: unknown[]) => runWorkflowOnTerminalMock(...args),
+}));
+
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: unknown[]) => invokeMock(...a),
@@ -75,14 +80,19 @@ beforeEach(() => {
   invokeMock.mockReset();
   setInvokeRouting();
   useWorkflowsStore.setState({ workflows: [], loading: false, error: null });
+  runWorkflowOnTerminalMock.mockReset();
+  runWorkflowOnTerminalMock.mockResolvedValue({
+    run_id: "run-id",
+    workflow_name: "workflow",
+    commands: [],
+  });
 });
 
 describe("WorkflowRunner", () => {
-  it("@smoke runs single-step no-param workflow immediately via onInjectCommand", async () => {
+  it("@smoke runs a single-step no-param workflow against the focused terminal", async () => {
     // Picker calls loadFor() on mount -> workflow_list. Route it to return
     // the seed workflow so the store ends up populated after the effect.
     setInvokeRouting({ workflow_list: [[noParamSingle]] });
-    const onInjectCommand = vi.fn();
     const onClose = vi.fn();
     render(
       <WorkflowRunner
@@ -90,16 +100,16 @@ describe("WorkflowRunner", () => {
         vendor="cisco"
         platform="iosxe"
         tabId="t1"
-        onInjectCommand={onInjectCommand}
-        onDispatchGroup={vi.fn(async () => {})}
         onClose={onClose}
       />,
     );
     // Wait until the picker actually renders the row (post-loadFor effect).
     await waitFor(() => screen.getByText("Show version"));
     fireEvent.keyDown(window, { key: "Enter" });
-    expect(onInjectCommand).toHaveBeenCalledWith("show version");
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(runWorkflowOnTerminalMock).toHaveBeenCalledWith(noParamSingle, "t1", {}),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("opens param form for single-step workflow with params; submits dispatches via workflow_run", async () => {
@@ -114,15 +124,12 @@ describe("WorkflowRunner", () => {
       ],
       workflow_run_complete: [undefined],
     });
-    const onInjectCommand = vi.fn();
     render(
       <WorkflowRunner
         open
         vendor="cisco"
         platform="iosxe"
         tabId="t1"
-        onInjectCommand={onInjectCommand}
-        onDispatchGroup={vi.fn(async () => {})}
         onClose={vi.fn()}
       />,
     );
@@ -133,8 +140,11 @@ describe("WorkflowRunner", () => {
       target: { value: "Gi0/0" },
     });
     fireEvent.click(screen.getByRole("button", { name: /run workflow/i }));
-    await waitFor(() => expect(onInjectCommand).toHaveBeenCalled());
-    expect(onInjectCommand).toHaveBeenCalledWith("show interface Gi0/0");
+    await waitFor(() =>
+      expect(runWorkflowOnTerminalMock).toHaveBeenCalledWith(paramSingle, "t1", {
+        intf: "Gi0/0",
+      }),
+    );
   });
 
   it("dispatches multi-step no-param workflow as a group", async () => {
@@ -149,25 +159,19 @@ describe("WorkflowRunner", () => {
       ],
       workflow_run_complete: [undefined],
     });
-    const onDispatchGroup = vi.fn(async () => {});
     render(
       <WorkflowRunner
         open
         vendor="cisco"
         platform="iosxe"
         tabId="t1"
-        onInjectCommand={vi.fn()}
-        onDispatchGroup={onDispatchGroup}
         onClose={vi.fn()}
       />,
     );
     await waitFor(() => screen.getByText("Show two"));
     fireEvent.keyDown(window, { key: "Enter" });
-    await waitFor(() => expect(onDispatchGroup).toHaveBeenCalled());
-    expect(onDispatchGroup).toHaveBeenCalledWith(
-      "r2",
-      "Show two",
-      ["show ver", "show ip int br"],
+    await waitFor(() =>
+      expect(runWorkflowOnTerminalMock).toHaveBeenCalledWith(noParamMulti, "t1", {}),
     );
   });
 
@@ -179,8 +183,6 @@ describe("WorkflowRunner", () => {
         vendor="cisco"
         platform="iosxe"
         tabId="t1"
-        onInjectCommand={vi.fn()}
-        onDispatchGroup={vi.fn(async () => {})}
         onClose={vi.fn()}
       />,
     );
@@ -202,11 +204,28 @@ describe("WorkflowRunner", () => {
         vendor="cisco"
         platform="iosxe"
         tabId="t1"
-        onInjectCommand={vi.fn()}
-        onDispatchGroup={vi.fn(async () => {})}
         onClose={vi.fn()}
       />,
     );
     expect(container.firstChild).toBeNull();
+  });
+
+  it("surfaces a terminal write failure and keeps the picker open", async () => {
+    setInvokeRouting({ workflow_list: [[noParamSingle]] });
+    runWorkflowOnTerminalMock.mockRejectedValueOnce(new Error("PTY write failed"));
+    const onClose = vi.fn();
+    render(
+      <WorkflowRunner
+        open
+        vendor="cisco"
+        platform="iosxe"
+        tabId="t1"
+        onClose={onClose}
+      />,
+    );
+    await waitFor(() => screen.getByText("Show version"));
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(await screen.findByRole("alert")).toHaveTextContent("PTY write failed");
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

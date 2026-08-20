@@ -11,6 +11,7 @@ export interface WorkflowPickerProps {
   platform: string;
   onSelect: (wf: Workflow, editParamsFirst: boolean) => void;
   onClose: () => void;
+  initialAllVendors?: boolean;
 }
 
 export function WorkflowPicker({
@@ -18,11 +19,12 @@ export function WorkflowPicker({
   platform,
   onSelect,
   onClose,
+  initialAllVendors = false,
 }: WorkflowPickerProps) {
   const { workflows, loadFor } = useWorkflowsStore();
   const [query, setQuery] = useState("");
   const [highlight, setHighlight] = useState(0);
-  const [allVendors, setAllVendors] = useState(false);
+  const [allVendors, setAllVendors] = useState(initialAllVendors);
   const [editorOpen, setEditorOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);

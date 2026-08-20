@@ -60,6 +60,11 @@ pub struct SavedRequestRow {
     pub query_json: String,
     pub body_kind: String,
     pub body_text: Option<String>,
+    pub collection_id: Option<String>,
+    pub folder_path: String,
+    pub display_name: String,
+    pub auth_json: String,
+    pub collection_name: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -73,16 +78,17 @@ pub fn validate_saved_name(name: &str) -> Result<()> {
         return Err(anyhow!("saved request name is empty"));
     }
     if trimmed.len() > 128 {
-        return Err(anyhow!("saved request name too long ({} > 128)", trimmed.len()));
+        return Err(anyhow!(
+            "saved request name too long ({} > 128)",
+            trimmed.len()
+        ));
     }
     for c in trimmed.chars() {
-        let ok = c.is_ascii_alphanumeric()
-            || c == '-'
-            || c == '_'
-            || c == ' '
-            || c == '.';
+        let ok = c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == ' ' || c == '.';
         if !ok {
-            return Err(anyhow!("saved request name contains invalid character: {c:?}"));
+            return Err(anyhow!(
+                "saved request name contains invalid character: {c:?}"
+            ));
         }
     }
     Ok(())
@@ -140,8 +146,7 @@ pub fn list_history(conn: &Connection, f: &HistoryFilter) -> Result<Vec<HistoryR
     }
     params_vec.push(Box::new(f.limit as i64));
     params_vec.push(Box::new(f.offset as i64));
-    let params_refs: Vec<&dyn rusqlite::ToSql> =
-        params_vec.iter().map(|b| b.as_ref()).collect();
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|b| b.as_ref()).collect();
 
     let rows = stmt
         .query_map(params_refs.as_slice(), |r| {
@@ -234,8 +239,9 @@ pub fn save_request(conn: &Connection, r: NewSavedRequest) -> Result<SavedReques
     conn.execute(
         "INSERT INTO api_saved_requests (id, name, target_id, environment, \
                                           method, url, headers_json, query_json, \
-                                          body_kind, body_text, created_at, updated_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'), strftime('%s','now')) \
+                                          body_kind, body_text, collection_id, folder_path, \
+                                          display_name, auth_json, created_at, updated_at) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, '', ?, '{\"type\":\"none\"}', strftime('%s','now'), strftime('%s','now')) \
          ON CONFLICT(id) DO UPDATE SET \
              name = excluded.name, \
              target_id = excluded.target_id, \
@@ -246,6 +252,10 @@ pub fn save_request(conn: &Connection, r: NewSavedRequest) -> Result<SavedReques
              query_json = excluded.query_json, \
              body_kind = excluded.body_kind, \
              body_text = excluded.body_text, \
+             collection_id = NULL, \
+             folder_path = '', \
+             display_name = excluded.display_name, \
+             auth_json = '{\"type\":\"none\"}', \
              updated_at = strftime('%s','now')",
         params![
             id,
@@ -258,6 +268,7 @@ pub fn save_request(conn: &Connection, r: NewSavedRequest) -> Result<SavedReques
             r.query_json,
             r.body_kind,
             r.body_text,
+            name,
         ],
     )
     .context("upsert saved_request")?;
@@ -270,8 +281,10 @@ pub fn list_saved_requests(conn: &Connection) -> Result<Vec<SavedRequestRow>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, target_id, environment, method, url, \
                 headers_json, query_json, body_kind, body_text, \
+                collection_id, folder_path, display_name, auth_json, \
+                (SELECT name FROM api_request_collections c WHERE c.id = api_saved_requests.collection_id), \
                 created_at, updated_at \
-         FROM api_saved_requests ORDER BY name COLLATE NOCASE",
+         FROM api_saved_requests ORDER BY collection_id IS NOT NULL, name COLLATE NOCASE",
     )?;
     let rows = stmt
         .query_map([], |r| {
@@ -286,8 +299,13 @@ pub fn list_saved_requests(conn: &Connection) -> Result<Vec<SavedRequestRow>> {
                 query_json: r.get(7)?,
                 body_kind: r.get(8)?,
                 body_text: r.get(9)?,
-                created_at: r.get(10)?,
-                updated_at: r.get(11)?,
+                collection_id: r.get(10)?,
+                folder_path: r.get(11)?,
+                display_name: r.get(12)?,
+                auth_json: r.get(13)?,
+                collection_name: r.get(14)?,
+                created_at: r.get(15)?,
+                updated_at: r.get(16)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -298,6 +316,8 @@ pub fn get_saved_by_id(conn: &Connection, id: &str) -> Result<Option<SavedReques
     conn.query_row(
         "SELECT id, name, target_id, environment, method, url, \
                 headers_json, query_json, body_kind, body_text, \
+                collection_id, folder_path, display_name, auth_json, \
+                (SELECT name FROM api_request_collections c WHERE c.id = api_saved_requests.collection_id), \
                 created_at, updated_at \
          FROM api_saved_requests WHERE id = ?",
         params![id],
@@ -313,8 +333,13 @@ pub fn get_saved_by_id(conn: &Connection, id: &str) -> Result<Option<SavedReques
                 query_json: r.get(7)?,
                 body_kind: r.get(8)?,
                 body_text: r.get(9)?,
-                created_at: r.get(10)?,
-                updated_at: r.get(11)?,
+                collection_id: r.get(10)?,
+                folder_path: r.get(11)?,
+                display_name: r.get(12)?,
+                auth_json: r.get(13)?,
+                collection_name: r.get(14)?,
+                created_at: r.get(15)?,
+                updated_at: r.get(16)?,
             })
         },
     )
@@ -326,6 +351,8 @@ pub fn get_saved_by_name(conn: &Connection, name: &str) -> Result<Option<SavedRe
     conn.query_row(
         "SELECT id, name, target_id, environment, method, url, \
                 headers_json, query_json, body_kind, body_text, \
+                collection_id, folder_path, display_name, auth_json, \
+                (SELECT name FROM api_request_collections c WHERE c.id = api_saved_requests.collection_id), \
                 created_at, updated_at \
          FROM api_saved_requests WHERE name = ?",
         params![name],
@@ -341,8 +368,13 @@ pub fn get_saved_by_name(conn: &Connection, name: &str) -> Result<Option<SavedRe
                 query_json: r.get(7)?,
                 body_kind: r.get(8)?,
                 body_text: r.get(9)?,
-                created_at: r.get(10)?,
-                updated_at: r.get(11)?,
+                collection_id: r.get(10)?,
+                folder_path: r.get(11)?,
+                display_name: r.get(12)?,
+                auth_json: r.get(13)?,
+                collection_name: r.get(14)?,
+                created_at: r.get(15)?,
+                updated_at: r.get(16)?,
             })
         },
     )
@@ -361,10 +393,7 @@ pub fn delete_saved_request(conn: &Connection, id: &str) -> Result<()> {
 /// with the given name. Returns `None` if no such row exists yet OR the
 /// last attempt had `status_code = 0` (transport failure — chaining into
 /// a failure is worse than a clear "missing" error).
-pub fn lookup_latest_response_body(
-    conn: &Connection,
-    saved_name: &str,
-) -> Result<Option<Vec<u8>>> {
+pub fn lookup_latest_response_body(conn: &Connection, saved_name: &str) -> Result<Option<Vec<u8>>> {
     let body: Option<Vec<u8>> = conn
         .query_row(
             "SELECT h.response_body \
@@ -388,10 +417,7 @@ mod opt_bytes_as_base64 {
     use base64::{engine::general_purpose::STANDARD, Engine};
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(
-        bytes: &Option<Vec<u8>>,
-        s: S,
-    ) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(bytes: &Option<Vec<u8>>, s: S) -> Result<S::Ok, S::Error> {
         match bytes {
             Some(b) => s.serialize_str(&STANDARD.encode(b)),
             None => s.serialize_none(),

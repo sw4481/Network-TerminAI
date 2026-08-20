@@ -13,6 +13,8 @@ import {
   workflowDelete,
   workflowRun,
   workflowRunComplete,
+  globalCommandBarGet,
+  globalCommandBarSet,
 } from "./workflows";
 
 beforeEach(() => invokeMock.mockReset());
@@ -90,5 +92,20 @@ describe("workflows lib", () => {
     invokeMock.mockResolvedValue(undefined);
     await workflowRunComplete("r1");
     expect(invokeMock).toHaveBeenCalledWith("workflow_run_complete", { runId: "r1" });
+  });
+
+  it("global command bar wrappers use exact Tauri arguments", async () => {
+    invokeMock.mockResolvedValueOnce({ schema_version: 1, workflow_ids: ["wf-1"] });
+    await expect(globalCommandBarGet()).resolves.toEqual({
+      schema_version: 1,
+      workflow_ids: ["wf-1"],
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(1, "global_command_bar_get");
+
+    invokeMock.mockResolvedValueOnce(undefined);
+    await globalCommandBarSet({ schema_version: 1, workflow_ids: ["wf-1"] });
+    expect(invokeMock).toHaveBeenNthCalledWith(2, "global_command_bar_set", {
+      settings: { schema_version: 1, workflow_ids: ["wf-1"] },
+    });
   });
 });

@@ -4,6 +4,7 @@ import type { IntentTemplate } from "../lib/drift";
 import { intentUpdateMatchMode } from "../lib/drift";
 import { SelectorEditor } from "./SelectorEditor";
 import "./IntentEditor.css";
+import { DEVICE_VENDORS, PLATFORMS_BY_VENDOR } from "../lib/deviceProfiles";
 
 const MonacoEditor = lazy(() =>
   import("./editor/MonacoEditor").then((m) => ({ default: m.MonacoEditor })),
@@ -11,19 +12,10 @@ const MonacoEditor = lazy(() =>
 
 type DetailTab = "body" | "vars" | "selector";
 
-const VENDOR_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "cisco", label: "Cisco" },
-  { value: "juniper", label: "Juniper" },
-  { value: "arista", label: "Arista" },
-  { value: "generic", label: "Generic" },
-];
-
-const PLATFORM_OPTIONS: Record<string, string[]> = {
-  cisco: ["iosxe", "nxos", "iosxr", "ios"],
-  juniper: ["junos"],
-  arista: ["eos"],
-  generic: ["generic"],
-};
+const VENDOR_OPTIONS = DEVICE_VENDORS.map((value) => ({
+  value,
+  label: value[0].toUpperCase() + value.slice(1),
+}));
 
 interface Props {
   onClose?: () => void;
@@ -248,7 +240,7 @@ export function IntentEditor({ onClose: _onClose }: Props = {}) {
               </select>
               <label>Platform</label>
               <select value={selected.platform} disabled>
-                {(PLATFORM_OPTIONS[selected.vendor] ?? ["generic"]).map((p) => (
+                {(PLATFORMS_BY_VENDOR[selected.vendor as keyof typeof PLATFORMS_BY_VENDOR] ?? ["generic"]).map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -349,4 +341,3 @@ function monacoLanguageForVendor(vendor: string): string {
       return "plaintext";
   }
 }
-

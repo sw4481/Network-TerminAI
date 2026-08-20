@@ -21,7 +21,7 @@
  * additive — every existing behaviour from Phase 4 still works.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { sshDecryptPassword, sshListConnections, type SshConnection } from "../../lib/sshConnections";
 import { useTroubleshootStore } from "./store";
 import {
   troubleshootApi,
@@ -31,15 +31,6 @@ import {
 } from "./api";
 import { PasswordPromptModal } from "../../components/PasswordPromptModal";
 import "./PlaybookPicker.css";
-
-interface SshConnection {
-  id: string;
-  name: string;
-  host: string;
-  user: string | null;
-  port: number | null;
-  password_encrypted: string | null;
-}
 
 type TargetDevice = {
   type: "current-tab";
@@ -144,7 +135,7 @@ export function PlaybookPicker({
   useEffect(() => {
     (async () => {
       try {
-        const ssh = await invoke<SshConnection[]>("ssh_list_connections");
+        const ssh = await sshListConnections();
         setSshConnections(ssh);
       } catch (e) {
         console.error("Failed to load SSH connections:", e);
@@ -303,9 +294,7 @@ export function PlaybookPicker({
     if (conn?.password_encrypted) {
       let password: string | undefined;
       try {
-        const pwd = await invoke<string | null>("ssh_decrypt_password", {
-          encrypted: conn.password_encrypted,
-        });
+        const pwd = await sshDecryptPassword(conn.password_encrypted);
         if (pwd) password = pwd;
       } catch (e) {
         console.warn("Could not decrypt saved password:", e);

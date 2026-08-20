@@ -21,6 +21,7 @@ vi.mock("../state/blocksStore", () => ({ useBlocksStore: () => ({ addBlock: vi.f
 vi.mock("../state/sshPasswordStore", () => ({ useSshPasswordStore: (selector: (state: { getPasswordContext: () => null; clearPasswordContext: () => void }) => unknown) => selector({ getPasswordContext: () => null, clearPasswordContext: vi.fn() }) }));
 
 import { usePty } from "./usePty";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 
 function installXterm() {
   const terminals: Array<{ options: Record<string, unknown>; refresh: ReturnType<typeof vi.fn>; cols: number; rows: number }> = [];
@@ -32,7 +33,17 @@ function installXterm() {
     loadedAddons: any[] = [];
     open = vi.fn();
     loadAddon = vi.fn((addon: any) => this.loadedAddons.push(addon));
-    write = vi.fn();
+    buffer = {
+      active: {
+        baseY: 0,
+        viewportY: 0,
+        cursorY: 0,
+        getLine: vi.fn(() => ({ translateToString: () => "connected" })),
+      },
+    };
+    registerMarker = vi.fn(() => ({ dispose: vi.fn(), onDispose: vi.fn() }));
+    registerDecoration = vi.fn(() => ({ dispose: vi.fn(), onRender: vi.fn() }));
+    write = vi.fn((_data: unknown, callback?: () => void) => callback?.());
     dispose = vi.fn(() => this.loadedAddons.forEach((addon) => addon.dispose?.()));
     refresh = vi.fn(); onData = vi.fn(() => ({ dispose: vi.fn() }));
     onResize = vi.fn(() => ({ dispose: vi.fn() })); attachCustomKeyEventHandler = vi.fn(); getSelection = vi.fn(() => "");
@@ -68,6 +79,7 @@ describe("usePty legacy appearance updates", () => {
     ptySpawn.mockClear();
     ptyResize.mockClear();
     ptyWrite.mockClear();
+    useTerminalConnectionStore.setState({ byTerminalId: {}, terminalIdByBackendPtyId: {} });
   });
 
   it("updates the same legacy xterm and PTY when appearance settings change", async () => {
@@ -125,5 +137,42 @@ describe("usePty legacy appearance updates", () => {
     expect(ptyWrite.mock.calls[0][0]).toBe('legacy-pty');
     expect(new TextDecoder().decode(ptyWrite.mock.calls[0][1])).toBe('show clock');
     platform.mockRestore();
+  });
+
+  it("wires output and alternate-screen events through the presentation highlighter", async () => {
+    const terminals = installXterm();
+    render(<Harness />);
+    await waitFor(() => expect(ptySpawn).toHaveBeenCalledTimes(1));
+    const terminal = terminals[0] as any;
+    useTerminalConnectionStore.getState().bind({
+      terminalId: "legacy-pty",
+      backendPtyId: "legacy-pty",
+      connectionId: "connection-1",
+      displayName: "Core",
+      vendor: "cisco",
+      platform: "iosxe",
+      accentColor: null,
+      syntaxHighlightingEnabled: true,
+      syntaxProfile: "auto",
+      sshCommand: "ssh core",
+    });
+    terminal.registerDecoration.mockClear();
+    const onEvent = ptySpawn.mock.calls[0][0].onEvent as (event: unknown) => void;
+    const bytes = Array.from(new TextEncoder().encode("connected"));
+
+    onEvent({ type: "output", bytes });
+    expect(terminal.registerDecoration).toHaveBeenCalled();
+    onEvent({ type: "enter_alt_screen" });
+    terminal.registerDecoration.mockClear();
+    onEvent({ type: "output", bytes });
+    expect(terminal.registerDecoration).not.toHaveBeenCalled();
+    onEvent({ type: "exit_alt_screen" });
+    onEvent({ type: "output", bytes });
+    expect(terminal.registerDecoration).toHaveBeenCalled();
+
+    onEvent({ type: "command_start", cmd: "ssh core" });
+    expect(useTerminalConnectionStore.getState().get("legacy-pty")?.lifecycle).toBe("connected");
+    onEvent({ type: "command_end", exit_code: 0 });
+    expect(useTerminalConnectionStore.getState().get("legacy-pty")?.lifecycle).toBe("disconnected");
   });
 });

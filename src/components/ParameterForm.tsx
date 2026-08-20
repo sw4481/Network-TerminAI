@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, FormEvent, KeyboardEvent } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { sshSaveConnection } from '../lib/sshConnections';
 import { CommandDefinition } from '../hooks/useParameterDetection';
 import './ParameterForm.css';
 
@@ -76,14 +76,12 @@ export function ParameterForm({ commandDef, onSubmit, onCancel }: ParameterFormP
     }
 
     try {
-      await invoke('ssh_save_connection', {
-        request: {
-          name: saveName.trim(),
-          host: values.host || '',
-          user: values.user || null,
-          port: values.port ? parseInt(values.port) : null,
-          identity_file: values.identity || null,
-        }
+      await sshSaveConnection({
+        name: saveName.trim(),
+        host: values.host || '',
+        user: values.user || null,
+        port: values.port ? parseInt(values.port) : null,
+        identity_file: values.identity || null,
       });
       setShowSaveDialog(false);
       setSaveName('');

@@ -7,6 +7,7 @@ import { SearchBar } from "./components/SearchBar";
 import { Settings } from "./windows/Settings";
 import { CommandPalette } from "./components/CommandPalette";
 import { WorkflowRunner } from "./components/WorkflowRunner";
+import { GlobalCommandBar } from "./components/GlobalCommandBar";
 import { NotebookLibrary } from "./components/notebooks/NotebookLibrary";
 import { NotebookPanel } from "./components/notebooks/NotebookPanel";
 import { getRunnableNotebook } from "./lib/runnableNotebook";
@@ -63,6 +64,7 @@ import { useKeyboardShortcut } from "./hooks/useKeyboardShortcut";
 import { usePaneSplit } from "./hooks/usePaneSplit";
 import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
 import { tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet } from "./lib/tauri";
+import { buildSshCommand } from "./lib/sshConnections";
 import { AgentNotifier } from "./lib/agentNotifications";
 import "./App.css";
 
@@ -1188,6 +1190,7 @@ export default function App() {
   const workspaceStyle: React.CSSProperties = {
     gridTemplateColumns: `1fr 6px ${effectiveAgentWidth}px`,
   };
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
   return (
     <div className="shell">
@@ -1208,6 +1211,14 @@ export default function App() {
         <ErrorBoundary componentName="Terminal">
           <Suspense fallback={<div style={{ padding: "20px", color: "var(--text-muted)" }}>Loading terminal...</div>}>
             <div className="term-col">
+              {activeTab?.tab_type === "terminal" && activeTabId && (
+                <GlobalCommandBar
+                  tabId={activeTabId}
+                  vendor={activeTab.vendor ?? "generic"}
+                  platform={activeTab.platform ?? "generic"}
+                />
+              )}
+              <div className="term-col__content">
               {/* Render active terminal tab */}
               {terminals.map(({ slot, tab, shell, cwd, visible }) => {
                 // Check if this tab should use PaneContainer
@@ -1396,6 +1407,7 @@ export default function App() {
                     <HeartbeatTab />
                   </div>
                 ))}
+              </div>
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -1453,20 +1465,6 @@ export default function App() {
           tabId={activeTabId}
           vendor={tabs.find((t) => t.id === activeTabId)?.vendor ?? "generic"}
           platform={tabs.find((t) => t.id === activeTabId)?.platform ?? "generic"}
-          onInjectCommand={(rendered) => {
-            window.dispatchEvent(
-              new CustomEvent("ccie:workflow-execute", {
-                detail: { tabId: activeTabId, commands: [rendered] },
-              }),
-            );
-          }}
-          onDispatchGroup={async (runId, workflowName, commands) => {
-            window.dispatchEvent(
-              new CustomEvent("ccie:workflow-execute", {
-                detail: { tabId: activeTabId, runId, workflowName, commands },
-              }),
-            );
-          }}
           onClose={() => setWorkflowOpen(false)}
         />
       )}
@@ -1502,12 +1500,7 @@ export default function App() {
       {sshModalOpen && (
         <SavedSSHConnectionsModal
           onConnect={(connection, password) => {
-            // Build SSH command
-            let cmd = 'ssh';
-            if (connection.port && connection.port !== 22) cmd += ` -p ${connection.port}`;
-            if (connection.identity_file) cmd += ` -i ${connection.identity_file}`;
-            if (connection.user && connection.host) cmd += ` ${connection.user}@${connection.host}`;
-            else if (connection.host) cmd += ` ${connection.host}`;
+            const cmd = buildSshCommand(connection);
 
             // Close modal first
             setSshModalOpen(false);
@@ -1526,7 +1519,16 @@ export default function App() {
               detail: {
                 command: cmd,
                 targetTabId,
-                metadata: {
+                connection: {
+                  id: connection.id,
+                  display_name: connection.name,
+                  vendor: connection.vendor,
+                  platform: connection.platform,
+                  accent_color: connection.accent_color,
+                  syntax_highlighting_enabled: connection.syntax_highlighting_enabled,
+                  syntax_profile: connection.syntax_profile,
+                },
+                credentials: {
                   host: connection.host,
                   user: connection.user,
                   password: password,

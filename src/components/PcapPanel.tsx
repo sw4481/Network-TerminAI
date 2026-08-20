@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import './PcapBlock.css';
 import './PcapPanel.css';
 import {
@@ -11,16 +10,7 @@ import {
 import { PcapTemplateLibrary } from './PcapTemplateLibrary';
 import { PcapQuickCaptureWizard } from './PcapQuickCaptureWizard';
 import { PcapBlock } from './PcapBlock';
-
-interface SshConnection {
-  id: string;
-  name: string;
-  host: string;
-  user: string | null;
-  port: number | null;
-  identity_file: string | null;
-  password_encrypted: string | null;
-}
+import { sshDecryptPassword, sshListConnections, type SshConnection } from '../lib/sshConnections';
 
 /**
  * Top-level Captures panel surfaced via the Captures menu (⌘⇧K).
@@ -51,7 +41,7 @@ export function PcapPanel() {
   };
 
   useEffect(() => {
-    invoke<SshConnection[]>('ssh_list_connections')
+    sshListConnections()
       .then(setConnections)
       .catch((e) => setError(String(e)));
     reloadRecent();
@@ -70,9 +60,7 @@ export function PcapPanel() {
         if (!conn) return;
         let saved = '';
         if (conn.password_encrypted) {
-          saved = await invoke<string>('ssh_decrypt_password', {
-            encrypted: conn.password_encrypted,
-          });
+          saved = (await sshDecryptPassword(conn.password_encrypted)) ?? '';
         }
         if (cancelled) return;
         setPassword(saved);

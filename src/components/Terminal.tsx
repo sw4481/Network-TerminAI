@@ -3,6 +3,7 @@ import { usePty, ENABLE_LOCAL_ECHO, ENABLE_TERMINAL_REGISTRY } from "../hooks/us
 import { useAgentsStore } from "../state/agentsStore";
 import { useBlocksStore, type Block } from "../state/blocksStore";
 import { useSshPasswordStore } from "../state/sshPasswordStore";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import { useTopologyStore } from "../state/topologyStore";
 import { useTabs } from "../state/tabsStore";
 import { usePanesStore } from "../state/panesStore";
@@ -27,6 +28,7 @@ import {
   pasteClipboardToTerminal,
 } from "../lib/terminalClipboard";
 import { chooseAndExportTerminalScrollback } from "../lib/terminalExport";
+import type { SshConnectEventDetail } from "../lib/sshConnections";
 
 type TerminalProps = {
   shell: string;
@@ -746,15 +748,31 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
 
   // Listen for SSH connection requests from saved connections modal
   useEffect(() => {
-    const handleSSHConnect = (e: CustomEvent<{ command: string; metadata: { host: string; user: string | null; password: string | null } }>) => {
+    const handleSSHConnect = (e: CustomEvent<SshConnectEventDetail>) => {
       if (!handle) return;
+      if (e.detail.targetTabId != null && e.detail.targetTabId !== handle.tabId) return;
 
-      const { command, metadata } = e.detail;
+      const { command, connection, credentials } = e.detail;
+
+      useTerminalConnectionStore.getState().bind({
+        terminalId: handle.tabId,
+        backendPtyId: handle.tabId,
+        connectionId: connection.id,
+        displayName: connection.display_name,
+        vendor: connection.vendor,
+        platform: connection.platform,
+        accentColor: connection.accent_color,
+        syntaxHighlightingEnabled: connection.syntax_highlighting_enabled,
+        syntaxProfile: connection.syntax_profile,
+        sshCommand: command,
+        lifecycle: 'connecting',
+      });
 
       // Store password context for auto-fill if provided
-      if (metadata.host && metadata.password) {
+      useSshPasswordStore.getState().clearPasswordContext(handle.tabId);
+      if (credentials.host && credentials.password) {
         console.log('[Terminal] Storing SSH password context for saved connection');
-        setPasswordContext(handle.tabId, metadata.host, metadata.user, metadata.password);
+        setPasswordContext(handle.tabId, credentials.host, credentials.user, credentials.password);
       }
 
       // Mark as SSH session
@@ -766,6 +784,10 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       const cmdBytes = encoder.encode(command + '\n');
       ptyWrite(handle.tabId, cmdBytes).catch((err) => {
         console.error('[Terminal] Failed to execute SSH command:', err);
+        useSshPasswordStore.getState().clearPasswordContext(handle.tabId);
+        useTerminalConnectionStore.getState().setLifecycle(handle.tabId, 'error', {
+          error: String(err),
+        });
       });
     };
 

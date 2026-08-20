@@ -1,20 +1,12 @@
-import { invoke } from '@tauri-apps/api/core';
-
-/** Saved SSH connection shape (mirrors the `ssh_list_connections` command). */
-export interface SshConnection {
-  id: string;
-  name: string;
-  host: string;
-  user: string | null;
-  port: number | null;
-  identity_file: string | null;
-  password_encrypted: string | null;
-  created_at: number;
-  last_used_at: number | null;
-}
+import {
+  sshDecryptPassword,
+  sshListConnections,
+  type SshConnection,
+} from './sshConnections';
+export type { SshConnection } from './sshConnections';
 
 export async function listSshConnections(): Promise<SshConnection[]> {
-  return invoke<SshConnection[]>('ssh_list_connections');
+  return sshListConnections();
 }
 
 /**
@@ -53,9 +45,7 @@ export async function resolveSshPassword(
   }
   if (conn?.password_encrypted) {
     try {
-      const pwd = await invoke<string | null>('ssh_decrypt_password', {
-        encrypted: conn.password_encrypted,
-      });
+      const pwd = await sshDecryptPassword(conn.password_encrypted);
       if (pwd) return pwd;
     } catch (e) {
       console.warn('Could not decrypt saved password:', e);

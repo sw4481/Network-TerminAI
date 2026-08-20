@@ -298,7 +298,11 @@ export function ApiTab({ tab }: { tab: Tab }) {
         <SavedRequestsPanel
           tabId={tab.id}
           refreshKey={savedRefreshKey}
-          onLoad={() => setDrawer("closed")}
+          onImportStart={() => setImportStatus(null)}
+          onLoad={(row) => {
+            setEnvironment(row.environment ?? NO_ENVIRONMENT);
+            setDrawer("closed");
+          }}
         />
       )}
       {credentialsOpen && environment && (

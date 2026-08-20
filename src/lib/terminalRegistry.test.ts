@@ -30,7 +30,17 @@ function installFakeXterm() {
     refresh = vi.fn();
     focus = vi.fn();
     dispose = vi.fn(() => this.loadedAddons.forEach((addon) => addon.dispose?.()));
-    write = vi.fn();
+    buffer = {
+      active: {
+        baseY: 0,
+        viewportY: 0,
+        cursorY: 0,
+        getLine: vi.fn(() => ({ translateToString: () => 'connected' })),
+      },
+    };
+    registerMarker = vi.fn(() => ({ dispose: vi.fn(), onDispose: vi.fn() }));
+    registerDecoration = vi.fn(() => ({ dispose: vi.fn(), onRender: vi.fn() }));
+    write = vi.fn((_data: unknown, callback?: () => void) => callback?.());
     attachCustomKeyEventHandler = vi.fn();
     getSelection = vi.fn(() => '');
     options: Record<string, unknown> = {};
@@ -238,6 +248,63 @@ describe('terminalRegistry session wiring', () => {
     const onEvent = ptySpawn.mock.calls[0][0].onEvent as (ev: any) => void;
     onEvent({ type: 'output', bytes: Array.from(new TextEncoder().encode('hello')) });
     expect(e.xterm.write).toHaveBeenCalled();
+  });
+
+  it('wires syntax decoration and alternate-screen events without changing output bytes', async () => {
+    const e = reg.getOrCreate('t-syntax', OPTS);
+    await Promise.resolve();
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 't-syntax',
+      backendPtyId: 'pty-1',
+      connectionId: 'connection-1',
+      displayName: 'Core',
+      vendor: 'cisco',
+      platform: 'iosxe',
+      accentColor: null,
+      syntaxHighlightingEnabled: true,
+      syntaxProfile: 'auto',
+      sshCommand: 'ssh core',
+    });
+    e.xterm.registerDecoration.mockClear();
+    const onEvent = ptySpawn.mock.calls[0][0].onEvent as (ev: any) => void;
+    const bytes = Array.from(new TextEncoder().encode('connected'));
+
+    onEvent({ type: 'output', bytes });
+    expect(e.xterm.write.mock.calls.at(-1)?.[0]).toEqual(new Uint8Array(bytes));
+    expect(e.xterm.registerDecoration).toHaveBeenCalled();
+
+    onEvent({ type: 'enter_alt_screen' });
+    e.xterm.registerDecoration.mockClear();
+    onEvent({ type: 'output', bytes });
+    expect(e.xterm.registerDecoration).not.toHaveBeenCalled();
+    onEvent({ type: 'exit_alt_screen' });
+    onEvent({ type: 'output', bytes });
+    expect(e.xterm.registerDecoration).toHaveBeenCalled();
+  });
+
+  it('tracks saved SSH lifecycle from matching command events, not disconnect text', async () => {
+    reg.getOrCreate('t-lifecycle', OPTS);
+    await Promise.resolve();
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 't-lifecycle', backendPtyId: 'pty-1', connectionId: 'connection-1',
+      displayName: 'Core', vendor: 'cisco', platform: 'iosxe', accentColor: null,
+      syntaxHighlightingEnabled: false, syntaxProfile: 'auto',
+      sshCommand: 'ssh admin@core',
+    });
+    const onEvent = ptySpawn.mock.calls[0][0].onEvent as (ev: any) => void;
+    onEvent({ type: 'command_start', cmd: 'ssh admin@core' });
+    expect(useTerminalConnectionStore.getState().get('t-lifecycle')?.lifecycle).toBe('connected');
+    onEvent({
+      type: 'output',
+      bytes: Array.from(new TextEncoder().encode('Connection to core closed')),
+    });
+    expect(useTerminalConnectionStore.getState().get('t-lifecycle')?.lifecycle).toBe('connected');
+    onEvent({ type: 'command_end', exit_code: 255 });
+    expect(useTerminalConnectionStore.getState().get('t-lifecycle')).toMatchObject({
+      lifecycle: 'disconnected', exit_status: 255,
+    });
   });
 
   it('exit event disposes the terminal', async () => {

@@ -1,7 +1,7 @@
 import yaml from "js-yaml";
 import type { Workflow, ParamType, Vendor } from "./workflows";
+import { DEVICE_VENDORS } from "./deviceProfiles";
 
-const VENDORS: Vendor[] = ["cisco", "juniper", "arista", "meraki", "generic"];
 const PARAM_TYPES: ParamType[] = [
   "string",
   "enum",
@@ -46,7 +46,7 @@ export function yamlToWorkflow(src: string): Workflow {
     throw new Error(`unknown schema (expected ${SCHEMA})`);
   }
   const vendor = String(doc.vendor);
-  if (!VENDORS.includes(vendor as Vendor)) {
+  if (!(DEVICE_VENDORS as readonly string[]).includes(vendor)) {
     throw new Error(`invalid vendor: ${vendor}`);
   }
   const rawSteps = (doc.steps as unknown[]) || [];

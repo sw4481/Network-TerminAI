@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { sshDecryptPassword, sshListConnections, type SshConnection } from "../../lib/sshConnections";
 import {
   type CellStatus,
   type NotebookCell,
@@ -18,15 +19,6 @@ import "./NotebookPanel.css";
 interface Props {
   notebook: RunnableNotebookDto;
   tabId: string;
-}
-
-interface SshConnection {
-  id: string;
-  name: string;
-  host: string;
-  user: string | null;
-  port: number | null;
-  password_encrypted: string | null;
 }
 
 interface NetconfDevice {
@@ -73,7 +65,7 @@ export function NotebookPanel({ notebook, tabId }: Props) {
     (async () => {
       try {
         const [ssh, nc] = await Promise.all([
-          invoke<SshConnection[]>("ssh_list_connections"),
+          sshListConnections(),
           invoke<NetconfDevice[]>("netconf_device_list"),
         ]);
         setSshConnections(ssh);
@@ -111,9 +103,7 @@ export function NotebookPanel({ notebook, tabId }: Props) {
     if (conn?.password_encrypted) {
       let password: string | undefined;
       try {
-        const pwd = await invoke<string | null>("ssh_decrypt_password", {
-          encrypted: conn.password_encrypted,
-        });
+        const pwd = await sshDecryptPassword(conn.password_encrypted);
         if (pwd) password = pwd;
       } catch (e) {
         console.warn("Could not decrypt saved password:", e);
@@ -161,7 +151,7 @@ export function NotebookPanel({ notebook, tabId }: Props) {
       const conn = sshConnections.find((c) => c.id === connectionId);
       if (conn?.password_encrypted) {
         try {
-          const pwd = await invoke<string | null>("ssh_decrypt_password", { encrypted: conn.password_encrypted });
+          const pwd = await sshDecryptPassword(conn.password_encrypted);
           if (pwd) password = pwd;
         } catch (e) {
           console.warn("Could not decrypt password:", e);

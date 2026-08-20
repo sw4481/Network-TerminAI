@@ -288,6 +288,11 @@ describe("apiRunnerStore", () => {
       query_json: '{"limit":"5"}',
       body_kind: "json",
       body_text: '{"x":1}',
+      collection_id: null,
+      collection_name: null,
+      folder_path: "",
+      display_name: "probe",
+      auth_json: '{"type":"none"}',
       created_at: 0,
       updated_at: 0,
     };
@@ -326,6 +331,15 @@ describe("apiRunnerStore", () => {
       const cur = useApiRunner.getState().tabs.t1;
       const next = applySavedRequestToState(cur, saved);
       expect(next.response).toBeNull();
+    });
+
+    it("restores placeholder-backed imported auth", () => {
+      const cur = useApiRunner.getState().ensure("t1");
+      const next = applySavedRequestToState(cur, {
+        ...saved,
+        auth_json: '{"type":"bearer","token":"${env:API_TOKEN}"}',
+      });
+      expect(next.auth).toEqual({ type: "bearer", token: "${env:API_TOKEN}" });
     });
   });
 
@@ -547,6 +561,7 @@ describe("apiRunnerStore", () => {
       const s = useApiRunner.getState().ensure("t1");
       expect(isSendable({ ...s, url: "https://a.example" })).toBe(true);
       expect(isSendable({ ...s, url: "http://a.example" })).toBe(true);
+      expect(isSendable({ ...s, url: "${env:BASE_URL}/v1/devices" })).toBe(true);
     });
     it("blocks while sending", () => {
       const s = useApiRunner.getState().ensure("t1");

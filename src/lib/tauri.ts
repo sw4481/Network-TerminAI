@@ -780,6 +780,11 @@ export type ApiSavedRequest = {
   query_json: string;
   body_kind: string;
   body_text: string | null;
+  collection_id: string | null;
+  folder_path: string;
+  display_name: string;
+  auth_json: string;
+  collection_name: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -832,6 +837,41 @@ export const apiListSavedRequests = () =>
 
 export const apiDeleteSavedRequest = (id: string) =>
   invoke<void>("api_delete_saved_request", { id });
+
+export type PostmanVariableSummary = {
+  key: string;
+  is_secret: boolean;
+};
+
+export type PostmanSkippedItem = {
+  path: string;
+  reason: string;
+};
+
+export type PostmanImportPreview = {
+  fingerprint: string;
+  collection_name: string;
+  request_count: number;
+  folder_count: number;
+  variable_keys: PostmanVariableSummary[];
+  skipped_items: PostmanSkippedItem[];
+  warnings: string[];
+};
+
+export type PostmanImportResult = {
+  collection_id: string;
+  collection_name: string;
+  environment: string;
+  imported_count: number;
+  skipped_count: number;
+  warnings: string[];
+};
+
+export const apiPreviewPostmanImport = (sourcePath: string) =>
+  invoke<PostmanImportPreview>("api_preview_postman_import", { sourcePath });
+
+export const apiCommitPostmanImport = (sourcePath: string, fingerprint: string) =>
+  invoke<PostmanImportResult>("api_commit_postman_import", { sourcePath, fingerprint });
 
 // ---- Environments + credentials ------------------------------------------
 

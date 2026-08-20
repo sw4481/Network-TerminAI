@@ -1,25 +1,36 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import './SavedSSHConnectionsModal.css';
+import { useEffect, useMemo, useState } from "react";
+import {
+  buildSshCommand,
+  sshCreateFolder,
+  sshDecryptPassword,
+  sshDeleteConnection,
+  sshDeleteFolder,
+  sshListConnections,
+  sshListFolders,
+  sshMarkUsed,
+  sshSaveConnection,
+  sshUpdateConnection,
+  sshUpdateFolder,
+  type SshConnection,
+  type SshFolder,
+} from "../lib/sshConnections";
+import {
+  DEVICE_ACCENT_COLORS,
+  DEVICE_VENDORS,
+  PLATFORMS_BY_VENDOR,
+  SYNTAX_PROFILES,
+  type DeviceAccentColor,
+  type SyntaxProfile,
+  type Vendor,
+} from "../lib/deviceProfiles";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
+import "./SavedSSHConnectionsModal.css";
 
-interface SshConnection {
-  id: string;
-  name: string;
-  host: string;
-  user: string | null;
-  port: number | null;
-  identity_file: string | null;
-  password_encrypted?: string | null;
-  created_at: number;
-  last_used_at: number | null;
-}
-
-interface SavedSSHConnectionsModalProps {
+export interface SavedSSHConnectionsModalProps {
   onConnect: (connection: SshConnection, password: string | null) => void;
   onClose: () => void;
 }
 
-/** Form state for the add/edit connection form. */
 interface FormState {
   name: string;
   host: string;
@@ -27,106 +38,206 @@ interface FormState {
   port: string;
   identity_file: string;
   password: string;
+  folder_id: string;
+  tags: string;
+  accent_color: DeviceAccentColor | "";
+  vendor: Vendor;
+  platform: string;
+  syntax_highlighting_enabled: boolean;
+  syntax_profile: SyntaxProfile;
 }
 
-const EMPTY_FORM: FormState = {
-  name: '',
-  host: '',
-  user: '',
-  port: '22',
-  identity_file: '',
-  password: '',
+const ROOT_FOLDER: SshFolder = {
+  id: "root",
+  parent_id: null,
+  name: "All Devices",
+  position: 0,
+  created_at: 0,
+  updated_at: 0,
 };
+
+const EMPTY_FORM: FormState = {
+  name: "",
+  host: "",
+  user: "",
+  port: "22",
+  identity_file: "",
+  password: "",
+  folder_id: "root",
+  tags: "",
+  accent_color: "",
+  vendor: "generic",
+  platform: "generic",
+  syntax_highlighting_enabled: true,
+  syntax_profile: "auto",
+};
+
+function withDefaults(connection: SshConnection): SshConnection {
+  return {
+    ...connection,
+    folder_id: connection.folder_id || "root",
+    tags: Array.isArray(connection.tags) ? connection.tags : [],
+    accent_color: connection.accent_color ?? null,
+    vendor: connection.vendor ?? "generic",
+    platform: connection.platform || "generic",
+    syntax_highlighting_enabled: connection.syntax_highlighting_enabled ?? false,
+    syntax_profile: connection.syntax_profile ?? "auto",
+  };
+}
+
+function FolderTree({
+  folders,
+  parentId,
+  selectedId,
+  onSelect,
+  depth = 0,
+}: {
+  folders: SshFolder[];
+  parentId: string;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  depth?: number;
+}) {
+  const children = folders
+    .filter((folder) => folder.parent_id === parentId)
+    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+  return (
+    <>
+      {children.map((folder) => (
+        <div key={folder.id}>
+          <button
+            type="button"
+            className={`ssh-folder-row ${selectedId === folder.id ? "active" : ""}`}
+            style={{ paddingLeft: `${12 + depth * 14}px` }}
+            onClick={() => onSelect(folder.id)}
+          >
+            <span aria-hidden="true">▸</span> {folder.name}
+          </button>
+          <FolderTree
+            folders={folders}
+            parentId={folder.id}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            depth={depth + 1}
+          />
+        </div>
+      ))}
+    </>
+  );
+}
 
 export function SavedSSHConnectionsModal({ onConnect, onClose }: SavedSSHConnectionsModalProps) {
   const [connections, setConnections] = useState<SshConnection[]>([]);
+  const [folders, setFolders] = useState<SshFolder[]>([ROOT_FOLDER]);
+  const [selectedFolderId, setSelectedFolderId] = useState("root");
+  const [query, setQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // When set, the form is open. editingId === null means "add new"; a string
-  // means "editing that connection".
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  // Tracks whether the connection being edited already had a saved password,
-  // so we can show "leave blank to keep existing" instead of forcing re-entry.
   const [hadPassword, setHadPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [folderMode, setFolderMode] = useState<"create" | "rename" | null>(null);
+  const [folderName, setFolderName] = useState("");
+  const [folderParentId, setFolderParentId] = useState("root");
 
-  useEffect(() => {
-    loadConnections();
-  }, []);
-
-  const loadConnections = async () => {
+  const loadInventory = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const result = await invoke<SshConnection[]>('ssh_list_connections');
-      setConnections(result);
+      const [connectionRows, folderRows] = await Promise.all([
+        sshListConnections(),
+        sshListFolders(),
+      ]);
+      setConnections((Array.isArray(connectionRows) ? connectionRows : []).map(withDefaults));
+      const loadedFolders = Array.isArray(folderRows) ? folderRows : [];
+      setFolders(loadedFolders.some((folder) => folder.id === "root") ? loadedFolders : [ROOT_FOLDER, ...loadedFolders]);
       setError(null);
-    } catch (err) {
-      setError(String(err));
+    } catch (cause) {
+      setError(String(cause));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    void loadInventory();
+  }, []);
+
+  const allTags = useMemo(
+    () => Array.from(new Set(connections.flatMap((connection) => connection.tags))).sort((a, b) => a.localeCompare(b)),
+    [connections],
+  );
+  const visibleConnections = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return connections.filter((connection) => {
+      if (selectedFolderId !== "root" && connection.folder_id !== selectedFolderId) return false;
+      if (selectedTags.length > 0 && !selectedTags.every((tag) =>
+        connection.tags.some((candidate) => candidate.toLowerCase() === tag.toLowerCase()))) return false;
+      return !needle || [connection.name, connection.host, connection.user ?? "", ...connection.tags]
+        .some((value) => value.toLowerCase().includes(needle));
+    });
+  }, [connections, query, selectedFolderId, selectedTags]);
+  const folderParentOptions = useMemo(() => {
+    if (folderMode !== "rename") return folders;
+    const blocked = new Set([selectedFolderId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const folder of folders) {
+        if (folder.parent_id && blocked.has(folder.parent_id) && !blocked.has(folder.id)) {
+          blocked.add(folder.id);
+          changed = true;
+        }
+      }
+    }
+    return folders.filter((folder) => !blocked.has(folder.id));
+  }, [folderMode, folders, selectedFolderId]);
+
   const handleConnect = async (connection: SshConnection) => {
-    // Decrypt the saved password if there is one. The backend command takes
-    // the *encrypted blob* (not the connection id) — passing the wrong arg
-    // silently threw and dropped the password, so auto-fill never fired.
     let password: string | null = null;
     if (connection.password_encrypted) {
       try {
-        password = await invoke<string | null>('ssh_decrypt_password', {
-          encrypted: connection.password_encrypted,
-        });
-      } catch (err) {
-        console.error('Failed to decrypt saved password:', err);
+        password = await sshDecryptPassword(connection.password_encrypted);
+      } catch (cause) {
+        console.error("Failed to decrypt saved password:", cause);
       }
     }
-
     try {
-      // Mark as used (best-effort; don't block the connect on it).
-      await invoke('ssh_mark_used', { id: connection.id });
-    } catch (err) {
-      console.error('Failed to mark connection used:', err);
+      await sshMarkUsed(connection.id);
+    } catch (cause) {
+      console.error("Failed to mark connection used:", cause);
     }
-
     onConnect(connection, password);
-  };
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete connection "${name}"?`)) {
-      return;
-    }
-
-    try {
-      await invoke('ssh_delete_connection', { id });
-      await loadConnections();
-    } catch (err) {
-      alert(`Failed to delete connection: ${err}`);
-    }
   };
 
   const openAddForm = () => {
     setEditingId(null);
     setHadPassword(false);
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM, folder_id: selectedFolderId });
     setFormError(null);
     setFormOpen(true);
   };
 
-  const openEditForm = (conn: SshConnection) => {
-    setEditingId(conn.id);
-    setHadPassword(!!conn.password_encrypted);
+  const openEditForm = (connection: SshConnection) => {
+    setEditingId(connection.id);
+    setHadPassword(!!connection.password_encrypted);
     setForm({
-      name: conn.name,
-      host: conn.host,
-      user: conn.user ?? '',
-      port: conn.port != null ? String(conn.port) : '22',
-      identity_file: conn.identity_file ?? '',
-      password: '', // never prefill; blank = keep existing on edit
+      name: connection.name,
+      host: connection.host,
+      user: connection.user ?? "",
+      port: String(connection.port ?? 22),
+      identity_file: connection.identity_file ?? "",
+      password: "",
+      folder_id: connection.folder_id,
+      tags: connection.tags.join(", "),
+      accent_color: connection.accent_color ?? "",
+      vendor: connection.vendor,
+      platform: connection.platform,
+      syntax_highlighting_enabled: connection.syntax_highlighting_enabled,
+      syntax_profile: connection.syntax_profile,
     });
     setFormError(null);
     setFormOpen(true);
@@ -139,233 +250,192 @@ export function SavedSSHConnectionsModal({ onConnect, onClose }: SavedSSHConnect
     setFormError(null);
   };
 
-  const updateField = (field: keyof FormState, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
-  };
-
   const handleSave = async () => {
-    if (!form.name.trim()) {
-      setFormError('Name is required');
-      return;
+    const port = form.port.trim() ? Number(form.port) : 22;
+    if (!form.name.trim()) return setFormError("Name is required");
+    if (!form.host.trim()) return setFormError("Host is required");
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return setFormError("Port must be a number between 1 and 65535");
     }
-    if (!form.host.trim()) {
-      setFormError('Host is required');
-      return;
-    }
-    const portNum = form.port.trim() ? Number(form.port) : 22;
-    if (Number.isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      setFormError('Port must be a number between 1 and 65535');
-      return;
-    }
-
     setSaving(true);
     setFormError(null);
     try {
-      const base = {
+      const request = {
         name: form.name.trim(),
         host: form.host.trim(),
         user: form.user.trim() || null,
-        port: portNum,
+        port,
         identity_file: form.identity_file.trim() || null,
+        password: editingId ? (form.password || null) : (form.password || null),
+        folder_id: form.folder_id,
+        tags: form.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        accent_color: form.accent_color,
+        vendor: form.vendor,
+        platform: form.platform,
+        syntax_highlighting_enabled: form.syntax_highlighting_enabled,
+        syntax_profile: form.syntax_profile,
       };
-
-      if (editingId) {
-        // On edit, a blank password field means "keep the existing one":
-        // send password: null so the backend leaves it untouched.
-        await invoke('ssh_update_connection', {
-          id: editingId,
-          request: { ...base, password: form.password ? form.password : null },
-        });
-      } else {
-        await invoke('ssh_save_connection', {
-          request: { ...base, password: form.password || null },
-        });
-      }
-      await loadConnections();
+      const saved = editingId
+        ? await sshUpdateConnection(editingId, request)
+        : await sshSaveConnection(request);
+      useTerminalConnectionStore.getState().updateConnectionMetadata(saved.id, {
+        display_name: saved.name,
+        vendor: saved.vendor,
+        platform: saved.platform,
+        accent_color: saved.accent_color,
+        syntax_highlighting_enabled: saved.syntax_highlighting_enabled,
+        syntax_profile: saved.syntax_profile,
+      });
+      await loadInventory();
       closeForm();
-    } catch (err) {
-      setFormError(String(err));
+    } catch (cause) {
+      setFormError(String(cause));
     } finally {
       setSaving(false);
     }
   };
 
-  const buildCommandPreview = (conn: SshConnection): string => {
-    let cmd = 'ssh';
-    if (conn.port && conn.port !== 22) cmd += ` -p ${conn.port}`;
-    if (conn.identity_file) cmd += ` -i ${conn.identity_file}`;
-    if (conn.user && conn.host) cmd += ` ${conn.user}@${conn.host}`;
-    else if (conn.host) cmd += ` ${conn.host}`;
-    return cmd;
+  const saveFolder = async () => {
+    try {
+      if (folderMode === "create") {
+        await sshCreateFolder({ parent_id: folderParentId, name: folderName.trim() });
+      } else if (folderMode === "rename" && selectedFolderId !== "root") {
+        const current = folders.find((folder) => folder.id === selectedFolderId);
+        if (current) {
+          await sshUpdateFolder(current.id, {
+            parent_id: folderParentId,
+            name: folderName.trim(),
+            position: current.position,
+          });
+        }
+      }
+      setFolderMode(null);
+      setFolderName("");
+      setFolderParentId("root");
+      await loadInventory();
+    } catch (cause) {
+      setError(String(cause));
+    }
+  };
+
+  const deleteSelectedFolder = async () => {
+    if (selectedFolderId === "root") return;
+    const current = folders.find((folder) => folder.id === selectedFolderId);
+    if (!current || !confirm(`Delete folder "${current.name}"? Devices and child folders will move to its parent.`)) return;
+    try {
+      await sshDeleteFolder(current.id);
+      setSelectedFolderId(current.parent_id ?? "root");
+      await loadInventory();
+    } catch (cause) {
+      setError(String(cause));
+    }
   };
 
   return (
     <div className="ssh-modal-overlay" onClick={onClose}>
-      <div className="ssh-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ssh-modal-header">
+      <div className="ssh-modal" role="dialog" aria-label="Saved SSH Connections" onClick={(event) => event.stopPropagation()}>
+        <header className="ssh-modal-header">
           <h2>Saved SSH Connections</h2>
           <div className="ssh-modal-header-actions">
-            {!formOpen && (
-              <button className="ssh-btn-add" onClick={openAddForm}>
-                + New
-              </button>
-            )}
-            <button className="ssh-modal-close" onClick={onClose}>
-              ✕
-            </button>
+            {!formOpen && <button type="button" className="ssh-btn-add" onClick={openAddForm}>+ New Device</button>}
+            <button type="button" className="ssh-modal-close" aria-label="Close" onClick={onClose}>✕</button>
           </div>
-        </div>
+        </header>
 
-        <div className="ssh-modal-content">
-          {formOpen && (
-            <div className="ssh-form">
-              <h3 className="ssh-form-title">
-                {editingId ? 'Edit Connection' : 'New Connection'}
-              </h3>
-              <div className="ssh-form-grid">
-                <label className="ssh-form-field">
-                  <span>Name</span>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => updateField('name', e.target.value)}
-                    placeholder="e.g. core-sw1"
-                    autoFocus
-                  />
-                </label>
-                <label className="ssh-form-field">
-                  <span>Host</span>
-                  <input
-                    type="text"
-                    value={form.host}
-                    onChange={(e) => updateField('host', e.target.value)}
-                    placeholder="192.168.1.1 or hostname"
-                  />
-                </label>
-                <label className="ssh-form-field">
-                  <span>User</span>
-                  <input
-                    type="text"
-                    value={form.user}
-                    onChange={(e) => updateField('user', e.target.value)}
-                    placeholder="admin"
-                  />
-                </label>
-                <label className="ssh-form-field">
-                  <span>Port</span>
-                  <input
-                    type="text"
-                    value={form.port}
-                    onChange={(e) => updateField('port', e.target.value)}
-                    placeholder="22"
-                  />
-                </label>
-                <label className="ssh-form-field ssh-form-field-wide">
-                  <span>Identity file (optional)</span>
-                  <input
-                    type="text"
-                    value={form.identity_file}
-                    onChange={(e) => updateField('identity_file', e.target.value)}
-                    placeholder="~/.ssh/id_rsa"
-                  />
-                </label>
-                <label className="ssh-form-field ssh-form-field-wide">
-                  <span>
-                    Password{' '}
-                    {editingId && hadPassword && (
-                      <em className="ssh-form-hint-inline">
-                        (leave blank to keep existing)
-                      </em>
-                    )}
-                  </span>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => updateField('password', e.target.value)}
-                    placeholder={
-                      editingId && hadPassword ? '••••••••' : 'password (optional)'
-                    }
-                  />
-                </label>
-              </div>
-
-              {formError && <div className="ssh-form-error">{formError}</div>}
-
-              <div className="ssh-form-actions">
-                <button
-                  className="ssh-btn-cancel"
-                  onClick={closeForm}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="ssh-btn-save"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Add Connection'}
-                </button>
-              </div>
+        <div className="ssh-inventory-browser">
+          <aside className="ssh-folder-pane" aria-label="SSH folders">
+            <button
+              type="button"
+              className={`ssh-folder-row ssh-folder-root ${selectedFolderId === "root" ? "active" : ""}`}
+              onClick={() => setSelectedFolderId("root")}
+            >
+              All Devices
+            </button>
+            <FolderTree folders={folders} parentId="root" selectedId={selectedFolderId} onSelect={setSelectedFolderId} />
+            <div className="ssh-folder-actions">
+              <button type="button" onClick={() => { setFolderMode("create"); setFolderName(""); setFolderParentId(selectedFolderId); }}>+ Folder</button>
+              <button type="button" disabled={selectedFolderId === "root"} onClick={() => {
+                setFolderMode("rename");
+                const selected = folders.find((folder) => folder.id === selectedFolderId);
+                setFolderName(selected?.name ?? "");
+                setFolderParentId(selected?.parent_id ?? "root");
+              }}>Edit</button>
+              <button type="button" disabled={selectedFolderId === "root"} onClick={() => void deleteSelectedFolder()}>Delete</button>
             </div>
-          )}
+            {folderMode && (
+              <div className="ssh-folder-editor">
+                <input aria-label="Folder name" maxLength={64} value={folderName} onChange={(event) => setFolderName(event.target.value)} />
+                <select aria-label="Parent folder" value={folderParentId} onChange={(event) => setFolderParentId(event.target.value)}>
+                  {folderParentOptions.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}
+                </select>
+                <button type="button" disabled={!folderName.trim()} onClick={() => void saveFolder()}>Save</button>
+                <button type="button" onClick={() => { setFolderMode(null); setFolderParentId("root"); }}>Cancel</button>
+              </div>
+            )}
+          </aside>
 
-          {loading && <div className="ssh-modal-loading">Loading connections...</div>}
-
-          {error && <div className="ssh-modal-error">Error: {error}</div>}
-
-          {!loading && !error && connections.length === 0 && !formOpen && (
-            <div className="ssh-modal-empty">
-              <p>No saved connections yet.</p>
-              <p className="ssh-modal-hint">
-                Click <strong>+ New</strong> above to add one, or type{' '}
-                <code>ssh </code> in the terminal and click "Save Connection".
-              </p>
-            </div>
-          )}
-
-          {!loading && !error && connections.length > 0 && (
-            <div className="ssh-connections-list">
-              {connections.map((conn) => (
-                <div key={conn.id} className="ssh-connection-item">
-                  <div className="ssh-connection-info">
-                    <div className="ssh-connection-name">{conn.name}</div>
-                    <div className="ssh-connection-details">
-                      {conn.user && <span className="ssh-detail-user">{conn.user}@</span>}
-                      <span className="ssh-detail-host">{conn.host}</span>
-                      {conn.port && conn.port !== 22 && (
-                        <span className="ssh-detail-port">:{conn.port}</span>
-                      )}
-                    </div>
-                    <div className="ssh-connection-command">{buildCommandPreview(conn)}</div>
-                  </div>
-                  <div className="ssh-connection-actions">
-                    <button
-                      className="ssh-btn-connect"
-                      onClick={() => handleConnect(conn)}
-                      title="Connect"
-                    >
-                      Connect
-                    </button>
-                    <button
-                      className="ssh-btn-edit"
-                      onClick={() => openEditForm(conn)}
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="ssh-btn-delete"
-                      onClick={() => handleDelete(conn.id, conn.name)}
-                      title="Delete"
-                    >
-                      🗑
-                    </button>
-                  </div>
+          <main className="ssh-device-pane">
+            {formOpen ? (
+              <div className="ssh-form">
+                <h3>{editingId ? "Edit Connection" : "New Connection"}</h3>
+                <div className="ssh-form-grid">
+                  <label><span>Name</span><input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+                  <label><span>Host</span><input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} /></label>
+                  <label><span>User</span><input value={form.user} onChange={(e) => setForm({ ...form, user: e.target.value })} /></label>
+                  <label><span>Port</span><input value={form.port} onChange={(e) => setForm({ ...form, port: e.target.value })} /></label>
+                  <label className="ssh-form-field-wide"><span>Identity file (optional)</span><input value={form.identity_file} onChange={(e) => setForm({ ...form, identity_file: e.target.value })} /></label>
+                  <label className="ssh-form-field-wide"><span>Password {editingId && hadPassword ? "(leave blank to keep existing)" : ""}</span><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+                  <label><span>Folder</span><select value={form.folder_id} onChange={(e) => setForm({ ...form, folder_id: e.target.value })}>{folders.map((folder) => <option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>
+                  <label><span>Tags</span><input value={form.tags} placeholder="core, wan" onChange={(e) => setForm({ ...form, tags: e.target.value })} /></label>
+                  <label><span>Accent</span><select value={form.accent_color} onChange={(e) => setForm({ ...form, accent_color: e.target.value as FormState["accent_color"] })}><option value="">None</option>{DEVICE_ACCENT_COLORS.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+                  <label><span>Vendor</span><select value={form.vendor} onChange={(e) => {
+                    const vendor = e.target.value as Vendor;
+                    setForm({ ...form, vendor, platform: PLATFORMS_BY_VENDOR[vendor][0] ?? "generic" });
+                  }}>{DEVICE_VENDORS.map((vendor) => <option key={vendor} value={vendor}>{vendor}</option>)}</select></label>
+                  <label><span>Platform</span><select value={form.platform} onChange={(e) => setForm({ ...form, platform: e.target.value })}>{PLATFORMS_BY_VENDOR[form.vendor].map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></label>
+                  <label><span>Syntax highlighting</span><select value={form.syntax_highlighting_enabled ? form.syntax_profile : "off"} onChange={(e) => {
+                    const value = e.target.value;
+                    setForm(value === "off"
+                      ? { ...form, syntax_highlighting_enabled: false }
+                      : { ...form, syntax_highlighting_enabled: true, syntax_profile: value as SyntaxProfile });
+                  }}><option value="off">Off</option>{SYNTAX_PROFILES.map((profile) => <option key={profile} value={profile}>{profile === "auto" ? "Auto" : profile}</option>)}</select></label>
                 </div>
-              ))}
-            </div>
-          )}
+                {formError && <div className="ssh-form-error" role="alert">{formError}</div>}
+                <div className="ssh-form-actions"><button type="button" disabled={saving} onClick={closeForm}>Cancel</button><button type="button" disabled={saving} onClick={() => void handleSave()}>{saving ? "Saving…" : "Save Connection"}</button></div>
+              </div>
+            ) : (
+              <>
+                <div className="ssh-inventory-filters">
+                  <input aria-label="Search saved devices" placeholder="Search devices…" value={query} onChange={(event) => setQuery(event.target.value)} />
+                  <div className="ssh-tag-filters">{allTags.map((tag) => <button type="button" key={tag} className={selectedTags.includes(tag) ? "active" : ""} onClick={() => setSelectedTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])}>{tag}</button>)}</div>
+                </div>
+                {loading ? <div className="ssh-modal-loading">Loading…</div> : error ? <div className="ssh-modal-error">{error}</div> : visibleConnections.length === 0 ? <div className="ssh-modal-empty">No saved devices match this view.</div> : (
+                  <div className="ssh-connections-list">
+                    {visibleConnections.map((connection) => (
+                      <div key={connection.id} className="ssh-connection-item" data-accent={connection.accent_color ?? undefined}>
+                        <span className="ssh-inventory-accent" aria-hidden="true" />
+                        <div className="ssh-connection-info">
+                          <div className="ssh-connection-name">{connection.name}</div>
+                          <div className="ssh-connection-details">{connection.user ? `${connection.user}@` : ""}{connection.host}:{connection.port ?? 22}</div>
+                          <div className="ssh-connection-meta"><span>{connection.vendor}/{connection.platform}</span>{connection.tags.map((tag) => <span key={tag} className="ssh-tag">{tag}</span>)}</div>
+                          <code className="ssh-connection-command">{buildSshCommand(connection)}</code>
+                        </div>
+                        <div className="ssh-connection-actions">
+                          <button type="button" className="ssh-btn-connect" title="Connect" onClick={() => void handleConnect(connection)}>Connect</button>
+                          <button type="button" className="ssh-btn-edit" title="Edit" onClick={() => openEditForm(connection)}>Edit</button>
+                          <button type="button" className="ssh-btn-delete" title="Delete" onClick={async () => {
+                            if (!confirm(`Delete connection "${connection.name}"?`)) return;
+                            await sshDeleteConnection(connection.id);
+                            await loadInventory();
+                          }}>Delete</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </main>
         </div>
       </div>
     </div>

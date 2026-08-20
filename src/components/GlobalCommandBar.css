@@ -1,0 +1,82 @@
+.global-command-bar {
+  flex: 0 0 auto;
+  min-width: 0;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.global-command-bar__scroll {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  overflow-x: auto;
+  padding: 5px 8px;
+  scrollbar-width: thin;
+}
+
+.global-command-bar__item {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+}
+
+.global-command-bar button {
+  min-height: 25px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-3, var(--surface-2));
+  color: var(--text-primary);
+}
+
+.global-command-bar button:focus-visible {
+  outline: 2px solid var(--focus-control);
+  outline-offset: 1px;
+}
+
+.global-command-bar button:disabled {
+  color: var(--text-muted);
+  opacity: 0.62;
+}
+
+.global-command-bar__run,
+.global-command-bar__add {
+  padding: 3px 9px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.global-command-bar__item .global-command-bar__run {
+  border-radius: 4px 0 0 4px;
+}
+
+.global-command-bar__scope {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 1px solid var(--border-default);
+  border-left: 0;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--status-warning, #d29922);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.global-command-bar__move,
+.global-command-bar__remove {
+  width: 24px;
+  padding: 0;
+  border-left: 0 !important;
+}
+
+.global-command-bar__remove {
+  border-radius: 0 4px 4px 0;
+}
+
+.global-command-bar__error,
+.wf-run-error {
+  padding: 4px 8px;
+  color: var(--status-error, #ff7b72);
+  font-size: 12px;
+}

@@ -26,7 +26,7 @@ fn python_cmd() -> (String, Vec<String>) {
 }
 
 #[test]
-fn heartbeat_sink_receives_initial_beat() {
+fn heartbeat_sink_receives_initial_and_periodic_beats() {
     let (cmd, args) = python_cmd();
     // Shorten the cadence so the test finishes quickly.
     std::env::set_var("CCIE_SIDECAR_HEARTBEAT_S", "1");
@@ -48,12 +48,14 @@ fn heartbeat_sink_receives_initial_beat() {
     let resp = sup.call("ping", serde_json::json!({})).expect("ping");
     assert_eq!(resp.as_str(), Some("pong"));
 
-    // Give the reader thread time to observe the startup heartbeat.
-    std::thread::sleep(std::time::Duration::from_millis(500));
+    // Observe both the startup beat and at least one periodic beat. Checking
+    // only the startup message misses regressions where the emitter stalls
+    // immediately after warmup while the process itself remains alive.
+    std::thread::sleep(std::time::Duration::from_millis(1_750));
     sup.shutdown();
 
     let n = *counter.lock();
-    assert!(n >= 1, "expected at least one heartbeat, got {n}");
+    assert!(n >= 2, "expected startup and periodic heartbeats, got {n}");
     let v = last_version.lock().clone();
     assert!(!v.is_empty(), "heartbeat should carry a version string");
 }

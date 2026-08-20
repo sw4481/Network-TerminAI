@@ -20,6 +20,15 @@ import {
   handleTerminalClipboardShortcut,
   normalizeTerminalPlatform,
 } from "../lib/terminalClipboard";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
+import {
+  TerminalSyntaxHighlighter,
+  writeTerminalOutput,
+} from "../lib/terminalSyntaxHighlighter";
+import {
+  handleSavedSshCommandEnd,
+  handleSavedSshCommandStart,
+} from "../lib/sshLifecycle";
 
 // Use xterm from CDN (loaded via script tags in index.html)
 declare global {
@@ -89,6 +98,7 @@ export function usePty(
   const passwordSentRef = useRef<boolean>(false); // Prevent password loop
   const inRemoteSessionRef = useRef<boolean>(false); // Track if in SSH/telnet session
   const liveCwdRef = useRef<string>(cwd); // Live cwd, updated by the shell's OSC 7
+  const currentShellCommandRef = useRef<string | null>(null);
   const appearanceRef = useRef(appearance);
 
   useEffect(() => {
@@ -140,6 +150,27 @@ export function usePty(
     let tabId: string | null = null;
     let disposed = false;
     const pendingDisposables: (() => void)[] = [];
+    const syntaxHighlighter = new TerminalSyntaxHighlighter(term, () => {
+      if (!tabId) return null;
+      const connection = useTerminalConnectionStore.getState().get(tabId);
+      if (!connection) return null;
+      return {
+        enabled: connection.syntax_highlighting_enabled,
+        profile: connection.syntax_profile,
+        vendor: connection.vendor,
+        platform: connection.platform,
+      };
+    });
+    let previousSyntaxKey = "";
+    const unsubscribeConnection = useTerminalConnectionStore.subscribe((state) => {
+      const connection = tabId ? state.get(tabId) : null;
+      const nextSyntaxKey = connection
+        ? `${connection.syntax_highlighting_enabled}:${connection.syntax_profile}:${connection.vendor}:${connection.platform}`
+        : "";
+      if (nextSyntaxKey === previousSyntaxKey) return;
+      previousSyntaxKey = nextSyntaxKey;
+      syntaxHighlighter.refreshVisible();
+    });
 
     const terminalPlatform = normalizeTerminalPlatform();
     term.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
@@ -159,7 +190,7 @@ export function usePty(
       switch (e.type) {
         case "output": {
           const text = new TextDecoder().decode(new Uint8Array(e.bytes));
-          term.write(new Uint8Array(e.bytes));
+          writeTerminalOutput(term, syntaxHighlighter, new Uint8Array(e.bytes));
 
           // Track recent output for password detection and SSH exit detection
           lastOutputRef.current += text;
@@ -237,7 +268,11 @@ export function usePty(
           }
           break;
         case "command_start":
+          currentShellCommandRef.current = e.cmd;
           if (tabId) {
+            if (handleSavedSshCommandStart(tabId, e.cmd)) {
+              inRemoteSessionRef.current = true;
+            }
             // Start new block (use the live cwd, not the stale spawn cwd)
             const blockId = addBlock(tabId, e.cmd, liveCwdRef.current);
             currentBlockIdRef.current = blockId;
@@ -247,6 +282,14 @@ export function usePty(
           }
           break;
         case "command_end":
+          if (tabId) {
+            handleSavedSshCommandEnd(
+              tabId,
+              currentShellCommandRef.current,
+              e.exit_code ?? null,
+            );
+          }
+          currentShellCommandRef.current = null;
           if (currentBlockIdRef.current) {
             // Complete current block - strip ANSI codes from output
             const duration = Date.now() - blockStartTimeRef.current;
@@ -261,6 +304,12 @@ export function usePty(
             currentBlockIdRef.current = null;
             outputBufferRef.current = '';
           }
+          break;
+        case "enter_alt_screen":
+          syntaxHighlighter.enterAlternateScreen();
+          break;
+        case "exit_alt_screen":
+          syntaxHighlighter.exitAlternateScreen();
           break;
         case "exit":
           if (tabId) removeTab(tabId);
@@ -340,6 +389,8 @@ export function usePty(
         dispose: () => {
           disposed = true;
           pendingDisposables.forEach((d) => d());
+          unsubscribeConnection();
+          syntaxHighlighter.dispose();
           term.dispose();
         },
         setRemoteSession: (isRemote: boolean) => {
@@ -355,6 +406,8 @@ export function usePty(
     return () => {
       disposed = true;
       pendingDisposables.forEach((d) => d());
+      unsubscribeConnection();
+      syntaxHighlighter.dispose();
       term.dispose();
       boundRef.current = false;
     };

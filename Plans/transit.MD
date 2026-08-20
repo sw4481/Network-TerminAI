@@ -1,6 +1,6 @@
-# Transit AI comparison and ranks 1–3 implementation plan
+# Transit AI comparison, delivery contracts, and implementation record
 
-> Planning artifact only. This file records the comparison and the implementation decisions for ranks 1–3. It does not implement product code, change a schema, or update `Plans/README.md`.
+> This file records the comparison, the implementation decisions for ranks 1–3, and the delivery record for ranks 5–9. Rank 4 and ranks 10+ remain unchanged. `Plans/README.md` is outside this document's update scope.
 
 ## Baseline and evidence boundaries
 
@@ -570,3 +570,92 @@ Do not report ranks 1–3 complete until the focused tests, repository gates, na
 - No replacement of the existing recording format or writer.
 - No SQLite/FTS implementation of live xterm search.
 - No browser OAuth, team, seat, usage, overage, or billing infrastructure.
+
+## Ranks 5–9 delivery contract and implementation record
+
+| Field | Value |
+|---|---|
+| Delivery date | 2026-08-19 |
+| Implementation baseline | `777b316508344505d5fd917eafbc2e6265f2d576` (`777b316`) on `main` |
+| Delivered ranks | 5, 6, 7, 8, and 9 |
+| Deliberately untouched | Rank 4, ranks 10+, `Plans/README.md`, `sidecar/.venv`, and application data |
+| Unrelated worktree state | The existing deletions of `API_KEY_MITIGATION.md` and `onepager.md` remain unmodified |
+
+The ranks were implemented sequentially. Shared terminal and SSH behavior retains both the registry path and the legacy fallback path. Passwords are excluded from frontend connection state, Postman previews and results contain no credential values, and no release or rank-4/rank-10+ change is part of this delivery. Repository publication occurs only after the recorded gates pass.
+
+### Rank 5 — global configurable workflow bar
+
+Delivered contract:
+
+- One ordered global setting is persisted in `app_flags` as `ccie_global_command_bar_v1`. The Rust boundary rejects malformed JSON, unsupported schema versions, duplicate IDs, and missing workflows; stale deleted IDs are omitted during hydration and disappear on the next save.
+- A single compact, horizontally scrollable bar renders above the active terminal workspace only. The existing workflow picker supplies pins, and the bar provides unpin plus keyboard-accessible ordering controls.
+- Dispatch resolves the focused stable pane through `terminalRegistry.ptyTabIdFor`, retains the backend-ID fallback, applies connected-device vendor/platform compatibility, and leaves mismatches visible but disabled.
+- The global bar and existing runner share one sequential workflow-to-terminal dispatcher. Parameterized workflows still use the existing form, multi-step order is preserved, and completion is recorded only after every PTY write succeeds.
+
+### Rank 6 — organized SSH inventory and live connection metadata
+
+Delivered contract:
+
+- Migration `V0084__ssh_inventory_organization.sql` adds the root folder, nested `ssh_folders`, and optional folder/tags/accent/vendor/platform metadata with legacy-safe defaults.
+- Rust commands enforce eight folder levels, trimmed 64-character case-insensitive sibling uniqueness, cycle rejection, collision-safe reparenting on delete, normalized tag limits, fixed theme-safe accent keys, and the shared vendor contract.
+- SSH TypeScript data and invocations are centralized. Existing callers retain optional request fields, while the saved-connections UI now provides a folder tree, searchable device list, tag filters, accent markers, and metadata editing without adding a permanent sidebar.
+- The in-memory terminal connection store is keyed by stable terminal and PTY IDs and carries only safe connection/display metadata plus lifecycle state. The accepting terminal handler, not the sender, owns state updates. Accent rendering is limited to inventory, connected-device, and focused-pane UI.
+
+### Rank 7 — presentation-only per-device syntax highlighting
+
+Delivered contract:
+
+- Migration `V0085__ssh_syntax_profiles.sql` keeps migrated devices disabled with `auto`; new devices default to enabled `auto`, with off/auto/Cisco/Junos/Arista/generic choices.
+- Built-in ordered, case-insensitive literal profiles decorate xterm buffer ranges after completed writes. They never rewrite PTY bytes or inject ANSI, so recordings, exports, command capture, parsers, and AI input retain raw output.
+- Only touched lines are rescanned, prior line markers are disposed before replacement, per-line matches are capped, and alternate-screen enter/exit suspends and resumes highlighting on registry and fallback paths.
+- Missing decoration APIs fail open to raw terminal output. Editing saved device metadata updates linked live sessions without restarting PTYs.
+
+### Rank 8 — manual SSH reconnect in the same terminal
+
+Delivered contract:
+
+- The xterm, pane, stable terminal ID, and backend PTY ID are retained. Reconnect regenerates and reinjects the saved SSH command into the existing local shell PTY.
+- Saved SSH command lifecycle events authoritatively drive connecting, connected, disconnected, reconnecting, and error states. Output matching remains diagnostic only.
+- A disconnected pane shows the device, known exit status, **Reconnect**, and **Use local shell**. Unmodified Enter is intercepted only for the focused disconnected terminal surface, never for search, forms, Blocks mode, or another pane.
+- Reconnect permits one attempt, reloads the latest saved record by ID, reuses the existing transient password-resolution path, marks the connection used, and writes to the same PTY. Deleted connections remain recoverable through the local-shell action; there is no retry loop or background reconnect.
+
+### Rank 9 — safe Postman Collection v2.1 import
+
+Delivered contract:
+
+- Migration `V0086__postman_collections.sql` adds collection/folder/display/auth metadata while preserving native saved-request behavior.
+- A pure Rust parser powers preview and fingerprint-confirmed commit. It validates v2.1 input, applies the 10 MiB/2,000-request/20-folder-level and environment limits before writes, returns value-free summaries, and fully normalizes an import before starting persistence.
+- Nested folders, inherited supported auth, supported HTTP methods, string/structured URLs, enabled headers/query/path variables, raw JSON/text, and URL-encoded forms map into grouped requests. Unsupported methods, scripts, examples, executable code, multipart/binary/GraphQL bodies, and unsupported auth strategies are skipped with warnings.
+- Collection, URL, and extracted credential values move into a new collision-free environment. Secret variables, auth-derived values, and credential-like keys receive secret metadata; request rows keep `${env:KEY}` references instead of credential literals.
+- Environment artifacts and the SQLite collection/request transaction are coordinated with rollback cleanup. Preview/commit re-read the read-only source and reject fingerprint changes. The Saved Requests drawer provides a native JSON chooser, safe preview, explicit confirmation, grouped display, imported-environment restore, and environment-prefix URL validation.
+
+## Ranks 5–9 verification record
+
+### Automated gates
+
+The following gates passed against the delivered worktree:
+
+- Focused frontend coverage for workflow dispatch/bar behavior, SSH inventory/store/reconnect, syntax highlighting, and Postman wrappers/UI.
+- Focused Rust coverage for workflow settings, SSH organization, migrations V0084–V0086, Postman parsing/transactions, and initial plus periodic sidecar heartbeats.
+- `bun run test`: 267 files and 2,052 tests passed.
+- `bun run build:relaxed`: production frontend build and TypeScript checks passed; only existing Vite chunk/dynamic-import warnings were emitted.
+- `cargo test --manifest-path src-tauri/Cargo.toml`: the library reported 479 passed and 6 ignored, with all integration and documentation suites passing.
+- `git diff --check`: passed.
+
+### Native macOS gate
+
+The app was launched through `./run.sh`, which selected the existing `sidecar/.venv` under `CCIE_FORCE_VENV=1`.
+
+Verified live evidence:
+
+- `target/debug/TerminAI` remained running with a child `python -m ccie_sidecar` process from the project virtual environment.
+- The native log recorded `sidecar warmup: ping succeeded`.
+- A WAL-aware read-only query showed `sidecar_status.last_seen` advance from `1787172249` to `1787172309`, with version `0.0.1` and the live child PID.
+- The native footer visibly left `starting` and displayed `Sidecar: v0.0.1`.
+- The terminal workspace visibly rendered the single global **+ Workflow** bar.
+
+The feature-specific logic is covered by focused automated tests, but representative live Cisco/Junos/Arista devices, an intentional SSH disconnect, and a user-selected Postman collection were not exercised against production fixtures during this delivery. Those operator-data-dependent interactions, plus Windows/Linux manual acceptance, remain explicitly unverified rather than being treated as silently passed.
+
+### Delivery status
+
+Ranks 5–9 are implemented and pass the focused and repository-wide automated gates plus the native macOS startup/sidecar invariant. Fixture-dependent operator acceptance and Windows/Linux manual acceptance remain open. This record accompanies the explicitly requested `main` commit and `origin` push; no release was performed.

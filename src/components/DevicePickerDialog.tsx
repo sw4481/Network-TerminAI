@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { sshListConnections } from "../lib/sshConnections";
 import type { DeviceKind } from "../lib/fanout";
 import { useFanoutStore } from "../state/fanoutStore";
 import "./DevicePickerDialog.css";
 
-interface SshConn {
-  id: string;
-  name: string;
-  host: string;
-}
 interface NetconfDev {
   id: number;
   name: string;
@@ -49,7 +45,7 @@ export function DevicePickerDialog({
     (async () => {
       try {
         const [ssh, nc] = await Promise.all([
-          invoke<SshConn[]>("ssh_list_connections"),
+          sshListConnections(),
           invoke<NetconfDev[]>("netconf_device_list"),
         ]);
         const built: Row[] = [

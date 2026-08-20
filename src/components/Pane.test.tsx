@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render, act, fireEvent } from '@testing-library/react';
 import { useState as useStateForMock } from 'react';
 
 // The PTY-backed Terminal and the panes store are heavy / side-effectful;
@@ -13,6 +13,9 @@ const badgePaneIds: string[] = [];
 // Shared mock so tests can assert on calls; also exposed for the
 // respawn-loop regression test below.
 const updatePaneTerminalIdMock = vi.fn();
+const ptyWriteMock = vi.hoisted(() => vi.fn());
+const reconnectMock = vi.hoisted(() => vi.fn(async () => true));
+const useLocalShellMock = vi.hoisted(() => vi.fn());
 
 // Captures the onRegistered callback the real Pane passes to Terminal, so
 // tests can simulate the registry resolving a PTY id (like TerminalSlot does)
@@ -23,7 +26,7 @@ let capturedOnRegistered: ((id: string) => void) | undefined;
 vi.mock('./Terminal', () => ({
   Terminal: (props: { onRegistered?: (id: string) => void }) => {
     capturedOnRegistered = props.onRegistered;
-    return null;
+    return <textarea className="xterm-helper-textarea" aria-label="Terminal input" />;
   },
 }));
 vi.mock('./PaneActivityIndicator', () => ({
@@ -48,7 +51,11 @@ vi.mock('../state/panesStore', () => ({
     }),
   shouldReconcileTerminalId: () => false,
 }));
-vi.mock('../lib/tauri', () => ({ ptyKill: vi.fn(), ptyWrite: vi.fn() }));
+vi.mock('../lib/tauri', () => ({ ptyKill: vi.fn(), ptyWrite: ptyWriteMock }));
+vi.mock('../lib/sshReconnect', () => ({
+  reconnectSavedSsh: reconnectMock,
+  useLocalShell: useLocalShellMock,
+}));
 
 // Mock useBlockShortcuts to avoid complex dependencies in tests
 vi.mock('../hooks/useBlockShortcuts', () => ({
@@ -60,6 +67,7 @@ vi.mock('../hooks/useBlockShortcuts', () => ({
 }));
 
 import { Pane } from './Pane';
+import { useTerminalConnectionStore } from '../state/terminalConnectionStore';
 
 describe('Pane activity indicator wiring', () => {
   beforeEach(() => {
@@ -83,6 +91,55 @@ describe('Pane activity indicator wiring', () => {
     expect(badgePaneIds).toContain('tab-xyz-pty');
     expect(indicatorPaneIds).not.toContain('pane-abc');
     expect(badgePaneIds).not.toContain('pane-abc');
+  });
+});
+
+describe('Pane saved SSH reconnect UI', () => {
+  beforeEach(() => {
+    reconnectMock.mockClear();
+    useLocalShellMock.mockClear();
+    ptyWriteMock.mockClear();
+    useTerminalConnectionStore.setState({ byTerminalId: {}, terminalIdByBackendPtyId: {} });
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 'tab-xyz-pty',
+      backendPtyId: 'pty-backend',
+      connectionId: 'connection-1',
+      displayName: 'Core Router',
+      vendor: 'cisco',
+      platform: 'iosxe',
+      accentColor: 'cyan',
+      syntaxHighlightingEnabled: true,
+      syntaxProfile: 'auto',
+      sshCommand: 'ssh core',
+    });
+    useTerminalConnectionStore.getState().setLifecycle('tab-xyz-pty', 'disconnected', {
+      exitStatus: 255,
+    });
+  });
+
+  it('shows exit status and routes button actions without changing terminal identity', () => {
+    const { getByRole } = render(
+      <Pane paneId="pane-abc" terminalId="tab-xyz-pty" shell="/bin/zsh" cwd="/home" />,
+    );
+    expect(getByRole('status')).toHaveTextContent(/Core Router.*disconnected.*exit 255/);
+    fireEvent.click(getByRole('button', { name: 'Reconnect' }));
+    expect(reconnectMock).toHaveBeenCalledWith('tab-xyz-pty');
+    fireEvent.click(getByRole('button', { name: 'Use local shell' }));
+    expect(useLocalShellMock).toHaveBeenCalledWith('tab-xyz-pty');
+    expect(updatePaneTerminalIdMock).not.toHaveBeenCalled();
+  });
+
+  it('captures unmodified Enter only at the focused disconnected xterm boundary', () => {
+    const { getByLabelText } = render(
+      <Pane paneId="pane-abc" terminalId="tab-xyz-pty" shell="/bin/zsh" cwd="/home" />,
+    );
+    const input = getByLabelText('Terminal input');
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(reconnectMock).toHaveBeenCalledTimes(1);
+    expect(ptyWriteMock).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(reconnectMock).toHaveBeenCalledTimes(1);
   });
 });
 

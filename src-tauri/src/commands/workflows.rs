@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use regex::Regex;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tauri::State;
 use uuid::Uuid;
 
@@ -44,6 +44,111 @@ pub struct WorkflowRunResult {
     pub run_id: String,
     pub workflow_name: String,
     pub commands: Vec<String>,
+}
+
+const GLOBAL_COMMAND_BAR_FLAG_KEY: &str = "ccie_global_command_bar_v1";
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GlobalCommandBarSettingsV1 {
+    pub schema_version: u8,
+    pub workflow_ids: Vec<String>,
+}
+
+impl Default for GlobalCommandBarSettingsV1 {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            workflow_ids: Vec::new(),
+        }
+    }
+}
+
+fn ensure_app_flags_table(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS app_flags (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+    )?;
+    Ok(())
+}
+
+fn validate_global_command_bar_settings(
+    conn: &Connection,
+    settings: &GlobalCommandBarSettingsV1,
+    require_existing: bool,
+) -> Result<()> {
+    if settings.schema_version != 1 {
+        return Err(anyhow!(
+            "unsupported global command bar schema version: {}",
+            settings.schema_version
+        ));
+    }
+
+    let mut seen = HashSet::with_capacity(settings.workflow_ids.len());
+    for id in &settings.workflow_ids {
+        if id.trim().is_empty() {
+            return Err(anyhow!("workflow IDs must not be empty"));
+        }
+        if !seen.insert(id.as_str()) {
+            return Err(anyhow!("duplicate workflow ID: {id}"));
+        }
+        if require_existing {
+            let exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM workflows WHERE id = ?1)",
+                params![id],
+                |row| row.get(0),
+            )?;
+            if !exists {
+                return Err(anyhow!("workflow not found: {id}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn global_command_bar_get_impl(conn: &Connection) -> Result<GlobalCommandBarSettingsV1> {
+    ensure_app_flags_table(conn)?;
+    let raw = conn
+        .query_row(
+            "SELECT value FROM app_flags WHERE key = ?1",
+            params![GLOBAL_COMMAND_BAR_FLAG_KEY],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    let Some(raw) = raw else {
+        return Ok(GlobalCommandBarSettingsV1::default());
+    };
+
+    let mut settings: GlobalCommandBarSettingsV1 = serde_json::from_str(&raw)
+        .map_err(|error| anyhow!("malformed global command bar settings: {error}"))?;
+    validate_global_command_bar_settings(conn, &settings, false)?;
+
+    // A deleted workflow must not break hydration. Keep the cleanup lazy so a
+    // read never mutates settings; the next successful save persists only the
+    // still-visible IDs supplied by the frontend.
+    settings.workflow_ids.retain(|id| {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM workflows WHERE id = ?1)",
+            params![id],
+            |row| row.get::<_, bool>(0),
+        )
+        .unwrap_or(false)
+    });
+    Ok(settings)
+}
+
+pub fn global_command_bar_set_impl(
+    conn: &Connection,
+    settings: &GlobalCommandBarSettingsV1,
+) -> Result<()> {
+    ensure_app_flags_table(conn)?;
+    validate_global_command_bar_settings(conn, settings, true)?;
+    let value = serde_json::to_string(settings)?;
+    conn.execute(
+        "INSERT INTO app_flags(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![GLOBAL_COMMAND_BAR_FLAG_KEY, value],
+    )?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -348,4 +453,119 @@ pub async fn workflow_run_complete(
     )
     .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn global_command_bar_get(
+    state: State<'_, AppState>,
+) -> Result<GlobalCommandBarSettingsV1, String> {
+    let conn = state.db.lock();
+    global_command_bar_get_impl(&conn).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn global_command_bar_set(
+    state: State<'_, AppState>,
+    settings: GlobalCommandBarSettingsV1,
+) -> Result<(), String> {
+    let conn = state.db.lock();
+    global_command_bar_set_impl(&conn, &settings).map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE workflows (id TEXT PRIMARY KEY);
+             INSERT INTO workflows(id) VALUES ('wf-a'), ('wf-b');",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn global_command_bar_round_trips_ordered_workflows() {
+        let conn = test_db();
+        let settings = GlobalCommandBarSettingsV1 {
+            schema_version: 1,
+            workflow_ids: vec!["wf-b".into(), "wf-a".into()],
+        };
+        global_command_bar_set_impl(&conn, &settings).unwrap();
+        assert_eq!(global_command_bar_get_impl(&conn).unwrap(), settings);
+    }
+
+    #[test]
+    fn global_command_bar_rejects_duplicate_and_missing_workflows() {
+        let conn = test_db();
+        let duplicate = GlobalCommandBarSettingsV1 {
+            schema_version: 1,
+            workflow_ids: vec!["wf-a".into(), "wf-a".into()],
+        };
+        assert!(global_command_bar_set_impl(&conn, &duplicate)
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate"));
+
+        let missing = GlobalCommandBarSettingsV1 {
+            schema_version: 1,
+            workflow_ids: vec!["missing".into()],
+        };
+        assert!(global_command_bar_set_impl(&conn, &missing)
+            .unwrap_err()
+            .to_string()
+            .contains("not found"));
+    }
+
+    #[test]
+    fn global_command_bar_rejects_malformed_or_unsupported_rows() {
+        let conn = test_db();
+        ensure_app_flags_table(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO app_flags(key, value) VALUES (?1, 'not-json')",
+            params![GLOBAL_COMMAND_BAR_FLAG_KEY],
+        )
+        .unwrap();
+        assert!(global_command_bar_get_impl(&conn)
+            .unwrap_err()
+            .to_string()
+            .contains("malformed"));
+
+        conn.execute(
+            "UPDATE app_flags SET value = '{\"schema_version\":2,\"workflow_ids\":[]}' WHERE key = ?1",
+            params![GLOBAL_COMMAND_BAR_FLAG_KEY],
+        )
+        .unwrap();
+        assert!(global_command_bar_get_impl(&conn)
+            .unwrap_err()
+            .to_string()
+            .contains("unsupported"));
+    }
+
+    #[test]
+    fn global_command_bar_ignores_deleted_workflows_until_next_save() {
+        let conn = test_db();
+        let settings = GlobalCommandBarSettingsV1 {
+            schema_version: 1,
+            workflow_ids: vec!["wf-a".into(), "wf-b".into()],
+        };
+        global_command_bar_set_impl(&conn, &settings).unwrap();
+        conn.execute("DELETE FROM workflows WHERE id = 'wf-a'", [])
+            .unwrap();
+
+        let hydrated = global_command_bar_get_impl(&conn).unwrap();
+        assert_eq!(hydrated.workflow_ids, vec!["wf-b"]);
+
+        global_command_bar_set_impl(&conn, &hydrated).unwrap();
+        let raw: String = conn
+            .query_row(
+                "SELECT value FROM app_flags WHERE key = ?1",
+                params![GLOBAL_COMMAND_BAR_FLAG_KEY],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!raw.contains("wf-a"));
+    }
 }

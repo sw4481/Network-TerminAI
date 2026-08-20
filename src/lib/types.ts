@@ -24,7 +24,7 @@ export type Tab = {
   /** If true, this tab uses PaneContainer instead of a single Terminal. */
   hasPanes?: boolean;
   /** Vendor scope for workflow filtering (Plan 02). In-memory only — not persisted. */
-  vendor?: "cisco" | "juniper" | "arista" | "meraki" | "generic";
+  vendor?: Vendor;
   /** Platform scope for workflow filtering (e.g. 'iosxe', 'nxos'). In-memory only. */
   platform?: string;
   /** Plan 14 — recording-player tabs carry the recording id they replay. */
@@ -72,3 +72,4 @@ export type SessionSnapshot = {
   scrollback: Record<string, number[]>;
   ai_history: Record<string, string>;
 };
+import type { Vendor } from "./deviceProfiles";

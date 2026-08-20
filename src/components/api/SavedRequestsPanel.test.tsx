@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { SavedRequestsPanel } from "./SavedRequestsPanel";
 import { useApiRunner } from "../../state/apiRunnerStore";
 
 const apiListSavedRequestsMock = vi.fn();
 const apiDeleteSavedRequestMock = vi.fn();
+const apiPreviewPostmanImportMock = vi.fn();
+const apiCommitPostmanImportMock = vi.fn();
+const openDialogMock = vi.fn();
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: (...args: unknown[]) => openDialogMock(...args) }));
 
 vi.mock("../../lib/tauri", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../lib/tauri")>();
@@ -14,6 +19,10 @@ vi.mock("../../lib/tauri", async (importOriginal) => {
       apiListSavedRequestsMock(...args),
     apiDeleteSavedRequest: (...args: unknown[]) =>
       apiDeleteSavedRequestMock(...args),
+    apiPreviewPostmanImport: (...args: unknown[]) =>
+      apiPreviewPostmanImportMock(...args),
+    apiCommitPostmanImport: (...args: unknown[]) =>
+      apiCommitPostmanImportMock(...args),
   };
 });
 
@@ -24,6 +33,9 @@ function reset() {
   apiListSavedRequestsMock.mockReset();
   apiDeleteSavedRequestMock.mockReset();
   apiDeleteSavedRequestMock.mockResolvedValue(undefined);
+  apiPreviewPostmanImportMock.mockReset();
+  apiCommitPostmanImportMock.mockReset();
+  openDialogMock.mockReset();
 }
 
 describe("SavedRequestsPanel", () => {
@@ -148,5 +160,89 @@ describe("SavedRequestsPanel", () => {
         "perm denied",
       ),
     );
+  });
+
+  it("previews explicitly before committing a Postman import", async () => {
+    apiListSavedRequestsMock.mockResolvedValue([]);
+    openDialogMock.mockResolvedValue("/tmp/network.postman_collection.json");
+    apiPreviewPostmanImportMock.mockResolvedValue({
+      fingerprint: "abc123",
+      collection_name: "Network API",
+      request_count: 2,
+      folder_count: 1,
+      variable_keys: [{ key: "API_TOKEN", is_secret: true }],
+      skipped_items: [{ path: "Upload", reason: "Binary body is not supported." }],
+      warnings: [],
+    });
+    apiCommitPostmanImportMock.mockResolvedValue({
+      collection_id: "collection-1",
+      collection_name: "Network API",
+      environment: "network_api",
+      imported_count: 2,
+      skipped_count: 1,
+      warnings: [],
+    });
+    render(<SavedRequestsPanel tabId="t1" />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Postman…" }));
+    await waitFor(() => expect(apiPreviewPostmanImportMock).toHaveBeenCalledWith(
+      "/tmp/network.postman_collection.json",
+    ));
+    expect(screen.getByTestId("postman-import-preview")).toHaveTextContent("API_TOKEN (secret)");
+    expect(apiCommitPostmanImportMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+    await waitFor(() => expect(apiCommitPostmanImportMock).toHaveBeenCalledWith(
+      "/tmp/network.postman_collection.json",
+      "abc123",
+    ));
+    expect(screen.getByTestId("postman-import-success")).toHaveTextContent("Imported 2 requests");
+  });
+
+  it("keeps confirmation actions visible before large collapsed preview details", async () => {
+    apiListSavedRequestsMock.mockResolvedValue([]);
+    openDialogMock.mockResolvedValue("/tmp/amp.postman_collection.json");
+    apiPreviewPostmanImportMock.mockResolvedValue({
+      fingerprint: "amp-fingerprint",
+      collection_name: "Secure Endpoint",
+      request_count: 136,
+      folder_count: 53,
+      variable_keys: Array.from({ length: 66 }, (_, index) => ({
+        key: `AMP_KEY_${index + 1}`,
+        is_secret: index < 8,
+      })),
+      skipped_items: Array.from({ length: 192 }, (_, index) => ({
+        path: `Unsupported ${index + 1}`,
+        reason: "Postman feature is not supported.",
+      })),
+      warnings: ["Scripts are skipped and never executed."],
+    });
+    const onImportStart = vi.fn();
+
+    render(<SavedRequestsPanel tabId="t1" onImportStart={onImportStart} />);
+    fireEvent.click(screen.getByRole("button", { name: "Import Postman…" }));
+
+    const preview = await screen.findByTestId("postman-import-preview");
+    expect(onImportStart).toHaveBeenCalledOnce();
+    expect(within(preview).getByText("Preview only — nothing has been imported yet.")).toBeVisible();
+    expect(within(preview).getByRole("button", { name: "Import" })).toBeVisible();
+    expect(within(preview).getByRole("button", { name: "Cancel" })).toBeVisible();
+    expect(within(preview).getByText("66 environment keys · 8 marked secret").closest("details")).not.toHaveAttribute("open");
+    expect(within(preview).getByText("192 skipped items").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("groups imported rows by collection and nested folder while showing display names", async () => {
+    apiListSavedRequestsMock.mockResolvedValue([
+      {
+        id: "imported-1", name: "pm_internal", display_name: "Get Device",
+        collection_id: "collection-1", collection_name: "Network API", folder_path: "Sites / Devices",
+        target_id: null, environment: "network_api", method: "GET", url: "${env:BASE_URL}/devices",
+        headers_json: "{}", query_json: "{}", body_kind: "none", body_text: null,
+        auth_json: '{"type":"bearer","token":"${env:API_TOKEN}"}', created_at: 0, updated_at: 0,
+      },
+    ]);
+    render(<SavedRequestsPanel tabId="t1" />);
+    await waitFor(() => expect(screen.getByTestId("api-saved-group-collection-1")).toHaveTextContent("Network API"));
+    expect(screen.getByText(/Sites \/ Devices/)).toBeInTheDocument();
+    expect(screen.getByText("Get Device")).toBeInTheDocument();
+    expect(screen.queryByText("pm_internal")).not.toBeInTheDocument();
   });
 });

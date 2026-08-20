@@ -4,7 +4,7 @@ import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useChangeVerifyStore } from "../state/changeVerifyStore";
 import { useTabs } from "../state/tabsStore";
 import { useSshPasswordStore } from "../state/sshPasswordStore";
-import type { Tab } from "../lib/types";
+import { PARSER_DEVICE_PROFILES } from "../lib/deviceProfiles";
 import { BundlePicker } from "./BundlePicker";
 import { BundleEditor } from "./BundleEditor";
 import { ChangeTimeline } from "./ChangeTimeline";
@@ -36,17 +36,7 @@ type PanelStage = "select" | "pre-running" | "pre-done" | "change-open" | "post-
  * "no template mapping" for any pair not in this list, so the picker only
  * offers supported combinations. `generic` is intentionally excluded.
  */
-const DEVICE_TYPES: {
-  label: string;
-  vendor: NonNullable<Tab["vendor"]>;
-  platform: string;
-}[] = [
-  { label: "Cisco IOS-XE", vendor: "cisco", platform: "iosxe" },
-  { label: "Cisco IOS", vendor: "cisco", platform: "ios" },
-  { label: "Cisco NX-OS", vendor: "cisco", platform: "nxos" },
-  { label: "Juniper Junos", vendor: "juniper", platform: "junos" },
-  { label: "Arista EOS", vendor: "arista", platform: "eos" },
-];
+const DEVICE_TYPES = PARSER_DEVICE_PROFILES;
 
 const DEFAULT_DEVICE = DEVICE_TYPES[0];
 

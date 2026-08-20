@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { IntentSelector } from "../lib/drift";
+import { sshListConnections, type SshConnection } from "../lib/sshConnections";
 
 interface FanoutGroupLite {
   id: string;
   name: string;
   member_count: number;
-}
-
-interface SshConnLite {
-  id: string;
-  name: string;
-  host: string;
 }
 
 type Mode = "group" | "ssh";
@@ -32,7 +27,7 @@ interface Props {
  */
 export function SelectorEditor({ value, onChange }: Props) {
   const [groups, setGroups] = useState<FanoutGroupLite[]>([]);
-  const [conns, setConns] = useState<SshConnLite[]>([]);
+  const [conns, setConns] = useState<SshConnection[]>([]);
   const [mode, setMode] = useState<Mode>(
     value.ssh_connection_id ? "ssh" : "group",
   );
@@ -41,7 +36,7 @@ export function SelectorEditor({ value, onChange }: Props) {
     invoke<FanoutGroupLite[]>("fanout_group_list")
       .then(setGroups)
       .catch((e) => console.warn("fanout_group_list failed", e));
-    invoke<SshConnLite[]>("ssh_list_connections")
+    sshListConnections()
       .then(setConns)
       .catch((e) => console.warn("ssh_list_connections failed", e));
   }, []);

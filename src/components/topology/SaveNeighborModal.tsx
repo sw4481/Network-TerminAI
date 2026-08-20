@@ -13,7 +13,7 @@
  * for the freshly-saved device.
  */
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { sshListConnections, sshSaveConnection } from "../../lib/sshConnections";
 
 import {
   netconfDeviceCreate,
@@ -22,11 +22,6 @@ import {
 } from "../../lib/tauri";
 import type { TopologyNode } from "../../lib/topology";
 
-/** Minimal shape for the overwrite-protection lookup against ssh_list_connections. */
-type SavedSshConnectionLite = {
-  name: string;
-  host: string;
-};
 import "./SaveNeighborModal.css";
 
 type SaveKind = "ssh" | "netconf";
@@ -126,9 +121,7 @@ export function SaveNeighborModal({
       // silently UPSERT on conflict. If a row already exists with this
       // name but a *different* host, prompt the user before clobbering.
       if (kind === "ssh") {
-        const existing = await invoke<SavedSshConnectionLite[]>(
-          "ssh_list_connections",
-        );
+        const existing = await sshListConnections();
         const match = existing.find((c) => c.name === trimmedName);
         if (match && match.host !== trimmedHost) {
           const ok = window.confirm(
@@ -156,15 +149,13 @@ export function SaveNeighborModal({
       }
 
       if (kind === "ssh") {
-        await invoke("ssh_save_connection", {
-          request: {
-            name: trimmedName,
-            host: trimmedHost,
-            user: username.trim() || null,
-            port,
-            identity_file: null,
-            password: password ? password : null,
-          },
+        await sshSaveConnection({
+          name: trimmedName,
+          host: trimmedHost,
+          user: username.trim() || null,
+          port,
+          identity_file: null,
+          password: password ? password : null,
         });
       } else {
         await netconfDeviceCreate(
