@@ -182,6 +182,7 @@ async def resume_graph(
     thread_id: str,
     decision: str,
     on_event: Callable[[dict], None],
+    stream_output: bool = False,
 ) -> None:
     """
     Resume an interrupted LangGraph with approval decision.
@@ -191,6 +192,7 @@ async def resume_graph(
         thread_id: Thread ID for checkpointer
         decision: "approve" | "deny"
         on_event: Event callback
+        stream_output: Emit top-level model text chunks while resuming
 
     Emits events as graph resumes execution.
     """
@@ -221,6 +223,7 @@ async def resume_graph(
             input_data=Command(resume=resume_value),
             config=config,
             on_event=on_event,
+            stream_output=stream_output,
         )
 
     except Exception as e:

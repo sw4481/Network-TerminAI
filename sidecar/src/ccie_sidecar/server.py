@@ -966,7 +966,20 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         except Exception as e:  # pragma: no cover — run_capture already guards
             return {"id": req_id, "type": "error", "message": str(e)}
 
-    if method in ("pcap.summarize", "pcap.follow_stream", "pcap.packet_bytes"):
+    if method == "pcap.finding_rules":
+        try:
+            from ccie_sidecar.parsers.pcap import finding_rules
+
+            return {"id": req_id, "type": "done", "result": finding_rules()}
+        except Exception as exc:  # pragma: no cover - import/runtime packaging
+            return {"id": req_id, "type": "error", "message": str(exc)}
+
+    if method in (
+        "pcap.summarize",
+        "pcap.follow_stream",
+        "pcap.packet_bytes",
+        "pcap.findings",
+    ):
         # Plan 11 — pcap inspection. All methods load a pcap on disk and
         # return either a structured payload (`done`) or a `pcap.error`
         # with a stable code that the UI can branch on.
@@ -980,7 +993,10 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         try:
             from ccie_sidecar.parsers.pcap import (
                 PcapInvalidFilterError,
+                PcapInvalidFindingRulesError,
+                PcapUnsupportedFindingFilterError,
                 follow_stream,
+                pcap_findings,
                 packet_bytes,
                 summarize_pcap,
             )
@@ -1006,9 +1022,21 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
                         "message": "pcap.packet_bytes 'index' must be >= 1",
                     }
                 result = packet_bytes(path, index)
-            else:  # pcap.follow_stream
+            elif method == "pcap.follow_stream":
                 stream_index = int(params.get("stream_index", 0))
                 result = follow_stream(path, stream_index)
+            else:  # pcap.findings
+                enabled = params.get("enabled_rule_ids")
+                if enabled is not None and (
+                    not isinstance(enabled, list)
+                    or not all(isinstance(rule_id, str) for rule_id in enabled)
+                ):
+                    return {
+                        "id": req_id,
+                        "type": "error",
+                        "message": "pcap.findings 'enabled_rule_ids' must be a string array",
+                    }
+                result = pcap_findings(path, enabled)
             return {"id": req_id, "type": "done", "result": result}
         except FileNotFoundError as exc:
             return {
@@ -1021,6 +1049,18 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
                 "id": req_id,
                 "type": "error",
                 "message": f"invalid_filter: {exc}",
+            }
+        except PcapUnsupportedFindingFilterError as exc:
+            return {
+                "id": req_id,
+                "type": "error",
+                "message": f"unsupported_filter: {exc}",
+            }
+        except PcapInvalidFindingRulesError as exc:
+            return {
+                "id": req_id,
+                "type": "error",
+                "message": f"invalid_rules: {exc}",
             }
         except IndexError as exc:
             return {
@@ -1656,6 +1696,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 vault_secrets = params.get("vault_secrets") or {}
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
                 history = params.get("history") or []
+                stream_output = bool(params.get("stream_output", False))
 
                 try:
                     # Load agent definition
@@ -1691,7 +1732,8 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             agent_def=agent_def,
                             user_msg=message,
                             ctx={"history": history},
-                            on_event=on_event
+                            on_event=on_event,
+                            stream_output=stream_output,
                         ))
                     else:
                         # Legacy: expects catalog as JSON string
@@ -1815,6 +1857,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 vault_secrets = params.get("vault_secrets") or {}
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
                 history = params.get("history") or []
+                stream_output = bool(params.get("stream_output", False))
 
                 try:
                     # Event callback that streams to stdout
@@ -1841,7 +1884,8 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             agent_def=agent_def,
                             user_msg=message,
                             ctx={"history": history},
-                            on_event=emit_event
+                            on_event=emit_event,
+                            stream_output=stream_output,
                         ))
                     else:
                         # Legacy: flat structure
@@ -1879,6 +1923,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
 
                 thread_id = params.get("thread_id")
                 decision = params.get("decision")  # "approve" | "deny"
+                stream_output = bool(params.get("stream_output", False))
 
                 if not thread_id:
                     err_msg = {"id": req_id, "type": "error", "message": "thread_id required"}
@@ -1914,6 +1959,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         thread_id=thread_id,
                         decision=decision,
                         on_event=emit_event,
+                        stream_output=stream_output,
                     ))
 
                     # Send done

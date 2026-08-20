@@ -9,13 +9,18 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::OnceCell;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::commands::AppState;
+use crate::pcap::local::{DumpcapBackend, LocalCaptureInterface, LocalCaptureSpec, RealDumpcap};
 use crate::pcap::orchestrator::{self, CaptureRegistry};
 use crate::pcap::repo::{self, PcapCapture};
 use crate::pcap::ssh_exec::DeviceConn;
-use crate::pcap::summarize::{FollowStreamResult, PcapBridge, PcapPacketBytes, PcapSummary};
+use crate::pcap::summarize::{
+    FindingRuleMetadata, FollowStreamResult, PcapBridge, PcapFindingsResult, PcapPacketBytes,
+    PcapSummary,
+};
 use crate::pcap::templates::{self, PcapTemplate};
 use crate::pcap::types::{CaptureSpec, DeviceKind};
 
@@ -38,6 +43,26 @@ pub struct StartCaptureArgs {
 #[derive(Debug, Serialize)]
 pub struct StartCaptureReply {
     pub capture_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StartLocalCaptureArgs {
+    pub interface_selector: String,
+    pub interface_label: String,
+    pub capture_filter: Option<String>,
+    #[serde(default = "default_local_duration")]
+    pub duration_seconds: u32,
+    #[serde(default = "default_local_size")]
+    pub max_size_mib: u32,
+}
+
+fn default_local_duration() -> u32 {
+    30
+}
+
+fn default_local_size() -> u32 {
+    100
 }
 
 #[tauri::command]
@@ -181,25 +206,161 @@ pub async fn pcap_start_capture(
     let id_for_task = capture_id.clone();
     let progress_event = format!("pcap://progress/{capture_id}");
 
-    let task = tokio::spawn(async move {
+    let reg = registry().await;
+    let cancel = CancellationToken::new();
+    reg.insert(capture_id.clone(), cancel.clone()).await;
+    let reg_for_task = reg.clone();
+    tokio::spawn(async move {
         let emit = |ev: orchestrator::CaptureEvent| {
             if let Err(e) = app_clone.emit(&progress_event, &ev) {
                 tracing::warn!(?e, "failed to emit pcap progress event");
             }
         };
-        if let Err(err) = run_live_capture(&bridge, &spec, &conn, &id_for_task, &db, &emit).await {
-            let msg = format!("{err:#}");
-            let conn_db = db.lock();
-            let _ = repo::update_status(&conn_db, &id_for_task, "failed", Some(&msg));
-            drop(conn_db);
-            emit(orchestrator::CaptureEvent::Failed { error: msg });
+        tokio::select! {
+            _ = cancel.cancelled() => {}
+            result = run_live_capture(&bridge, &spec, &conn, &id_for_task, &db, &emit) => {
+                if let Err(err) = result {
+                    let msg = format!("{err:#}");
+                    let conn_db = db.lock();
+                    let _ = repo::update_status(&conn_db, &id_for_task, "failed", Some(&msg));
+                    drop(conn_db);
+                    emit(orchestrator::CaptureEvent::Failed { error: msg });
+                }
+            }
         }
+        reg_for_task.remove(&id_for_task).await;
     });
 
+    Ok(StartCaptureReply { capture_id })
+}
+
+#[tauri::command]
+pub async fn pcap_list_local_interfaces() -> Result<Vec<LocalCaptureInterface>, String> {
+    let dumpcap = RealDumpcap::resolve().map_err(|e| e.to_string())?;
+    dumpcap.list_interfaces().await.map_err(|e| e.to_string())
+}
+
+/// Capture an interface on this computer with dumpcap. Interface identity is
+/// re-enumerated and checked immediately before launch, so a stale numeric
+/// selector cannot silently move the capture to another adapter.
+#[tauri::command]
+pub async fn pcap_start_local_capture(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    args: StartLocalCaptureArgs,
+) -> Result<StartCaptureReply, String> {
+    if !(1..=600).contains(&args.duration_seconds) {
+        return Err("durationSeconds must be between 1 and 600".into());
+    }
+    if !(1..=1024).contains(&args.max_size_mib) {
+        return Err("maxSizeMiB must be between 1 and 1024".into());
+    }
+    let selector = args.interface_selector.trim();
+    let label = args.interface_label.trim();
+    if selector.is_empty() || label.is_empty() {
+        return Err("a dumpcap interface selector and label are required".into());
+    }
+
+    let backend = Arc::new(RealDumpcap::resolve().map_err(|e| e.to_string())?);
+    let current = backend.list_interfaces().await.map_err(|e| e.to_string())?;
+    if !current
+        .iter()
+        .any(|item| item.selector == selector && item.label == label)
+    {
+        return Err(
+            "The selected capture interface changed or disappeared. Refresh the interface list."
+                .into(),
+        );
+    }
+
+    let capture_id = Uuid::new_v4().to_string();
+    let output_path = crate::pcap::sftp::pcap_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join(format!("{capture_id}.pcap"));
+    {
+        let db = state.db.lock();
+        repo::create(
+            &db,
+            &capture_id,
+            None,
+            "This Computer",
+            DeviceKind::Local,
+            label,
+            args.capture_filter.as_deref(),
+        )
+        .and_then(|_| repo::update_status(&db, &capture_id, "capturing", None))
+        .map_err(|e| e.to_string())?;
+    }
+
+    let spec = LocalCaptureSpec {
+        interface_selector: selector.to_string(),
+        capture_filter: args.capture_filter,
+        duration_seconds: args.duration_seconds,
+        max_size_mib: args.max_size_mib,
+    };
+    let db = state.db.clone();
+    let progress_event = format!("pcap://progress/{capture_id}");
+    let id_for_task = capture_id.clone();
     let reg = registry().await;
-    reg.insert(capture_id.clone(), task.abort_handle()).await;
+    let cancel = CancellationToken::new();
+    reg.insert(capture_id.clone(), cancel.clone()).await;
+    let reg_for_task = reg.clone();
+    tokio::spawn(async move {
+        let emit = |event: orchestrator::CaptureEvent| {
+            if let Err(error) = app.emit(&progress_event, &event) {
+                tracing::warn!(?error, "failed to emit local pcap progress event");
+            }
+        };
+        emit(orchestrator::CaptureEvent::Capturing);
+        tokio::select! {
+            _ = cancel.cancelled() => {}
+            result = run_local_capture(backend.as_ref(), &spec, &output_path, &id_for_task, &db, &emit) => {
+                if let Err(error) = result {
+                    let message = format!("{error:#}");
+                    let conn = db.lock();
+                    let _ = repo::update_status(&conn, &id_for_task, "failed", Some(&message));
+                    drop(conn);
+                    emit(orchestrator::CaptureEvent::Failed { error: message });
+                }
+            }
+        }
+        reg_for_task.remove(&id_for_task).await;
+    });
 
     Ok(StartCaptureReply { capture_id })
+}
+
+async fn run_local_capture<B: DumpcapBackend + ?Sized>(
+    backend: &B,
+    spec: &LocalCaptureSpec,
+    output_path: &std::path::Path,
+    capture_id: &str,
+    db: &Arc<Mutex<rusqlite::Connection>>,
+    emit: &impl Fn(orchestrator::CaptureEvent),
+) -> anyhow::Result<()> {
+    use anyhow::Context;
+
+    let bytes = backend
+        .capture(spec, output_path)
+        .await
+        .context("capture local interface")?;
+    if bytes >= crate::pcap::PCAP_SIZE_WARN_BYTES {
+        emit(orchestrator::CaptureEvent::SizeWarning { size_bytes: bytes });
+    }
+    let local_path = output_path
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("local pcap path is not utf-8"))?
+        .to_string();
+    {
+        let conn = db.lock();
+        repo::finalize_local(&conn, capture_id, &local_path, 0, bytes)?;
+    }
+    emit(orchestrator::CaptureEvent::Ready {
+        local_path,
+        size_bytes: bytes,
+        packet_count: 0,
+    });
+    Ok(())
 }
 
 /// Drive a live capture via the sidecar's pyATS lifecycle (one persistent
@@ -235,6 +396,7 @@ async fn run_live_capture(
         DeviceKind::Nxos => "nxos",
         DeviceKind::Junos => "junos",
         DeviceKind::Eos => "eos",
+        DeviceKind::Local => return Err(anyhow::anyhow!("local capture requires dumpcap")),
     };
 
     let result = bridge
@@ -295,9 +457,37 @@ async fn run_live_capture(
 }
 
 #[tauri::command]
-pub async fn pcap_cancel(id: String) -> Result<bool, String> {
+pub async fn pcap_cancel(state: State<'_, AppState>, id: String) -> Result<bool, String> {
     let reg = registry().await;
-    Ok(reg.cancel(&id).await)
+    if !reg.cancel(&id).await {
+        return Ok(false);
+    }
+
+    // Wait briefly for the task to observe cancellation. For local captures,
+    // dropping the `Command::output` future kills dumpcap before partial-file
+    // cleanup. Remote capture futures are likewise stopped before DB mutation.
+    for _ in 0..40 {
+        if !reg.contains(&id).await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+
+    let cache_path = crate::pcap::sftp::pcap_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join(format!("{id}.pcap"));
+    let partial_path = cache_path.with_extension("pcap.partial");
+    let _ = std::fs::remove_file(&cache_path);
+    let _ = std::fs::remove_file(&partial_path);
+
+    let conn = state.db.lock();
+    if let Some(row) = repo::get(&conn, &id).map_err(|e| e.to_string())? {
+        if matches!(row.status.as_str(), "setup" | "capturing" | "pulling") {
+            repo::update_status(&conn, &id, "failed", Some("cancelled"))
+                .map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(true)
 }
 
 fn capture_local_path(state: &State<'_, AppState>, id: &str) -> Result<String, String> {
@@ -346,6 +536,29 @@ pub async fn pcap_packet_bytes(
         .packet_bytes(&path, index)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn pcap_finding_rules(
+    state: State<'_, AppState>,
+) -> Result<Vec<FindingRuleMetadata>, String> {
+    PcapBridge::new(state.agent.clone())
+        .finding_rules()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn pcap_findings(
+    state: State<'_, AppState>,
+    capture_id: String,
+    enabled_rule_ids: Vec<String>,
+) -> Result<PcapFindingsResult, String> {
+    let path = capture_local_path(&state, &capture_id)?;
+    PcapBridge::new(state.agent.clone())
+        .findings(&path, &enabled_rule_ids)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

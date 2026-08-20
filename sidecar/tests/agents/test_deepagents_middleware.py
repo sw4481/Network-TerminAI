@@ -14,6 +14,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai.chat_models.base import _convert_message_to_dict
 
 from ccie_sidecar.agents.deepagents_middleware import (
+    FocusedApiToolsMiddleware,
     ToolCallSanitizerMiddleware,
     HideBuiltinFsToolsMiddleware,
     _repair_to_obj,
@@ -66,6 +67,22 @@ def test_hide_builtin_fs_tools_noop_when_none_present():
 
     HideBuiltinFsToolsMiddleware().wrap_model_call(req, handler)
     assert captured["names"] == ["execute_python_code", "iac_apply"]
+
+
+def test_focused_api_tools_exposes_only_catalog_search_and_code_execution():
+    req = _FakeModelRequest([
+        _tool("ls"), _tool("read_file"), _tool("write_todos"), _tool("task"),
+        _tool("execute"), _tool("search_api_catalog"),
+        _tool("execute_python_code"),
+    ])
+    captured = {}
+
+    def handler(r):
+        captured["names"] = [t.name for t in r.tools]
+        return "result"
+
+    FocusedApiToolsMiddleware().wrap_model_call(req, handler)
+    assert captured["names"] == ["search_api_catalog", "execute_python_code"]
 
 
 def _malformed_ai_message() -> AIMessage:

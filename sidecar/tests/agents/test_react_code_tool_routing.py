@@ -93,7 +93,13 @@ def _run_capture_tools(agent_def, sandbox_globals):
             on_event=[].append,
         ))
 
-    return captured["tools"][0]["description"]
+    for tool in captured["tools"]:
+        if tool.get("name") == "execute_python_code":
+            return tool["description"]
+        function = tool.get("function", {})
+        if function.get("name") == "execute_python_code":
+            return function["description"]
+    raise AssertionError("execute_python_code tool was not provided")
 
 
 def test_meraki_prompt_uses_single_door_api_call():

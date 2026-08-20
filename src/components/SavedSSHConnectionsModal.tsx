@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import {
   buildSshCommand,
   sshCreateFolder,
@@ -7,12 +8,17 @@ import {
   sshDeleteFolder,
   sshListConnections,
   sshListFolders,
+  sshImportCommit,
+  sshImportPreview,
   sshMarkUsed,
   sshSaveConnection,
   sshUpdateConnection,
   sshUpdateFolder,
   type SshConnection,
   type SshFolder,
+  type SshImportPreview,
+  type SshImportResult,
+  type SshImportSourceType,
 } from "../lib/sshConnections";
 import {
   DEVICE_ACCENT_COLORS,
@@ -143,6 +149,13 @@ export function SavedSSHConnectionsModal({ onConnect, onClose }: SavedSSHConnect
   const [folderMode, setFolderMode] = useState<"create" | "rename" | null>(null);
   const [folderName, setFolderName] = useState("");
   const [folderParentId, setFolderParentId] = useState("root");
+  const [importOpen, setImportOpen] = useState(false);
+  const [importSourceType, setImportSourceType] = useState<SshImportSourceType>("openssh");
+  const [importPath, setImportPath] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<SshImportPreview | null>(null);
+  const [importResult, setImportResult] = useState<SshImportResult | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const loadInventory = async () => {
     setLoading(true);
@@ -331,13 +344,78 @@ export function SavedSSHConnectionsModal({ onConnect, onClose }: SavedSSHConnect
     }
   };
 
+  const closeImport = () => {
+    setImportOpen(false);
+    setImportPath(null);
+    setImportPreview(null);
+    setImportResult(null);
+    setImportError(null);
+  };
+
+  const chooseImportSource = async () => {
+    setImportError(null);
+    setImportResult(null);
+    const filters = importSourceType === "csv"
+      ? [{ name: "CSV inventory", extensions: ["csv"] }]
+      : importSourceType === "mtputty"
+        ? [{ name: "MTPuTTY XML", extensions: ["xml"] }]
+        : importSourceType === "mobaxterm"
+          ? [{ name: "MobaXterm sessions", extensions: ["ini", "mxtsessions"] }]
+          : undefined;
+    const selected = await open({
+      multiple: false,
+      directory: importSourceType === "securecrt",
+      ...(filters ? { filters } : {}),
+    });
+    if (typeof selected !== "string") return;
+    setImporting(true);
+    setImportPath(null);
+    setImportPreview(null);
+    try {
+      const preview = await sshImportPreview(importSourceType, selected);
+      setImportPath(selected);
+      setImportPreview(preview);
+    } catch (cause) {
+      setImportError(String(cause));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const commitImport = async () => {
+    if (!importPath || !importPreview) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const result = await sshImportCommit(
+        importSourceType,
+        importPath,
+        importPreview.fingerprint,
+      );
+      setImportResult(result);
+      setImportPath(null);
+      setImportPreview(null);
+      await loadInventory();
+    } catch (cause) {
+      setImportError(String(cause));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importCounts = importPreview?.rows.reduce(
+    (counts, row) => ({ ...counts, [row.action]: counts[row.action] + 1 }),
+    { create: 0, update: 0, skip: 0 },
+  );
+
   return (
     <div className="ssh-modal-overlay" onClick={onClose}>
       <div className="ssh-modal" role="dialog" aria-label="Saved SSH Connections" onClick={(event) => event.stopPropagation()}>
         <header className="ssh-modal-header">
           <h2>Saved SSH Connections</h2>
           <div className="ssh-modal-header-actions">
-            {!formOpen && <button type="button" className="ssh-btn-add" onClick={openAddForm}>+ New Device</button>}
+            {!formOpen && !importOpen && <button type="button" onClick={() => { setImportOpen(true); setImportResult(null); }}>Import…</button>}
+            {!formOpen && !importOpen && <button type="button" className="ssh-btn-add" onClick={openAddForm}>+ New Device</button>}
             <button type="button" className="ssh-modal-close" aria-label="Close" onClick={onClose}>✕</button>
           </div>
         </header>
@@ -375,7 +453,95 @@ export function SavedSSHConnectionsModal({ onConnect, onClose }: SavedSSHConnect
           </aside>
 
           <main className="ssh-device-pane">
-            {formOpen ? (
+            {importOpen ? (
+              <div className="ssh-import-panel" data-testid="ssh-import-panel">
+                <div className="ssh-import-heading">
+                  <div>
+                    <h3>Import SSH Inventory</h3>
+                    <p>Preview is read-only and never displays credential values.</p>
+                  </div>
+                  <button type="button" disabled={importing} onClick={closeImport}>Close</button>
+                </div>
+                <div className="ssh-import-picker">
+                  <label>
+                    <span>Import format</span>
+                    <select
+                      aria-label="Import format"
+                      value={importSourceType}
+                      disabled={importing}
+                      onChange={(event) => {
+                        setImportSourceType(event.target.value as SshImportSourceType);
+                        setImportPath(null);
+                        setImportPreview(null);
+                        setImportResult(null);
+                        setImportError(null);
+                      }}
+                    >
+                      <option value="securecrt">SecureCRT session directory</option>
+                      <option value="mtputty">MTPuTTY XML</option>
+                      <option value="mobaxterm">MobaXterm export</option>
+                      <option value="openssh">OpenSSH config</option>
+                      <option value="csv">CSV inventory</option>
+                    </select>
+                  </label>
+                  <button type="button" disabled={importing} onClick={() => void chooseImportSource()}>
+                    {importing && !importPreview ? "Reading…" : "Choose source…"}
+                  </button>
+                </div>
+                {importSourceType === "csv" && (
+                  <p className="ssh-import-hint">
+                    Columns: name, host, user, port, identity_file, password, folder, tags
+                  </p>
+                )}
+                {importError && <div className="ssh-form-error" role="alert">{importError}</div>}
+                {importResult && (
+                  <div className="ssh-import-result" role="status">
+                    Imported {importResult.created} new and updated {importResult.updated}; {importResult.skipped} skipped.
+                    {importResult.credential_skipped > 0 && ` ${importResult.credential_skipped} protected credential${importResult.credential_skipped === 1 ? " was" : "s were"} not imported.`}
+                  </div>
+                )}
+                {importPreview && importCounts && (
+                  <div className="ssh-import-review" data-testid="ssh-import-preview">
+                    <div className="ssh-import-summary">
+                      <strong>{importPreview.rows.length} parsed row{importPreview.rows.length === 1 ? "" : "s"}</strong>
+                      <span>{importCounts.create} create · {importCounts.update} update · {importCounts.skip} skip</span>
+                      <span className="ssh-import-path" title={importPreview.source_path}>{importPreview.source_path}</span>
+                    </div>
+                    <div className="ssh-import-actions">
+                      <button
+                        type="button"
+                        disabled={importing || importCounts.create + importCounts.update === 0}
+                        onClick={() => void commitImport()}
+                      >
+                        {importing ? "Importing…" : "Commit Import"}
+                      </button>
+                      <button type="button" disabled={importing} onClick={() => { setImportPath(null); setImportPreview(null); }}>Cancel Preview</button>
+                    </div>
+                    <div className="ssh-import-rows">
+                      {importPreview.rows.map((row, index) => (
+                        <div className="ssh-import-row" data-action={row.action} key={`${row.source}-${index}`}>
+                          <div className="ssh-import-row-title">
+                            <span className="ssh-import-action">{row.action}</span>
+                            <strong>{row.name || "Unnamed row"}</strong>
+                            <span>{row.user ? `${row.user}@` : ""}{row.host || "missing host"}:{row.port}</span>
+                          </div>
+                          <div className="ssh-import-row-meta">
+                            {row.folder && <span>Folder: {row.folder}</span>}
+                            {row.identity_file && <span>Identity: {row.identity_file}</span>}
+                            {row.tags.length > 0 && <span>Tags: {row.tags.join(", ")}</span>}
+                            {row.credential_state === "plaintext" && <span>Credential: plaintext value will be encrypted</span>}
+                            {row.credential_state === "unsupported" && <span>Credential: protected value skipped</span>}
+                          </div>
+                          {row.warnings.length > 0 && <ul>{row.warnings.map((warning, warningIndex) => <li key={warningIndex}>{warning}</li>)}</ul>}
+                          <small>{row.source}</small>
+                        </div>
+                      ))}
+                    </div>
+                    {importPreview.warnings.length > 0 && <ul className="ssh-import-global-warnings">{importPreview.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+                  </div>
+                )}
+              </div>
+            ) : formOpen ? (
               <div className="ssh-form">
                 <h3>{editingId ? "Edit Connection" : "New Connection"}</h3>
                 <div className="ssh-form-grid">

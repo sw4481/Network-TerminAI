@@ -130,6 +130,23 @@ class TestGenerateAgentPrompt:
         assert "Production" in prompt
         assert "Guest" in prompt
 
+    def test_meraki_network_health_prompt_is_catalog_grounded_and_scoped(self):
+        entities = {"networks": ["Shaun-Home"]}
+
+        prompt = generate_agent_prompt(
+            "meraki",
+            entities,
+            "check Meraki health for Shaun-Home every 45 minutes",
+        )
+
+        assert "search_api_catalog" in prompt
+        assert "getOrganizationDevicesStatuses" in prompt
+        assert "getOrganizationAssuranceAlerts" in prompt
+        assert 'query_params={"networkIds": [network_id]}' in prompt
+        assert 'query_params={"networkId": network_id, "active": True' in prompt
+        assert "ONLY Shaun-Home" in prompt
+        assert "organization-wide" not in prompt.lower()
+
     def test_meraki_no_networks(self):
         entities = {"networks": []}
         prompt = generate_agent_prompt("meraki", entities, "check all")

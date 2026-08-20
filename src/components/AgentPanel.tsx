@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
+import { Fragment, useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useChatStore, chatKey } from "../state/chatStore";
@@ -27,6 +27,11 @@ import { CodeBlock } from "./CodeBlock";
 import { ChatHistoryBrowser } from "./ChatHistoryBrowser";
 import { AgentSourcesBadge } from "./AgentSourcesBadge";
 import { AgentSourcesDrawer } from "./AgentSourcesDrawer";
+import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
+import {
+  AgentWorkingIndicator,
+  shouldRenderAgentMessage,
+} from "./AgentWorkingIndicator";
 import "./AgentSourcesDrawer.css";
 
 interface CodeBlockState {
@@ -116,6 +121,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const streamedGenerationRef = useRef<Record<string, boolean>>({});
+  const { preferences: aiChatPreferences } = useAiChatPreferences();
 
   // Agents store — must resolve BEFORE the chat key so the key reflects the active agent
   const agents = useAgentsStore((s) => s.agents);
@@ -179,7 +186,12 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   // iac_apply, the modal mounts with this request + the turn's bucket key so
   // resumed events land in the conversation that started them.
   const [iacApproval, setIacApproval] = useState<
-    { request: IaCApprovalRequest; threadId: string; bucketKey: string } | null
+    {
+      request: IaCApprovalRequest;
+      threadId: string;
+      bucketKey: string;
+      streamOutput: boolean;
+    } | null
   >(null);
 
   // Which assistant message's Sources drawer is currently open.
@@ -404,15 +416,29 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   // Shared ReACT-Code event handler — used by both the initial run and a
   // resumed (post-approval) run so events land in the same conversation bucket.
-  const handleReactCodeEvent = (event: ReactEvent, keyForTurn: string) => {
-    if (event.type === "thought_start") {
+  const handleReactCodeEvent = (
+    event: ReactEvent,
+    keyForTurn: string,
+    streamOutput: boolean,
+  ) => {
+    if (event.type === "token") {
+      appendToken(keyForTurn, event.text);
+      streamedGenerationRef.current[keyForTurn] = true;
+    } else if (event.type === "thought_start") {
       // Guard whitespace-only thoughts so steps never render blank.
       const thoughtText = event.thought?.trim() || `Step ${event.step}`;
-      appendToken(keyForTurn, `\n**[Step ${event.step}]** ${thoughtText}\n`);
+      // In streamed mode the model's pre-tool text has already been rendered.
+      // Keep the existing labelled step as a fallback for providers that do
+      // not expose token deltas.
+      if (!streamOutput || !streamedGenerationRef.current[keyForTurn]) {
+        appendToken(keyForTurn, `\n**[Step ${event.step}]** ${thoughtText}\n`);
+      }
+      streamedGenerationRef.current[keyForTurn] = false;
     } else if (event.type === "tool_call" && event.name === "execute_python_code") {
       const code = (event.args as { code?: string })?.code || "";
       addCodeBlock(code);
     } else if (event.type === "tool_result") {
+      streamedGenerationRef.current[keyForTurn] = false;
       if (event.success) {
         updateLastCodeBlock({ status: "success", output: event.result });
       } else {
@@ -422,9 +448,13 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       useDiagramStore.getState().addDiagram(event);
       window.dispatchEvent(new CustomEvent("ccie:open-diagram-panel"));
     } else if (event.type === "final") {
-      appendToken(keyForTurn, event.response);
+      if (!streamOutput || !streamedGenerationRef.current[keyForTurn]) {
+        appendToken(keyForTurn, event.response);
+      }
+      delete streamedGenerationRef.current[keyForTurn];
       setStreaming(keyForTurn, false);
     } else if (event.type === "error") {
+      delete streamedGenerationRef.current[keyForTurn];
       setError(keyForTurn, event.message);
       setStreaming(keyForTurn, false);
     } else if (event.type === "iac_approval_request") {
@@ -434,6 +464,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       setIacApproval({
         threadId: event.thread_id,
         bucketKey: keyForTurn,
+        streamOutput,
         request: {
           command: event.command,
           workingDir: event.working_dir,
@@ -473,7 +504,12 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       await agentReactResume({
         threadId: pending.threadId,
         decision,
-        onEvent: (event) => handleReactCodeEvent(event, pending.bucketKey),
+        streamOutput: pending.streamOutput,
+        onEvent: (event) => handleReactCodeEvent(
+          event,
+          pending.bucketKey,
+          pending.streamOutput,
+        ),
       });
     } catch (e) {
       setError(pending.bucketKey, e instanceof Error ? e.message : String(e));
@@ -497,6 +533,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     // events must still land in the conversation that started them.
     const keyForTurn = bucketKey;
     const persistForTurn = { tabId, agentId: persistAgentId };
+    const streamOutputForTurn = aiChatPreferences.streamLlmOutput;
+    streamedGenerationRef.current[keyForTurn] = false;
 
     // Snapshot prior conversation BEFORE this turn's messages are added, so the
     // agent has multi-turn context (e.g. a network the user already named).
@@ -570,7 +608,12 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           agentId: activeAgentForTab,
           message: userMessage,
           history,
-          onEvent: (event) => handleReactCodeEvent(event, keyForTurn),
+          streamOutput: streamOutputForTurn,
+          onEvent: (event) => handleReactCodeEvent(
+            event,
+            keyForTurn,
+            streamOutputForTurn,
+          ),
         });
         setStreaming(keyForTurn, false);
       } else if (isCodeExecAgent) {
@@ -611,17 +654,26 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         // ReACT agent with tool catalog
         console.log("[AgentPanel] Using agentReactRun for", activeAgentForTab);
         console.log("[AgentPanel] Agent has", selectedAgent?.attachedTools?.length, "tools");
+        let streamedCurrentGeneration = false;
         await agentReactRun({
           agentId: activeAgentForTab,
           message: userMessage,
           history,
+          streamOutput: streamOutputForTurn,
           onEvent: (event) => {
             console.log("[AgentPanel] ReACT event:", event);
 
             // Map ReACT events to chat events
-            if (event.type === "final") {
-              appendToken(keyForTurn, event.response);
+            if (event.type === "token") {
+              appendToken(keyForTurn, event.text);
+              streamedCurrentGeneration = true;
+            } else if (event.type === "final") {
+              if (!streamOutputForTurn || !streamedCurrentGeneration) {
+                appendToken(keyForTurn, event.response);
+              }
+              streamedCurrentGeneration = false;
             } else if (event.type === "tool_call") {
+              streamedCurrentGeneration = false;
               addMessage(keyForTurn, {
                 id: `tool-${Date.now()}`,
                 role: "tool_proposed",
@@ -634,6 +686,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 toolStatus: "done",
               });
             } else if (event.type === "tool_result") {
+              streamedCurrentGeneration = false;
               // Don't append raw tool result - LLM will format it in the final response
             } else if (event.type === "thought_start") {
               // Optional: show thinking
@@ -734,6 +787,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       console.error("[AgentPanel] Error in handleSend:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error("[AgentPanel] Error message:", errorMsg);
+      delete streamedGenerationRef.current[keyForTurn];
       setError(keyForTurn, `Agent error: ${errorMsg}`);
       setStreaming(keyForTurn, false);
     }
@@ -916,9 +970,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 msg.role === "assistant" &&
                 msgIndex === messages.length - 1 &&
                 codeBlocks.length > 0;
+              const isEmptyAssistantMsg =
+                !shouldRenderAgentMessage(msg.role, msg.content);
 
               return (
-                <>
+                <Fragment key={msg.id}>
                   {isLastAssistantMsg && (
                     <div className="agent-code-blocks">
                       {codeBlocks.map((block) => (
@@ -953,7 +1009,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                       </div>
                       <pre className="tool-result-body">{msg.content}</pre>
                     </div>
-                  ) : (
+                  ) : isEmptyAssistantMsg ? null : (
                     <div key={msg.id} className={`agent-message ${msg.role}`}>
                       <div className="agent-message-content">
                         {msg.role === "user" ? (
@@ -1008,16 +1064,12 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                         )}
                     </div>
                   )}
-                </>
+                </Fragment>
               );
             })}
 
             {streaming && (
-              <div className="agent-streaming">
-                <span className="streaming-dot"></span>
-                <span className="streaming-dot"></span>
-                <span className="streaming-dot"></span>
-              </div>
+              <AgentWorkingIndicator />
             )}
 
             {error && (

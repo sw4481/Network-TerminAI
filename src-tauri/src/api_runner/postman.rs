@@ -1115,7 +1115,7 @@ fn form_encode_preserving_placeholders(value: &str) -> String {
     let mut remaining = value;
     while let Some(start) = remaining.find("${env:") {
         output.extend(url::form_urlencoded::byte_serialize(
-            remaining[..start].as_bytes(),
+            &remaining.as_bytes()[..start],
         ));
         let after = &remaining[start..];
         let Some(end) = after.find('}') else {

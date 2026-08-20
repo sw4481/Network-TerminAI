@@ -3,7 +3,7 @@ import {
   startCapture,
   type CaptureSpec,
   type DeviceConn,
-  type DeviceKind,
+  type RemoteDeviceKind,
   type PcapTemplate,
 } from '../lib/pcap';
 
@@ -13,14 +13,14 @@ interface PcapQuickCaptureWizardProps {
   onStarted?: (captureId: string) => void;
 }
 
-const VENDOR_DEFAULT_PATH: Record<DeviceKind, string> = {
+const VENDOR_DEFAULT_PATH: Record<RemoteDeviceKind, string> = {
   iosxe: 'flash:CAP.pcap',
   nxos: 'bootflash:CAP.pcap',
   junos: '/var/tmp/CAP.pcap',
   eos: '/mnt/flash/CAP.pcap',
 };
 
-function deviceKindFromPlatform(platform: string): DeviceKind {
+function deviceKindFromPlatform(platform: string): RemoteDeviceKind {
   if (platform === 'iosxe' || platform === 'nxos' || platform === 'junos') {
     return platform;
   }

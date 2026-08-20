@@ -37,6 +37,7 @@ import TerminalSettingsTab from "../components/TerminalSettingsTab";
 import SettingsBrowserTab from "../components/SettingsBrowserTab";
 import EditorSettingsTab from "../components/settings/EditorSettingsTab";
 import { AppearanceSettingsTab } from "../components/settings/AppearanceSettingsTab";
+import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
 // import { useSessionsStore } from "../state/sessionsStore";
 
 type SettingsProps = {
@@ -112,6 +113,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const {
+    preferences: aiChatPreferences,
+    updatePreferences: updateAiChatPreferences,
+  } = useAiChatPreferences();
 
   // Master context-graph feature flag (default OFF). Toggling persists to
   // app_flags; the sidecar reads the same key so new agent runs pick it up.
@@ -894,6 +899,32 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 Test Connection
               </button>
             </div>
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--border-default)", margin: "28px 0 20px" }} />
+
+            <h2>AI Chat</h2>
+            <p className="muted" style={{ marginBottom: "16px" }}>
+              Choose whether compatible tool agents show their answer as it is generated
+              or wait and display the completed response at once.
+            </p>
+            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <label className="toggle-switch" style={{ margin: 0 }}>
+                <input
+                  type="checkbox"
+                  aria-label="Stream LLM output in AI Chat"
+                  checked={aiChatPreferences.streamLlmOutput}
+                  onChange={(event) => updateAiChatPreferences({
+                    streamLlmOutput: event.target.checked,
+                  })}
+                />
+                <span className="slider"></span>
+              </label>
+              <span>Stream LLM output in AI Chat</span>
+            </div>
+            <small className="hint">
+              Off keeps the current completed-response behavior. The preference is
+              saved on this computer.
+            </small>
 
             <hr style={{ border: "none", borderTop: "1px solid var(--border-default)", margin: "28px 0 20px" }} />
 

@@ -81,6 +81,40 @@ export interface SshConnectEventDetail {
   };
 }
 
+export type SshImportSourceType = "securecrt" | "mtputty" | "mobaxterm" | "openssh" | "csv";
+export type SshImportAction = "create" | "update" | "skip";
+export type SshImportCredentialState = "none" | "plaintext" | "unsupported";
+
+export interface SshImportPreviewRow {
+  source: string;
+  name: string;
+  host: string;
+  user: string | null;
+  port: number;
+  identity_file: string | null;
+  folder: string | null;
+  tags: string[];
+  action: SshImportAction;
+  credential_state: SshImportCredentialState;
+  warnings: string[];
+}
+
+export interface SshImportPreview {
+  source_type: SshImportSourceType;
+  source_path: string;
+  fingerprint: string;
+  rows: SshImportPreviewRow[];
+  warnings: string[];
+}
+
+export interface SshImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  credential_skipped: number;
+  warnings: string[];
+}
+
 export const sshListConnections = (): Promise<SshConnection[]> =>
   invoke<SshConnection[]>("ssh_list_connections");
 
@@ -117,6 +151,19 @@ export const sshUpdateFolder = (
 
 export const sshDeleteFolder = (id: string): Promise<void> =>
   invoke<void>("ssh_delete_folder", { id });
+
+export const sshImportPreview = (
+  sourceType: SshImportSourceType,
+  sourcePath: string,
+): Promise<SshImportPreview> =>
+  invoke<SshImportPreview>("ssh_import_preview", { sourceType, sourcePath });
+
+export const sshImportCommit = (
+  sourceType: SshImportSourceType,
+  sourcePath: string,
+  fingerprint: string,
+): Promise<SshImportResult> =>
+  invoke<SshImportResult>("ssh_import_commit", { sourceType, sourcePath, fingerprint });
 
 function quoteShellArgument(value: string): string {
   if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value;

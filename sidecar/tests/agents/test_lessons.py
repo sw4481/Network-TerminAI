@@ -82,6 +82,27 @@ def test_blurb_clips_long_lessons(db):
     assert "x" * 500 not in blurb
 
 
+def test_catalog_grounded_blurb_omits_obsolete_discovery_and_raw_http_lessons(db):
+    record_lesson(
+        "Before calling any API endpoint, run api_catalog.search() first",
+        scope="global",
+    )
+    record_lesson(
+        "Use requests with the API key header for every call",
+        scope="meraki",
+    )
+    record_lesson(
+        "Pass array query params as lists and validate response shapes",
+        scope="meraki",
+    )
+
+    blurb = lessons_blurb("meraki", catalog_grounded=True)
+
+    assert "api_catalog.search()" not in blurb
+    assert "API key header" not in blurb
+    assert "Pass array query params as lists" in blurb
+
+
 # ---------------------------------------------------------------------------
 # CAPTURE — LessonObserver (with REAL log traces)
 # ---------------------------------------------------------------------------

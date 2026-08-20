@@ -7,7 +7,21 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
-export type DeviceKind = 'iosxe' | 'nxos' | 'junos' | 'eos';
+export type DeviceKind = 'iosxe' | 'nxos' | 'junos' | 'eos' | 'local';
+export type RemoteDeviceKind = Exclude<DeviceKind, 'local'>;
+
+export interface LocalCaptureInterface {
+  selector: string;
+  label: string;
+}
+
+export interface LocalCaptureOptions {
+  interfaceSelector: string;
+  interfaceLabel: string;
+  captureFilter: string | null;
+  durationSeconds: number;
+  maxSizeMiB: number;
+}
 
 export interface PcapTemplate {
   id: string;
@@ -63,6 +77,35 @@ export interface FollowStreamResult {
   client_bytes: number;
   server_bytes: number;
   packets: PcapPacket[];
+}
+
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+
+export interface PcapFindingRule {
+  rule_id: string;
+  category: string;
+  severity: FindingSeverity;
+  title: string;
+  display_filter: string;
+  enabled_by_default: boolean;
+}
+
+export interface PcapFinding {
+  rule_id: string;
+  category: string;
+  severity: FindingSeverity;
+  title: string;
+  count: number;
+  display_filter: string;
+  evidence: PcapPacket[];
+  evidence_truncated: boolean;
+}
+
+export interface PcapFindingsResult {
+  findings: PcapFinding[];
+  scanned_packets: number;
+  scan_limit: number;
+  scan_truncated: boolean;
 }
 
 export interface CaptureSpec {
@@ -125,6 +168,12 @@ export const startCapture = (
     args: { spec, conn, session_id: sessionId ?? null },
   });
 
+export const listLocalCaptureInterfaces = () =>
+  invoke<LocalCaptureInterface[]>('pcap_list_local_interfaces');
+
+export const startLocalCapture = (args: LocalCaptureOptions) =>
+  invoke<{ capture_id: string }>('pcap_start_local_capture', { args });
+
 export const cancelCapture = (id: string) =>
   invoke<boolean>('pcap_cancel', { id });
 
@@ -140,6 +189,12 @@ export const summarize = (
 
 export const packetBytes = (captureId: string, index: number) =>
   invoke<PcapPacketBytes>('pcap_packet_bytes', { captureId, index });
+
+export const findingRules = () =>
+  invoke<PcapFindingRule[]>('pcap_finding_rules');
+
+export const findings = (captureId: string, enabledRuleIds: string[]) =>
+  invoke<PcapFindingsResult>('pcap_findings', { captureId, enabledRuleIds });
 
 export const followStream = (captureId: string, streamIndex: number) =>
   invoke<FollowStreamResult>('pcap_follow_stream', { captureId, streamIndex });

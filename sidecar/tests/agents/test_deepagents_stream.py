@@ -1,7 +1,7 @@
 """Unit tests for deepagents_stream.py — event mapping (Seam 2)."""
 import pytest
 from unittest.mock import MagicMock, AsyncMock
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from langchain_core.tools import ToolException
 
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
@@ -300,6 +300,61 @@ async def test_react_stream_thought_and_tool_call():
 
 
 @pytest.mark.asyncio
+async def test_react_stream_keeps_tokens_buffered_by_default():
+    """The existing final-only contract remains the default."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        yield ((), "messages", (AIMessageChunk(content="Live answer"), {}))
+        yield ((), "updates", {
+            "agent": {"messages": [AIMessage(content="Live answer")]},
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    await run_and_stream(mock_graph, {}, {}, events.append)
+
+    assert events == [{"type": "final", "response": "Live answer"}]
+
+
+@pytest.mark.asyncio
+async def test_react_stream_emits_only_top_level_tokens_when_enabled():
+    """Opt-in streaming forwards model deltas without leaking subagent text."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        yield ((), "messages", (AIMessageChunk(content="Live "), {}))
+        yield (("tools:subagent",), "messages", (
+            AIMessageChunk(content="internal specialist text"),
+            {},
+        ))
+        yield ((), "messages", (AIMessageChunk(content="answer"), {}))
+        yield ((), "updates", {
+            "agent": {"messages": [AIMessage(content="Live answer")]},
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    await run_and_stream(
+        mock_graph,
+        {},
+        {},
+        events.append,
+        stream_output=True,
+    )
+
+    assert events == [
+        {"type": "token", "text": "Live "},
+        {"type": "token", "text": "answer"},
+        {"type": "final", "response": "Live answer"},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_graph_recursion_error_surfaces_clean_message():
     """A GraphRecursionError (agent looped past the step cap) must surface as a
     clean, actionable error event — NOT the raw stack trace that reads as a crash."""
@@ -337,6 +392,7 @@ async def test_graph_recursion_error_surfaces_clean_message():
     # Clean, user-facing language — no raw exception class name leaking through.
     assert "GraphRecursionError" not in msg
     assert "stuck" in msg.lower()
+    assert "terraform" not in msg.lower()
 
 
 @pytest.mark.asyncio
@@ -546,6 +602,77 @@ async def test_no_double_final():
     final_events = [e for e in events if e["type"] == "final"]
     assert len(final_events) == 1
     assert final_events[0]["response"] == "Processing..."
+
+
+@pytest.mark.asyncio
+async def test_react_stream_never_replays_input_history_as_final():
+    """A prior assistant turn surfaced by LangGraph is history, not a new answer."""
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    history_id = "history-assistant-1"
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        yield ((), "updates", {"agent": {"messages": [AIMessage(
+            content="Understood — I'll use that established context.",
+            id=history_id,
+        )]}})
+        yield ((), "updates", {"agent": {"messages": [AIMessage(
+            content="Shaun-Home has three switch access policies.",
+            id="new-answer",
+        )]}})
+
+    input_data = {"messages": [
+        HumanMessage(content="How healthy is ISE?"),
+        AIMessage(
+            content="Understood — I'll use that established context.",
+            id=history_id,
+        ),
+        HumanMessage(content="List Shaun-Home access policies"),
+    ]}
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    await run_and_stream(mock_graph, input_data, {}, events.append)
+
+    assert [event for event in events if event["type"] == "final"] == [{
+        "type": "final",
+        "response": "Shaun-Home has three switch access policies.",
+    }]
+
+
+@pytest.mark.asyncio
+async def test_code_exec_stream_never_replays_input_history_as_final():
+    """The code-exec bridge applies the same new-output-only boundary."""
+    history_id = "history-assistant-1"
+
+    async def mock_astream(input_data, config, stream_mode):
+        yield ("updates", {"agent": {"messages": [AIMessage(
+            content="Understood — I'll use that established context.",
+            id=history_id,
+        )]}})
+        yield ("updates", {"agent": {"messages": [AIMessage(
+            content="Shaun-Home has three switch access policies.",
+            id="new-answer",
+        )]}})
+
+    input_data = {"messages": [
+        AIMessage(
+            content="Understood — I'll use that established context.",
+            id=history_id,
+        ),
+        HumanMessage(content="List Shaun-Home access policies"),
+    ]}
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    events = []
+
+    await run_and_stream_code_exec(mock_graph, input_data, {}, events.append)
+
+    assert [event for event in events if event["type"] == "final"] == [{
+        "type": "final",
+        "response": "Shaun-Home has three switch access policies.",
+    }]
 
 
 # --- Grader status parsing (RubricMiddleware GraderResponse) ---------------

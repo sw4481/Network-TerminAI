@@ -16,6 +16,7 @@ def create_execute_python_code_tool(
     cli_package: str | None,
     vault_secrets: dict[str, Any],
     emit_callback: Callable[[dict], None],
+    catalogs: list[dict[str, Any]] | None = None,
 ) -> StructuredTool:
     """
     Create a LangChain tool that wraps our custom code execution sandbox.
@@ -30,6 +31,9 @@ def create_execute_python_code_tool(
         cli_package: Name of CLI package to load (e.g., "meraki"), or None
         vault_secrets: Vault secrets dict (e.g., {"meraki_api_key": "..."})
         emit_callback: Function to emit custom events (for drawio diagrams)
+        catalogs: Raw tool catalogs retained inside the sandbox for bounded
+            search and endpoint validation. They are never copied into the
+            tool description.
 
     Returns:
         StructuredTool wrapping execute_python_code
@@ -41,7 +45,12 @@ def create_execute_python_code_tool(
     )
 
     # Build sandbox once (reused across tool calls in the same session)
-    sandbox_globals = _build_sandbox_globals(cli_package, vault_secrets, emit=emit_callback)
+    sandbox_globals = _build_sandbox_globals(
+        cli_package,
+        vault_secrets,
+        emit=emit_callback,
+        catalogs=catalogs,
+    )
     env_overrides = _build_env_overrides(vault_secrets)
     output_policy, tool_output = install_tool_output_policy(
         sandbox_globals,
@@ -129,14 +138,27 @@ def create_execute_python_code_tool(
             f"- Env vars set in os.environ: {env_names} "
             "(use these EXACT names; do not invent shorter aliases)"
         )
-    preloaded_lines.append("Standard `import` statements work for any installed package.")
+    if sandbox_globals.get("api_catalog") is not None:
+        preloaded_lines.append(
+            "- Catalog discovery is the TOP-LEVEL search_api_catalog tool; do not perform "
+            "discovery inside Python. Vendor helpers returned by that tool are pre-loaded "
+            "globals, not modules (for example, call ise_api_call(...) directly; never "
+            "`import ise` or `import api_catalog`)."
+        )
+    preloaded_lines.append(
+        "Standard `import` statements work for installed packages only. Names listed "
+        "above as pre-loaded helpers are globals and must not be imported."
+    )
     preloaded = "\n".join(preloaded_lines)
 
-    # Categorized API method index + discovery hint so the model picks the right
-    # method instead of guessing from the handful of examples above.
+    # Catalog-backed agents use bounded in-sandbox discovery instead of copying
+    # a full schema/method index into every model call. Non-catalog sandboxes keep
+    # the legacy compact discovery hints.
+    from ccie_sidecar.agents.catalog_grounding import catalog_prompt_hint
+    catalog_hint = catalog_prompt_hint(sandbox_globals.get("api_catalog"))
     from ccie_sidecar.agents.sandbox_index import build_method_index, build_discovery_hint
-    method_index = build_method_index(cli_package, sandbox_globals)
-    discovery_hint = build_discovery_hint(cli_package)
+    method_index = "" if catalog_hint else build_method_index(cli_package, sandbox_globals)
+    discovery_hint = "" if catalog_hint else build_discovery_hint(cli_package)
 
     tool_description = (
         "Execute Python code to answer questions. "
@@ -149,11 +171,77 @@ def create_execute_python_code_tool(
         tool_description += f"\n\n{discovery_hint}"
     if method_index:
         tool_description += f"\n\n{method_index}"
+    if catalog_hint:
+        tool_description += f"\n\n{catalog_hint}"
 
-    return StructuredTool.from_function(
+    tool = StructuredTool.from_function(
         func=execute_python_code,
         name="execute_python_code",
         description=tool_description,
+    )
+    # Keep the catalog index attached only in process memory. A sibling native
+    # search tool reads this exact object, so discovery authorizes the same
+    # guarded helpers used by execute_python_code without copying catalog text
+    # into either tool description.
+    object.__setattr__(
+        tool,
+        "_ccie_catalog_index",
+        sandbox_globals.get("api_catalog"),
+    )
+    return tool
+
+
+def create_catalog_search_tool(
+    execute_code_tool: StructuredTool,
+) -> StructuredTool | None:
+    """Expose bounded catalog discovery as a native model tool.
+
+    Requiring the model to write Python merely to call ``api_catalog.search``
+    caused small models to waste their graph budget importing and inspecting a
+    pre-bound object. This structured tool closes over the *same* CatalogIndex
+    used by the code sandbox, preserving authorization while making discovery a
+    single, schema-checked tool call.
+    """
+    index = getattr(execute_code_tool, "_ccie_catalog_index", None)
+    if index is None:
+        return None
+
+    from ccie_sidecar.agents.catalog_grounding import CatalogGroundingError
+
+    def search_api_catalog(
+        query: str,
+        catalog_id: str,
+        limit: int = 5,
+    ) -> dict[str, Any]:
+        """Search one configured vendor catalog for the current API intent."""
+        try:
+            return index.search(query, catalog_id=catalog_id, limit=limit)
+        except CatalogGroundingError as error:
+            # A native tool exception aborts the entire DeepAgents graph before
+            # the model can obey the guard's STOP instruction. Preserve the
+            # strict in-memory budget, but return its expected policy failure as
+            # tool data so the model can finish from prior live results.
+            return {
+                "ok": False,
+                "error_type": "CatalogGroundingError",
+                "error": str(error),
+                "instruction": (
+                    "STOP SEARCHING. Use an exact allowed match already returned "
+                    "for a real helper call. If none fits, report live state as "
+                    "unknown; do not guess or enumerate the catalog."
+                ),
+            }
+
+    return StructuredTool.from_function(
+        func=search_api_catalog,
+        name="search_api_catalog",
+        description=(
+            "MANDATORY first tool for a live platform API operation. Search one "
+            "configured vendor's in-memory catalog using the user's specific intent. "
+            "Returns {'matches': [...]} with exact authorized methods/paths or operations. "
+            "When any match fits, STOP searching and immediately call execute_python_code "
+            "with that exact record; do not enumerate, import, inspect, or guess."
+        ),
     )
 
 

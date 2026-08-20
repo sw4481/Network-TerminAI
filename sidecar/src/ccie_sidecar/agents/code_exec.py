@@ -347,6 +347,7 @@ def _build_sandbox_globals(
     cli_package: Optional[str],
     secrets: Dict[str, Any],
     emit: Optional[Callable[[dict], None]] = None,
+    catalogs: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Build a global namespace for code execution.
@@ -359,6 +360,8 @@ def _build_sandbox_globals(
         secrets: Vault secrets dict (e.g., {"meraki_api_key": "..."})
         emit: Optional event callback (the loop's on_event) so the injected
             ``drawio`` helper can stream diagram events to the frontend.
+        catalogs: Raw tool catalogs retained in sandbox memory for bounded,
+            on-demand discovery and API-call validation.
 
     Returns:
         Dict mapping variable names to values for exec() globals parameter
@@ -715,6 +718,15 @@ def _build_sandbox_globals(
     except Exception:
         pass
 
+    # Catalog grounding is deliberately the outermost API wrapper: it runs
+    # before memo/autocapture and therefore rejects a guessed path before any
+    # network or persistence side effect. Raw catalog text stays in this Python
+    # object and is never appended wholesale to the model prompt.
+    if catalogs:
+        from ccie_sidecar.agents.catalog_grounding import install_catalog_grounding
+
+        install_catalog_grounding(globals_dict, catalogs)
+
     return globals_dict
 
 
@@ -736,27 +748,23 @@ def build_history_messages(ctx: Optional[dict], user_msg: str) -> List[Dict[str,
         if role in ("user", "assistant") and content.strip():
             messages.append({"role": role, "content": content})
 
-    # READ-BEFORE-ANSWER: pre-load established knowledge about the entities this
-    # question names as a conversation turn, so the agent starts already knowing
-    # (e.g.) a network's id/topology instead of being told to look it up. Same
-    # phase the deepagents loop runs — kept identical here so memory-first works
-    # in the legacy loop too. No-op when the flag is off or nothing is known.
+    # READ-BEFORE-ANSWER: merge established knowledge into the CURRENT user turn.
+    # Never synthesize an assistant acknowledgement between recall and the actual
+    # request: that fake assistant turn can be replayed or treated as the new
+    # answer on an immediate follow-up, causing the grader to stop before tools run.
+    current_content = user_msg
     try:
         from ccie_sidecar.agents.graph_autocapture import recall_context_message
         recalled = recall_context_message(user_msg)
         if recalled:
-            messages.append({"role": "user", "content": recalled})
-            messages.append({
-                "role": "assistant",
-                "content": (
-                    "Understood — I'll use that established context and only "
-                    "query live for anything not already known above."
-                ),
-            })
+            current_content = (
+                f"{recalled}\n\n"
+                f"CURRENT REQUEST (answer this now):\n{user_msg}"
+            )
     except Exception:
         pass
 
-    messages.append({"role": "user", "content": user_msg})
+    messages.append({"role": "user", "content": current_content})
     return messages
 
 
@@ -1166,6 +1174,12 @@ async def code_exec_loop(
         tool_def = agent_def.get("attached_tools", [{}])[0] if agent_def.get("attached_tools") else {}
         vault_secrets = tool_def.get("vault_secrets", {})
         cli_package = tool_def.get("id", "meraki") if tool_def else None
+        from ccie_sidecar.agents.catalog_grounding import (
+            catalog_prompt_hint,
+            install_catalog_grounding,
+            resolve_agent_catalogs,
+        )
+        catalogs = resolve_agent_catalogs(agent_def)
         sandbox_globals = _build_sandbox_globals(cli_package, vault_secrets, emit=on_event)
         env_overrides = _build_env_overrides(vault_secrets)
 
@@ -1208,6 +1222,10 @@ async def code_exec_loop(
                                         pass
                 except Exception as _e:
                     env_file_loaded.append(f"<error: {_e}>")
+
+        # Install after the legacy .env fallback, which may replace the Meraki
+        # helper. This keeps the catalog guard outermost on every execution path.
+        catalog_index = install_catalog_grounding(sandbox_globals, catalogs)
 
         # Diagnostic surfaced in stdout of the first exec so it's always visible.
         import sys as _sys
@@ -1300,19 +1318,27 @@ async def code_exec_loop(
                 f"- Env vars set in os.environ: {env_names} "
                 "(use these EXACT names; do not invent shorter aliases)"
             )
+        if catalog_index is not None:
+            preloaded_lines.append(
+                "- Catalog discovery is the TOP-LEVEL search_api_catalog tool. "
+                "Vendor helpers are pre-loaded globals, not modules; never import "
+                "api_catalog or the vendor name."
+            )
         preloaded_lines.append(
-            "Standard `import` statements work for any installed package."
+            "Standard `import` statements work for installed packages only. "
+            "Pre-loaded helper names are globals and must not be imported."
         )
         preloaded = "\n".join(preloaded_lines)
 
-        # Categorized API method index + discovery hint so the model picks the
-        # right method instead of guessing from the handful of examples above.
+        # Catalog-backed discovery is on demand and bounded. Bare/legacy
+        # sandboxes without a catalog retain the older compact hints.
         from ccie_sidecar.agents.sandbox_index import (
             build_method_index,
             build_discovery_hint,
         )
-        method_index = build_method_index(cli_package, sandbox_globals)
-        discovery_hint = build_discovery_hint(cli_package)
+        catalog_hint = catalog_prompt_hint(catalog_index)
+        method_index = "" if catalog_hint else build_method_index(cli_package, sandbox_globals)
+        discovery_hint = "" if catalog_hint else build_discovery_hint(cli_package)
 
         tool_description = (
             "Execute Python code to answer questions. "
@@ -1324,6 +1350,8 @@ async def code_exec_loop(
             tool_description += f"\n\n{discovery_hint}"
         if method_index:
             tool_description += f"\n\n{method_index}"
+        if catalog_hint:
+            tool_description += f"\n\n{catalog_hint}"
         code_param_description = "Python code to execute. Use print() to return results."
 
         if provider == "anthropic":
@@ -1342,6 +1370,46 @@ async def code_exec_loop(
                     "required": ["code"],
                 },
             }
+
+        llm_tools = [execute_code_tool]
+        if catalog_index is not None:
+            search_description = (
+                "Mandatory first tool for a live vendor API operation. Search the "
+                "bounded in-memory catalog for the user's exact intent. Once a match "
+                "fits, stop searching and use its exact record in execute_python_code."
+            )
+            if provider == "anthropic":
+                search_catalog_tool = {
+                    "name": "search_api_catalog",
+                    "description": search_description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"},
+                            "catalog_id": {"type": "string"},
+                            "limit": {"type": "integer", "default": 5},
+                        },
+                        "required": ["query", "catalog_id"],
+                    },
+                }
+            else:
+                search_catalog_tool = {
+                    "type": "function",
+                    "function": {
+                        "name": "search_api_catalog",
+                        "description": search_description,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "catalog_id": {"type": "string"},
+                                "limit": {"type": "integer", "default": 5},
+                            },
+                            "required": ["query", "catalog_id"],
+                        },
+                    },
+                }
+            llm_tools.insert(0, search_catalog_tool)
         else:
             # OpenAI/vLLM format (also used by Google Gemini in OpenAI mode)
             execute_code_tool = {
@@ -1373,12 +1441,12 @@ async def code_exec_loop(
 
         # 5. LLM loop with retry
         for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
-            # Call LLM with single tool
+            # Call LLM with native bounded discovery plus code execution.
             response = await call_llm(
                 provider=provider,
                 model=model,
                 messages=messages,
-                tools=[execute_code_tool],
+                tools=llm_tools,
                 system_prompt=agent_def.get("system_prompt", ""),
                 api_key=api_key,
                 base_url=base_url,
@@ -1411,13 +1479,89 @@ async def code_exec_loop(
             if not tool_calls:
                 on_event({
                     "type": "error",
-                    "message": "LLM did not call execute_python_code",
+                    "message": "LLM did not call an available execution tool",
                 })
                 return
 
-            # Get code from tool call
-            code = tool_calls[0].get("input", {}).get("code", "")
-            tool_use_id = tool_calls[0].get("id")
+            tool_call = tool_calls[0]
+            tool_name = tool_call.get("name")
+            tool_input = tool_call.get("input", {})
+            tool_use_id = tool_call.get("id")
+
+            if tool_name == "search_api_catalog" and catalog_index is not None:
+                query = str(tool_input.get("query", ""))
+                catalog_id = str(tool_input.get("catalog_id", ""))
+                limit = tool_input.get("limit", 5)
+                rendered = (
+                    f"search_api_catalog(query={query!r}, "
+                    f"catalog_id={catalog_id!r}, limit={limit!r})"
+                )
+                on_event({"type": "code_start", "code": rendered})
+                on_event({"type": "code_executing"})
+                try:
+                    search_result = catalog_index.search(
+                        query,
+                        catalog_id=catalog_id,
+                        limit=limit,
+                    )
+                    search_output = json.dumps(
+                        search_result,
+                        ensure_ascii=False,
+                        default=str,
+                    )
+                    search_success = True
+                except Exception as exc:
+                    search_output = f"Error: {type(exc).__name__}: {exc}"
+                    search_success = False
+                on_event({
+                    "type": "code_result",
+                    "success": search_success,
+                    "output": search_output,
+                })
+                if provider == "anthropic":
+                    messages.append({
+                        "role": "assistant",
+                        "content": response["content"],
+                    })
+                    messages.append({
+                        "role": "user",
+                        "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id,
+                            "content": search_output,
+                            **({"is_error": True} if not search_success else {}),
+                        }],
+                    })
+                else:
+                    import json as _json
+                    messages.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{
+                            "id": tool_use_id,
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": _json.dumps(tool_input),
+                            },
+                        }],
+                    })
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_use_id,
+                        "name": tool_name,
+                        "content": search_output,
+                    })
+                continue
+
+            if tool_name != "execute_python_code":
+                on_event({
+                    "type": "error",
+                    "message": f"Unsupported agent tool call: {tool_name}",
+                })
+                return
+
+            code = tool_input.get("code", "")
 
             # Emit code_start
             on_event({"type": "code_start", "code": code})
@@ -1478,7 +1622,7 @@ async def code_exec_loop(
                     provider=provider,
                     model=model,
                     messages=messages,
-                    tools=[execute_code_tool],
+                    tools=llm_tools,
                     system_prompt=agent_def.get("system_prompt", ""),
                     api_key=api_key,
                     base_url=base_url,

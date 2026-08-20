@@ -3,7 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SavedSSHConnectionsModal } from './SavedSSHConnectionsModal';
 
 const invokeMock = vi.hoisted(() => vi.fn());
+const openMock = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
+vi.mock('@tauri-apps/plugin-dialog', () => ({ open: openMock }));
 
 const CONN = {
   id: 'conn-1',
@@ -27,6 +29,7 @@ const CONN = {
 describe('SavedSSHConnectionsModal — Connect password decryption', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    openMock.mockResolvedValue(null);
     invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
       if (cmd === 'ssh_list_connections') return Promise.resolve([CONN]);
       if (cmd === 'ssh_list_folders') return Promise.resolve([]);
@@ -129,5 +132,68 @@ describe('SavedSSHConnectionsModal — Connect password decryption', () => {
         syntax_profile: 'auto',
       }),
     }));
+  });
+
+  it('previews a selected inventory source before committing it', async () => {
+    openMock.mockResolvedValue('/tmp/inventory.csv');
+    invokeMock.mockImplementation((cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === 'ssh_list_connections') return Promise.resolve([CONN]);
+      if (cmd === 'ssh_list_folders') return Promise.resolve([]);
+      if (cmd === 'ssh_import_preview') {
+        expect(args).toEqual({ sourceType: 'csv', sourcePath: '/tmp/inventory.csv' });
+        return Promise.resolve({
+          source_type: 'csv',
+          source_path: '/tmp/inventory.csv',
+          fingerprint: 'sha256',
+          warnings: [],
+          rows: [{
+            source: 'CSV row 2',
+            name: 'new-edge',
+            host: '192.0.2.80',
+            user: 'ops',
+            port: 22,
+            identity_file: null,
+            folder: 'Sites/Raleigh',
+            tags: ['wan'],
+            action: 'create',
+            credential_state: 'plaintext',
+            warnings: [],
+          }],
+        });
+      }
+      if (cmd === 'ssh_import_commit') {
+        expect(args).toEqual({
+          sourceType: 'csv',
+          sourcePath: '/tmp/inventory.csv',
+          fingerprint: 'sha256',
+        });
+        return Promise.resolve({
+          created: 1,
+          updated: 0,
+          skipped: 0,
+          credential_skipped: 0,
+          warnings: [],
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    render(<SavedSSHConnectionsModal onConnect={() => {}} onClose={() => {}} />);
+    await screen.findByText('core-sw1');
+    fireEvent.click(screen.getByRole('button', { name: 'Import…' }));
+    fireEvent.change(screen.getByLabelText('Import format'), { target: { value: 'csv' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Choose source…' }));
+
+    expect(await screen.findByTestId('ssh-import-preview')).toHaveTextContent('new-edge');
+    expect(screen.getByTestId('ssh-import-preview')).toHaveTextContent('plaintext value will be encrypted');
+    expect(invokeMock).not.toHaveBeenCalledWith('ssh_import_commit', expect.anything());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Commit Import' }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('ssh_import_commit', {
+      sourceType: 'csv',
+      sourcePath: '/tmp/inventory.csv',
+      fingerprint: 'sha256',
+    }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Imported 1 new');
   });
 });

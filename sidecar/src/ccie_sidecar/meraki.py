@@ -80,6 +80,29 @@ class MerakiClient:
             path = "/" + path
         return f"{_BASE_URL}{path}"
 
+    @staticmethod
+    def _normalize_query_params(
+        query_params: Optional[Dict],
+    ) -> Optional[List[tuple[str, Any]]]:
+        """Encode list values using Meraki Dashboard's ``name[]`` convention.
+
+        ``requests`` normally serializes ``{"networkIds": ["L_1"]}`` as
+        ``networkIds=L_1``. Meraki's array parameters require the bracketed key
+        instead (``networkIds[]=L_1``), even for one value. Scalar parameters
+        retain their documented names and empty arrays are omitted.
+        """
+        if not query_params:
+            return None
+        normalized: List[tuple[str, Any]] = []
+        for raw_key, value in query_params.items():
+            key = str(raw_key)
+            if isinstance(value, (list, tuple)):
+                array_key = key if key.endswith("[]") else f"{key}[]"
+                normalized.extend((array_key, item) for item in value)
+            else:
+                normalized.append((key, value))
+        return normalized
+
     def call(
         self,
         method: str,
@@ -115,7 +138,7 @@ class MerakiClient:
         try:
             aggregated: Optional[List[Any]] = None
             url: Optional[str] = self._url(path)
-            params = query_params  # only sent on the first request
+            params = self._normalize_query_params(query_params)
             last_status = 0
             page_guard = 0
 

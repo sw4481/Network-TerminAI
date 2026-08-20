@@ -8,6 +8,8 @@ import pytest
 
 from ccie_sidecar.agents.heartbeat_executor import (
     _HEARTBEAT_EFFICIENCY_DIRECTIVE,
+    _MERAKI_HEARTBEAT_GUIDANCE,
+    MERAKI_HEARTBEAT_CATALOG_QUERY,
     _execute_agent,
     _parse_agent_output,
     execute_check,
@@ -19,6 +21,19 @@ from ccie_sidecar.agents.heartbeat_executor import (
     _parse_catalyst_center_output,
     _parse_generic_output,
 )
+
+
+def test_meraki_heartbeat_guidance_uses_one_grounded_network_scoped_recipe():
+    guidance = _MERAKI_HEARTBEAT_GUIDANCE
+
+    assert MERAKI_HEARTBEAT_CATALOG_QUERY in guidance
+    assert "TOP-LEVEL search_api_catalog" in guidance
+    assert 'catalog_id="meraki"' in guidance
+    assert '"networkIds": [network_id]' in guidance
+    assert '"networkId": network_id' in guidance
+    assert '"active": True' in guidance
+    assert "do not explore first" not in guidance.lower()
+    assert "Never request organization-wide device statuses or alerts" in guidance
 
 
 class TestExecuteCheck:
@@ -560,6 +575,50 @@ class TestHeartbeatExecutionOutcomes:
 
         policy = loop.await_args.kwargs["execution_policy"]
         assert policy.protocol_recovery_enabled is True
+
+    @pytest.mark.asyncio
+    async def test_meraki_heartbeat_uses_compact_focused_agent_contract(self):
+        run_outcome = {
+            "final_emitted": False,
+            "steps": 0,
+            "error_kind": None,
+            "error_type": None,
+            "recovery_attempts": 0,
+            "fallback_mode": None,
+        }
+        loop = AsyncMock(return_value=run_outcome)
+        agent = {
+            "id": "meraki",
+            "system_prompt": "INTERACTIVE-MERAKI-PROMPT-SENTINEL " * 2_000,
+            "attached_tools": [{"id": "meraki"}],
+        }
+
+        with (
+            patch(
+                "ccie_sidecar.agent.get_saved_config",
+                return_value={"provider": "test"},
+            ),
+            patch(
+                "ccie_sidecar.meraki_config.get_meraki_config",
+                return_value={"api_key": "test-key"},
+            ),
+            patch(
+                "ccie_sidecar.agents.deepagents_runtime.deepagents_react_code_loop",
+                loop,
+            ),
+        ):
+            await _execute_agent(
+                agent=agent,
+                agent_id="meraki",
+                prompt="Check Shaun-Home",
+                check_id="check-focused",
+            )
+
+        agent_def = loop.await_args.kwargs["agent_def"]
+        assert agent_def["focused_api_mode"] is True
+        assert "INTERACTIVE-MERAKI-PROMPT-SENTINEL" not in agent_def["system_prompt"]
+        assert MERAKI_HEARTBEAT_CATALOG_QUERY in agent_def["system_prompt"]
+        assert len(agent_def["system_prompt"]) < 6_000
 
     def test_normal_final_preserves_recovery_telemetry(self):
         outcome = {

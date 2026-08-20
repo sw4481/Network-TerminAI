@@ -25,6 +25,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 use serde::Serialize;
 use tokio::sync::Mutex as AsyncMutex;
+use tokio_util::sync::CancellationToken;
 
 use super::builder;
 use super::repo;
@@ -37,10 +38,21 @@ use super::PCAP_SIZE_WARN_BYTES;
 pub enum CaptureEvent {
     Started,
     Capturing,
-    Pulling { bytes: u64, total: Option<u64> },
-    Ready { local_path: String, size_bytes: u64, packet_count: u32 },
-    SizeWarning { size_bytes: u64 },
-    Failed { error: String },
+    Pulling {
+        bytes: u64,
+        total: Option<u64>,
+    },
+    Ready {
+        local_path: String,
+        size_bytes: u64,
+        packet_count: u32,
+    },
+    SizeWarning {
+        size_bytes: u64,
+    },
+    Failed {
+        error: String,
+    },
 }
 
 #[async_trait::async_trait]
@@ -199,30 +211,35 @@ async fn run_inner<E: Executor + ?Sized>(
 /// cancel command can abort an in-flight orchestration.
 #[derive(Default)]
 pub struct CaptureRegistry {
-    inner: AsyncMutex<std::collections::HashMap<String, tokio::task::AbortHandle>>,
+    inner: AsyncMutex<std::collections::HashMap<String, CancellationToken>>,
 }
 
 impl CaptureRegistry {
-    pub async fn insert(&self, id: String, handle: tokio::task::AbortHandle) {
-        self.inner.lock().await.insert(id, handle);
+    pub async fn insert(&self, id: String, token: CancellationToken) {
+        self.inner.lock().await.insert(id, token);
     }
     pub async fn remove(&self, id: &str) {
         self.inner.lock().await.remove(id);
     }
     pub async fn cancel(&self, id: &str) -> bool {
-        if let Some(h) = self.inner.lock().await.remove(id) {
-            h.abort();
+        let token = self.inner.lock().await.get(id).cloned();
+        if let Some(token) = token {
+            token.cancel();
             true
         } else {
             false
         }
     }
+
+    pub async fn contains(&self, id: &str) -> bool {
+        self.inner.lock().await.contains_key(id)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::types::DeviceKind;
+    use super::*;
     use crate::db::open_and_migrate;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tempfile::TempDir;

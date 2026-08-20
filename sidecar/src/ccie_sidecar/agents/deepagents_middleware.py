@@ -118,6 +118,16 @@ _BUILTIN_FS_TOOLS = frozenset(
     {"ls", "read_file", "write_file", "edit_file", "glob", "grep", "execute"}
 )
 
+# Unattended API checks have a deliberately tiny action surface. DeepAgents
+# injects planning, delegation, and virtual-filesystem tools automatically;
+# those tools cannot help a focused live-state lookup and give small models
+# several tempting ways to spend their entire step budget without making an API
+# call. Use an allow-list here so future DeepAgents built-ins do not silently
+# expand the heartbeat tool surface.
+_FOCUSED_API_TOOLS = frozenset(
+    {"search_api_catalog", "execute_python_code"}
+)
+
 
 class HideBuiltinFsToolsMiddleware(AgentMiddleware):
     """Remove deepagents' built-in (virtual) filesystem tools from each model
@@ -138,6 +148,40 @@ class HideBuiltinFsToolsMiddleware(AgentMiddleware):
         tools = getattr(request, "tools", None)
         if tools:
             filtered = [t for t in tools if getattr(t, "name", None) not in _BUILTIN_FS_TOOLS]
+            if len(filtered) != len(tools):
+                request = request.override(tools=filtered)
+        return await handler(request)
+
+
+class FocusedApiToolsMiddleware(AgentMiddleware):
+    """Expose only grounded catalog search and sandbox execution.
+
+    This is used by unattended heartbeat runs, where planning, delegation, and
+    virtual filesystem exploration are counterproductive. It filters only the
+    model-visible tool list; the two retained tools keep their normal runtime
+    implementations and catalog enforcement.
+    """
+
+    name = "FocusedApiTools"
+
+    def wrap_model_call(self, request, handler):  # noqa: ANN001
+        tools = getattr(request, "tools", None)
+        if tools:
+            filtered = [
+                tool for tool in tools
+                if getattr(tool, "name", None) in _FOCUSED_API_TOOLS
+            ]
+            if len(filtered) != len(tools):
+                request = request.override(tools=filtered)
+        return handler(request)
+
+    async def awrap_model_call(self, request, handler):  # noqa: ANN001
+        tools = getattr(request, "tools", None)
+        if tools:
+            filtered = [
+                tool for tool in tools
+                if getattr(tool, "name", None) in _FOCUSED_API_TOOLS
+            ]
             if len(filtered) != len(tools):
                 request = request.override(tools=filtered)
         return await handler(request)

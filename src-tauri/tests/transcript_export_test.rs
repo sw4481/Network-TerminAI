@@ -172,6 +172,7 @@ fn missing_and_active_recordings_fail() {
 }
 
 #[test]
+#[allow(clippy::approx_constant)]
 fn completed_recording_exports_without_reprocessing_the_cast() {
     let tmp = TempDir::new().unwrap();
     let source = tmp.path().join("source.cast");

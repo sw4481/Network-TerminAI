@@ -30,6 +30,8 @@ const HeartbeatTab = lazy(() => import("./components/HeartbeatTab").then(m => ({
 const ExecutionDetailDrawer = lazy(() => import("./components/ExecutionDetailDrawer").then(m => ({ default: m.ExecutionDetailDrawer })));
 import { PaneContainer } from "./components/PaneContainer";
 import { SavedSSHConnectionsModal } from "./components/SavedSSHConnectionsModal";
+import { SerialConsolePanel } from "./components/SerialConsolePanel";
+import { SftpPanel } from "./components/SftpPanel";
 import { RecentlyClosedModal } from "./components/RecentlyClosedModal";
 import { ChangeWindowPanel } from "./components/ChangeWindowPanel";
 import { FanoutPanel } from "./components/FanoutPanel";
@@ -111,6 +113,8 @@ export default function App() {
   const [notebookLibraryOpen, setNotebookLibraryOpen] = useState(false);
   const [openNotebook, setOpenNotebook] = useState<RunnableNotebookDto | null>(null);
   const [sshModalOpen, setSshModalOpen] = useState(false);
+  const [serialConsoleOpen, setSerialConsoleOpen] = useState(false);
+  const [sftpOpen, setSftpOpen] = useState(false);
   const [changeWindowOpen, setChangeWindowOpen] = useState(false);
   const [fanoutOpen, setFanoutOpen] = useState(false);
   const [fanoutGroupsOpen, setFanoutGroupsOpen] = useState(false);
@@ -473,6 +477,12 @@ export default function App() {
 
     unlistens.push(listen('menu:ssh_saved_connections', () => {
       setSshModalOpen(true);
+    }));
+    unlistens.push(listen('menu:ssh_serial_console', () => {
+      setSerialConsoleOpen(true);
+    }));
+    unlistens.push(listen('menu:ssh_sftp', () => {
+      setSftpOpen(true);
     }));
 
     // View menu — drives the focused block's view mode. Restored 2026-07-02
@@ -1539,6 +1549,12 @@ export default function App() {
           onClose={() => setSshModalOpen(false)}
         />
       )}
+      {serialConsoleOpen && (
+        <SerialConsolePanel onClose={() => setSerialConsoleOpen(false)} />
+      )}
+      {sftpOpen && (
+        <SftpPanel onClose={() => setSftpOpen(false)} />
+      )}
       {changeWindowOpen && activeTabId && (
         <ChangeWindowPanel
           tabId={activeTabId}
@@ -1632,7 +1648,7 @@ function GuardrailsLogOverlay({ onClose }: { onClose: () => void }) {
 
 function CapturesOverlay({ onClose }: { onClose: () => void }) {
   return (
-    <ModalShell title="Packet Captures" onClose={onClose}>
+    <ModalShell title="Packet Captures" onClose={onClose} workspaceSize>
       <PcapPanel />
     </ModalShell>
   );
@@ -1642,10 +1658,12 @@ function ModalShell({
   title,
   onClose,
   children,
+  workspaceSize = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  workspaceSize?: boolean;
 }) {
   return (
     <div
@@ -1662,8 +1680,8 @@ function ModalShell({
     >
       <div
         style={{
-          width: "min(1200px, 92vw)",
-          height: "min(800px, 86vh)",
+          width: workspaceSize ? "calc(100vw - 24px)" : "min(1200px, 92vw)",
+          height: workspaceSize ? "calc(100vh - 24px)" : "min(800px, 86vh)",
           background: "var(--app-canvas)",
           border: "1px solid var(--border-default)",
           borderRadius: 8,

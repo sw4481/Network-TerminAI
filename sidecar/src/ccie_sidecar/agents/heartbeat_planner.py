@@ -116,7 +116,7 @@ def _generate_prompt_with_llm(agent_id: str, entities: dict, nl_input: str) -> s
 CRITICAL: Generate SPECIFIC, STRUCTURED prompts that prevent the agent from looping or exploring.
 
 Your output must:
-1. Specify EXACT API method names / CLI commands to call (not generic "check X")
+1. Specify the exact catalog search terms and API paths / CLI commands to use
 2. Include required parameters (IDs, timespans, filters)
 3. Tell the agent WHAT DATA to extract from each call
 4. Provide an output FORMAT template (table/list structure)
@@ -128,9 +128,10 @@ EXAMPLES OF GOOD PROMPTS:
 
 **GOOD (Specific)**:
 "For network Shaun-Home:
-1. Device Status: Call getOrganizationNetworks(org_id) to find network_id, then getNetworkDevices(network_id). Count by status field: online, offline, alerting. List any offline devices.
-2. Format: | Category | Count | Details |
-Done when: Table shows device counts + offline device list"
+1. Call TOP-LEVEL search_api_catalog once for getOrganizations, getOrganizationNetworks, getOrganizationDevicesStatuses, and getOrganizationAssuranceAlerts.
+2. In one execute_python_code block, resolve the exact org and network, then call the returned REST paths with networkIds/networkId filters for Shaun-Home.
+3. Format: | Category | Count | Details |
+Done when: the table contains only Shaun-Home live device status and active alerts."
 
 **BAD (Vague)**:
 "Check the network health and report any issues"
@@ -165,17 +166,22 @@ def _get_agent_api_reference(agent_id: str) -> str:
 
     references = {
         "meraki": """
-MERAKI SDK METHODS (use these exact names):
-Organization: getOrganizations, getOrganizationNetworks, getOrganizationDevicesStatuses, getOrganizationAssuranceAlerts
-Network: getNetworkDevices, getNetworkClients, getNetworkAlertsHistory, getNetworkEvents, getNetworkWirelessSsids
-Device: getDeviceClients, getDeviceLldpCdp
-
-Key Methods for Common Tasks:
-- Device health: getOrganizationDevicesStatuses(org_id) → returns {name, model, status, network}
-- Alerts: getOrganizationAssuranceAlerts(org_id, per_page=100) → returns {type, severity, scope}
-- Clients: getNetworkClients(network_id, timespan=86400) → returns {description, status, ip, mac}
-- Events: getNetworkEvents(network_id, per_page=100) → returns {type, description, occurredAt}
-- SSIDs: getNetworkWirelessSsids(network_id) → returns {name, enabled, authMode}""",
+MERAKI CATALOG-GROUNDED REST CONTRACT:
+- The raw catalog is not in the prompt. Before API access, call the TOP-LEVEL
+  search_api_catalog tool once with catalog_id="meraki" and a query containing
+  every exact SDK operation name needed. SDK names are search aliases only;
+  never call the SDK directly.
+- Then call only exact returned paths through the pre-bound
+  meraki_api_call(method, path, query_params=...) helper in one Python block.
+- For network health, batch-search: getOrganizations, getOrganizationNetworks,
+  getOrganizationDevicesStatuses, getOrganizationAssuranceAlerts.
+- Resolve the exact organization and exact network name first.
+- Device status must use query_params={"networkIds": [network_id]}.
+- Active assurance alerts must use query_params={"networkId": network_id,
+  "active": True, "perPage": 100}.
+- Never fetch or report other networks for a named-network heartbeat.
+- Completion means one concise final answer based on successful live API data;
+  if no call succeeds, state that live state is unknown.""",
 
         "pyats": """
 PYATS VERBS (call via pyats.call("<verb>", **kwargs)):
@@ -442,23 +448,24 @@ def _generate_meraki_prompt(entities: dict, nl_input: str) -> str:
     # Otherwise, return full base template (generic health check)
     if networks:
         network_list = ", ".join(f'"{n}"' for n in networks)
+        only_networks = ", ".join(networks)
         base = (
             f"For network(s): {network_list}\n\n"
-            "Generate a comprehensive health report:\n\n"
-            "1. **Device Status**:\n"
-            "   - Call getOrganizations to get org_id\n"
-            "   - Call getOrganizationNetworks(org_id) to find network_id for each named network\n"
-            "   - For each network_id, call getNetworkDevices(network_id)\n"
-            "   - Count devices by status (online, offline, alerting, dormant)\n"
-            "   - List any offline/alerting devices with name, model, status\n\n"
-            "2. **Recent Alerts**:\n"
-            "   - Call getNetworkAlertsHistory(network_id, timespan=86400) for last 24h\n"
-            "   - Count total alerts\n"
-            "   - List severity breakdown\n\n"
-            "3. **Client Health**:\n"
-            "   - Call getNetworkClients(network_id, timespan=86400)\n"
-            "   - Count total clients\n"
-            "   - Report any with status != 'Online'\n\n"
+            "Generate a live, network-scoped Meraki health report:\n\n"
+            "1. **Catalog discovery (exactly once)**:\n"
+            '   - Call TOP-LEVEL search_api_catalog with catalog_id="meraki", limit=5, and query "'
+            "getOrganizations getOrganizationNetworks getOrganizationDevicesStatuses "
+            "getOrganizationAssuranceAlerts\"\n"
+            "   - Use the four returned exact GET paths; do not call the SDK or search again\n\n"
+            "2. **One live API code block**:\n"
+            "   - GET /organizations and resolve the exact organization\n"
+            "   - GET /organizations/{org_id}/networks and resolve each exact named network_id\n"
+            "   - GET /organizations/{org_id}/devices/statuses with "
+            "query_params={\"networkIds\": [network_id]}\n"
+            "   - GET /organizations/{org_id}/assurance/alerts with "
+            "query_params={\"networkId\": network_id, \"active\": True, \"perPage\": 100}\n"
+            "   - Count devices by status and list non-online devices and active alerts\n\n"
+            f"3. **Scope**: Report ONLY {only_networks}; never include another network.\n\n"
         )
     else:
         base = (

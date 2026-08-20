@@ -155,6 +155,41 @@ pub fn finalize(
     Ok(())
 }
 
+/// Finalize a capture written directly on this computer by dumpcap.
+///
+/// Remote captures must retain their `capturing -> pulling -> ready` contract,
+/// so this is intentionally a separate transition rather than widening
+/// `finalize` for every device kind.
+pub fn finalize_local(
+    conn: &Connection,
+    id: &str,
+    local_path: &str,
+    packet_count: u32,
+    size_bytes: u64,
+) -> Result<()> {
+    let (current, kind): (String, String) = conn
+        .query_row(
+            "SELECT status, device_kind FROM pcap_captures WHERE id = ?1",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?
+        .ok_or_else(|| anyhow!("capture {id} not found"))?;
+    if current != "capturing" || kind != "local" {
+        return Err(anyhow!(
+            "cannot finalize local capture from status {current} and kind {kind}"
+        ));
+    }
+    conn.execute(
+        "UPDATE pcap_captures
+         SET status = 'ready', local_path = ?2, packet_count = ?3, size_bytes = ?4,
+             ended_at = strftime('%s','now')
+         WHERE id = ?1",
+        params![id, local_path, packet_count as i64, size_bytes as i64],
+    )?;
+    Ok(())
+}
+
 pub fn get(conn: &Connection, id: &str) -> Result<Option<PcapCapture>> {
     let sql = format!("SELECT {SELECT_FIELDS} FROM pcap_captures WHERE id = ?1");
     let row = conn
@@ -261,6 +296,44 @@ mod tests {
         let row = get(&conn, "c1").unwrap().unwrap();
         assert_eq!(row.status, "failed");
         assert_eq!(row.error.as_deref(), Some("ssh error"));
+    }
+
+    #[test]
+    fn local_capture_finalizes_without_pulling() {
+        let (_g, conn) = fresh();
+        create(
+            &conn,
+            "local-1",
+            None,
+            "This Computer",
+            DeviceKind::Local,
+            "1",
+            None,
+        )
+        .unwrap();
+        update_status(&conn, "local-1", "capturing", None).unwrap();
+        finalize_local(&conn, "local-1", "/tmp/local.pcap", 0, 24).unwrap();
+        let row = get(&conn, "local-1").unwrap().unwrap();
+        assert_eq!(row.device_kind, DeviceKind::Local);
+        assert_eq!(row.status, "ready");
+    }
+
+    #[test]
+    fn remote_finalize_contract_does_not_accept_local_capturing_state() {
+        let (_g, conn) = fresh();
+        create(
+            &conn,
+            "remote-1",
+            None,
+            "r",
+            DeviceKind::IosXe,
+            "Gi0/0",
+            None,
+        )
+        .unwrap();
+        update_status(&conn, "remote-1", "capturing", None).unwrap();
+        assert!(finalize_local(&conn, "remote-1", "/tmp/x.pcap", 0, 24).is_err());
+        assert!(finalize(&conn, "remote-1", "/tmp/x.pcap", 0, 24).is_err());
     }
 
     #[test]

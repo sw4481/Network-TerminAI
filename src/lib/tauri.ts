@@ -1168,6 +1168,7 @@ export type ReactEvent =
   | { type: "thought_start"; thought: string; step: number }
   | { type: "tool_call"; name: string; args: unknown; blast_radius: string }
   | { type: "tool_result"; success: boolean; result: string }
+  | { type: "token"; text: string }
   | { type: "final"; response: string }
   | DiagramEvent
   | { type: "error"; message: string }
@@ -1187,6 +1188,7 @@ export type ReactEvent =
 export async function agentReactResume(opts: {
   threadId: string;
   decision: "approve" | "deny";
+  streamOutput?: boolean;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
   const channel = new Channel<ReactEvent>();
@@ -1194,6 +1196,7 @@ export async function agentReactResume(opts: {
   return invoke<void>("agent_react_resume", {
     threadId: opts.threadId,
     decision: opts.decision,
+    streamOutput: opts.streamOutput ?? false,
     onEvent: channel,
   });
 }
@@ -1238,6 +1241,7 @@ export async function agentReactRun(opts: {
   agentId: string;
   message: string;
   history?: ChatTurn[];
+  streamOutput?: boolean;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
   const channel = new Channel<ReactEvent>();
@@ -1246,6 +1250,7 @@ export async function agentReactRun(opts: {
     agentId: opts.agentId,
     message: opts.message,
     history: opts.history ?? [],
+    streamOutput: opts.streamOutput ?? false,
     onEvent: channel,
   });
 }
@@ -1330,6 +1335,7 @@ export async function agentReactCodeRun(opts: {
   agentId: string;
   message: string;
   history?: ChatTurn[];
+  streamOutput?: boolean;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
   const channel = new Channel<ReactEvent>();
@@ -1338,6 +1344,7 @@ export async function agentReactCodeRun(opts: {
     agentId: opts.agentId,
     message: opts.message,
     history: opts.history ?? [],
+    streamOutput: opts.streamOutput ?? false,
     onEvent: channel,
   });
 }

@@ -9,6 +9,7 @@
 
 pub mod builder;
 pub mod live_executor;
+pub mod local;
 pub mod orchestrator;
 pub mod repo;
 pub mod scp;

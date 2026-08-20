@@ -6,14 +6,8 @@
 //! success, so a partially-pulled pcap never leaves a half-written file
 //! at `local_path`.
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::time::Duration;
-
 use anyhow::{anyhow, Context, Result};
-use russh::client::{self, Handle, Handler};
-use russh::keys::ssh_key::PublicKey;
-use russh_sftp::client::SftpSession;
+use std::path::{Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::ssh_exec::DeviceConn;
@@ -43,7 +37,7 @@ pub fn normalize_remote_path(device_kind: DeviceKind, raw: &str) -> String {
                 }
             })
             .unwrap_or_else(|| raw.to_string()),
-        DeviceKind::Junos | DeviceKind::Eos => raw.to_string(),
+        DeviceKind::Junos | DeviceKind::Eos | DeviceKind::Local => raw.to_string(),
     }
 }
 
@@ -57,34 +51,6 @@ pub fn pcap_cache_dir() -> Result<PathBuf> {
     Ok(dir)
 }
 
-struct AcceptAll;
-
-impl Handler for AcceptAll {
-    type Error = russh::Error;
-
-    async fn check_server_key(
-        &mut self,
-        _server_public_key: &PublicKey,
-    ) -> std::result::Result<bool, Self::Error> {
-        Ok(true)
-    }
-}
-
-async fn connect(conn: &DeviceConn) -> Result<Handle<AcceptAll>> {
-    let config = Arc::new(client::Config {
-        inactivity_timeout: Some(Duration::from_secs(3600)),
-        ..client::Config::default()
-    });
-    let mut session = client::connect(config, (conn.host.as_str(), conn.port), AcceptAll).await?;
-    let auth = session
-        .authenticate_password(conn.username.clone(), conn.password.clone())
-        .await?;
-    if !auth.success() {
-        return Err(anyhow!("ssh auth failed"));
-    }
-    Ok(session)
-}
-
 /// Pull `remote_path` over SFTP into `local_path`, calling `progress_cb` as
 /// bytes accumulate. Returns total bytes pulled. Atomic: writes to a temp
 /// file alongside `local_path` and renames on success only.
@@ -94,12 +60,10 @@ pub async fn pull_file(
     local_path: &Path,
     progress_cb: impl Fn(u64, Option<u64>) + Send,
 ) -> Result<u64> {
-    let session = connect(conn).await?;
-    let channel = session.channel_open_session().await?;
-    channel.request_subsystem(true, "sftp").await?;
-    let sftp = SftpSession::new(channel.into_stream())
-        .await
-        .context("sftp handshake")?;
+    let connection =
+        crate::sftp::connect_password(&conn.host, conn.port, &conn.username, &conn.password)
+            .await?;
+    let sftp = &connection.session;
 
     let metadata = sftp.metadata(remote_path).await.ok();
     let total = metadata.as_ref().and_then(|m| m.size);
@@ -130,7 +94,7 @@ pub async fn pull_file(
     local.flush().await.context("local flush")?;
     drop(local);
     drop(remote);
-    drop(sftp);
+    connection.disconnect().await;
 
     tokio::fs::rename(&tmp_path, local_path)
         .await

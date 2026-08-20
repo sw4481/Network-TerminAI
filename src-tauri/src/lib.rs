@@ -56,6 +56,7 @@ pub mod rag;
 pub mod recording;
 pub mod search;
 pub mod session;
+pub mod sftp;
 pub mod shell_integration;
 pub mod skills;
 pub mod ssh_exec;
@@ -479,6 +480,19 @@ pub fn run() {
             commands::ssh::ssh_update_folder,
             commands::ssh::ssh_delete_folder,
             commands::ssh::ssh_decrypt_password,
+            commands::ssh_import::ssh_import_preview,
+            commands::ssh_import::ssh_import_commit,
+            commands::serial::serial_list_ports,
+            commands::serial::serial_open,
+            commands::serial::serial_write,
+            commands::serial::serial_send_break,
+            commands::serial::serial_close,
+            commands::sftp::sftp_connect,
+            commands::sftp::sftp_list,
+            commands::sftp::sftp_mutate,
+            commands::sftp::sftp_transfer,
+            commands::sftp::sftp_cancel_transfer,
+            commands::sftp::sftp_disconnect,
             commands::agent_explain_error,
             commands::agent_explain_command,
             commands::approve_tool_call,
@@ -765,9 +779,13 @@ pub fn run() {
             commands::pcap::pcap_capture_list,
             commands::pcap::pcap_capture_delete,
             commands::pcap::pcap_start_capture,
+            commands::pcap::pcap_list_local_interfaces,
+            commands::pcap::pcap_start_local_capture,
             commands::pcap::pcap_cancel,
             commands::pcap::pcap_summarize,
             commands::pcap::pcap_packet_bytes,
+            commands::pcap::pcap_finding_rules,
+            commands::pcap::pcap_findings,
             commands::pcap::pcap_follow_stream,
             commands::pcap::pcap_export,
             // RAG vendor-aware completion (Plan 12)
@@ -910,7 +928,9 @@ pub fn run() {
 
             // SSH menu with saved connections item
             let ssh_saved = MenuItem::with_id(app, "ssh_saved", "Saved Connections...", true, None::<&str>)?;
-            let ssh_menu = Submenu::with_items(app, "SSH", true, &[&ssh_saved])?;
+            let ssh_serial = MenuItem::with_id(app, "ssh_serial", "Serial Console...", true, None::<&str>)?;
+            let ssh_sftp = MenuItem::with_id(app, "ssh_sftp", "SFTP...", true, None::<&str>)?;
+            let ssh_menu = Submenu::with_items(app, "SSH", true, &[&ssh_saved, &ssh_serial, &ssh_sftp])?;
 
             // View menu — block view modes (raw/structured/diff), restored 2026-07-02.
             // Pin Snapshot / Export CSV/JSON / Copy as Markdown intentionally stay
@@ -1216,6 +1236,12 @@ pub fn run() {
                 match event.id().as_ref() {
                     "ssh_saved" => {
                         window.emit("menu:ssh_saved_connections", ()).ok();
+                    }
+                    "ssh_serial" => {
+                        window.emit("menu:ssh_serial_console", ()).ok();
+                    }
+                    "ssh_sftp" => {
+                        window.emit("menu:ssh_sftp", ()).ok();
                     }
                     "view_raw" => { window.emit("menu:view_mode", "raw").ok(); }
                     "view_structured" => { window.emit("menu:view_mode", "structured").ok(); }

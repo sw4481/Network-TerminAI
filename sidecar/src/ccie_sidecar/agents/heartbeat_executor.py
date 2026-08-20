@@ -26,41 +26,59 @@ import re
 from typing import Any
 
 
-# Concrete recipe appended to the Meraki agent's prompt for UNATTENDED heartbeat
-# checks. Without exact method names the model burns its step budget running
-# dir()/inspect to discover the SDK and re-creates the client each step. This
-# tells it precisely what to call so it converges in ~3-4 code executions.
-_MERAKI_HEARTBEAT_GUIDANCE = """
+# One batch query authorizes the four read-only endpoints needed by the common
+# Meraki network-health heartbeat. Keeping this stable also lets legacy prompts
+# that mention Dashboard SDK method names resolve against the REST catalog.
+MERAKI_HEARTBEAT_CATALOG_QUERY = (
+    "getOrganizations getOrganizationNetworks "
+    "getOrganizationDevicesStatuses getOrganizationAssuranceAlerts"
+)
+
+
+# Concrete recipe appended to the Meraki agent's prompt for UNATTENDED
+# heartbeat checks. This is the current runtime contract and deliberately
+# supersedes stale SDK examples in previously saved heartbeat prompts.
+_MERAKI_HEARTBEAT_GUIDANCE = f"""
 
 ==================================================================
-HEARTBEAT CHECK MODE — follow this EXACT recipe.
+CURRENT HEARTBEAT API CONTRACT — follow this EXACT recipe.
 ==================================================================
 Reach the Meraki Dashboard ONLY through the pre-bound meraki_api_call(method,
 path, ...) function. json.loads its result; data is under ['data']. GET lists
 are auto-paginated. Do NOT use the meraki SDK or raw requests.
 
-Use ONLY these exact calls (they work — do not explore first):
-  json.loads(meraki_api_call('GET', '/organizations'))['data']
-      -> [{'id': ..., 'name': ...}, ...]
-  json.loads(meraki_api_call('GET', f'/organizations/{org_id}/networks'))['data']
-      -> [{'id': ..., 'name': ...}, ...]   # find the target network's id by name
-  json.loads(meraki_api_call('GET', f'/organizations/{org_id}/devices/statuses'))['data']
-      -> [{'name','serial','status','networkId',...}, ...]  # online/offline/alerting
-  json.loads(meraki_api_call('GET', f'/networks/{net_id}/devices'))['data']
-      -> [{'name','serial','model','lanIp',...}, ...]
+Before ANY Meraki API call, make exactly ONE TOP-LEVEL search_api_catalog call
+(not Python) with:
+  query="{MERAKI_HEARTBEAT_CATALOG_QUERY}"
+  catalog_id="meraki"
+  limit=5
+The returned exact records authorize all four calls below. Do not run another
+catalog search. If one is missing, report the missing live state as unknown.
 
-RECIPE for "report device status / alerts for network <NAME>":
-  Step 1 (ONE code block): get orgs, then for the org(s) get networks, find the
-          network whose name == "<NAME>", capture its id and org_id. Print them.
-  Step 2 (ONE code block): GET /organizations/{org_id}/devices/statuses, filter
-          to that networkId, and print a short table of name/model/status plus a
-          count of any non-'online' devices.
-  Step 3: Write your FINAL summary as plain text. State clearly whether all
-          devices are online or list the offline/alerting ones. Keep it concise.
+Then use ONE execute_python_code block to:
+  1. GET /organizations and select the exact organization named in the saved
+     heartbeat prompt.
+  2. GET /organizations/{{org_id}}/networks and select the exact target network
+     name from the saved heartbeat prompt. Save its id as network_id.
+  3. GET /organizations/{{org_id}}/devices/statuses with
+     query_params={{"networkIds": [network_id]}}.
+  4. GET /organizations/{{org_id}}/assurance/alerts with
+     query_params={{"networkId": network_id, "active": True, "perPage": 100}}.
+  5. Print only the target network's device status counts, non-online device
+     details, and active-alert details needed for the final answer.
 
-Do at most ONE exploratory call. If a path is wrong, read the error and fix it.
-Aim to finish in 3-4 code executions total.
+Never request organization-wide device statuses or alerts without those exact
+target-network filters. Never include another network in the result. After the
+single code block returns data, immediately write the concise FINAL summary.
+Do not call write_todos, task, or any filesystem/planning tool; they are
+intentionally unavailable in heartbeat mode.
 """
+
+
+_MERAKI_HEARTBEAT_ROLE = """You are a focused, read-only Meraki heartbeat agent.
+Use only the live Dashboard API workflow below. Never guess live state, never
+substitute remembered data for an API result, and report unknown when an exact
+catalog match or live API response is unavailable."""
 
 
 # Universal efficiency directive appended to EVERY heartbeat agent's prompt.
@@ -275,27 +293,29 @@ async def _execute_agent(
 
     tool = attached_tools[0]
 
-    # Heartbeat-specific prompt guidance. The base meraki agent prompt explains
-    # the workflow but NOT the concrete SDK method names, so the model wastes
-    # most of its step budget running dir()/inspect to discover the API and
-    # re-creating the client every step (each meraki.DashboardAPI() opens a new
-    # session). For an unattended check we give it the exact, minimal recipe so
-    # it converges in a few calls instead of hitting the recursion limit.
+    # Heartbeat-specific prompt guidance gives the unattended Meraki run one
+    # bounded catalog lookup and one network-scoped API block. It also overrides
+    # stale SDK wording in prompts saved before catalog grounding was required.
     system_prompt = agent.get("system_prompt", "")
     if agent_id == "meraki":
-        system_prompt += _MERAKI_HEARTBEAT_GUIDANCE
+        # User overrides are optimized for interactive chat and can be tens of
+        # thousands of characters long. The unattended check needs only this
+        # compact, current, read-only contract; the saved check prompt supplies
+        # its exact organization/network scope.
+        system_prompt = _MERAKI_HEARTBEAT_ROLE + _MERAKI_HEARTBEAT_GUIDANCE
     # Every heartbeat agent gets the round-trip-minimization directive — the
     # 8-steps-instead-of-2 blowup that broke checks was not Meraki-specific.
     system_prompt += _HEARTBEAT_EFFICIENCY_DIRECTIVE
 
     # Build the code-exec agent_def. The loop reads attached_tools[0].id as the
     # `cli_package` that selects which vendor client to pre-load in the sandbox,
-    # and vault_secrets for that client's credentials. No catalog is needed —
-    # the model never sees per-endpoint tools, only execute_python_code.
+    # and vault_secrets for that client's credentials. The runtime resolves the
+    # raw catalog in-process and exposes only bounded search results to the model.
     agent_def = {
         "id": agent_id,
         "agent_id": agent_id,
         "system_prompt": system_prompt,
+        "focused_api_mode": True,
         "attached_tools": [{
             "id": tool.get("id", agent_id),  # cli_package selector (e.g. "meraki")
             "vault_secrets": resolved_secrets,  # Settings-resolved creds
@@ -308,7 +328,7 @@ async def _execute_agent(
     def collect_event(event: dict[str, Any]) -> None:
         events.append(event)
 
-    # Run the agent using the code-exec deep agents loop (single tool).
+    # Run the agent using the code-exec DeepAgents loop.
     try:
         outcome = await deepagents_react_code_loop(
             agent_def=agent_def,

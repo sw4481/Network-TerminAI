@@ -314,6 +314,37 @@
   font-size: 11px;
   cursor: pointer;
 }
+
+/* Deterministic findings suite */
+.pcap-findings { display: grid; min-height: 0; height: 100%; grid-template-columns: clamp(220px, 28%, 320px) minmax(0, 1fr); }
+.pcap-findings-rules { display: flex; min-height: 0; flex-direction: column; overflow: auto; border-right: 1px solid var(--border-default); }
+.pcap-findings-rules-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); text-transform: uppercase; }
+.pcap-findings-rules label { display: grid; align-items: center; grid-template-columns: auto 54px minmax(0, 1fr); gap: 5px; padding: 5px 8px; border-bottom: 1px solid var(--border-subtle, var(--border-default)); cursor: pointer; }
+.pcap-findings button { border: 1px solid var(--border-default); border-radius: 4px; background: var(--surface-3); color: var(--text-primary); padding: 4px 7px; font: inherit; }
+.pcap-findings button:disabled { opacity: 0.5; }
+.pcap-findings-run { margin: 9px; }
+.pcap-finding-severity { border-radius: 3px; padding: 2px 4px; font-size: 9px; text-align: center; text-transform: uppercase; }
+.pcap-finding-severity.severity-critical { color: var(--status-danger); background: var(--status-danger-surface); }
+.pcap-finding-severity.severity-high { color: var(--status-danger); }
+.pcap-finding-severity.severity-medium { color: var(--status-warning, var(--text-primary)); }
+.pcap-finding-severity.severity-low,
+.pcap-finding-severity.severity-info { color: var(--text-secondary); }
+.pcap-findings-results { min-width: 0; min-height: 0; overflow: auto; padding: 9px; }
+.pcap-findings-empty { padding: 22px; color: var(--text-secondary); text-align: center; }
+.pcap-finding-card { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border-default); border-radius: 5px; background: var(--surface-2); }
+.pcap-finding-card > header { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--border-default); }
+.pcap-finding-card > header strong { flex: 1; }
+.pcap-finding-card > code { display: block; overflow: auto; padding: 6px 9px; color: var(--text-secondary); background: var(--surface-3); white-space: nowrap; }
+.pcap-finding-evidence { max-width: 100%; overflow-x: auto; }
+.pcap-finding-card table { width: 100%; min-width: 600px; border-collapse: collapse; }
+.pcap-finding-card th,
+.pcap-finding-card td { padding: 4px 7px; border-top: 1px solid var(--border-subtle, var(--border-default)); text-align: left; }
+.pcap-finding-card footer { padding: 5px 9px; color: var(--text-secondary); }
+
+@media (max-width: 760px) {
+  .pcap-findings { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .pcap-findings-rules { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border-default); }
+}
 .pcap-export-btn:hover {
   background: var(--surface-hover);
 }

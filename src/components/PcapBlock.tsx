@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import './PcapBlock.css';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import {
+  cancelCapture,
   captureGet,
   exportPcap,
   subscribePcapProgress,
@@ -13,12 +14,13 @@ import { PcapPacketList } from './PcapPacketList';
 import { PcapHexView } from './PcapHexView';
 import { PcapProtocolHierarchy } from './PcapProtocolHierarchy';
 import { FollowStreamModal } from './FollowStreamModal';
+import { PcapFindings } from './PcapFindings';
 
 interface PcapBlockProps {
   captureId: string;
 }
 
-type Tab = 'packets' | 'hierarchy' | 'hex';
+type Tab = 'packets' | 'hierarchy' | 'hex' | 'findings';
 
 export function PcapBlock({ captureId }: PcapBlockProps) {
   const [capture, setCapture] = useState<PcapCapture | null>(null);
@@ -27,6 +29,7 @@ export function PcapBlock({ captureId }: PcapBlockProps) {
   const [selected, setSelected] = useState<number | null>(null);
   const [followStreamIndex, setFollowStreamIndex] = useState<number | null>(null);
   const [sizeWarning, setSizeWarning] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +63,7 @@ export function PcapBlock({ captureId }: PcapBlockProps) {
   }, [captureId]);
 
   const ready = capture?.status === 'ready' && !!capture.local_path;
+  const active = capture != null && ['setup', 'capturing', 'pulling'].includes(capture.status);
   const summaryState = usePcapSummary(ready ? captureId : null, filter || null);
 
   return (
@@ -104,6 +108,25 @@ export function PcapBlock({ captureId }: PcapBlockProps) {
             Export pcap…
           </button>
         )}
+        {active && (
+          <button
+            type="button"
+            className="pcap-export-btn"
+            disabled={cancelling}
+            onClick={async () => {
+              setCancelling(true);
+              try {
+                await cancelCapture(captureId);
+                setCapture(await captureGet(captureId));
+              } finally {
+                setCancelling(false);
+              }
+            }}
+            data-testid="pcap-cancel-btn"
+          >
+            {cancelling ? 'Cancelling…' : 'Cancel capture'}
+          </button>
+        )}
       </header>
 
       {capture?.error && (
@@ -144,6 +167,14 @@ export function PcapBlock({ captureId }: PcapBlockProps) {
         >
           Hex / ASCII
         </button>
+        <button
+          type="button"
+          className={tab === 'findings' ? 'active' : ''}
+          onClick={() => setTab('findings')}
+          data-testid="pcap-tab-findings"
+        >
+          Findings
+        </button>
       </nav>
 
       <section className="pcap-tab-body">
@@ -174,6 +205,7 @@ export function PcapBlock({ captureId }: PcapBlockProps) {
         {ready && tab === 'hex' && (
           <PcapHexView captureId={captureId} packetNo={selected} />
         )}
+        {ready && tab === 'findings' && <PcapFindings captureId={captureId} />}
       </section>
 
       <FollowStreamModal

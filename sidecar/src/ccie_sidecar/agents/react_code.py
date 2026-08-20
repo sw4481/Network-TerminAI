@@ -634,11 +634,9 @@ async def react_code_loop(
         from ccie_sidecar.agents.lessons import LessonObserver, distill_and_store
         on_event = LessonObserver(on_event)
 
-        # DEBUG: Log vault secrets to stderr
+        # Diagnostic keys only. Secret values must never enter sidecar logs.
         import sys
         print(f"[react_code_loop] vault_secrets keys: {list(vault_secrets.keys())}", file=sys.stderr)
-        vault_preview = {k: (v[:10] + '...') if len(str(v)) > 10 else v for k, v in vault_secrets.items()}
-        print(f"[react_code_loop] vault_secrets values (first 10 chars): {vault_preview}", file=sys.stderr)
 
         # Get LLM configuration
         from ccie_sidecar.agent import get_saved_config
@@ -724,6 +722,12 @@ async def react_code_loop(
         # vendor SDK client actually got bound (it only binds when a key was
         # delivered). Pass emit=on_event so the injected `drawio` helper streams
         # diagram events to the frontend panel.
+        from ccie_sidecar.agents.catalog_grounding import (
+            catalog_prompt_hint,
+            install_catalog_grounding,
+            resolve_agent_catalogs,
+        )
+        catalogs = resolve_agent_catalogs(agent_def)
         sandbox_globals = _build_sandbox_globals(cli_package, vault_secrets, emit=on_event)
         env_overrides = _build_env_overrides(vault_secrets)
 
@@ -759,6 +763,8 @@ async def react_code_loop(
                     print(f"[react_code_loop] .env loading failed: {e}", file=sys.stderr)
                     pass
 
+        catalog_index = install_catalog_grounding(sandbox_globals, catalogs)
+
         # Whether the single-door meraki_api_call helper is bound into the
         # sandbox (true when a key was delivered). Kept for signature parity.
         meraki_client_ready = "meraki_api_call" in sandbox_globals
@@ -792,23 +798,24 @@ Use this tool to:
 
 Use print() to output results — only printed output is visible to you."""
 
-        # Append a categorized API method/verb index + discovery hint so the
-        # model picks the right method instead of guessing from the examples
-        # above. Indexes meraki (944 methods) / pyats (verbs); no-op for drawio
-        # or a bare sandbox.
+        # Catalog-backed discovery is on demand and bounded; raw catalogs never
+        # enter this description. Bare sandboxes retain the older compact hints.
         from ccie_sidecar.agents.sandbox_index import (
             build_method_index,
             build_discovery_hint,
         )
-        _method_index = build_method_index(cli_package, sandbox_globals)
-        _discovery_hint = build_discovery_hint(cli_package)
+        _catalog_hint = catalog_prompt_hint(catalog_index)
+        _method_index = "" if _catalog_hint else build_method_index(cli_package, sandbox_globals)
+        _discovery_hint = "" if _catalog_hint else build_discovery_hint(cli_package)
         if _discovery_hint:
             tool_description += f"\n\n{_discovery_hint}"
         if _method_index:
             tool_description += f"\n\n{_method_index}"
+        if _catalog_hint:
+            tool_description += f"\n\n{_catalog_hint}"
 
         if provider == "anthropic":
-            tools = [{
+            execute_tool = {
                 "name": "execute_python_code",
                 "description": tool_description,
                 "input_schema": {
@@ -825,10 +832,30 @@ Use print() to output results — only printed output is visible to you."""
                     },
                     "required": ["reasoning", "code"]
                 }
-            }]
+            }
+            tools = [execute_tool]
+            if catalog_index is not None:
+                tools.insert(0, {
+                    "name": "search_api_catalog",
+                    "description": (
+                        "Mandatory first tool for a live vendor API operation. Search "
+                        "the bounded in-memory catalog for the user's exact intent. Once "
+                        "a match fits, stop searching and use its exact record in "
+                        "execute_python_code."
+                    ),
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"},
+                            "catalog_id": {"type": "string"},
+                            "limit": {"type": "integer", "default": 5},
+                        },
+                        "required": ["query", "catalog_id"],
+                    },
+                })
         else:
             # OpenAI/vLLM format
-            tools = [{
+            execute_tool = {
                 "type": "function",
                 "function": {
                     "name": "execute_python_code",
@@ -848,7 +875,30 @@ Use print() to output results — only printed output is visible to you."""
                         "required": ["reasoning", "code"]
                     }
                 }
-            }]
+            }
+            tools = [execute_tool]
+            if catalog_index is not None:
+                tools.insert(0, {
+                    "type": "function",
+                    "function": {
+                        "name": "search_api_catalog",
+                        "description": (
+                            "Mandatory first tool for a live vendor API operation. Search "
+                            "the bounded in-memory catalog for the user's exact intent. Once "
+                            "a match fits, stop searching and use its exact record in "
+                            "execute_python_code."
+                        ),
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "catalog_id": {"type": "string"},
+                                "limit": {"type": "integer", "default": 5},
+                            },
+                            "required": ["query", "catalog_id"],
+                        },
+                    },
+                })
 
         # Build system prompt
         system_prompt = agent_def.get("system_prompt", "")
@@ -1005,6 +1055,59 @@ Use print() to output results — only printed output is visible to you."""
                                     "type": "tool_result",
                                     "tool_use_id": tool_call_id,
                                     "content": result_str,
+                                })
+                            else:
+                                tool_results.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call_id,
+                                    "name": tool_name,
+                                    "content": result_str,
+                                })
+                        elif tool_name == "search_api_catalog" and catalog_index is not None:
+                            query = str(tool_input.get("query", ""))
+                            catalog_id = str(tool_input.get("catalog_id", ""))
+                            limit = tool_input.get("limit", 5)
+                            on_event({
+                                "type": "thought_start",
+                                "step": step,
+                                "thought": f"Searching {catalog_id} API catalog for {query}",
+                            })
+                            on_event({
+                                "type": "tool_call",
+                                "name": tool_name,
+                                "args": {
+                                    "query": query,
+                                    "catalog_id": catalog_id,
+                                    "limit": limit,
+                                },
+                            })
+                            try:
+                                search_result = catalog_index.search(
+                                    query,
+                                    catalog_id=catalog_id,
+                                    limit=limit,
+                                )
+                                success = True
+                                result_str = json.dumps(
+                                    search_result,
+                                    ensure_ascii=False,
+                                    default=str,
+                                )
+                            except Exception as exc:
+                                success = False
+                                result_str = f"Error: {type(exc).__name__}: {exc}"
+                            result_str = _truncate_output(result_str)
+                            on_event({
+                                "type": "tool_result",
+                                "success": success,
+                                "result": result_str,
+                            })
+                            if provider == "anthropic":
+                                tool_results.append({
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_call_id,
+                                    "content": result_str,
+                                    **({"is_error": True} if not success else {}),
                                 })
                             else:
                                 tool_results.append({

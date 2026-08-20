@@ -15,6 +15,62 @@ from langgraph.errors import GraphRecursionError
 from ccie_sidecar.agents.model_recovery import classify_model_exception
 
 
+def _input_ai_markers(input_data: dict[str, Any]) -> tuple[set[int], set[str]]:
+    """Identify assistant messages that existed before this graph run started.
+
+    Some LangGraph/middleware update shapes surface an input history message as
+    part of a node delta. Those messages are context, never a new final answer.
+    Track both object identity and LangChain message id so cloned state is safe.
+    """
+    object_ids: set[int] = set()
+    message_ids: set[str] = set()
+    messages = input_data.get("messages", []) if isinstance(input_data, dict) else []
+    for message in messages or []:
+        if not isinstance(message, AIMessage):
+            continue
+        object_ids.add(id(message))
+        message_id = getattr(message, "id", None)
+        if isinstance(message_id, str) and message_id:
+            message_ids.add(message_id)
+    return object_ids, message_ids
+
+
+def _is_input_ai_replay(
+    message: AIMessage,
+    object_ids: set[int],
+    message_ids: set[str],
+) -> bool:
+    """Return True only for an assistant message supplied as input history."""
+    if id(message) in object_ids:
+        return True
+    message_id = getattr(message, "id", None)
+    return isinstance(message_id, str) and message_id in message_ids
+
+
+def _stream_text_from_payload(payload: Any) -> str:
+    """Extract a user-visible text delta from a LangGraph messages payload."""
+    message = payload[0] if isinstance(payload, (tuple, list)) and payload else payload
+    if not isinstance(message, AIMessage):
+        return ""
+
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+
+    chunks: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") not in {"text", "text_delta"}:
+            continue
+        text = block.get("text")
+        if isinstance(text, str):
+            chunks.append(text)
+    return "".join(chunks)
+
+
 def _extract_action_requests(interrupt_payload: Any) -> list[dict]:
     """Pull ActionRequest dicts out of an interrupt_on (__interrupt__) payload.
 
@@ -253,6 +309,7 @@ async def run_and_stream(
     config: dict[str, Any],
     on_event: Callable[[dict], None],
     return_on_interrupt: bool = False,
+    stream_output: bool = False,
 ) -> dict[str, Any]:
     """
     Run a DeepAgents graph and stream events to our NDJSON contract.
@@ -272,6 +329,7 @@ async def run_and_stream(
 
     Args (additional):
         return_on_interrupt: If True, return when graph interrupts instead of waiting
+        stream_output: Emit top-level LLM text deltas as token events
 
     Returns:
         Structured execution outcome. Existing ``interrupted`` and
@@ -285,6 +343,7 @@ async def run_and_stream(
         - tool_result: {"type": "tool_result", "success": bool, "result": str}
         - diagram: {"type": "diagram", "title": str, "format": str, "xml": str | None,
                     "source": str | None, "url": str}
+        - token: {"type": "token", "text": str} (only when stream_output is true)
         - final: {"type": "final", "response": str}
         - error: {"type": "error", "message": str}
     """
@@ -297,6 +356,7 @@ async def run_and_stream(
     recovery_attempts = 0
     fallback_mode: str | None = None
     tool_call_names: dict[str, str] = {}
+    input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
 
     try:
         # Stream with all three modes:
@@ -495,6 +555,10 @@ async def run_and_stream(
                         # subagent finals as a normal tool_result-style step but
                         # reserve the `final` event for the top-level graph.
                         elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                            if _is_input_ai_replay(
+                                msg, input_ai_object_ids, input_ai_message_ids
+                            ):
+                                continue
                             # Extract text from content
                             final_text = ""
                             if isinstance(msg.content, str):
@@ -514,10 +578,14 @@ async def run_and_stream(
                                     })
 
             elif mode == "messages":
-                # Token-level streaming (optional)
-                # We could use this for live token display in the future
-                # For now, skip it (we emit final when complete)
-                pass
+                # LangGraph emits (message_chunk, metadata) for this mode. Only
+                # top-level model output belongs in the main chat transcript;
+                # specialist subagent chunks stay represented by their normal
+                # tool lifecycle events.
+                if stream_output and is_top_level:
+                    text = _stream_text_from_payload(payload)
+                    if text:
+                        on_event({"type": "token", "text": text})
 
     except GraphRecursionError as e:
         # The graph hit RECURSION_LIMIT without reaching a stop condition — i.e.
@@ -533,10 +601,9 @@ async def run_and_stream(
             "message": (
                 "I got stuck repeating steps and stopped before finishing "
                 "(hit the safety step limit). This usually means I kept "
-                "inspecting or retrying instead of completing the task. Try "
-                "rephrasing the request to name the exact action — e.g. "
-                "\"apply the terraform in <dir>\" — or check that any required "
-                "CLI tools are installed."
+                "inspecting or retrying instead of completing the task. No live "
+                "result was returned. Retry the request; if it repeats, check "
+                "the selected platform's API configuration and catalog match."
             ),
             "kind": "step_limit",
             "error_type": type(e).__name__,
@@ -615,6 +682,7 @@ async def run_and_stream_code_exec(
     """
     attempt = 0
     final_text_seen = False
+    input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
 
     try:
         async for event in graph.astream(
@@ -705,6 +773,10 @@ async def run_and_stream_code_exec(
 
                             # Final response
                             elif isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                                if _is_input_ai_replay(
+                                    msg, input_ai_object_ids, input_ai_message_ids
+                                ):
+                                    continue
                                 final_text = ""
                                 if isinstance(msg.content, str):
                                     final_text = msg.content

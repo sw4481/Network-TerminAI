@@ -23,7 +23,7 @@ def _build_input_messages(ctx: dict, user_msg: str) -> list:
     """
     messages: list = []
     history = (ctx or {}).get("history") or []
-    for turn in history:
+    for history_index, turn in enumerate(history):
         if not isinstance(turn, dict):
             continue
         role = turn.get("role")
@@ -33,31 +33,37 @@ def _build_input_messages(ctx: dict, user_msg: str) -> list:
         if role == "user":
             messages.append(HumanMessage(content=content))
         elif role == "assistant":
-            messages.append(AIMessage(content=content))
+            # A stable input-only id lets the stream bridge distinguish replayed
+            # history from a genuinely new model response.
+            messages.append(AIMessage(
+                content=content,
+                id=f"history-assistant-{history_index}",
+            ))
 
-    # READ-BEFORE-ANSWER: pre-load established knowledge about the entities this
-    # question names as a conversation turn, so the agent starts already knowing
-    # (e.g.) shaun-home's network_id and topology instead of being told to look
-    # it up. This is the "second brain" retrieval phase — facts as knowledge the
-    # agent has, not a directive it may ignore. No-op / empty when the flag is
-    # off or nothing relevant is stored.
+    # READ-BEFORE-ANSWER: merge established facts into the CURRENT human turn.
+    # A synthetic assistant acknowledgement here is unsafe: LangGraph may surface
+    # it in update state and the streamer/grader can mistake it for this turn's
+    # final answer before the model has made a tool call.
+    current_content = user_msg
     try:
         from ccie_sidecar.agents.graph_autocapture import recall_context_message
         recalled = recall_context_message(user_msg)
         if recalled:
-            messages.append(HumanMessage(content=recalled))
-            messages.append(AIMessage(
-                content="Understood — I'll use that established context and only "
-                "query the vendor API for anything not already known above."
-            ))
+            current_content = (
+                f"{recalled}\n\n"
+                f"CURRENT REQUEST (answer this now):\n{user_msg}"
+            )
     except Exception:
         pass
 
-    messages.append(HumanMessage(content=user_msg))
+    messages.append(HumanMessage(content=current_content))
     return messages
 
 from ccie_sidecar.providers.langchain_factory import build_chat_model
-from ccie_sidecar.agents.deepagents_tools import create_execute_python_code_tool
+from ccie_sidecar.agents.deepagents_tools import (
+    create_catalog_search_tool,
+    create_execute_python_code_tool,
+)
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
 from ccie_sidecar.agents.deepagents_hitl import tier_for_tool, should_interrupt
 from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddleware
@@ -74,6 +80,19 @@ from ccie_sidecar.agents.model_recovery import (
 # Each ReAct cycle is ~2 graph steps, so 60 ≈ 30 tool calls — ample for the
 # multi-step Meraki flows, tight enough to stop a loop fast.
 RECURSION_LIMIT = 60
+
+
+ARCHITECT_EXECUTION_CONTRACT = (
+    "CURRENT NETWORK ARCHITECT RUNTIME CONTRACT (overrides older prompt wording):\n"
+    "- For a single-platform request about live/current data, your FIRST action is "
+    "one TOP-LEVEL search_api_catalog tool call for that vendor and exact intent.\n"
+    "- When a returned record fits, STOP discovery and immediately call its pre-bound "
+    "helper in execute_python_code. Never import/inspect helpers, enumerate catalogs, "
+    "repeat searches, or guess paths.\n"
+    "- After enough real API data answers the request, answer and stop. Search again only "
+    "for a genuinely different endpoint the request still requires.\n"
+    "- Use task() specialists only for genuine multi-platform correlation."
+)
 
 
 def _resolve_react_code_execution_policy(
@@ -268,6 +287,8 @@ async def deepagents_code_exec_loop(
         tool_def = agent_def.get("attached_tools", [{}])[0] if agent_def.get("attached_tools") else {}
         vault_secrets = tool_def.get("vault_secrets", {})
         cli_package = tool_def.get("id", "meraki") if tool_def else None
+        from ccie_sidecar.agents.catalog_grounding import resolve_agent_catalogs
+        catalogs = resolve_agent_catalogs(agent_def)
 
         # Forward custom sandbox events (diagrams) to the frontend IMMEDIATELY.
         # The sandbox runs synchronously inside the tool call, so emitting here
@@ -282,7 +303,12 @@ async def deepagents_code_exec_loop(
             cli_package=cli_package,
             vault_secrets=vault_secrets,
             emit_callback=emit_custom,
+            catalogs=catalogs,
         )
+        agent_tools = [execute_code_tool]
+        catalog_search_tool = create_catalog_search_tool(execute_code_tool)
+        if catalog_search_tool is not None:
+            agent_tools.insert(0, catalog_search_tool)
 
         # 4. Create DeepAgents graph
         # TodoList/planning middleware is on by default. Sanitizer repairs
@@ -296,7 +322,7 @@ async def deepagents_code_exec_loop(
         )
         graph = create_deep_agent(
             model=chat_model,
-            tools=[execute_code_tool],
+            tools=agent_tools,
             system_prompt=(agent_def.get("system_prompt", "") or "")
             + "\n\n" + PROXMOX_SANDBOX_BLURB
             + "\n\n" + UTILITY_SANDBOX_BLURB
@@ -343,6 +369,7 @@ async def deepagents_react_loop(
     ctx: dict,
     on_event: Callable[[dict], None],
     enable_rubrics: bool = False,  # Phase 5: Optional rubrics (beta feature)
+    stream_output: bool = False,
 ) -> None:
     """
     DeepAgents implementation of react_loop.
@@ -354,6 +381,7 @@ async def deepagents_react_loop(
         user_msg: User's query
         ctx: Additional context (conversation history, etc.)
         on_event: Callback to emit events
+        stream_output: Emit top-level model text chunks before the final event
 
     Events emitted (ReactEvent contract):
         - thought_start: { type: "thought_start", thought: str, step: int }
@@ -449,6 +477,7 @@ async def deepagents_react_loop(
                 "recursion_limit": RECURSION_LIMIT,
             },
             on_event=on_event,
+            stream_output=stream_output,
         )
 
     except Exception as e:
@@ -468,6 +497,7 @@ async def deepagents_react_code_loop(
     ctx: dict,
     on_event: Callable[[dict], None],
     execution_policy: AgentExecutionPolicy | None = None,
+    stream_output: bool = False,
 ) -> dict[str, Any]:
     """
     DeepAgents implementation of react_code_loop.
@@ -481,6 +511,7 @@ async def deepagents_react_code_loop(
         on_event: Callback to emit events
         execution_policy: Optional run policy. Interactive callers default to
             recovery disabled; unattended heartbeats opt in explicitly.
+        stream_output: Emit top-level model text chunks before the final event.
 
     Events emitted (ReactEvent contract):
         - thought_start
@@ -524,6 +555,8 @@ async def deepagents_react_code_loop(
         tool_def = agent_def.get("attached_tools", [{}])[0] if agent_def.get("attached_tools") else {}
         vault_secrets = tool_def.get("vault_secrets", {}) or {}
         cli_package = tool_def.get("id", "meraki") if tool_def else None
+        from ccie_sidecar.agents.catalog_grounding import resolve_agent_catalogs
+        catalogs = resolve_agent_catalogs(agent_def)
 
         # Forward custom sandbox events (diagrams) to the frontend immediately —
         # see the note in deepagents_code_exec_loop. Buffering stranded a
@@ -532,6 +565,7 @@ async def deepagents_react_code_loop(
             on_event(event)
 
         is_architect = (agent_def.get("agent_id") or agent_def.get("name")) == "network-architect"
+        focused_api_mode = bool(agent_def.get("focused_api_mode"))
 
         graph_kwargs: dict = {}
         extra_middleware: list = []
@@ -550,13 +584,18 @@ async def deepagents_react_code_loop(
                 architect_routing_hint,
             )
             execute_code_tool, _arch_ids = build_architect_direct_tool(
-                emit=emit_custom, user_msg=user_msg,
+                emit=emit_custom,
+                user_msg=user_msg,
+                catalogs=catalogs,
             )
             # Declarative DeepAgents subagents have their own middleware stacks;
             # explicitly add the same provider-neutral recovery policy so both
             # delegated vendor calls and the architect's inline path are covered.
             vendor_subagents = []
-            for subagent in build_vendor_subagents(emit=emit_custom):
+            for subagent in build_vendor_subagents(
+                emit=emit_custom,
+                catalogs=catalogs,
+            ):
                 vendor_subagents.append(
                     SubAgent(
                         **{
@@ -578,6 +617,7 @@ async def deepagents_react_code_loop(
                 cli_package=cli_package,
                 vault_secrets=vault_secrets,
                 emit_callback=emit_custom,
+                catalogs=catalogs,
             )
 
         # IaC agents additionally get the gated iac_apply tool plus Phase 4 NL codegen
@@ -586,6 +626,11 @@ async def deepagents_react_code_loop(
         # can show an approval modal (the tool is also self-tagged destructive). A
         # checkpointer is required for interrupt/resume.
         tools = [execute_code_tool]
+        catalog_search_tool = create_catalog_search_tool(execute_code_tool)
+        if catalog_search_tool is not None:
+            # Put deterministic discovery first in the model's tool list. Raw
+            # catalogs remain in memory; only bounded matches enter context.
+            tools.insert(0, catalog_search_tool)
 
         if _is_iac_agent(cli_package):
             from ccie_sidecar.agents.deepagents_middleware import HideBuiltinFsToolsMiddleware
@@ -600,6 +645,10 @@ async def deepagents_react_code_loop(
             # it loops forever. Strip those tools — the IaC agent works through
             # execute_python_code (real subprocess) + the gated iac_apply.
             extra_middleware.append(HideBuiltinFsToolsMiddleware())
+
+        if focused_api_mode:
+            from ccie_sidecar.agents.deepagents_middleware import FocusedApiToolsMiddleware
+            extra_middleware.append(FocusedApiToolsMiddleware())
 
         # 4. Create DeepAgents graph
         # Sanitizer repairs malformed tool-call args (NVIDIA/Nemotron 400).
@@ -622,14 +671,38 @@ async def deepagents_react_code_loop(
         # Architect binds many vendors in one sandbox → 'global' lessons only;
         # single-vendor agents get their scope's lessons plus 'global'.
         lessons_scope = "global" if is_architect else cli_package
-        system_prompt = (
-            (system_prompt or "")
-            + "\n\n" + PROXMOX_SANDBOX_BLURB
-            + "\n\n" + UTILITY_SANDBOX_BLURB
-            + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
-            + graph_sandbox_blurb_suffix(user_msg)
-            + lessons_blurb(lessons_scope)
-        )
+        if focused_api_mode:
+            # Heartbeat callers supply a compact task-specific contract. Avoid
+            # reattaching interactive sandbox docs, graph memory, and learned
+            # lessons that can contradict the current grounded API workflow.
+            system_prompt = system_prompt or ""
+        elif is_architect:
+            # The Architect's direct execute tool already carries the utility and
+            # response-shape docs. Do not duplicate those large blocks in the
+            # system prompt. Put the current execution contract LAST so it wins
+            # over older saved agent wording and compatible learned lessons.
+            system_prompt = (
+                (system_prompt or "")
+                + "\n\n" + PROXMOX_SANDBOX_BLURB
+                + graph_sandbox_blurb_suffix(user_msg)
+                + lessons_blurb(
+                    lessons_scope,
+                    catalog_grounded=bool(catalogs),
+                )
+                + "\n\n" + ARCHITECT_EXECUTION_CONTRACT
+            )
+        else:
+            system_prompt = (
+                (system_prompt or "")
+                + "\n\n" + PROXMOX_SANDBOX_BLURB
+                + "\n\n" + UTILITY_SANDBOX_BLURB
+                + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
+                + graph_sandbox_blurb_suffix(user_msg)
+                + lessons_blurb(
+                    lessons_scope,
+                    catalog_grounded=bool(catalogs),
+                )
+            )
         # Fix #2: prepend the deterministic vendor routing hint (architect only;
         # "" when the question names no configured vendor).
         if arch_routing_hint:
@@ -684,6 +757,7 @@ async def deepagents_react_code_loop(
                 "recursion_limit": RECURSION_LIMIT,
             },
             on_event=wrapped_on_event,
+            stream_output=stream_output,
         )
         # Post-final: distill a lesson if this turn recovered from an error.
         # The user's answer already streamed, so this adds no answer latency.

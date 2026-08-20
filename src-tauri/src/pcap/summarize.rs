@@ -44,6 +44,36 @@ pub struct FollowStreamResult {
     pub packets: Vec<PcapPacket>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FindingRuleMetadata {
+    pub rule_id: String,
+    pub category: String,
+    pub severity: String,
+    pub title: String,
+    pub display_filter: String,
+    pub enabled_by_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PcapFinding {
+    pub rule_id: String,
+    pub category: String,
+    pub severity: String,
+    pub title: String,
+    pub count: u32,
+    pub display_filter: String,
+    pub evidence: Vec<PcapPacket>,
+    pub evidence_truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PcapFindingsResult {
+    pub findings: Vec<PcapFinding>,
+    pub scanned_packets: u32,
+    pub scan_limit: u32,
+    pub scan_truncated: bool,
+}
+
 /// Result of the sidecar's `pcap.run_capture` (pyATS-driven live capture).
 /// The `.pcap` is left on the device; `export_basename` is what to pull via SCP.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,6 +128,30 @@ impl PcapBridge {
         }
     }
 
+    pub async fn finding_rules(&self) -> Result<Vec<FindingRuleMetadata>> {
+        match self.agent.call("pcap.finding_rules", json!({})).await? {
+            AgentResponse::Done { result } => Ok(serde_json::from_value(result)?),
+            AgentResponse::Error { message } => Err(anyhow!(message)),
+            AgentResponse::Token { .. } => Err(anyhow!("pcap.finding_rules unexpectedly streamed")),
+        }
+    }
+
+    pub async fn findings(
+        &self,
+        path: &str,
+        enabled_rule_ids: &[String],
+    ) -> Result<PcapFindingsResult> {
+        let params = json!({
+            "path": path,
+            "enabled_rule_ids": enabled_rule_ids,
+        });
+        match self.agent.call("pcap.findings", params).await? {
+            AgentResponse::Done { result } => Ok(serde_json::from_value(result)?),
+            AgentResponse::Error { message } => Err(anyhow!(message)),
+            AgentResponse::Token { .. } => Err(anyhow!("pcap.findings unexpectedly streamed")),
+        }
+    }
+
     /// Run a live capture lifecycle on the device via the sidecar's pyATS
     /// driver (one persistent session). Returns where the `.pcap` was exported
     /// on the device; the caller pulls it off-box over SCP.
@@ -136,11 +190,7 @@ impl PcapBridge {
         }
     }
 
-    pub async fn follow_stream(
-        &self,
-        path: &str,
-        stream_index: u32,
-    ) -> Result<FollowStreamResult> {
+    pub async fn follow_stream(&self, path: &str, stream_index: u32) -> Result<FollowStreamResult> {
         let params = json!({ "path": path, "stream_index": stream_index });
         match self.agent.call("pcap.follow_stream", params).await? {
             AgentResponse::Done { result } => Ok(serde_json::from_value(result)?),

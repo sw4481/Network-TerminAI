@@ -200,7 +200,11 @@ fn normalize_syntax_profile(raw: Option<&str>) -> Result<Option<String>> {
     Ok(Some(value))
 }
 
-fn validate_connection_basics(name: &str, host: &str, port: i64) -> Result<(String, String)> {
+pub(crate) fn validate_connection_basics(
+    name: &str,
+    host: &str,
+    port: i64,
+) -> Result<(String, String)> {
     let name = name.trim();
     let host = host.trim();
     if name.is_empty() {
@@ -255,7 +259,7 @@ const CONNECTION_SELECT: &str =
             syntax_highlighting_enabled, syntax_profile, created_at, last_used_at
        FROM ssh_connections";
 
-fn get_connection_impl(conn: &Connection, id: &str) -> Result<SshConnection> {
+pub(crate) fn get_connection_impl(conn: &Connection, id: &str) -> Result<SshConnection> {
     conn.query_row(
         &format!("{CONNECTION_SELECT} WHERE id = ?1"),
         params![id],
@@ -442,7 +446,7 @@ pub fn update_connection_impl(
     get_connection_impl(conn, id)
 }
 
-fn normalize_folder_name(name: &str) -> Result<String> {
+pub(crate) fn normalize_folder_name(name: &str) -> Result<String> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 64 {
         return Err(anyhow!("folder name must contain 1 to 64 characters"));
@@ -647,6 +651,17 @@ pub fn delete_folder_impl(conn: &mut Connection, id: &str) -> Result<()> {
     Ok(())
 }
 
+pub(crate) fn list_connections_impl(conn: &Connection) -> Result<Vec<SshConnection>> {
+    let mut stmt = conn.prepare(&format!(
+        "{CONNECTION_SELECT} ORDER BY last_used_at DESC NULLS LAST, name COLLATE NOCASE"
+    ))?;
+    let rows = stmt
+        .query_map([], connection_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(Into::into);
+    rows
+}
+
 #[tauri::command]
 pub fn ssh_save_connection(
     state: State<'_, AppState>,
@@ -669,17 +684,7 @@ pub fn ssh_update_connection(
 #[tauri::command]
 pub fn ssh_list_connections(state: State<'_, AppState>) -> Result<Vec<SshConnection>, String> {
     let db = state.db.lock();
-    let mut stmt = db
-        .prepare(&format!(
-            "{CONNECTION_SELECT} ORDER BY last_used_at DESC NULLS LAST, name COLLATE NOCASE"
-        ))
-        .map_err(|error| error.to_string())?;
-    let result = stmt
-        .query_map([], connection_from_row)
-        .map_err(|error| error.to_string())?
-        .collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(|error| error.to_string());
-    result
+    list_connections_impl(&db).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

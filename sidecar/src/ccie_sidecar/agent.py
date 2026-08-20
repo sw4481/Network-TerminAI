@@ -199,10 +199,20 @@ def load_agent(agent_id: str) -> dict[str, Any] | None:
 
         system_prompt = fm.get("system-prompt") or fm.get("system_prompt") or ""
         # Opt-in netclaw-style "soul": if the agent dir contains SOUL*.md files,
-        # append them to the system prompt (sorted, each capped to keep the prompt
-        # bounded). This is purely additive and file-presence-gated — agents
-        # WITHOUT SOUL files (every agent except network-architect) are unchanged.
-        system_prompt = _append_soul_files(path.parent, system_prompt)
+        # append them unless the agent explicitly keeps those files as offline
+        # references. Network Architect uses the latter mode: its large routing/
+        # protocol references duplicated and contradicted the compact live prompt.
+        # Older installs may have a user-level copy of the bundled Network
+        # Architect definition from before this flag existed. Default that one
+        # agent to compact mode too, so stale app data cannot silently restore
+        # the 20K+ duplicated prompt after an upgrade.
+        append_soul_default = agent_id != "network-architect"
+        append_soul = fm.get(
+            "append-soul-files",
+            fm.get("append_soul_files", append_soul_default),
+        )
+        if append_soul:
+            system_prompt = _append_soul_files(path.parent, system_prompt)
 
         agent = {
             "id": agent_id,

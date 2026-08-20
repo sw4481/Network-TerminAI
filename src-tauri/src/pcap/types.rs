@@ -7,6 +7,7 @@ pub enum DeviceKind {
     Nxos,
     Junos,
     Eos,
+    Local,
 }
 
 impl DeviceKind {
@@ -16,6 +17,7 @@ impl DeviceKind {
             DeviceKind::Nxos => "nxos",
             DeviceKind::Junos => "junos",
             DeviceKind::Eos => "eos",
+            DeviceKind::Local => "local",
         }
     }
 
@@ -25,6 +27,7 @@ impl DeviceKind {
             "nxos" => Some(DeviceKind::Nxos),
             "junos" => Some(DeviceKind::Junos),
             "eos" => Some(DeviceKind::Eos),
+            "local" => Some(DeviceKind::Local),
             _ => None,
         }
     }

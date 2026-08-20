@@ -21,8 +21,10 @@ from typing import Any, Callable, List, Optional
 
 from langchain_core.tools import StructuredTool
 
-from ccie_sidecar.agents.deepagents_tools import create_execute_python_code_tool
-from ccie_sidecar.agents.react_code import _build_client_section
+from ccie_sidecar.agents.deepagents_tools import (
+    create_catalog_search_tool,
+    create_execute_python_code_tool,
+)
 from ccie_sidecar.agents.tool_output import (
     TOOL_OUTPUT_GUIDANCE,
     install_tool_output_policy,
@@ -532,14 +534,12 @@ def _safe(pred: Callable[[], bool]) -> bool:
 
 def _subagent_system_prompt(spec: dict) -> str:
     """Per-vendor specialist prompt: how to drive that ONE vendor's helper."""
-    # Reuse the exact client-section text the single-vendor agents use, so the
-    # specialist gets the same battle-tested guidance (endpoints, gotchas).
-    client_section = _build_client_section(spec["id"], {}, meraki_client_ready=False)
     return (
         f"You are the {spec['display']} specialist.\n\n"
-        "MANDATORY FIRST ACTION: your VERY FIRST response MUST be a call to the "
-        "`execute_python_code` tool. Do NOT write any prose, analysis, or "
-        "explanation before that tool call — call the tool, see the real output, "
+        "MANDATORY FIRST ACTION: your VERY FIRST response MUST call the top-level "
+        "`search_api_catalog` tool for the user's exact intent. Do NOT write prose, "
+        "import helpers, inspect code, or call `execute_python_code` before discovery. "
+        "Use the returned exact record in `execute_python_code`, see the real output, "
         "THEN answer. You have no knowledge of this vendor's live state except "
         "what a tool call returns.\n\n"
         "HARD RULES:\n"
@@ -547,13 +547,14 @@ def _subagent_system_prompt(spec: dict) -> str:
         "key/credential is missing UNLESS an actual tool call returned that exact "
         "error. Saying it without running code first is a hallucination and is "
         "forbidden — run the code and read the result.\n"
-        "2. Use the PRE-BOUND client/helper described below exactly as documented. "
+        "2. Use the PRE-BOUND client/helper in execute_python_code exactly as documented. "
         "Do NOT re-instantiate clients, do NOT construct new API objects, do NOT "
         "read environment variables or config files, and do NOT use `requests` "
         "directly — the helper is already authenticated for you.\n"
-        "3. Only own THIS vendor — never attempt another.\n\n"
-        "YOUR PRE-BOUND CLIENT:\n"
-        f"{client_section}\n\n"
+        "3. Call `search_api_catalog` with "
+        f"catalog_id={spec['id']!r}; use an exact returned operation or method/path. "
+        "Once a usable match appears, STOP searching and make the real call.\n"
+        "4. Only own THIS vendor — never attempt another.\n\n"
         "WORKFLOW: write small, focused Python that calls the pre-bound helper, "
         "print() what you find, inspect the printed output, then return a concise "
         "factual answer with the concrete data (names, ids, counts, states). If — "
@@ -565,6 +566,7 @@ def _subagent_system_prompt(spec: dict) -> str:
 def build_vendor_subagents(
     emit: Optional[Callable[[dict], None]] = None,
     include_unconfigured: bool = False,
+    catalogs: Optional[List[dict[str, Any]]] = None,
 ) -> List[Any]:
     """Build one DeepAgents SubAgent per configured vendor.
 
@@ -578,6 +580,10 @@ def build_vendor_subagents(
     """
     from deepagents import SubAgent
 
+    if catalogs is None:
+        from ccie_sidecar.agents.catalog_grounding import load_catalogs_for_agent
+
+        catalogs = load_catalogs_for_agent("network-architect")
     subagents: List[Any] = []
     for spec in VENDOR_SPECS:
         if not include_unconfigured and not _safe(spec["configured"]):
@@ -586,13 +592,18 @@ def build_vendor_subagents(
             cli_package=spec["id"],
             vault_secrets={},
             emit_callback=emit or (lambda e: None),
+            catalogs=[c for c in catalogs if c.get("id") == spec["id"]],
         )
+        tools = [tool]
+        catalog_search_tool = create_catalog_search_tool(tool)
+        if catalog_search_tool is not None:
+            tools.insert(0, catalog_search_tool)
         subagents.append(
             SubAgent(
                 name=f"{spec['id']}-specialist",
                 description=f"Delegate here for: {spec['when']}",
                 system_prompt=_subagent_system_prompt(spec),
-                tools=[tool],
+                tools=tools,
             )
         )
     return subagents
@@ -602,6 +613,7 @@ def build_architect_direct_tool(
     emit: Optional[Callable[[dict], None]] = None,
     include_unconfigured: bool = False,
     user_msg: str = "",
+    catalogs: Optional[List[dict[str, Any]]] = None,
 ) -> tuple[StructuredTool, List[str]]:
     """Build ONE execute_python_code tool whose sandbox binds EVERY configured
     vendor helper at once, so the orchestrator can query any platform directly —
@@ -645,6 +657,21 @@ def build_architect_direct_tool(
         except Exception:
             pass
 
+    if catalogs is None:
+        from ccie_sidecar.agents.catalog_grounding import load_catalogs_for_agent
+
+        catalogs = load_catalogs_for_agent("network-architect")
+    from ccie_sidecar.agents.catalog_grounding import (
+        catalog_prompt_hint,
+        install_catalog_grounding,
+    )
+
+    catalog_index = install_catalog_grounding(
+        sandbox_globals,
+        catalogs,
+        active_catalog_ids=ids,
+    )
+
     # Meraki SDK env vars (key from Settings) so re-instantiation also works.
     env_overrides = _build_env_overrides({})
     output_policy, tool_output = install_tool_output_policy(
@@ -661,41 +688,29 @@ def build_architect_direct_tool(
         )
         return output_policy.format_execution_result(result, tool_output)
 
-    # Concatenate each vendor's client-section so the model knows how to drive
-    # every bound helper from this one sandbox.
-    #
-    # SCOPING (perf + memory-first): the FULL cheat-sheet for all vendors is
-    # ~9,200 tokens, which buries the injected ESTABLISHED CONTEXT / memory-first
-    # guidance under a wall of crawl examples (the model then re-crawls instead of
-    # using recalled facts). When the question unambiguously names 1-2 vendors, we
-    # emit the full cheat-sheet ONLY for those and a one-line pointer for the rest.
-    # Crucially, EVERY vendor's helper stays BOUND (the sandbox_globals loop above
-    # is untouched), so if detection misses a vendor the model can still call it —
-    # it just reads a shorter pointer instead of the full doc. Falls back to full
-    # docs for 0 (ambiguous) or 3+ (broad multi-vendor) detections, preserving
-    # today's behavior. No extra LLM turns: this only changes description LENGTH.
-    focus = detect_vendor_ids(user_msg, restrict_to=ids) if user_msg else []
-    scoped = focus if 1 <= len(focus) <= 2 else []
-
-    def _full_section(vid: str) -> str:
+    # Keep the parent Architect prompt bounded. Every raw catalog and helper stays
+    # in the sandbox, but the model sees only one compact binding line per vendor
+    # plus the constant-size api_catalog instruction. Exact endpoint details enter
+    # context only when the model searches for them.
+    sections: list[str] = []
+    for vid in ids:
         spec = next((s for s in VENDOR_SPECS if s["id"] == vid), None)
         title = spec["display"] if spec else vid
-        return f"### {title} ({vid})\n" + _build_client_section(
-            vid, sandbox_globals, meraki_client_ready=("meraki" in sandbox_globals))
-
-    sections = []
-    for vid in ids:
-        if scoped and vid not in scoped:
-            # Bound but not the focus of this question — one-line pointer only.
-            spec = next((s for s in VENDOR_SPECS if s["id"] == vid), None)
-            title = spec["display"] if spec else vid
-            sections.append(
-                f"### {title} ({vid})\nAlso bound: call `{vid}_api_call(...)` "
-                f"(or {vid}.help()) if this question turns out to need it."
-            )
-        else:
-            sections.append(_full_section(vid))
-    helpers_doc = "\n\n".join(sections) if sections else "(no vendor platforms configured)"
+        api_helpers = sorted(
+            key
+            for key, value in sandbox_globals.items()
+            if key.endswith("_api_call")
+            and callable(value)
+            and (key == f"{vid}_api_call" or key.startswith(f"{vid}_"))
+        )
+        bindings = api_helpers or ([vid] if vid in sandbox_globals else [])
+        binding_text = ", ".join(f"`{name}`" for name in bindings) or "pre-bound helper"
+        sections.append(
+            f"- {title} (`{vid}`): {binding_text}; discover via "
+            f"the top-level `search_api_catalog` tool with catalog_id={vid!r}."
+        )
+    helpers_doc = "\n".join(sections) if sections else "(no vendor platforms configured)"
+    catalog_hint = catalog_prompt_hint(catalog_index)
 
     # Delegate-only vendors are CONFIGURED but deliberately not bound inline (their
     # API surface would contaminate other vendors' in one shared sandbox). The model
@@ -750,7 +765,8 @@ def build_architect_direct_tool(
         f"{TOOL_OUTPUT_GUIDANCE}\n\n"
         f"{_mem_line}"
         f"{_facts_line}"
-        f"CONFIGURED PLATFORMS & how to call each:\n\n{helpers_doc}"
+        f"{catalog_hint}\n\n"
+        f"CONFIGURED PLATFORMS (compact bindings):\n{helpers_doc}"
         f"{delegate_doc}"
     )
 
@@ -759,4 +775,5 @@ def build_architect_direct_tool(
         name="execute_python_code",
         description=description,
     )
+    object.__setattr__(tool, "_ccie_catalog_index", catalog_index)
     return tool, ids

@@ -56,6 +56,25 @@ class TestLegacyHistory:
             {"role": "user", "content": "now"},
         ]
 
+    def test_recall_is_merged_into_current_user_turn(self, monkeypatch):
+        monkeypatch.setattr(
+            graph_autocapture,
+            "recall_context_message",
+            lambda _msg: "ESTABLISHED CONTEXT:\n  meraki:network:shaun-home",
+        )
+
+        msgs = build_history_messages({}, "list the access policies")
+
+        assert msgs == [{
+            "role": "user",
+            "content": (
+                "ESTABLISHED CONTEXT:\n  meraki:network:shaun-home\n\n"
+                "CURRENT REQUEST (answer this now):\n"
+                "list the access policies"
+            ),
+        }]
+        assert not any(message["role"] == "assistant" for message in msgs)
+
 
 class TestDeepAgentsHistory:
     def test_maps_roles_to_langchain_messages(self):
@@ -67,6 +86,7 @@ class TestDeepAgentsHistory:
         ]
         assert isinstance(msgs[0], HumanMessage)
         assert isinstance(msgs[1], AIMessage)
+        assert msgs[1].id == "history-assistant-1"
         assert msgs[-1].content == "change MAB-Only to multi-host"
 
     def test_empty_ctx_single_human_message(self):
@@ -74,3 +94,20 @@ class TestDeepAgentsHistory:
         assert len(msgs) == 1
         assert isinstance(msgs[0], HumanMessage)
         assert msgs[0].content == "hi"
+
+    def test_recall_is_not_injected_as_a_synthetic_assistant(self, monkeypatch):
+        monkeypatch.setattr(
+            graph_autocapture,
+            "recall_context_message",
+            lambda _msg: "ESTABLISHED CONTEXT:\n  meraki:network:shaun-home",
+        )
+
+        msgs = _build_input_messages({}, "list the access policies")
+
+        assert len(msgs) == 1
+        assert isinstance(msgs[0], HumanMessage)
+        assert msgs[0].content == (
+            "ESTABLISHED CONTEXT:\n  meraki:network:shaun-home\n\n"
+            "CURRENT REQUEST (answer this now):\n"
+            "list the access policies"
+        )

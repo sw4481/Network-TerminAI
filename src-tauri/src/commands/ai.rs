@@ -281,6 +281,9 @@ pub enum ReactEvent {
         success: bool,
         result: String,
     },
+    Token {
+        text: String,
+    },
     Final {
         response: String,
     },
@@ -316,6 +319,7 @@ pub async fn agent_react_run(
     history: Option<Vec<ChatTurn>>,
     tab_id: Option<String>,
     pane_id: Option<String>,
+    stream_output: Option<bool>,
     state: State<'_, AppState>,
     on_event: tauri::ipc::Channel<ReactEvent>,
 ) -> Result<(), String> {
@@ -388,6 +392,7 @@ pub async fn agent_react_run(
         "vault_entry": tool_def.vault_entry,
         "vault_secrets": vault_secrets,
         "engine": agent.engine,
+        "stream_output": stream_output.unwrap_or(false),
     });
 
     if !pane_context.is_empty() {
@@ -442,6 +447,13 @@ pub async fn agent_react_run(
                         .to_string();
 
                     let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
+                }
+                "token" => {
+                    if let Some(text) = ev.get("text").and_then(|v| v.as_str()) {
+                        let _ = on_event_clone.send(ReactEvent::Token {
+                            text: text.to_string(),
+                        });
+                    }
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -684,6 +696,7 @@ pub async fn agent_react_code_run(
     history: Option<Vec<ChatTurn>>,
     tab_id: Option<String>,
     pane_id: Option<String>,
+    stream_output: Option<bool>,
     state: State<'_, AppState>,
     on_event: tauri::ipc::Channel<ReactEvent>,
 ) -> Result<(), String> {
@@ -745,6 +758,7 @@ pub async fn agent_react_code_run(
         "tool_id": tool_id,
         "vault_secrets": vault_secrets,
         "engine": agent.engine,
+        "stream_output": stream_output.unwrap_or(false),
     });
 
     if !pane_context.is_empty() {
@@ -792,6 +806,13 @@ pub async fn agent_react_code_run(
                         .unwrap_or("")
                         .to_string();
                     let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
+                }
+                "token" => {
+                    if let Some(text) = ev.get("text").and_then(|v| v.as_str()) {
+                        let _ = on_event_clone.send(ReactEvent::Token {
+                            text: text.to_string(),
+                        });
+                    }
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -878,6 +899,7 @@ pub async fn agent_react_code_run(
 pub async fn agent_react_resume(
     thread_id: String,
     decision: String, // "approve" | "deny"
+    stream_output: Option<bool>,
     state: State<'_, AppState>,
     on_event: tauri::ipc::Channel<ReactEvent>,
 ) -> Result<(), String> {
@@ -886,6 +908,7 @@ pub async fn agent_react_resume(
     let params = serde_json::json!({
         "thread_id": thread_id,
         "decision": decision,
+        "stream_output": stream_output.unwrap_or(false),
     });
 
     let on_event_clone = on_event.clone();
@@ -924,6 +947,13 @@ pub async fn agent_react_resume(
                         .unwrap_or("")
                         .to_string();
                     let _ = on_event_clone.send(ReactEvent::ToolResult { success, result });
+                }
+                "token" => {
+                    if let Some(text) = ev.get("text").and_then(|v| v.as_str()) {
+                        let _ = on_event_clone.send(ReactEvent::Token {
+                            text: text.to_string(),
+                        });
+                    }
                 }
                 "final" => {
                     if let Some(response) = ev.get("response").and_then(|v| v.as_str()) {
@@ -1095,6 +1125,15 @@ mod tests {
         };
         let json = serde_json::to_string(&event).unwrap();
         assert!(json.contains(r#""success":true"#));
+    }
+
+    #[test]
+    fn test_react_token_serialization() {
+        let event = ReactEvent::Token {
+            text: "live chunk".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert_eq!(json, r#"{"type":"token","text":"live chunk"}"#);
     }
 
     #[test]

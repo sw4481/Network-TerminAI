@@ -75,3 +75,36 @@ def test_packet_bytes_out_of_range_returns_error():
     resp = _req("pcap.packet_bytes", {"path": str(FIXTURE), "index": 999})
     assert resp["type"] == "error"
     assert "out_of_range" in resp["message"]
+
+
+def test_finding_rules_round_trip_is_stable():
+    resp = _req("pcap.finding_rules", {})
+    assert resp["type"] == "done"
+    assert len(resp["result"]) == 17
+    assert all(rule["enabled_by_default"] for rule in resp["result"])
+
+
+@requires_tshark
+def test_findings_round_trip_uses_default_rules():
+    resp = _req("pcap.findings", {"path": str(FIXTURE)})
+    assert resp["type"] == "done", resp
+    assert resp["result"]["scanned_packets"] == 3
+    assert resp["result"]["scan_truncated"] is False
+
+
+def test_findings_reject_non_array_rule_ids():
+    resp = _req(
+        "pcap.findings",
+        {"path": str(FIXTURE), "enabled_rule_ids": "dns.response_error"},
+    )
+    assert resp["type"] == "error"
+    assert "string array" in resp["message"]
+
+
+def test_findings_reject_unknown_rule_ids():
+    resp = _req(
+        "pcap.findings",
+        {"path": str(FIXTURE), "enabled_rule_ids": ["custom.rule"]},
+    )
+    assert resp["type"] == "error"
+    assert "invalid_rules" in resp["message"]

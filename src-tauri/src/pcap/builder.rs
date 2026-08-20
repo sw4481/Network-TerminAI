@@ -39,6 +39,7 @@ pub fn build(spec: &CaptureSpec) -> Result<CaptureScript> {
         DeviceKind::Nxos => build_nxos(&name, spec),
         DeviceKind::Junos => build_junos(&name, spec),
         DeviceKind::Eos => build_eos(&name, spec),
+        DeviceKind::Local => return Err(anyhow!("local captures are launched through dumpcap")),
     })
 }
 
@@ -148,6 +149,7 @@ mod tests {
                 DeviceKind::Nxos => "bootflash:CAP.pcap".into(),
                 DeviceKind::Junos => "/var/tmp/CAP.pcap".into(),
                 DeviceKind::Eos => "/mnt/flash/CAP.pcap".into(),
+                DeviceKind::Local => String::new(),
             },
         }
     }
@@ -209,9 +211,12 @@ mod tests {
         let mut sp = spec(DeviceKind::Nxos, "mgmt0", None, 30);
         sp.acl = Some("host 10.1.1.1".into());
         let s = build(&sp).unwrap();
-        assert_eq!(s.start, vec![
-            r#"ethanalyzer local interface mgmt0 capture-filter "host 10.1.1.1" limit-captured-frames 0 autostop duration 30 write bootflash:CAP.pcap"#,
-        ]);
+        assert_eq!(
+            s.start,
+            vec![
+                r#"ethanalyzer local interface mgmt0 capture-filter "host 10.1.1.1" limit-captured-frames 0 autostop duration 30 write bootflash:CAP.pcap"#,
+            ]
+        );
     }
 
     #[test]

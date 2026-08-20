@@ -9,6 +9,7 @@ import {
 } from '../lib/pcap';
 import { PcapTemplateLibrary } from './PcapTemplateLibrary';
 import { PcapQuickCaptureWizard } from './PcapQuickCaptureWizard';
+import { PcapLocalCaptureForm } from './PcapLocalCaptureForm';
 import { PcapBlock } from './PcapBlock';
 import { sshDecryptPassword, sshListConnections, type SshConnection } from '../lib/sshConnections';
 
@@ -22,6 +23,7 @@ import { sshDecryptPassword, sshListConnections, type SshConnection } from '../l
  *   3. Active capture (PcapBlock) plus a list of recent captures
  */
 export function PcapPanel() {
+  const [source, setSource] = useState<'device' | 'local'>('device');
   const [template, setTemplate] = useState<PcapTemplate | null>(null);
   const [connections, setConnections] = useState<SshConnection[]>([]);
   const [selectedConnId, setSelectedConnId] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function PcapPanel() {
   // often have no stored password, which is what causes "ssh auth failed".
   const [password, setPassword] = useState('');
   const [activeCaptureId, setActiveCaptureId] = useState<string | null>(null);
+  const [viewerExpanded, setViewerExpanded] = useState(false);
   const [recent, setRecent] = useState<PcapCapture[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,8 +89,11 @@ export function PcapPanel() {
   }, [password]);
 
   return (
-    <div className="pcap-panel" data-testid="pcap-panel">
-      <aside className="pcap-panel-col">
+    <div
+      className={`pcap-panel${viewerExpanded ? ' pcap-panel-viewer-expanded' : ''}`}
+      data-testid="pcap-panel"
+    >
+      <aside className="pcap-panel-col pcap-panel-templates">
         <div className="pcap-panel-col-header">Templates</div>
         <PcapTemplateLibrary
           onSelectTemplate={setTemplate}
@@ -95,9 +101,22 @@ export function PcapPanel() {
         />
       </aside>
 
-      <section className="pcap-panel-col">
+      <section className="pcap-panel-col pcap-panel-quick-capture">
         <div className="pcap-panel-col-header">Quick capture</div>
-        <div className="pcap-panel-conn-picker">
+        <div className="pcap-panel-source-picker">
+          <label>
+            Source
+            <select
+              value={source}
+              onChange={(event) => setSource(event.target.value as 'device' | 'local')}
+              data-testid="pcap-source-select"
+            >
+              <option value="device">Device</option>
+              <option value="local">This Computer</option>
+            </select>
+          </label>
+        </div>
+        {source === 'device' && <div className="pcap-panel-conn-picker">
           <label>
             Device
             <select
@@ -129,22 +148,44 @@ export function PcapPanel() {
               data-testid="pcap-panel-password"
             />
           </label>
-        </div>
-        <PcapQuickCaptureWizard
-          template={template}
-          conn={resolvedConn}
-          onStarted={(id) => {
-            setActiveCaptureId(id);
-            reloadRecent();
-          }}
-        />
+        </div>}
+        {source === 'device' ? (
+          <PcapQuickCaptureWizard
+            template={template}
+            conn={resolvedConn}
+            onStarted={(id) => {
+              setActiveCaptureId(id);
+              reloadRecent();
+            }}
+          />
+        ) : (
+          <PcapLocalCaptureForm
+            onStarted={(id) => {
+              setActiveCaptureId(id);
+              reloadRecent();
+            }}
+          />
+        )}
         {error && <div className="pcap-panel-error">{error}</div>}
       </section>
 
       <section className="pcap-panel-col pcap-panel-col-wide">
-        <div className="pcap-panel-col-header">
-          Active capture
-          {activeCaptureId && <span className="pcap-panel-id"> · {activeCaptureId.slice(0, 8)}</span>}
+        <div className="pcap-panel-col-header pcap-panel-active-header">
+          <span>
+            Active capture
+            {activeCaptureId && <span className="pcap-panel-id"> · {activeCaptureId.slice(0, 8)}</span>}
+          </span>
+          <button
+            type="button"
+            className="pcap-panel-expand-viewer"
+            disabled={!activeCaptureId}
+            aria-label={viewerExpanded ? 'Show setup' : 'Expand viewer'}
+            aria-pressed={viewerExpanded}
+            title={viewerExpanded ? 'Restore templates and capture setup' : 'Give the active capture the full panel width'}
+            onClick={() => setViewerExpanded((expanded) => !expanded)}
+          >
+            {viewerExpanded ? 'Show setup' : 'Expand viewer'}
+          </button>
         </div>
         {activeCaptureId ? (
           <div className="pcap-panel-active">
@@ -152,7 +193,9 @@ export function PcapPanel() {
           </div>
         ) : (
           <div className="pcap-panel-empty">
-            Pick a template, choose a saved SSH connection, and click "Run capture".
+            {source === 'device'
+              ? 'Pick a template, choose a saved SSH connection, and click "Run capture".'
+              : 'Choose a local interface and click "Run local capture".'}
           </div>
         )}
 

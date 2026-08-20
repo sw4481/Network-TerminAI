@@ -88,7 +88,31 @@ def _scopes(scope: Optional[str]) -> List[str]:
 # 1. INJECTION
 # ---------------------------------------------------------------------------
 
-def lessons_blurb(scope: Optional[str], max_lessons: int = 12) -> str:
+_OBSOLETE_CATALOG_LESSON_MARKERS = (
+    "api_catalog.",
+    "raw requests",
+    "use requests",
+    "api key header",
+    "api_key header",
+    "authorization header",
+    "inspect.signature",
+    "inspect the helper",
+    "inspect helper",
+    "enumerate the catalog",
+)
+
+
+def _obsolete_for_catalog_grounding(lesson: str) -> bool:
+    lowered = lesson.lower()
+    return any(marker in lowered for marker in _OBSOLETE_CATALOG_LESSON_MARKERS)
+
+
+def lessons_blurb(
+    scope: Optional[str],
+    max_lessons: int = 12,
+    *,
+    catalog_grounded: bool = False,
+) -> str:
     """Return a LESSONS LEARNED block for the prompt, or "".
 
     Empty string when the flag is off OR nothing is stored for this scope — so
@@ -104,11 +128,15 @@ def lessons_blurb(scope: Optional[str], max_lessons: int = 12) -> str:
         try:
             scopes = _scopes(scope)
             placeholders = ",".join("?" for _ in scopes)
+            # Read past potentially obsolete rows so filtering cannot hide a
+            # newer valid lesson merely because stale discovery advice occupied
+            # the SQL LIMIT. Prompt output remains capped by max_lessons below.
+            fetch_limit = max_lessons * 4 if catalog_grounded else max_lessons
             rows = conn.execute(
                 f"SELECT scope, lesson FROM agent_lessons "
                 f"WHERE scope IN ({placeholders}) "
                 f"ORDER BY created_at DESC LIMIT ?",
-                (*scopes, max_lessons),
+                (*scopes, fetch_limit),
             ).fetchall()
         finally:
             conn.close()
@@ -117,9 +145,15 @@ def lessons_blurb(scope: Optional[str], max_lessons: int = 12) -> str:
         lines: List[str] = []
         for row in rows:
             lesson = str(row["lesson"]).strip()
+            if catalog_grounded and _obsolete_for_catalog_grounding(lesson):
+                continue
             if len(lesson) > 200:
                 lesson = lesson[:200] + "…"
             lines.append(f"  - {lesson}")
+            if len(lines) >= max_lessons:
+                break
+        if not lines:
+            return ""
         return (
             "\n\nLESSONS LEARNED (from prior runs on this platform — apply when "
             "relevant; they are corrections to mistakes made before):\n"

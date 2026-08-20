@@ -19,8 +19,11 @@ pub mod pyats;
 pub mod rag;
 pub mod rag_seed;
 pub mod recording;
+pub mod serial;
+pub mod sftp;
 pub mod sidecar_status;
 pub mod ssh;
+pub mod ssh_import;
 pub mod structured;
 pub mod topology;
 pub mod troubleshoot;
@@ -239,6 +242,10 @@ pub struct AppState {
     pub ftp: Arc<ftp::FtpService>,
     /// TFTP server lifecycle + event pipeline.
     pub tftp: Arc<tftp::TftpService>,
+    /// Focused USB serial consoles. These sessions never enter the PTY/tab registry.
+    pub serial: Arc<crate::commands::serial::SerialService>,
+    /// Focused dual-pane SFTP sessions and their single transfer slot.
+    pub sftp: Arc<crate::commands::sftp::SftpService>,
     /// API Runner stateful auth orchestrator (token cache, cookie jars).
     pub api_auth: Arc<crate::api_runner::AuthStateStore>,
     /// Hook runner used for `ApiAuth::Hook`. Defaults to the sidecar-backed
@@ -367,6 +374,8 @@ impl AppState {
         let parser_cache = crate::parsers::cache::ParseCache::from_connection(db_arc.clone());
         let ftp = Arc::new(ftp::FtpService::new(db_arc.clone()));
         let tftp = Arc::new(tftp::TftpService::new(db_arc.clone()));
+        let serial = Arc::new(crate::commands::serial::SerialService::new());
+        let sftp = Arc::new(crate::commands::sftp::SftpService::new());
         let api_auth = Arc::new(crate::api_runner::AuthStateStore::new());
         let api_hooks: Arc<dyn crate::api_runner::HookRunner> =
             Arc::new(crate::api_runner::SidecarHookRunner::new(agent.clone()));
@@ -416,6 +425,8 @@ impl AppState {
             cancel_flags: Arc::new(Mutex::new(HashMap::new())),
             ftp,
             tftp,
+            serial,
+            sftp,
             api_auth,
             api_hooks,
             netconf_registry: Arc::new(crate::netconf_runner::registry::SessionRegistry::new()),
@@ -1753,7 +1764,8 @@ pub fn api_commit_postman_import(
     source_path: String,
     fingerprint: String,
 ) -> Result<crate::api_runner::postman::PostmanImportResult, String> {
-    let environments_dir = crate::config::api_environments_dir().map_err(|error| error.to_string())?;
+    let environments_dir =
+        crate::config::api_environments_dir().map_err(|error| error.to_string())?;
     let mut database = state.db.lock();
     crate::api_runner::postman::commit_file(
         &mut database,

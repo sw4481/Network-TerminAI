@@ -83,9 +83,7 @@ impl AnsiStripper {
                     }
                 }
                 EscapeState::Osc { escape_seen } => {
-                    if ch == '\u{7}' {
-                        EscapeState::Ground
-                    } else if escape_seen && ch == '\\' {
+                    if ch == '\u{7}' || (escape_seen && ch == '\\') {
                         EscapeState::Ground
                     } else {
                         EscapeState::Osc {
