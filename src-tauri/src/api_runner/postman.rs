@@ -5,9 +5,10 @@
 //! store during commit.
 
 use crate::api_runner::env_store::{self, EnvVar};
+use crate::api_runner::history::{self, SavedRequestRow};
 use crate::api_runner::types::ApiAuth;
 use anyhow::{anyhow, Context, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -50,6 +51,22 @@ pub struct PostmanImportResult {
     pub imported_count: usize,
     pub skipped_count: usize,
     pub warnings: Vec<String>,
+}
+
+/// Value-free metadata used to merge imported collections into the Target
+/// picker. Environment variable values never cross this interface.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct PostmanCollectionSummary {
+    pub id: String,
+    pub name: String,
+    pub environment: String,
+    pub request_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PostmanCollectionDetail {
+    pub collection: PostmanCollectionSummary,
+    pub requests: Vec<SavedRequestRow>,
 }
 
 #[derive(Debug, Clone)]
@@ -768,6 +785,138 @@ pub fn commit_file(
         skipped_count: import.skipped_items.len(),
         warnings: import.warnings.into_iter().collect(),
     })
+}
+
+/// List all persisted Postman imports, including collections created by older
+/// app sessions. Only names/counts cross the command boundary; environment
+/// values remain in the backend environment store.
+pub fn list_collections(conn: &Connection) -> Result<Vec<PostmanCollectionSummary>> {
+    let mut statement = conn.prepare(
+        "SELECT collection.id, collection.name, collection.environment, COUNT(request.id) \
+           FROM api_request_collections collection \
+           LEFT JOIN api_saved_requests request ON request.collection_id = collection.id \
+          GROUP BY collection.id, collection.name, collection.environment \
+          ORDER BY collection.name COLLATE NOCASE, collection.id",
+    )?;
+    let collections = statement
+        .query_map([], collection_summary_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(collections)
+}
+
+pub fn get_collection(conn: &Connection, id: &str) -> Result<Option<PostmanCollectionDetail>> {
+    let collection = get_collection_summary(conn, id)?;
+    let Some(collection) = collection else {
+        return Ok(None);
+    };
+    let requests = history::list_saved_requests_for_collection(conn, id)?;
+    Ok(Some(PostmanCollectionDetail {
+        collection,
+        requests,
+    }))
+}
+
+/// Delete one imported collection and its generated environment as one
+/// coordinated operation. SQLite owns request-row cascading; an exact byte
+/// snapshot restores the environment if deletion or commit fails.
+pub fn delete_collection(
+    conn: &mut Connection,
+    environments_dir: &Path,
+    id: &str,
+) -> Result<PostmanCollectionSummary> {
+    let collection = get_collection_summary(conn, id)?
+        .ok_or_else(|| anyhow!("Postman collection not found: {id}"))?;
+
+    let external_references: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM api_saved_requests \
+          WHERE environment = ?1 \
+            AND (collection_id IS NULL OR collection_id <> ?2)",
+        params![collection.environment, id],
+        |row| row.get(0),
+    )?;
+    if external_references > 0 {
+        return Err(anyhow!(
+            "cannot delete Postman collection {:?}: environment {:?} is referenced by {external_references} saved request(s) outside the collection",
+            collection.name,
+            collection.environment,
+        ));
+    }
+
+    let snapshot = env_store::snapshot_environment(environments_dir, &collection.environment)
+        .context("snapshot imported environment before deletion")?;
+    let transaction = conn.transaction()?;
+    if let Err(error) = env_store::delete_environment(environments_dir, &collection.environment) {
+        return Err(restore_after_delete_failure(
+            environments_dir,
+            &collection.environment,
+            &snapshot,
+            error.context("delete imported environment"),
+        ));
+    }
+
+    let database_result = (|| -> Result<()> {
+        let deleted = transaction.execute(
+            "DELETE FROM api_request_collections WHERE id = ?1",
+            params![id],
+        )?;
+        if deleted != 1 {
+            return Err(anyhow!(
+                "Postman collection disappeared during deletion: {id}"
+            ));
+        }
+        transaction.commit()?;
+        Ok(())
+    })();
+    if let Err(error) = database_result {
+        return Err(restore_after_delete_failure(
+            environments_dir,
+            &collection.environment,
+            &snapshot,
+            error.context("delete imported collection rows"),
+        ));
+    }
+
+    Ok(collection)
+}
+
+fn get_collection_summary(conn: &Connection, id: &str) -> Result<Option<PostmanCollectionSummary>> {
+    conn.query_row(
+        "SELECT collection.id, collection.name, collection.environment, COUNT(request.id) \
+           FROM api_request_collections collection \
+           LEFT JOIN api_saved_requests request ON request.collection_id = collection.id \
+          WHERE collection.id = ?1 \
+          GROUP BY collection.id, collection.name, collection.environment",
+        params![id],
+        collection_summary_from_row,
+    )
+    .optional()
+    .context("get Postman collection summary")
+}
+
+fn collection_summary_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<PostmanCollectionSummary> {
+    let request_count: i64 = row.get(3)?;
+    Ok(PostmanCollectionSummary {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        environment: row.get(2)?,
+        request_count: request_count as usize,
+    })
+}
+
+fn restore_after_delete_failure(
+    environments_dir: &Path,
+    environment: &str,
+    snapshot: &env_store::EnvironmentSnapshot,
+    error: anyhow::Error,
+) -> anyhow::Error {
+    match env_store::restore_environment(environments_dir, environment, snapshot) {
+        Ok(()) => error,
+        Err(restore_error) => anyhow!(
+            "{error}; additionally failed to restore environment {environment:?}: {restore_error}"
+        ),
+    }
 }
 
 fn read_and_normalize(path: &Path) -> Result<NormalizedImport> {

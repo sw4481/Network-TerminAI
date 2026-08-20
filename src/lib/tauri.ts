@@ -867,11 +867,32 @@ export type PostmanImportResult = {
   warnings: string[];
 };
 
+export type PostmanCollectionSummary = {
+  id: string;
+  name: string;
+  environment: string;
+  request_count: number;
+};
+
+export type PostmanCollectionDetail = {
+  collection: PostmanCollectionSummary;
+  requests: ApiSavedRequest[];
+};
+
 export const apiPreviewPostmanImport = (sourcePath: string) =>
   invoke<PostmanImportPreview>("api_preview_postman_import", { sourcePath });
 
 export const apiCommitPostmanImport = (sourcePath: string, fingerprint: string) =>
   invoke<PostmanImportResult>("api_commit_postman_import", { sourcePath, fingerprint });
+
+export const apiListPostmanCollections = () =>
+  invoke<PostmanCollectionSummary[]>("api_list_postman_collections");
+
+export const apiGetPostmanCollection = (id: string) =>
+  invoke<PostmanCollectionDetail>("api_get_postman_collection", { id });
+
+export const apiDeletePostmanCollection = (id: string) =>
+  invoke<PostmanCollectionSummary>("api_delete_postman_collection", { id });
 
 // ---- Environments + credentials ------------------------------------------
 

@@ -1,22 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Tab } from "../../lib/types";
 import {
+  apiDeletePostmanCollection,
+  apiGetPostmanCollection,
   apiGetTarget,
   apiImportOpenApi,
   apiSaveRequest,
   apiSendRequest,
   type ApiEndpoint,
   type ApiTargetDetail,
+  type PostmanCollectionDetail,
 } from "../../lib/tauri";
 import {
   applyEndpointToState,
+  applySavedRequestToState,
   isSendable,
   stateRequiredKeys,
   stateToRequest,
   stateToSavedJson,
   useApiRunner,
 } from "../../state/apiRunnerStore";
-import { CUSTOM_TARGET_ID, TargetPicker } from "./TargetPicker";
+import {
+  CUSTOM_TARGET_SELECTION,
+  TargetPicker,
+  type ApiTargetSelection,
+} from "./TargetPicker";
 import { EndpointPicker } from "./EndpointPicker";
 import { EnvironmentPicker, NO_ENVIRONMENT } from "./EnvironmentPicker";
 import { CredentialsPanel } from "./CredentialsPanel";
@@ -35,11 +43,15 @@ export function ApiTab({ tab }: { tab: Tab }) {
   const setSending = useApiRunner((s) => s.setSending);
   const setResponse = useApiRunner((s) => s.setResponse);
   const setError = useApiRunner((s) => s.setError);
+  const reset = useApiRunner((s) => s.reset);
 
-  const [targetId, setTargetId] = useState<string>(CUSTOM_TARGET_ID);
+  const [target, setTarget] = useState<ApiTargetSelection>(CUSTOM_TARGET_SELECTION);
   const [targetDetail, setTargetDetail] = useState<ApiTargetDetail | null>(null);
+  const [postmanDetail, setPostmanDetail] = useState<PostmanCollectionDetail | null>(null);
   const [endpointId, setEndpointId] = useState<string | null>(null);
   const [targetErr, setTargetErr] = useState<string | null>(null);
+  const [deletingCollection, setDeletingCollection] = useState(false);
+  const [resourceRefreshKey, setResourceRefreshKey] = useState(0);
 
   const [environment, setEnvironment] = useState<string>(NO_ENVIRONMENT);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
@@ -69,28 +81,47 @@ export function ApiTab({ tab }: { tab: Tab }) {
   }, []);
 
   useEffect(() => {
-    if (targetId === CUSTOM_TARGET_ID) {
+    setTargetErr(null);
+    if (target.kind === "custom") {
       setTargetDetail(null);
+      setPostmanDetail(null);
       setEndpointId(null);
-      setTargetErr(null);
       return;
     }
     let cancelled = false;
-    apiGetTarget(targetId)
-      .then((detail) => {
-        if (cancelled) return;
-        setTargetDetail(detail);
-        setTargetErr(null);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setTargetDetail(null);
-        setTargetErr(err instanceof Error ? err.message : String(err));
-      });
+    if (target.kind === "manifest") {
+      setPostmanDetail(null);
+      apiGetTarget(target.id)
+        .then((detail) => {
+          if (cancelled) return;
+          setTargetDetail(detail);
+          setTargetErr(null);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setTargetDetail(null);
+          setTargetErr(err instanceof Error ? err.message : String(err));
+        });
+    } else {
+      setTargetDetail(null);
+      setPostmanDetail(null);
+      apiGetPostmanCollection(target.id)
+        .then((detail) => {
+          if (cancelled) return;
+          setPostmanDetail(detail);
+          setEnvironment(detail.collection.environment);
+          setTargetErr(null);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setPostmanDetail(null);
+          setTargetErr(err instanceof Error ? err.message : String(err));
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [targetId]);
+  }, [target]);
 
   const onImportOpenApi = useCallback(async () => {
     if (!targetDetail?.manifest.openapi_url) return;
@@ -118,15 +149,43 @@ export function ApiTab({ tab }: { tab: Tab }) {
     }
   }, [targetDetail]);
 
+  const targetBackendId =
+    target.kind === "custom"
+      ? null
+      : target.kind === "manifest"
+        ? target.id
+        : `postman:${target.id}`;
+
+  const displayedEndpoints: ApiEndpoint[] =
+    target.kind === "postman" && postmanDetail
+      ? postmanDetail.requests.map((request) => ({
+          id: request.id,
+          name: request.folder_path
+            ? `${request.folder_path} / ${request.display_name || request.name}`
+            : request.display_name || request.name,
+          description: postmanDetail.collection.name,
+          method: request.method as ApiEndpoint["method"],
+          path: request.url,
+          path_params: [],
+          query_params: {},
+        }))
+      : targetDetail?.endpoints ?? [];
+
   const onSelectEndpoint = useCallback(
     (endpoint: ApiEndpoint | null) => {
-      if (!endpoint || !targetDetail) return;
+      if (!endpoint) return;
       setEndpointId(endpoint.id);
       const cur = useApiRunner.getState().tabs[tab.id] ?? ensure(tab.id);
-      const next = applyEndpointToState(cur, targetDetail.manifest, endpoint);
-      patch(tab.id, next);
+      if (target.kind === "postman" && postmanDetail) {
+        const request = postmanDetail.requests.find((candidate) => candidate.id === endpoint.id);
+        if (!request) return;
+        patch(tab.id, applySavedRequestToState(cur, request));
+        setEnvironment(request.environment ?? postmanDetail.collection.environment);
+      } else if (target.kind === "manifest" && targetDetail) {
+        patch(tab.id, applyEndpointToState(cur, targetDetail.manifest, endpoint));
+      }
     },
-    [targetDetail, patch, tab.id, ensure],
+    [target, targetDetail, postmanDetail, patch, tab.id, ensure],
   );
 
   const onSend = useCallback(async () => {
@@ -137,7 +196,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
     try {
       const resp = await apiSendRequest({
         tabId: tab.id,
-        targetId: targetId === CUSTOM_TARGET_ID ? null : targetId,
+        targetId: targetBackendId,
         environment: environment || null,
         request: req,
       });
@@ -149,7 +208,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
     } finally {
       setSending(tab.id, false);
     }
-  }, [state, tab.id, targetId, environment, setSending, setResponse, setError]);
+  }, [state, tab.id, targetBackendId, environment, setSending, setResponse, setError]);
 
   const commitSave = useCallback(async () => {
     const name = saveName.trim();
@@ -158,7 +217,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
       const { headersJson, queryJson } = stateToSavedJson(state);
       await apiSaveRequest({
         name,
-        targetId: targetId === CUSTOM_TARGET_ID ? null : targetId,
+        targetId: targetBackendId,
         environment: environment || null,
         method: state.method,
         url: state.url.trim(),
@@ -178,7 +237,37 @@ export function ApiTab({ tab }: { tab: Tab }) {
     } catch (err) {
       setSaveErr(err instanceof Error ? err.message : String(err));
     }
-  }, [saveName, state, targetId, environment]);
+  }, [saveName, state, targetBackendId, environment]);
+
+  const deletePostmanTarget = useCallback(async () => {
+    if (target.kind !== "postman") return;
+    const collectionName = postmanDetail?.collection.name ?? "this imported collection";
+    if (
+      !window.confirm(
+        `Delete ${collectionName} and all of its imported requests and generated environment?`,
+      )
+    ) {
+      return;
+    }
+    setDeletingCollection(true);
+    setTargetErr(null);
+    try {
+      await apiDeletePostmanCollection(target.id);
+      reset(tab.id);
+      setTarget(CUSTOM_TARGET_SELECTION);
+      setTargetDetail(null);
+      setPostmanDetail(null);
+      setEndpointId(null);
+      setEnvironment(NO_ENVIRONMENT);
+      setCredentialsOpen(false);
+      setResourceRefreshKey((key) => key + 1);
+      setSavedRefreshKey((key) => key + 1);
+    } catch (err) {
+      setTargetErr(`Delete failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDeletingCollection(false);
+    }
+  }, [target, postmanDetail, reset, tab.id]);
 
   return (
     <div
@@ -209,7 +298,33 @@ export function ApiTab({ tab }: { tab: Tab }) {
             flexWrap: "wrap",
           }}
         >
-          <TargetPicker value={targetId} onChange={setTargetId} />
+          <TargetPicker
+            value={target}
+            onChange={(selection) => {
+              setEndpointId(null);
+              setTarget(selection);
+            }}
+            refreshKey={resourceRefreshKey}
+          />
+          {target.kind === "postman" && (
+            <button
+              type="button"
+              data-testid="api-delete-postman-target"
+              onClick={() => void deletePostmanTarget()}
+              disabled={deletingCollection}
+              style={{
+                background: "transparent",
+                color: "var(--status-danger)",
+                border: "1px dashed var(--status-danger)",
+                borderRadius: 4,
+                padding: "2px 10px",
+                cursor: deletingCollection ? "wait" : "pointer",
+                fontSize: 12,
+              }}
+            >
+              {deletingCollection ? "deleting…" : "Delete collection"}
+            </button>
+          )}
           {targetDetail?.manifest.openapi_url && (
             <button
               data-testid="api-import-openapi"
@@ -233,6 +348,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
             value={environment}
             onChange={setEnvironment}
             onOpenCredentials={() => setCredentialsOpen(true)}
+            refreshKey={resourceRefreshKey}
           />
           <div style={{ flex: 1 }} />
           <DrawerToggle drawer={drawer} setDrawer={setDrawer} />
@@ -258,9 +374,9 @@ export function ApiTab({ tab }: { tab: Tab }) {
             {targetErr}
           </div>
         )}
-        {targetDetail && targetDetail.endpoints.length > 0 && (
+        {displayedEndpoints.length > 0 && (
           <EndpointPicker
-            endpoints={targetDetail.endpoints}
+            endpoints={displayedEndpoints}
             value={endpointId}
             onChange={onSelectEndpoint}
           />
@@ -299,7 +415,17 @@ export function ApiTab({ tab }: { tab: Tab }) {
           tabId={tab.id}
           refreshKey={savedRefreshKey}
           onImportStart={() => setImportStatus(null)}
+          onImportComplete={(result) => {
+            setResourceRefreshKey((key) => key + 1);
+            setEndpointId(null);
+            setTarget({ kind: "postman", id: result.collection_id });
+            setEnvironment(result.environment);
+          }}
           onLoad={(row) => {
+            if (row.collection_id) {
+              setTarget({ kind: "postman", id: row.collection_id });
+              setEndpointId(row.id);
+            }
             setEnvironment(row.environment ?? NO_ENVIRONMENT);
             setDrawer("closed");
           }}
@@ -315,7 +441,7 @@ export function ApiTab({ tab }: { tab: Tab }) {
           requiredKeys={stateRequiredKeys(state)}
           // Auto-select the matching Quick Setup preset for the active
           // target so the user's first action is "fill in labeled fields".
-          targetId={targetId === CUSTOM_TARGET_ID ? null : targetId}
+          targetId={target.kind === "manifest" ? target.id : null}
         />
       )}
       {savePromptOpen && (

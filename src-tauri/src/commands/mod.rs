@@ -1764,6 +1764,37 @@ pub fn api_commit_postman_import(
     .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+pub fn api_list_postman_collections(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::api_runner::postman::PostmanCollectionSummary>, String> {
+    let database = state.db.lock();
+    crate::api_runner::postman::list_collections(&database).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn api_get_postman_collection(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<crate::api_runner::postman::PostmanCollectionDetail, String> {
+    let database = state.db.lock();
+    crate::api_runner::postman::get_collection(&database, &id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("Postman collection not found: {id}"))
+}
+
+#[tauri::command]
+pub fn api_delete_postman_collection(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<crate::api_runner::postman::PostmanCollectionSummary, String> {
+    let environments_dir =
+        crate::config::api_environments_dir().map_err(|error| error.to_string())?;
+    let mut database = state.db.lock();
+    crate::api_runner::postman::delete_collection(&mut database, &environments_dir, &id)
+        .map_err(|error| error.to_string())
+}
+
 // ---- Step 6: pipe-to-terminal + pipe-to-AI ------------------------------
 
 /// Send bytes to a terminal tab's PTY stdin.

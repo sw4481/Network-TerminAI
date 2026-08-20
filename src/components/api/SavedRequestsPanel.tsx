@@ -20,9 +20,16 @@ type Props = {
   refreshKey?: number;
   onLoad?: (row: ApiSavedRequest) => void;
   onImportStart?: () => void;
+  onImportComplete?: (result: PostmanImportResult) => void;
 };
 
-export function SavedRequestsPanel({ tabId, refreshKey, onLoad, onImportStart }: Props) {
+export function SavedRequestsPanel({
+  tabId,
+  refreshKey,
+  onLoad,
+  onImportStart,
+  onImportComplete,
+}: Props) {
   const [rows, setRows] = useState<ApiSavedRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [importPath, setImportPath] = useState<string | null>(null);
@@ -105,12 +112,13 @@ export function SavedRequestsPanel({ tabId, refreshKey, onLoad, onImportStart }:
       setImportPath(null);
       setPreview(null);
       reload();
+      onImportComplete?.(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setImporting(false);
     }
-  }, [importPath, preview, reload]);
+  }, [importPath, preview, reload, onImportComplete]);
 
   const groupedRows = (rows ?? []).reduce<Array<{
     key: string;

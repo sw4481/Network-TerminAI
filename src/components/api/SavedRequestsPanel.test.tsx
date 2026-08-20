@@ -182,7 +182,8 @@ describe("SavedRequestsPanel", () => {
       skipped_count: 1,
       warnings: [],
     });
-    render(<SavedRequestsPanel tabId="t1" />);
+    const onImportComplete = vi.fn();
+    render(<SavedRequestsPanel tabId="t1" onImportComplete={onImportComplete} />);
     fireEvent.click(screen.getByRole("button", { name: "Import Postman…" }));
     await waitFor(() => expect(apiPreviewPostmanImportMock).toHaveBeenCalledWith(
       "/tmp/network.postman_collection.json",
@@ -195,6 +196,12 @@ describe("SavedRequestsPanel", () => {
       "abc123",
     ));
     expect(screen.getByTestId("postman-import-success")).toHaveTextContent("Imported 2 requests");
+    expect(onImportComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection_id: "collection-1",
+        environment: "network_api",
+      }),
+    );
   });
 
   it("keeps confirmation actions visible before large collapsed preview details", async () => {

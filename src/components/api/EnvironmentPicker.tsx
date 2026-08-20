@@ -13,9 +13,11 @@ type Props = {
   onChange: (env: string) => void;
   /** Invoked when the user opens the credentials/settings panel. */
   onOpenCredentials?: () => void;
+  /** Refresh signal after an importer creates or removes an environment. */
+  refreshKey?: number;
 };
 
-export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props) {
+export function EnvironmentPicker({ value, onChange, onOpenCredentials, refreshKey }: Props) {
   const [envs, setEnvs] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -34,7 +36,7 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
 
   useEffect(() => {
     reload();
-  }, [reload]);
+  }, [reload, refreshKey]);
 
   const onAdd = useCallback(async () => {
     const name = draft.trim();
@@ -70,6 +72,9 @@ export function EnvironmentPicker({ value, onChange, onOpenCredentials }: Props)
         }}
       >
         <option value={NO_ENVIRONMENT}>— none —</option>
+        {value && !(envs ?? []).includes(value) && (
+          <option value={value}>{value}</option>
+        )}
         {(envs ?? []).map((e) => (
           <option key={e} value={e}>
             {e}

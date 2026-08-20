@@ -1,5 +1,5 @@
 use ccie_terminal_lib::{
-    api_runner::{env_store, postman},
+    api_runner::{env_store, history, postman},
     db,
 };
 use serde_json::json;
@@ -118,4 +118,165 @@ fn database_commit_failure_rolls_back_all_rows_and_environment_artifacts() {
     assert_eq!(collections, 0);
     assert_eq!(requests, 0);
     assert!(!environment_dir.join("network_api.env").exists());
+}
+
+#[test]
+fn collection_readers_show_existing_imports_and_isolate_details() {
+    let dir = TempDir::new().unwrap();
+    let database_path = dir.path().join("app.db");
+    let environment_dir = dir.path().join("environments");
+    let source = fixture(&dir);
+    let preview = postman::preview_file(&source).unwrap();
+    let mut conn = db::open_and_migrate(&database_path).unwrap();
+    let first =
+        postman::commit_file(&mut conn, &environment_dir, &source, &preview.fingerprint).unwrap();
+    let second =
+        postman::commit_file(&mut conn, &environment_dir, &source, &preview.fingerprint).unwrap();
+
+    let collections = postman::list_collections(&conn).unwrap();
+    assert_eq!(collections.len(), 2);
+    assert_eq!(collections[0].id, first.collection_id);
+    assert_eq!(collections[0].name, "Network API");
+    assert_eq!(collections[0].request_count, 1);
+    assert_eq!(collections[1].id, second.collection_id);
+    assert_eq!(collections[1].request_count, 1);
+
+    let detail = postman::get_collection(&conn, &first.collection_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(detail.collection.id, first.collection_id);
+    assert_eq!(detail.requests.len(), 1);
+    assert!(detail
+        .requests
+        .iter()
+        .all(|request| request.collection_id.as_deref() == Some(first.collection_id.as_str())));
+    assert!(detail.requests[0].auth_json.contains("${env:TOKEN}"));
+    assert!(postman::get_collection(&conn, "missing-collection")
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn deleting_collection_cascades_requests_and_removes_generated_environment() {
+    let dir = TempDir::new().unwrap();
+    let database_path = dir.path().join("app.db");
+    let environment_dir = dir.path().join("environments");
+    let source = fixture(&dir);
+    let preview = postman::preview_file(&source).unwrap();
+    let mut conn = db::open_and_migrate(&database_path).unwrap();
+    let imported =
+        postman::commit_file(&mut conn, &environment_dir, &source, &preview.fingerprint).unwrap();
+
+    let deleted =
+        postman::delete_collection(&mut conn, &environment_dir, &imported.collection_id).unwrap();
+    assert_eq!(deleted.id, imported.collection_id);
+    assert_eq!(deleted.name, imported.collection_name);
+    assert_eq!(deleted.environment, imported.environment);
+    assert_eq!(deleted.request_count, imported.imported_count);
+    let collection_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM api_request_collections", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    let request_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM api_saved_requests", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(collection_count, 0);
+    assert_eq!(request_count, 0);
+    assert!(!environment_dir
+        .join(format!("{}.env", imported.environment))
+        .exists());
+    assert!(!environment_dir
+        .join(format!("{}.env.meta.json", imported.environment))
+        .exists());
+}
+
+#[test]
+fn deletion_refuses_an_environment_referenced_outside_the_collection() {
+    let dir = TempDir::new().unwrap();
+    let database_path = dir.path().join("app.db");
+    let environment_dir = dir.path().join("environments");
+    let source = fixture(&dir);
+    let preview = postman::preview_file(&source).unwrap();
+    let mut conn = db::open_and_migrate(&database_path).unwrap();
+    let imported =
+        postman::commit_file(&mut conn, &environment_dir, &source, &preview.fingerprint).unwrap();
+    history::save_request(
+        &conn,
+        history::NewSavedRequest {
+            name: "outside-copy",
+            target_id: None,
+            environment: Some(&imported.environment),
+            method: "GET",
+            url: "https://api.example.test/copied",
+            headers_json: "{}",
+            query_json: "{}",
+            body_kind: "none",
+            body_text: None,
+        },
+    )
+    .unwrap();
+
+    let error = postman::delete_collection(&mut conn, &environment_dir, &imported.collection_id)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("outside the collection"));
+    assert!(postman::get_collection(&conn, &imported.collection_id)
+        .unwrap()
+        .is_some());
+    assert!(environment_dir
+        .join(format!("{}.env", imported.environment))
+        .exists());
+}
+
+#[test]
+fn failed_database_deletion_restores_environment_and_collection_rows() {
+    let dir = TempDir::new().unwrap();
+    let database_path = dir.path().join("app.db");
+    let environment_dir = dir.path().join("environments");
+    let source = fixture(&dir);
+    let preview = postman::preview_file(&source).unwrap();
+    let mut conn = db::open_and_migrate(&database_path).unwrap();
+    let imported =
+        postman::commit_file(&mut conn, &environment_dir, &source, &preview.fingerprint).unwrap();
+    let env_path = environment_dir.join(format!("{}.env", imported.environment));
+    let meta_path = environment_dir.join(format!("{}.env.meta.json", imported.environment));
+    let env_before = std::fs::read(&env_path).unwrap();
+    let meta_before = std::fs::read(&meta_path).unwrap();
+    conn.execute_batch(
+        "CREATE TRIGGER sabotage_postman_delete
+           BEFORE DELETE ON api_request_collections
+         BEGIN
+           SELECT RAISE(ABORT, 'sabotage collection deletion');
+         END;",
+    )
+    .unwrap();
+
+    let error = postman::delete_collection(&mut conn, &environment_dir, &imported.collection_id)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("delete imported collection rows"));
+    assert!(std::fs::read(&env_path).unwrap() == env_before);
+    assert!(std::fs::read(&meta_path).unwrap() == meta_before);
+    let detail = postman::get_collection(&conn, &imported.collection_id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(detail.requests.len(), 1);
+}
+
+#[test]
+fn deleting_an_unknown_collection_is_rejected_without_touching_environments() {
+    let dir = TempDir::new().unwrap();
+    let database_path = dir.path().join("app.db");
+    let environment_dir = dir.path().join("environments");
+    env_store::create_environment(&environment_dir, "keep_me").unwrap();
+    let mut conn = db::open_and_migrate(&database_path).unwrap();
+
+    let error = postman::delete_collection(&mut conn, &environment_dir, "missing")
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("not found"));
+    assert!(environment_dir.join("keep_me.env").exists());
 }

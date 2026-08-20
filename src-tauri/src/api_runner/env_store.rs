@@ -42,6 +42,14 @@ struct EnvMeta {
     secret_keys: Vec<String>,
 }
 
+/// Backend-only byte snapshot used to compensate a coordinated collection
+/// deletion if its database transaction fails. It is deliberately not
+/// serializable or printable because it can contain credential values.
+pub(crate) struct EnvironmentSnapshot {
+    env_bytes: Option<Vec<u8>>,
+    meta_bytes: Option<Vec<u8>>,
+}
+
 /// Validate a user-supplied environment name. Anything beyond `[A-Za-z0-9_-]`
 /// is rejected to guarantee the name can never escape the environments dir.
 pub fn validate_env_name(name: &str) -> Result<()> {
@@ -202,9 +210,52 @@ pub fn delete_environment(dir: &Path, env: &str) -> Result<()> {
         std::fs::remove_file(&env_path).context("remove env file")?;
     }
     if meta_path.exists() {
-        let _ = std::fs::remove_file(&meta_path);
+        std::fs::remove_file(&meta_path).context("remove env metadata")?;
     }
     Ok(())
+}
+
+/// Capture an environment without parsing or exposing its values. Keeping the
+/// exact bytes also preserves comments and metadata if a later DB operation
+/// forces us to restore the files.
+pub(crate) fn snapshot_environment(dir: &Path, env: &str) -> Result<EnvironmentSnapshot> {
+    let env_path = env_file_path(dir, env)?;
+    let meta_path = meta_file_path(dir, env)?;
+    Ok(EnvironmentSnapshot {
+        env_bytes: read_optional_file(&env_path)?,
+        meta_bytes: read_optional_file(&meta_path)?,
+    })
+}
+
+/// Restore a backend-only environment snapshot after a coordinated operation
+/// fails. Files that did not exist at snapshot time are removed.
+pub(crate) fn restore_environment(
+    dir: &Path,
+    env: &str,
+    snapshot: &EnvironmentSnapshot,
+) -> Result<()> {
+    restore_optional_file(&env_file_path(dir, env)?, snapshot.env_bytes.as_deref())?;
+    restore_optional_file(&meta_file_path(dir, env)?, snapshot.meta_bytes.as_deref())?;
+    Ok(())
+}
+
+fn read_optional_file(path: &Path) -> Result<Option<Vec<u8>>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    std::fs::read(path)
+        .map(Some)
+        .with_context(|| format!("read {}", path.display()))
+}
+
+fn restore_optional_file(path: &Path, bytes: Option<&[u8]>) -> Result<()> {
+    match bytes {
+        Some(bytes) => atomic_write(path, bytes),
+        None if path.exists() => {
+            std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))
+        }
+        None => Ok(()),
+    }
 }
 
 /// Load all variables for one environment. Non-existent env → empty map.

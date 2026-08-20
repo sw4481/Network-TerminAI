@@ -312,6 +312,47 @@ pub fn list_saved_requests(conn: &Connection) -> Result<Vec<SavedRequestRow>> {
     Ok(rows)
 }
 
+/// List only the saved-request rows owned by one imported collection.
+/// Folder/display-name ordering matches the collection's flat endpoint picker.
+pub fn list_saved_requests_for_collection(
+    conn: &Connection,
+    collection_id: &str,
+) -> Result<Vec<SavedRequestRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, target_id, environment, method, url, \
+                headers_json, query_json, body_kind, body_text, \
+                collection_id, folder_path, display_name, auth_json, \
+                (SELECT name FROM api_request_collections c WHERE c.id = api_saved_requests.collection_id), \
+                created_at, updated_at \
+         FROM api_saved_requests WHERE collection_id = ?1 \
+         ORDER BY folder_path COLLATE NOCASE, display_name COLLATE NOCASE, id",
+    )?;
+    let rows = stmt
+        .query_map(params![collection_id], |r| {
+            Ok(SavedRequestRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                target_id: r.get(2)?,
+                environment: r.get(3)?,
+                method: r.get(4)?,
+                url: r.get(5)?,
+                headers_json: r.get(6)?,
+                query_json: r.get(7)?,
+                body_kind: r.get(8)?,
+                body_text: r.get(9)?,
+                collection_id: r.get(10)?,
+                folder_path: r.get(11)?,
+                display_name: r.get(12)?,
+                auth_json: r.get(13)?,
+                collection_name: r.get(14)?,
+                created_at: r.get(15)?,
+                updated_at: r.get(16)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 pub fn get_saved_by_id(conn: &Connection, id: &str) -> Result<Option<SavedRequestRow>> {
     conn.query_row(
         "SELECT id, name, target_id, environment, method, url, \
