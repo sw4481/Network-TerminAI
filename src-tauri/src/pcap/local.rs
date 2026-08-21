@@ -183,7 +183,7 @@ impl RealDumpcap {
         })
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     fn at(path: PathBuf) -> Self {
         Self { path }
     }
