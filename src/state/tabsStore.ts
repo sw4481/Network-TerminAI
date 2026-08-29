@@ -14,7 +14,7 @@ type Store = {
    * already exists or if there are no tabs yet. Does NOT change the active tab.
    */
   ensureHeartbeatTab: () => void;
-  removeTab: (id: string) => void;
+  removeTab: (id: string, recordClosed?: boolean) => void;
   setActive: (id: string | null) => void;
   startBlock: (tabId: string, b: CommandBlockState) => void;
   endBlock: (tabId: string, exit: number | null) => void;
@@ -67,13 +67,13 @@ export const useTabs = create<Store>((set) => ({
       const tabs = [s.tabs[0], heartbeat, ...s.tabs.slice(1)];
       return { tabs };
     }),
-  removeTab: (id) =>
+  removeTab: (id, recordClosed = true) =>
     set((s) => {
       const idx = s.tabs.findIndex((t) => t.id === id);
       const tabs = s.tabs.filter((t) => t.id !== id);
 
       const closed = s.tabs.find((t) => t.id === id);
-      if (closed && (closed.tab_type === undefined || closed.tab_type === "terminal")) {
+      if (recordClosed && closed && (closed.tab_type === undefined || closed.tab_type === "terminal")) {
         useClosedTabs.getState().push({
           id: closed.id,
           title: closed.title,

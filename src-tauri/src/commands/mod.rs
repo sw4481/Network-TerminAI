@@ -199,7 +199,9 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use tauri::{ipc::Channel, State};
+use tauri::{
+    ipc::Channel, AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder,
+};
 use tokio::sync::mpsc;
 
 /// Side-channel holding oneshot::Receivers for pending agent-tool approvals,
@@ -218,6 +220,13 @@ fn pending_rx_map(
 fn PENDING_RX(
 ) -> &'static std::sync::Mutex<HashMap<String, tokio::sync::oneshot::Receiver<ApprovalDecision>>> {
     pending_rx_map()
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PtyEventEnvelope {
+    pub tab_id: String,
+    pub event: PtyEvent,
 }
 
 pub struct AppState {
@@ -730,9 +739,15 @@ pub async fn pty_spawn(
                     PtyEvent::Exit { .. } => {}
                 }
                 drop(db);
+                let _ = pane_ctx_app.emit(
+                    "pty-event",
+                    PtyEventEnvelope {
+                        tab_id: emit_tab_id.clone(),
+                        event: ev_to_send.clone(),
+                    },
+                );
                 if let Err(e) = on_event.send(ev_to_send) {
-                    tracing::error!(tab_id = %emit_tab_id, error = ?e, "Failed to send event to frontend, breaking loop");
-                    break;
+                    tracing::debug!(tab_id = %emit_tab_id, error = ?e, "PTY event subscriber disconnected");
                 }
                 tracing::trace!(tab_id = %emit_tab_id, "Event sent successfully to frontend");
             }
@@ -741,6 +756,53 @@ pub async fn pty_spawn(
     });
 
     Ok(tab_id)
+}
+
+/// Open a native window for an existing terminal PTY. The source tab is
+/// removed by the renderer after this succeeds; the PTY remains owned here
+/// until the detached window is closed.
+#[tauri::command]
+pub fn terminal_detach(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    tab_id: String,
+    title: String,
+) -> Result<String, String> {
+    let tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+    if !state.ptys.lock().contains_key(&tab_id) {
+        return Err("terminal PTY is no longer active".to_string());
+    }
+    let title: String = title
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(120)
+        .collect();
+    let window_id = format!("terminal-{}", uuid::Uuid::new_v4());
+    WebviewWindowBuilder::new(
+        &app,
+        &window_id,
+        WebviewUrl::App(
+            format!("index.html?view=terminal-detached&tab_id={tab_id}").into(),
+        ),
+    )
+    .title(if title.is_empty() { "Terminal" } else { &title })
+    .inner_size(900.0, 650.0)
+    .min_inner_size(480.0, 320.0)
+    .build()
+    .map_err(|error| format!("failed to create detached terminal window: {error}"))?;
+    Ok(window_id)
+}
+
+#[tauri::command]
+pub fn terminal_detached_window_close(app: AppHandle, window_id: String) -> Result<(), String> {
+    if !window_id.starts_with("terminal-") {
+        return Err("invalid detached terminal window".to_string());
+    }
+    app.get_webview_window(&window_id)
+        .ok_or_else(|| "detached terminal window not found".to_string())?
+        .destroy()
+        .map_err(|error| format!("failed to destroy detached terminal window: {error}"))
 }
 
 #[tauri::command]

@@ -61,6 +61,24 @@ describe("TabBar — regression + tab types", () => {
     expect(onNew).toHaveBeenCalledOnce();
   });
 
+  it("exposes the detach action for terminal tabs", () => {
+    const tab = {
+      id: "t1",
+      title: "zsh",
+      shell_cmd: "/bin/zsh",
+      cwd: "/",
+      created_at: 0,
+      tab_type: "terminal" as const,
+    };
+    act(() => {
+      useTabs.setState({ tabs: [tab], activeTabId: tab.id, blocks: {} });
+    });
+    const onDetach = vi.fn();
+    render(<TabBar onNew={() => {}} onDetach={onDetach} />);
+    fireEvent.click(screen.getByLabelText("Detach zsh"));
+    expect(onDetach).toHaveBeenCalledWith(tab);
+  });
+
   it("does NOT render '+ API' button when onNewApi prop is absent", () => {
     render(<TabBar onNew={() => {}} />);
     expect(screen.queryByTestId("tab-new-api")).toBeNull();

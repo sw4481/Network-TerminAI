@@ -10,10 +10,12 @@ type TerminalSlotProps = {
   cwd: string;
   skipTabRegistration?: boolean;
   onRegistered?: (ptyTabId: string) => void;
+  attach?: boolean;
+  replayBytes?: number[];
 };
 
 export function TerminalSlot({
-  terminalId, shell, cwd, skipTabRegistration, onRegistered,
+  terminalId, shell, cwd, skipTabRegistration, onRegistered, attach, replayBytes,
 }: TerminalSlotProps) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [currentInput, setCurrentInput] = useState('');
@@ -29,6 +31,8 @@ export function TerminalSlot({
       shell,
       cwd,
       skipTabRegistration,
+      attach,
+      replayBytes,
       onPtyReady: (ptyTabId) => onRegistered?.(ptyTabId),
     });
     terminalRegistry.attach(terminalId, slotRef.current);

@@ -155,6 +155,13 @@ export const ptyResize = (tabId: string, cols: number, rows: number) =>
  */
 export const ptyKill = (tabId: string) => invoke<void>("pty_kill", { tabId });
 
+/** Open a terminal tab in a native window without replacing its PTY. */
+export const terminalDetach = (tabId: string, title: string) =>
+  invoke<string>("terminal_detach", { tabId, title });
+
+export const terminalDetachedWindowClose = (windowId: string) =>
+  invoke<void>("terminal_detached_window_close", { windowId });
+
 /**
  * List all open terminal tabs.
  *

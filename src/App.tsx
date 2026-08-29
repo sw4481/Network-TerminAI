@@ -51,6 +51,7 @@ import RichInputModal from "./components/RichInputModal";
 import { useMetadataStore } from "./state/metadataStore";
 import { useForegroundAgentStore } from "./state/foregroundAgentStore";
 import { useTabs } from "./state/tabsStore";
+import type { Tab } from "./lib/types";
 import { useClosedTabs } from "./state/closedTabsStore";
 import { useIacStateStore } from "./state/iacStateStore";
 import { useIacStudioStore } from "./state/iacStudioStore";
@@ -65,7 +66,7 @@ import { useSessionSave } from "./hooks/useSessionSave";
 import { useKeyboardShortcut } from "./hooks/useKeyboardShortcut";
 import { usePaneSplit } from "./hooks/usePaneSplit";
 import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
-import { tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet } from "./lib/tauri";
+import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach } from "./lib/tauri";
 import { buildSshCommand } from "./lib/sshConnections";
 import { AgentNotifier } from "./lib/agentNotifications";
 import "./App.css";
@@ -1104,6 +1105,48 @@ export default function App() {
     void seedTerminalTab();
   };
 
+  const handleDetachTab = useCallback(async (tab: Tab) => {
+    if (tab.tab_type && tab.tab_type !== "terminal") return;
+    try {
+      const { ptyTabIdFor } = await import("./lib/terminalRegistry");
+      const ptyId = ptyTabIdFor(tab.id) ?? tab.id;
+      await terminalDetach(ptyId, tab.title);
+      useTabs.getState().removeTab(tab.id, false);
+    } catch (error) {
+      console.error("Failed to detach terminal tab:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const unlisten = listen<{ tabId: string }>("terminal-pop-in", async (event) => {
+      const tabId = event.payload?.tabId;
+      if (!tabId || disposed) return;
+      if (useTabs.getState().tabs.some((tab) => tab.id === tabId)) {
+        useTabs.getState().setActive(tabId);
+        return;
+      }
+      try {
+        const tab = (await listTabs()).find((candidate) => candidate.id === tabId);
+        if (!tab || disposed) return;
+        addTab(tab);
+        await usePanesStore.getState().loadLayoutForTab(tab.id);
+        setTermSlots((prev) =>
+          prev.some((slot) => slot.tabId === tab.id)
+            ? prev
+            : [...prev, { spawnKey: "pop-in-" + tab.id, tabId: tab.id }],
+        );
+        useTabs.getState().setActive(tab.id);
+      } catch (error) {
+        console.error("Failed to pop terminal back in:", error);
+      }
+    });
+    return () => {
+      disposed = true;
+      void unlisten.then((stop) => stop());
+    };
+  }, [addTab]);
+
   const handleNewApiTab = async () => {
     console.log('[App] Creating new API tab...');
     try {
@@ -1214,6 +1257,7 @@ export default function App() {
           onNewVault={handleOpenVault}
           onNewRecordings={handleOpenRecordings}
           onNewTroubleshoot={handleOpenTroubleshoot}
+          onDetach={handleDetachTab}
           onSettings={() => setSettingsOpen(true)}
         />
       </ErrorBoundary>

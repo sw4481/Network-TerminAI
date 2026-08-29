@@ -304,6 +304,8 @@ pub fn run() {
             commands::logs::open_log_location,
             commands::logs::reveal_log_location,
             commands::pty_spawn,
+            commands::terminal_detach,
+            commands::terminal_detached_window_close,
             commands::pty_write,
             commands::pty_resize,
             commands::pty_kill,

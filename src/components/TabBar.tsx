@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { Tab } from "../lib/types";
 import { useTabs } from "../state/tabsStore";
 import { usePanesStore, getAllLeafPanes } from "../state/panesStore";
 import { useRecordings } from "../state/recordingStore";
@@ -26,6 +27,7 @@ export function TabBar({
   onNewTroubleshoot,
   onSettings,
   onSaveSession,
+  onDetach,
 }: {
   onNew: () => void;
   onNewApi?: () => void;
@@ -37,6 +39,7 @@ export function TabBar({
   onNewTroubleshoot?: () => void;
   onSettings?: () => void;
   onSaveSession?: () => void;
+  onDetach?: (tab: Tab) => void | Promise<void>;
 }) {
   const { tabs, activeTabId, setActive, removeTab } = useTabs();
   const activeRecordings = useRecordings((s) => s.active);
@@ -120,6 +123,9 @@ export function TabBar({
           !isTroubleshoot &&
           !isTroubleshootEditor &&
           !isHeartbeat;
+        const layout = layoutsByTab.get(t.id);
+        const canDetach =
+          isTerminalTab && (!layout || getAllLeafPanes(layout).length === 1);
         // Backend pane-activity is keyed by each pane's spawned PTY id, not the
         // frontend tab/terminal id. Resolve this tab's pane terminalIds → their
         // PTY ids (registry), then match activities by those. Fall back to the
@@ -156,6 +162,21 @@ export function TabBar({
                       : "tab-terminal"
             }`}
             onClick={() => setActive(t.id)}
+            draggable={canDetach && !!onDetach}
+            onDragStart={(event) => {
+              if (!canDetach || !onDetach) return;
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", t.id);
+            }}
+            onDragEnd={(event) => {
+              if (!canDetach || !onDetach) return;
+              const outside =
+                event.clientX <= 0 ||
+                event.clientY <= 0 ||
+                event.clientX >= window.innerWidth ||
+                event.clientY >= window.innerHeight;
+              if (outside) void onDetach(t);
+            }}
             data-testid={`tab-${t.id}`}
             data-tab-type={t.tab_type ?? "terminal"}
           >
@@ -229,6 +250,19 @@ export function TabBar({
               />
             )}
             <span>{t.title}</span>
+            {canDetach && onDetach && (
+              <button
+                className="tab-detach"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void onDetach(t);
+                }}
+                title="Detach terminal window"
+                aria-label={`Detach ${t.title}`}
+              >
+                ↗
+              </button>
+            )}
             {!isHeartbeat && (
               <button
                 className="tab-close"

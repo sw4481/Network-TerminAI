@@ -1,4 +1,5 @@
 import { ptySpawn, ptyKill, ptyResize, ptyWrite } from './tauri';
+import { listen } from '@tauri-apps/api/event';
 import type { PtyEvent } from './types';
 import stripAnsi from 'strip-ansi';
 import { useTabs } from '../state/tabsStore';
@@ -39,6 +40,8 @@ export interface CreateOpts {
   preferredTabId?: string;
   /** Restore: raw scrollback bytes to replay above the fresh shell. */
   replayBytes?: number[];
+  /** Attach to an existing PTY from another Tauri webview. */
+  attach?: boolean;
   /**
    * Fired once the backend PTY id is known. For a freshly-created terminal the
    * spawn is async, so the caller cannot read `entry.ptyTabId` synchronously —
@@ -65,6 +68,7 @@ export interface TerminalEntry {
   _sshConnectHandler?: EventListener;
   syntaxHighlighter: TerminalSyntaxHighlighter;
   _connectionUnsubscribe?: () => void;
+  _ptyEventUnsubscribe?: () => void;
 }
 
 const registry = new Map<string, TerminalEntry>();
@@ -268,6 +272,7 @@ export function dispose(terminalId: string): void {
   if (entry._sshConnectHandler) {
     window.removeEventListener('ssh-connect', entry._sshConnectHandler);
   }
+  entry._ptyEventUnsubscribe?.();
   entry._connectionUnsubscribe?.();
   entry.syntaxHighlighter.dispose();
   // If PTY spawn is pending, wait for it then kill
@@ -437,15 +442,22 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
     }
   };
 
-  const promise = ptySpawn({
-    shell: opts.shell,
-    args: [],
-    cwd: opts.cwd,
-    cols: xterm.cols ?? 80,
-    rows: xterm.rows ?? 24,
-    onEvent,
-    preferredTabId: opts.preferredTabId,
-  });
+  const promise = opts.attach
+    ? listen<{ tabId: string; event: PtyEvent }>('pty-event', (event) => {
+        if (event.payload.tabId === terminalId) onEvent(event.payload.event);
+      }).then((stop) => {
+        entry._ptyEventUnsubscribe = stop;
+        return terminalId;
+      })
+    : ptySpawn({
+        shell: opts.shell,
+        args: [],
+        cwd: opts.cwd,
+        cols: xterm.cols ?? 80,
+        rows: xterm.rows ?? 24,
+        onEvent,
+        preferredTabId: opts.preferredTabId,
+      });
   entry._ptySpawnPromise = promise;
 
   promise.then((id: string) => {

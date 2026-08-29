@@ -1,6 +1,7 @@
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { DetachedEditorWindow } from "./components/editor/DetachedEditorWindow";
+import { DetachedTerminalWindow } from "./components/DetachedTerminalWindow";
 import { ZedModeProvider } from "./components/editor/ZedModeProvider";
 import "./components/editor/zed-mode.css";
 import {
@@ -16,6 +17,9 @@ async function init() {
   const detachedEditor =
     new URLSearchParams(window.location.search).get("view") ===
     "editor-detached";
+  const detachedTerminal =
+    new URLSearchParams(window.location.search).get("view") ===
+    "terminal-detached";
 
   if (!detachedEditor) {
     // The main app owns terminal panes and waits for xterm's CDN bundle.
@@ -42,7 +46,13 @@ async function init() {
   ReactDOM.createRoot(root).render(
     <AppearanceProvider>
       <ZedModeProvider>
-        {detachedEditor ? <DetachedEditorWindow /> : <App />}
+        {detachedEditor ? (
+          <DetachedEditorWindow />
+        ) : detachedTerminal ? (
+          <DetachedTerminalWindow />
+        ) : (
+          <App />
+        )}
       </ZedModeProvider>
     </AppearanceProvider>,
   );

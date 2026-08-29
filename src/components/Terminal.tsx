@@ -39,6 +39,10 @@ type TerminalProps = {
   skipTabRegistration?: boolean;
   /** Terminal ID for persistent terminal registry */
   terminalId?: string;
+  /** Attach to a PTY already owned by another Tauri webview. */
+  attach?: boolean;
+  /** Initial scrollback used when attaching to an existing PTY. */
+  replayBytes?: number[];
 };
 
 type ContextMenuState = {
@@ -1244,6 +1248,8 @@ export const Terminal = memo(function Terminal(props: TerminalProps) {
       shell={props.shell}
       cwd={props.cwd}
       skipTabRegistration={props.skipTabRegistration}
+      attach={props.attach}
+      replayBytes={props.replayBytes}
       onRegistered={props.onRegistered}
     />;
   }
