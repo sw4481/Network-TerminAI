@@ -1,4 +1,4 @@
-import { ptyWrite } from "./tauri";
+import { terminalLaunchSavedSsh } from "./tauri";
 import { ptyTabIdFor } from "./terminalRegistry";
 import {
   buildSshCommand,
@@ -47,7 +47,7 @@ export async function reconnectSavedSsh(terminalId: string): Promise<boolean> {
         .setPasswordContext(backendPtyId, connection.host, connection.user, password);
     }
     await sshMarkUsed(connection.id);
-    await ptyWrite(backendPtyId, new TextEncoder().encode(`${command}\n`));
+    await terminalLaunchSavedSsh(backendPtyId, connection.id);
     return true;
   } catch (cause) {
     const latest = useTerminalConnectionStore.getState().get(terminalId);

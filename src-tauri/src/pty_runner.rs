@@ -23,6 +23,7 @@ use crate::notebooks::runner::{PtyExecutor, PtyRunResult};
 pub struct AppStatePtyExecutor {
     pub state_db: Arc<Mutex<Connection>>,
     pub ptys: Arc<Mutex<HashMap<String, crate::pty::PtyHandle>>>,
+    pub terminal_agent: Arc<crate::terminal_agent::TerminalAgentManager>,
     pub waiters:
         Arc<Mutex<HashMap<String, Vec<tokio::sync::oneshot::Sender<(String, Option<i32>)>>>>>,
 }
@@ -35,6 +36,8 @@ impl PtyExecutor for AppStatePtyExecutor {
         command: &str,
         _block_id: &str,
     ) -> anyhow::Result<PtyRunResult> {
+        self.terminal_agent
+            .revoke_for_pty(tab_id, "user takeover");
         let scrollback_start = {
             let db = self.state_db.lock();
             crate::session::read_scrollback(&db, tab_id)
@@ -49,16 +52,17 @@ impl PtyExecutor for AppStatePtyExecutor {
             .or_default()
             .push(tx);
 
-        {
-            let ptys = self.ptys.lock();
-            let h = ptys
-                .get(tab_id)
-                .ok_or_else(|| anyhow::anyhow!("no PTY for tab {tab_id}"))?;
-            let mut bytes = command.as_bytes().to_vec();
-            bytes.push(b'\r');
-            h.write(&bytes)
-                .map_err(|e| anyhow::anyhow!("pty write: {e}"))?;
-        }
+        self.terminal_agent
+            .cancel_saved_ssh_launch_and_write(tab_id, || {
+                let ptys = self.ptys.lock();
+                let h = ptys
+                    .get(tab_id)
+                    .ok_or_else(|| anyhow::anyhow!("no PTY for tab {tab_id}"))?;
+                let mut bytes = command.as_bytes().to_vec();
+                bytes.push(b'\r');
+                h.write(&bytes)
+                    .map_err(|e| anyhow::anyhow!("pty write: {e}"))
+            })?;
 
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_secs(120);

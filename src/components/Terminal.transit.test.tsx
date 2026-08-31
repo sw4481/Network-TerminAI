@@ -36,6 +36,7 @@ vi.mock('../lib/terminalClipboard', () => ({
 }));
 vi.mock('../lib/tauri', () => ({
   ptyWrite: (...args: unknown[]) => mocks.ptyWrite(...args),
+  terminalLaunchSavedSsh: vi.fn(),
 }));
 vi.mock('../lib/terminalExport', () => ({
   chooseAndExportTerminalScrollback: (...args: unknown[]) =>

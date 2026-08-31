@@ -16,6 +16,43 @@ pub const BUILTIN: &[(&str, &str)] = &[
     // SNMP community strings
     ("snmp_community", r"(?i)snmp-server\s+community\s+(\S+)"),
     ("snmp_community_v2", r"(?i)community\s+(\S+)\s+(?:RO|RW)"),
+    (
+        "snmp_trap_host_community",
+        r"(?i)snmp-server\s+host\s+\S+\s+(?:traps\s+|informs\s+)?version\s+(?:1|2c)\s+(\S+)",
+    ),
+    (
+        "snmp_default_trap_host_community",
+        r"(?i)snmp-server\s+host\s+\S+\s+(?:traps\s+|informs\s+)?(\S+)",
+    ),
+    (
+        "snmpv3_auth_password",
+        r"(?i)snmp-server\s+user\s+\S+\s+\S+[^\r\n]*?\sauth\s+\S+(?:\s+(?:128|192|224|256|384|512))?\s+(\S+)",
+    ),
+    (
+        "snmpv3_priv_password",
+        r"(?i)snmp-server\s+user\s+\S+\s+\S+[^\r\n]*?\spriv\s+\S+(?:\s+(?:128|192|256))?\s+(\S+)",
+    ),
+    // Network AAA and tunnel shared secrets. These patterns protect both
+    // exported scrollback and the terminal context handed to agents.
+    ("aaa_indented_key", r"(?im)^\s*key\s+(?:(?:0|7)\s+)?(\S+)"),
+    (
+        "prompt_prefixed_hierarchical_key",
+        r"(?im)^[^\r\n]*[>#]\s*key\s+(?:(?:0|7)\s+)?(\S+)",
+    ),
+    (
+        "legacy_radius_server_key",
+        r"(?i)radius-server\s+key\s+(?:(?:0|7)\s+)?(\S+)",
+    ),
+    (
+        "legacy_tacacs_server_key",
+        r"(?i)tacacs-server\s+key\s+(?:(?:0|7)\s+)?(\S+)",
+    ),
+    ("isakmp_pre_shared_key", r"(?i)crypto\s+isakmp\s+key\s+(\S+)"),
+    (
+        "named_pre_shared_key",
+        r"(?i)(?:pre-shared-key|preshared-key)\s+(?:local|remote)\s+(\S+)",
+    ),
+    ("generic_pre_shared_key", r"(?i)(?:pre-shared-key|preshared-key)\s+(\S+)"),
     // Bearer tokens & API keys
     ("bearer_token", r"(?i)bearer\s+([A-Za-z0-9._\-]+)"),
     ("authorization_header", r"(?i)authorization:\s*(\S+)"),

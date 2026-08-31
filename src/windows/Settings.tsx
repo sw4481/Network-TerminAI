@@ -29,6 +29,7 @@ import SecureEndpointSettingsTab from "../components/settings/SecureEndpointSett
 import CiscoXdrSettingsTab from "../components/settings/CiscoXdrSettingsTab";
 import MistSettingsTab from "../components/settings/MistSettingsTab";
 import GrafanaSettingsTab from "../components/settings/GrafanaSettingsTab";
+import ZabbixSettingsTab from "../components/settings/ZabbixSettingsTab";
 import PrometheusSettingsTab from "../components/settings/PrometheusSettingsTab";
 import NetboxSettingsTab from "../components/settings/NetboxSettingsTab";
 import SketchfabSettingsTab from "../components/settings/SketchfabSettingsTab";
@@ -98,7 +99,7 @@ const PROVIDER_MODELS: Record<AIProvider, string[]> = {
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates"
+    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "zabbix" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates"
   >("general");
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -331,7 +332,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
     try {
       // Check if we have required credentials before fetching
       const canFetch =
-        (provider === "anthropic" || provider === "google") || // These use static lists
+        (provider === "anthropic" && key) ||
+        provider === "google" || // Google currently uses a static list
         (provider === "openai" && key) ||
         (provider === "nvidia" && key) ||
         (provider === "ollama") || // Ollama has default
@@ -678,6 +680,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             >
               Grafana
             </button>
+            <button className={activeTab === "zabbix" ? "active" : ""} onClick={() => setActiveTab("zabbix")}>Zabbix</button>
             <button
               className={activeTab === "prometheus" ? "active" : ""}
               onClick={() => setActiveTab("prometheus")}
@@ -775,6 +778,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                   // Check for required fields
                   if (aiProvider === "openai" && !apiKey) {
                     setError("Please enter your OpenAI API key first");
+                    return;
+                  }
+                  if (aiProvider === "anthropic" && !apiKey) {
+                    setError("Please enter your Anthropic API key first");
                     return;
                   }
                   if (aiProvider === "nvidia" && !apiKey) {
@@ -1255,6 +1262,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         {activeTab === "cisco_xdr" && <CiscoXdrSettingsTab />}
         {activeTab === "mist" && <MistSettingsTab />}
         {activeTab === "grafana" && <GrafanaSettingsTab />}
+        {activeTab === "zabbix" && <ZabbixSettingsTab />}
         {activeTab === "prometheus" && <PrometheusSettingsTab />}
         {activeTab === "netbox" && <NetboxSettingsTab />}
         {activeTab === "sketchfab" && <SketchfabSettingsTab />}

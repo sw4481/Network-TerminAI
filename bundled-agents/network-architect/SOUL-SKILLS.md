@@ -108,6 +108,12 @@ Examples: "find the WAN dashboard in Grafana", "what data sources are configured
 health dashboard" (confirm the design first — creating it is a change).
 Settings tab if missing: **Grafana** (URL + API token with Editor scope to write).
 
+## zabbix-specialist — Zabbix (monitoring)
+
+Use for Zabbix host availability, problems, current values, history, trends,
+templates, inventory, maintenance, and monitoring configuration. Reads are
+direct; every allowed mutation pauses for exact-payload operator approval.
+
 ## prometheus-specialist — Prometheus (metrics)
 Delegate for: time-series metrics. PromQL instant and range queries, metric-name
 and metadata discovery, and scrape-target health — directly against Prometheus.

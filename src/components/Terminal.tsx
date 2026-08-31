@@ -20,7 +20,7 @@ import { BlockSearch } from "./BlockSearch";
 import { useCommandSuggestions } from "../hooks/useCommandSuggestions";
 import { useParameterDetection } from "../hooks/useParameterDetection";
 import { useBlockShortcuts } from "../hooks/useBlockShortcuts";
-import { ptyWrite } from "../lib/tauri";
+import { ptyWrite, terminalLaunchSavedSsh } from "../lib/tauri";
 import { useTerminalBufferSearch } from "../hooks/useTerminalBufferSearch";
 import { isTerminalSearchShortcut } from "../lib/terminalSearch";
 import {
@@ -590,6 +590,21 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
     setContextMenu(null);
   };
 
+  const handleTroubleshootTerminal = () => {
+    if (focusedPaneId) usePanesStore.getState().setFocusedPane(focusedPaneId);
+    window.dispatchEvent(
+      new CustomEvent("ccie:invoke-agent", {
+        detail: {
+          agentId: "network-architect",
+          message: "Troubleshoot this terminal session.",
+          autoSend: false,
+          attachTerminal: true,
+        },
+      }),
+    );
+    setContextMenu(null);
+  };
+
   const handleCopy = async () => {
     if (!contextMenu) return;
     const selection = contextMenu.selection;
@@ -784,15 +799,14 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
       handle.setRemoteSession(true);
 
       // Execute the SSH command
-      const encoder = new TextEncoder();
-      const cmdBytes = encoder.encode(command + '\n');
-      ptyWrite(handle.tabId, cmdBytes).catch((err) => {
+      terminalLaunchSavedSsh(handle.tabId, connection.id)
+        .catch((err) => {
         console.error('[Terminal] Failed to execute SSH command:', err);
         useSshPasswordStore.getState().clearPasswordContext(handle.tabId);
         useTerminalConnectionStore.getState().setLifecycle(handle.tabId, 'error', {
           error: String(err),
         });
-      });
+        });
     };
 
     window.addEventListener('ssh-connect', handleSSHConnect as EventListener);
@@ -1077,6 +1091,14 @@ const LegacyTerminal = memo(function LegacyTerminal({ shell, cwd, onRegistered, 
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            onClick={handleTroubleshootTerminal}
+            style={menuButtonStyle}
+            onMouseOver={(e) => (e.currentTarget.style.background = "var(--surface-selected)")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            🩺 Troubleshoot with Network Architect
+          </button>
           {/* Only show AI and agent options if there's a selection */}
           {contextMenu.selection && contextMenu.selection.trim() && (
             <>

@@ -79,6 +79,18 @@ def test_network_architect_loads_with_soul():
     assert arch["attached_tools"] == []             # orchestrator binds no vendor
 
 
+def test_zabbix_agent_prompt_separates_reads_from_approval_writes():
+    from ccie_sidecar.agent import load_agent
+    zabbix = load_agent("zabbix")
+    assert zabbix is not None
+    prompt = zabbix["system_prompt"]
+    assert "zabbix_api_call" in prompt
+    assert "Never call zabbix_apply for a read" in prompt
+    assert "Do not import or inspect zabbix_api" in prompt
+    assert "json.loads(zabbix_api_call" in prompt
+    assert "records = result['data']" in prompt
+
+
 # ---- Subagent builder: skip-unconfigured + correct per-vendor isolation ----
 
 def test_build_subagents_skips_unconfigured(monkeypatch):
@@ -136,6 +148,16 @@ def test_configured_vendor_ids_reads_real_config():
     ids = set(configured_vendor_ids())
     known = {s["id"] for s in VENDOR_SPECS}
     assert ids.issubset(known)
+
+
+def test_zabbix_is_available_to_architect_before_connection_setup(monkeypatch):
+    """Zabbix is a bundled specialist: its helper must be visible so it can
+    direct an unconfigured operator to Settings rather than being omitted."""
+    import ccie_sidecar.agents.architect_subagents as A
+    monkeypatch.setattr("ccie_sidecar.zabbix_config.get_zabbix_config", lambda: None)
+    assert "zabbix" in A.configured_vendor_ids()
+    _, ids = A.build_architect_direct_tool()
+    assert "zabbix" in ids
 
 
 def test_orchestrator_sandbox_binds_no_vendor():

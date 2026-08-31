@@ -1,0 +1,25 @@
+[
+  {
+    "name": "zabbix_api_call",
+    "description": "Call the configured Zabbix JSON-RPC API. Read-only operations are low risk; mutation operations require the dedicated zabbix_apply approval flow.",
+    "type": "function",
+    "function": {
+      "name": "zabbix_api_call",
+      "description": "Call a documented Zabbix JSON-RPC method against the configured server. Use zabbix_apply for mutations after approval.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "description": "Exact documented Zabbix JSON-RPC method, such as host.get or problem.get."
+          },
+          "params": {
+            "type": "object",
+            "description": "Parameters for the Zabbix JSON-RPC method."
+          }
+        },
+        "required": ["method", "params"]
+      }
+    }
+  }
+]

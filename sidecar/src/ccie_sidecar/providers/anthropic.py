@@ -6,11 +6,10 @@ from typing import Any, Iterator
 from anthropic import Anthropic, AuthenticationError, RateLimitError, APIError
 
 
-SUPPORTED_MODELS = {
-    "claude-sonnet-4-6": "claude-sonnet-4-20250514",
-    "claude-opus-4-7": "claude-opus-4-20250514",
-    "claude-haiku-4-5": "claude-haiku-4-20250514",
-}
+# Anthropic's Models API returns model IDs that are directly accepted by the
+# Messages API.  Do not rewrite those live IDs to historical snapshot names:
+# a model chosen in Settings must be sent exactly as Anthropic advertised it.
+SUPPORTED_MODELS: dict[str, str] = {}
 
 
 def stream_chat(

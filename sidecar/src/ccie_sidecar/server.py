@@ -753,6 +753,9 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         conf = params.get("config") or {}
         from ccie_sidecar.grafana import test_connection as _grafana_test
         return {"id": req_id, "type": "done", "result": _grafana_test(conf)}
+    elif method == "zabbix.test_connection":
+        from ccie_sidecar.zabbix import test_connection as _zabbix_test
+        return {"id": req_id, "type": "done", "result": _zabbix_test(params.get("config") or {})}
 
     elif method == "prometheus.test_connection":
         # Settings → Prometheus "Test connection" button. A trivial `up` instant
@@ -1354,6 +1357,14 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
                 "message": "agent.react_code_loop requires 'agent_id' and 'message' parameters"
             }
 
+        terminal_context = params.get("terminal_context")
+        if terminal_context is not None and agent_id != "network-architect":
+            return {
+                "id": req_id,
+                "type": "error",
+                "message": "terminal_context is restricted to network-architect",
+            }
+
         return {"id": req_id, "type": "stream", "method": method, "params": params}
 
     if method == "agent.react_resume":
@@ -1374,7 +1385,19 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
             return {
                 "id": req_id,
                 "type": "error",
-                "message": "agent.react_resume requires 'decision' parameter (approve|deny)",
+                "message": "agent.react_resume requires 'decision' parameter (approve|deny|edit)",
+            }
+        if decision not in {"approve", "deny", "edit", "continue"}:
+            return {
+                "id": req_id,
+                "type": "error",
+                "message": "agent.react_resume decision must be approve, deny, edit, or continue",
+            }
+        if decision == "edit" and not isinstance(params.get("edited_action"), dict):
+            return {
+                "id": req_id,
+                "type": "error",
+                "message": "agent.react_resume edit requires edited_action",
             }
 
         return {"id": req_id, "type": "stream", "method": method, "params": params}
@@ -1883,7 +1906,19 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         asyncio.run(deepagents_react_code_loop(
                             agent_def=agent_def,
                             user_msg=message,
-                            ctx={"history": history},
+                            ctx={
+                                "history": history,
+                                **(
+                                    {"run_id": params.get("run_id")}
+                                    if params.get("run_id") is not None
+                                    else {}
+                                ),
+                                **(
+                                    {"terminal_context": params.get("terminal_context")}
+                                    if params.get("terminal_context") is not None
+                                    else {}
+                                ),
+                            },
                             on_event=emit_event,
                             stream_output=stream_output,
                         ))
@@ -1919,10 +1954,11 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 # Resume an interrupted DeepAgents execution
                 import asyncio
                 from ccie_sidecar.agents.deepagents_state import retrieve_interrupted_graph
-                from ccie_sidecar.agents.deepagents_hitl import resume_graph
+                from ccie_sidecar.agents.deepagents_hitl import continue_graph, resume_graph
 
                 thread_id = params.get("thread_id")
-                decision = params.get("decision")  # "approve" | "deny"
+                decision = params.get("decision")  # approval decision or checkpoint continuation
+                edited_action = params.get("edited_action")
                 stream_output = bool(params.get("stream_output", False))
 
                 if not thread_id:
@@ -1932,7 +1968,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                     continue
 
                 if not decision:
-                    err_msg = {"id": req_id, "type": "error", "message": "decision required (approve|deny)"}
+                    err_msg = {"id": req_id, "type": "error", "message": "decision required (approve|deny|edit)"}
                     stdout.write(json.dumps(err_msg) + "\n")
                     stdout.flush()
                     continue
@@ -1953,14 +1989,32 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         stdout.write(json.dumps(event_msg) + "\n")
                         stdout.flush()
 
-                    # Resume the graph
-                    asyncio.run(resume_graph(
-                        graph=state.graph,
-                        thread_id=thread_id,
-                        decision=decision,
-                        on_event=emit_event,
-                        stream_output=stream_output,
-                    ))
+                    # A step-limit continuation supplies no new prompt and no
+                    # approval decision. HITL resumes keep their exact existing
+                    # Command(resume=...) behavior.
+                    if decision == "continue":
+                        resume_outcome = asyncio.run(continue_graph(
+                            graph=state.graph,
+                            config=state.config,
+                            on_event=emit_event,
+                            stream_output=stream_output,
+                        ))
+                    else:
+                        resume_outcome = asyncio.run(resume_graph(
+                            graph=state.graph,
+                            thread_id=thread_id,
+                            decision=decision,
+                            edited_action=edited_action,
+                            on_event=emit_event,
+                            stream_output=stream_output,
+                        ))
+                    if not resume_outcome.get("interrupted"):
+                        from ccie_sidecar.agents.terminal_agent_tools import (
+                            remove_terminal_context,
+                            terminal_context_for_thread,
+                        )
+                        if terminal_context_for_thread(thread_id) is not None:
+                            remove_terminal_context(thread_id)
 
                     # Send done
                     done_msg = {"id": req_id, "type": "done"}

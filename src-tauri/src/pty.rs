@@ -142,14 +142,43 @@ impl PtyHandle {
     /// Returns `None` if the platform can't report the leader or its command.
     #[cfg(target_os = "macos")]
     pub fn foreground_process_name(&self) -> Option<String> {
-        let pgid = self.master.lock().process_group_leader()?;
+        let pgid = self.foreground_process_group_id()?;
         // Prefer the full argv (catches node/python-wrapped agents); fall back to
         // the executable path if argv can't be read.
         proc_command_macos(pgid).or_else(|| proc_name_macos(pgid))
     }
 
+    /// Kernel-owned identity for the process currently controlling this PTY.
+    /// A saved-SSH binding records this generation so a later, unrelated `ssh`
+    /// process in the same shell cannot inherit the earlier connection record.
+    #[cfg(target_os = "macos")]
+    pub fn foreground_process_group_id(&self) -> Option<libc::pid_t> {
+        self.master.lock().process_group_leader()
+    }
+
+    /// Kernel-observed foreground process identity with true argv boundaries.
+    /// Used when a security decision must not depend on a space-joined command.
+    #[cfg(target_os = "macos")]
+    pub fn foreground_process_identity(
+        &self,
+    ) -> Option<(libc::pid_t, String, Vec<String>)> {
+        let pgid = self.foreground_process_group_id()?;
+        let (executable, argv) = proc_args_macos(pgid)?;
+        Some((pgid, executable, argv))
+    }
+
     #[cfg(not(target_os = "macos"))]
     pub fn foreground_process_name(&self) -> Option<String> {
+        None
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn foreground_process_group_id(&self) -> Option<i32> {
+        None
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn foreground_process_identity(&self) -> Option<(i32, String, Vec<String>)> {
         None
     }
 
@@ -421,6 +450,17 @@ fn proc_name_macos(pid: libc::pid_t) -> Option<String> {
 /// exec path and argv together with spaces.
 #[cfg(target_os = "macos")]
 fn proc_command_macos(pid: libc::pid_t) -> Option<String> {
+    let (exec, argv) = proc_args_macos(pid)?;
+    let mut cmd = exec;
+    for a in argv {
+        cmd.push(' ');
+        cmd.push_str(&a);
+    }
+    Some(cmd)
+}
+
+#[cfg(target_os = "macos")]
+fn proc_args_macos(pid: libc::pid_t) -> Option<(String, Vec<String>)> {
     // The KERN_PROCARGS2 buffer must be sized to KERN_ARGMAX. Passing a larger
     // buffer makes the syscall fail with EINVAL, so query the real max first.
     let arg_max = kern_argmax_macos()?;
@@ -461,12 +501,7 @@ fn proc_command_macos(pid: libc::pid_t) -> Option<String> {
     // Joining exec path + argv gives the classifier every token to match on.
     let exec = parts.next()?;
     let argv: Vec<String> = parts.take(argc as usize).collect();
-    let mut cmd = exec;
-    for a in argv {
-        cmd.push(' ');
-        cmd.push_str(&a);
-    }
-    Some(cmd)
+    (argv.len() == argc as usize).then_some((exec, argv))
 }
 
 /// Query `KERN_ARGMAX` — the exact buffer size KERN_PROCARGS2 requires. Passing

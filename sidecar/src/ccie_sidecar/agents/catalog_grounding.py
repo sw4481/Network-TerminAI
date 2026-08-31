@@ -916,6 +916,12 @@ def install_catalog_grounding(
 ) -> CatalogIndex | None:
     """Inject ``api_catalog`` and guard each matching ``*_api_call`` helper."""
     normalized = normalize_catalogs(catalogs)
+    # Zabbix is JSON-RPC: its helper signature is (rpc_method, params), not the
+    # HTTP (method, path) signature this middleware guards. The Zabbix client
+    # itself restricts namespaces and its mutation tool is independently HITL
+    # gated, so treating params as a URL both blocks valid reads and causes
+    # recursive agent retries.
+    normalized = [item for item in normalized if item["id"] != "zabbix"]
     if active_catalog_ids is not None:
         allowed_ids = set(active_catalog_ids)
         normalized = [item for item in normalized if item["id"] in allowed_ids]

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invokeMock = vi.hoisted(() => vi.fn());
-const ptyWriteMock = vi.hoisted(() => vi.fn(async () => undefined));
+const terminalLaunchSavedSshMock = vi.hoisted(() => vi.fn(async () => undefined));
 const ptyTabIdForMock = vi.hoisted(() => vi.fn(() => "pty-live"));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
-vi.mock("./tauri", () => ({ ptyWrite: ptyWriteMock }));
+vi.mock("./tauri", () => ({ terminalLaunchSavedSsh: terminalLaunchSavedSshMock }));
 vi.mock("./terminalRegistry", () => ({ ptyTabIdFor: ptyTabIdForMock }));
 
 import { reconnectSavedSsh, useLocalShell } from "./sshReconnect";
@@ -51,7 +51,7 @@ function bindDisconnected() {
 
 beforeEach(() => {
   invokeMock.mockReset();
-  ptyWriteMock.mockReset().mockResolvedValue(undefined);
+  terminalLaunchSavedSshMock.mockReset().mockResolvedValue(undefined);
   ptyTabIdForMock.mockClear().mockReturnValue("pty-live");
   useTerminalConnectionStore.setState({ byTerminalId: {}, terminalIdByBackendPtyId: {} });
   useSshPasswordStore.setState({ contexts: new Map() });
@@ -59,7 +59,7 @@ beforeEach(() => {
 });
 
 describe("in-place saved SSH reconnect", () => {
-  it("reloads the latest saved connection and writes it to the same backend PTY", async () => {
+  it("reloads the latest saved connection and asks Rust to launch it in the same backend PTY", async () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === "ssh_get_connection") return Promise.resolve(LATEST_CONNECTION);
       if (command === "ssh_decrypt_password") return Promise.resolve("new-password");
@@ -70,10 +70,7 @@ describe("in-place saved SSH reconnect", () => {
     expect(await reconnectSavedSsh("stable-terminal")).toBe(true);
 
     expect(invokeMock).toHaveBeenCalledWith("ssh_get_connection", { id: "connection-1" });
-    expect(ptyWriteMock).toHaveBeenCalledWith(
-      "pty-live",
-      new TextEncoder().encode("ssh -p 2222 -i /keys/new netops@core-new.example\n"),
-    );
+    expect(terminalLaunchSavedSshMock).toHaveBeenCalledWith("pty-live", "connection-1");
     expect(useTerminalConnectionStore.getState().get("stable-terminal")).toMatchObject({
       terminal_id: "stable-terminal",
       backend_pty_id: "pty-live",
@@ -121,7 +118,7 @@ describe("in-place saved SSH reconnect", () => {
       if (command === "ssh_mark_used") return Promise.resolve(undefined);
       throw new Error(`unexpected command ${command}`);
     });
-    ptyWriteMock.mockRejectedValueOnce(new Error("write failed"));
+    terminalLaunchSavedSshMock.mockRejectedValueOnce(new Error("launch failed"));
 
     expect(await reconnectSavedSsh("stable-terminal")).toBe(false);
     expect(useSshPasswordStore.getState().getPasswordContext("pty-live")).toBeNull();

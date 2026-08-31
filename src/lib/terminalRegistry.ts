@@ -1,4 +1,4 @@
-import { ptySpawn, ptyKill, ptyResize, ptyWrite } from './tauri';
+import { ptySpawn, ptyKill, ptyResize, ptyWrite, terminalLaunchSavedSsh } from './tauri';
 import { listen } from '@tauri-apps/api/event';
 import type { PtyEvent } from './types';
 import stripAnsi from 'strip-ansi';
@@ -587,13 +587,14 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         .setPasswordContext(acceptedPtyId, credentials.host, credentials.user, credentials.password);
     }
 
-    ptyWrite(acceptedPtyId, new TextEncoder().encode(command + '\n')).catch((err) => {
+    terminalLaunchSavedSsh(acceptedPtyId, connection.id)
+      .catch((err) => {
       console.error('[terminalRegistry] Failed to execute SSH command:', err);
       useSshPasswordStore.getState().clearPasswordContext(acceptedPtyId);
       useTerminalConnectionStore.getState().setLifecycle(terminalId, 'error', {
         error: String(err),
       });
-    });
+      });
   };
 
   window.addEventListener('ssh-connect', handleSshConnect as EventListener);

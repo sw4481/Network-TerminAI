@@ -217,8 +217,12 @@ def install_autocapture(globals_dict: Dict[str, Any]) -> int:
     if not _enabled():
         return 0
     wrapped = 0
+    # Zabbix is JSON-RPC: this HTTP-only wrapper supplies path/body/query
+    # arguments that do not exist in zabbix_api_call(method, params).
+    excluded_helpers = {"zabbix_api_call"}
     for gname, fn in list(globals_dict.items()):
         if gname.endswith("_api_call") and callable(fn) \
+                and gname not in excluded_helpers \
                 and not getattr(fn, "_ccie_autocapture", False):
             vendor = gname[: -len("_api_call")]
             globals_dict[gname] = _wrap_for_capture(vendor, fn)

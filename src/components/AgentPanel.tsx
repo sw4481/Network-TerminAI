@@ -5,6 +5,13 @@ import { useChatStore, chatKey } from "../state/chatStore";
 import { useAgentsStore } from "../state/agentsStore";
 import { useTabs } from "../state/tabsStore";
 import { useRagStore } from "../state/ragStore";
+import { usePanesStore } from "../state/panesStore";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
+import * as terminalRegistry from "../lib/terminalRegistry";
+import {
+  parseTerminalAttachmentRequest,
+  resolveTerminalAttachment,
+} from "../lib/terminalAgentAttachment";
 import {
   agentChatStream,
   agentsList,
@@ -17,11 +24,20 @@ import {
   agentReactRun,
   agentCodeExecRun,
   agentReactCodeRun,
+  agentReactContinue,
   agentReactResume,
+  agentTerminalPreviewFixEdit,
+  agentTerminalApproveFix,
+  agentTerminalCancel,
   type CodeExecEvent,
   type ReactEvent,
+  type TerminalFixBatch,
+  type TerminalFixPreview,
+  type TerminalInvestigationPlan,
 } from "../lib/tauri";
 import { IaCApprovalModal, type IaCApprovalRequest } from "./IaCApprovalModal";
+import { ZabbixApprovalModal, type ZabbixApprovalRequest } from "./ZabbixApprovalModal";
+import { TerminalFixApprovalModal } from "./TerminalFixApprovalModal";
 import { useDiagramStore } from "../state/diagramStore";
 import { CodeBlock } from "./CodeBlock";
 import { ChatHistoryBrowser } from "./ChatHistoryBrowser";
@@ -43,6 +59,14 @@ interface CodeBlockState {
   error?: string;
   attempt?: number;
 }
+
+type TerminalActionState = {
+  planStepId: string;
+  command: string;
+  purpose: string;
+  status: "running" | "success" | "error";
+  result?: Record<string, unknown>;
+};
 
 // Default agent for a new tab: the orchestrator, not bare "general".
 const DEFAULT_AGENT_ID = "network-architect";
@@ -103,6 +127,7 @@ const PREPACKAGED_AGENT_IDS = new Set<string>([
   "stealthwatch",
   "thousandeyes",
   "grafana",
+  "zabbix",
   "prometheus",
   "netbox",
   "sketchfab",
@@ -118,6 +143,10 @@ type AgentPanelProps = {
 
 export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [input, setInput] = useState("");
+  const [terminalAttachRequested, setTerminalAttachRequested] = useState(false);
+  const [terminalLeaseId, setTerminalLeaseId] = useState<string | null>(null);
+  const [terminalPlan, setTerminalPlan] = useState<TerminalInvestigationPlan | null>(null);
+  const [terminalActions, setTerminalActions] = useState<TerminalActionState[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -181,6 +210,12 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   // Code execution blocks state for agents with executionMode === "code"
   const [codeBlocks, setCodeBlocks] = useState<CodeBlockState[]>([]);
+  const [continuationByBucket, setContinuationByBucket] = useState<
+    Record<string, string>
+  >({});
+  const continuationThreadId = bucketKey
+    ? continuationByBucket[bucketKey] ?? null
+    : null;
 
   // IaC Phase 2 — pending approval gate. When the agent pauses on a gated
   // iac_apply, the modal mounts with this request + the turn's bucket key so
@@ -193,6 +228,14 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       streamOutput: boolean;
     } | null
   >(null);
+  const [zabbixApproval, setZabbixApproval] = useState<{request: ZabbixApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean} | null>(null);
+  const [terminalFixApproval, setTerminalFixApproval] = useState<{
+    threadId: string;
+    preview: TerminalFixPreview;
+    bucketKey: string;
+    streamOutput: boolean;
+    edited: boolean;
+  } | null>(null);
 
   // Which assistant message's Sources drawer is currently open.
   // `null` = no drawer open. Cleared on new turn submit per design
@@ -320,12 +363,14 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         message?: string;
         selection?: string;
         autoSend?: boolean;
+        attachTerminal?: boolean;
       }>;
-      const { agentId, message, selection, autoSend } = customEvent.detail;
+      const { agentId, message, selection, autoSend, attachTerminal } = customEvent.detail;
       if (!tabId) return;
       if (!isOpen) onToggle();
       // Set active agent for this tab (in-memory + persist)
       setActiveAgent(tabId, agentId);
+      setTerminalAttachRequested(Boolean(attachTerminal));
       agentSessionSet(tabId, agentId).catch((err) =>
         console.error("Failed to persist agent session:", err)
       );
@@ -421,7 +466,58 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     keyForTurn: string,
     streamOutput: boolean,
   ) => {
-    if (event.type === "token") {
+    if (event.type === "terminal_control_started") {
+      setTerminalLeaseId(event.lease_id);
+    } else if (event.type === "terminal_investigation_plan") {
+      setTerminalPlan(event.plan);
+    } else if (event.type === "terminal_command_start") {
+      setTerminalActions((current) => [
+        ...current,
+        {
+          planStepId: event.plan_step_id,
+          command: event.command,
+          purpose: event.purpose,
+          status: "running",
+        },
+      ]);
+    } else if (event.type === "terminal_command_result") {
+      setTerminalActions((current) => {
+        const next = [...current];
+        let index = -1;
+        for (let candidate = next.length - 1; candidate >= 0; candidate -= 1) {
+          if (next[candidate].command === event.command && next[candidate].status === "running") {
+            index = candidate;
+            break;
+          }
+        }
+        const value: TerminalActionState = {
+          planStepId: event.plan_step_id,
+          command: event.command,
+          purpose: index >= 0 ? next[index].purpose : "Diagnostic evidence",
+          status: event.success ? "success" : "error",
+          result: event.result,
+        };
+        if (index >= 0) next[index] = value;
+        else next.push(value);
+        return next;
+      });
+    } else if (event.type === "terminal_fix_approval_request") {
+      setTerminalFixApproval({
+        threadId: event.thread_id,
+        preview: event.preview,
+        bucketKey: keyForTurn,
+        streamOutput,
+        edited: false,
+      });
+    } else if (event.type === "terminal_lease_ended") {
+      setTerminalLeaseId(null);
+      appendToken(keyForTurn, `\n_Terminal control ended: ${event.reason}._\n`);
+    } else if (event.type === "continuation_available") {
+      setContinuationByBucket((current) => ({
+        ...current,
+        [keyForTurn]: event.thread_id,
+      }));
+    } else if (event.type === "token") {
       appendToken(keyForTurn, event.text);
       streamedGenerationRef.current[keyForTurn] = true;
     } else if (event.type === "thought_start") {
@@ -448,6 +544,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       useDiagramStore.getState().addDiagram(event);
       window.dispatchEvent(new CustomEvent("ccie:open-diagram-panel"));
     } else if (event.type === "final") {
+      setContinuationByBucket((current) => {
+        const next = { ...current };
+        delete next[keyForTurn];
+        return next;
+      });
       if (!streamOutput || !streamedGenerationRef.current[keyForTurn]) {
         appendToken(keyForTurn, event.response);
       }
@@ -458,6 +559,10 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       setError(keyForTurn, event.message);
       setStreaming(keyForTurn, false);
     } else if (event.type === "iac_approval_request") {
+      if (event.tool === "zabbix") {
+        setZabbixApproval({ threadId:event.thread_id, bucketKey:keyForTurn, streamOutput, request:{ method:event.command, params:event.classification?.params ?? {}, rationale:event.classification?.rationale ?? "", risk:event.classification?.tier ?? "high" } });
+        return;
+      }
       // Agent paused on a gated apply — surface the approval modal. Streaming
       // stays "on" (the turn isn't finished); resume continues it.
       const tier = event.classification?.tier ?? "high";
@@ -489,6 +594,77 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     }
   };
 
+  const handleTerminalReviewEdit = async (batch: TerminalFixBatch) => {
+    const pending = terminalFixApproval;
+    if (!pending) return;
+    try {
+      const preview = await agentTerminalPreviewFixEdit({
+        leaseId: pending.preview.lease_id,
+        batch,
+      });
+      setTerminalFixApproval({ ...pending, preview, edited: true });
+    } catch (reviewError) {
+      setError(
+        pending.bucketKey,
+        reviewError instanceof Error ? reviewError.message : String(reviewError),
+      );
+    }
+  };
+
+  const handleTerminalFixDecision = async (
+    decision: "approve" | "deny",
+    batch?: TerminalFixBatch,
+  ) => {
+    const pending = terminalFixApproval;
+    setTerminalFixApproval(null);
+    if (!pending) return;
+    try {
+      if (decision === "deny") {
+        await agentTerminalCancel(pending.preview.lease_id);
+        appendToken(pending.bucketKey, "\n_Rejected — no switch changes were made._\n");
+        await agentReactResume({
+          threadId: pending.threadId,
+          decision: "deny",
+          streamOutput: pending.streamOutput,
+          onEvent: (event) => handleReactCodeEvent(
+            event,
+            pending.bucketKey,
+            pending.streamOutput,
+          ),
+        });
+        return;
+      }
+
+      if (!batch) throw new Error("approved terminal fix batch is missing");
+      await agentTerminalApproveFix({
+        leaseId: pending.preview.lease_id,
+        digest: pending.preview.digest,
+        batch,
+      });
+      appendToken(pending.bucketKey, "\n_Approved — applying the exact reviewed batch._\n");
+      await agentReactResume({
+        threadId: pending.threadId,
+        decision: pending.edited ? "edit" : "approve",
+        editedAction: pending.edited
+          ? { name: "terminal_apply_fix", args: batch }
+          : undefined,
+        streamOutput: pending.streamOutput,
+        onEvent: (event) => handleReactCodeEvent(
+          event,
+          pending.bucketKey,
+          pending.streamOutput,
+        ),
+      });
+    } catch (approvalError) {
+      setError(
+        pending.bucketKey,
+        approvalError instanceof Error ? approvalError.message : String(approvalError),
+      );
+    } finally {
+      setStreaming(pending.bucketKey, false);
+    }
+  };
+
   // Resume an interrupted IaC apply after the user decides in the modal.
   const handleIacDecision = async (decision: "approve" | "deny") => {
     const pending = iacApproval;
@@ -517,6 +693,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       setStreaming(pending.bucketKey, false);
     }
   };
+  const handleZabbixDecision = async (decision: "approve" | "deny") => {
+    const pending=zabbixApproval; setZabbixApproval(null); if(!pending)return;
+    try { await agentReactResume({threadId:pending.threadId,decision,streamOutput:pending.streamOutput,onEvent:(event)=>handleReactCodeEvent(event,pending.bucketKey,pending.streamOutput)}); }
+    catch(e){setError(pending.bucketKey,e instanceof Error?e.message:String(e));} finally {setStreaming(pending.bucketKey,false);}
+  };
 
   const handleSend = async (e?: FormEvent | string) => {
     // If called with a string, treat as an override message (bypasses the input state race)
@@ -527,7 +708,49 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       e?.preventDefault();
       userMessage = input.trim();
     }
+    const terminalRequest = parseTerminalAttachmentRequest(
+      userMessage,
+      terminalAttachRequested,
+    );
+    userMessage = terminalRequest.message;
     if (!userMessage || !tabId || !bucketKey || streaming) return;
+
+    if (terminalRequest.requested && activeAgentForTab !== "network-architect") {
+      setError(bucketKey, "Terminal attachment is available only to Network Architect.");
+      return;
+    }
+
+    let terminalAttachment = null;
+    if (terminalRequest.requested) {
+      try {
+        const panes = usePanesStore.getState();
+        const connections = useTerminalConnectionStore.getState();
+        const byTerminalId = { ...connections.byTerminalId };
+        for (const [backendId, terminalId] of Object.entries(
+          connections.terminalIdByBackendPtyId,
+        )) {
+          const connection = connections.byTerminalId[terminalId];
+          if (connection) byTerminalId[backendId] = connection;
+        }
+        terminalAttachment = resolveTerminalAttachment({
+          agentId: activeAgentForTab,
+          requested: true,
+          focusedPaneId: panes.focusedPaneId,
+          layout: panes.layoutsByTab.get(tabId),
+          connectionsByTerminalId: byTerminalId,
+          backendPtyIdFor: (terminalId) =>
+            terminalRegistry.ptyTabIdFor(terminalId)
+            ?? connections.get(terminalId)?.backend_pty_id
+            ?? (terminalId.startsWith("pending-") ? null : terminalId),
+        });
+      } catch (attachError) {
+        setError(
+          bucketKey,
+          attachError instanceof Error ? attachError.message : String(attachError),
+        );
+        return;
+      }
+    }
 
     // Snapshot the bucket key for this turn — if the user switches agents mid-turn,
     // events must still land in the conversation that started them.
@@ -551,7 +774,16 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
     setInput("");
+    setTerminalAttachRequested(false);
+    setTerminalPlan(null);
+    setTerminalActions([]);
+    setTerminalLeaseId(null);
     clearError(keyForTurn);
+    setContinuationByBucket((current) => {
+      const next = { ...current };
+      delete next[keyForTurn];
+      return next;
+    });
     // Plan 12 Phase 5 design spec §6 #10 — auto-collapse any open
     // citations drawer on new turn submit.
     setOpenSourcesForMessageId(null);
@@ -609,6 +841,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           message: userMessage,
           history,
           streamOutput: streamOutputForTurn,
+          terminalAttachment,
           onEvent: (event) => handleReactCodeEvent(
             event,
             keyForTurn,
@@ -816,6 +1049,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const handleStop = async () => {
     if (!tabId || !bucketKey) return;
     try {
+      if (terminalLeaseId) await agentTerminalCancel(terminalLeaseId);
       await agentChatCancel(tabId);
     } catch (err) {
       console.error("Cancel failed:", err);
@@ -832,9 +1066,43 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = async () => {
     if (!tabId || !bucketKey) return;
     clearError(bucketKey);
+    if (continuationThreadId) {
+      const threadId = continuationThreadId;
+      setContinuationByBucket((current) => {
+        const next = { ...current };
+        delete next[bucketKey];
+        return next;
+      });
+      setStreaming(bucketKey, true);
+      try {
+        await agentReactContinue({
+          threadId,
+          streamOutput: aiChatPreferences.streamLlmOutput,
+          onEvent: (event) => handleReactCodeEvent(
+            event,
+            bucketKey,
+            aiChatPreferences.streamLlmOutput,
+          ),
+        });
+      } catch (continuationError) {
+        setContinuationByBucket((current) => ({
+          ...current,
+          [bucketKey]: threadId,
+        }));
+        setError(
+          bucketKey,
+          continuationError instanceof Error
+            ? continuationError.message
+            : String(continuationError),
+        );
+      } finally {
+        setStreaming(bucketKey, false);
+      }
+      return;
+    }
     // Find the last user message and retry
     const lastUserMsg = messages
       .slice()
@@ -853,11 +1121,21 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       </button>
 
       {/* IaC Phase 2 — approval gate for agent-initiated terraform/ansible applies. */}
+      <ZabbixApprovalModal request={zabbixApproval?.request ?? null} onApprove={() => handleZabbixDecision("approve")} onDeny={() => handleZabbixDecision("deny")} />
       {iacApproval && (
-        <IaCApprovalModal
+      <IaCApprovalModal
           request={iacApproval.request}
           onApprove={() => handleIacDecision("approve")}
           onCancel={() => handleIacDecision("deny")}
+        />
+      )}
+
+      {terminalFixApproval && (
+        <TerminalFixApprovalModal
+          preview={terminalFixApproval.preview}
+          onReviewEdit={handleTerminalReviewEdit}
+          onApprove={(batch) => handleTerminalFixDecision("approve", batch)}
+          onReject={() => handleTerminalFixDecision("deny")}
         />
       )}
 
@@ -1068,6 +1346,27 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               );
             })}
 
+            {terminalPlan && (
+              <section className="terminal-investigation-card" aria-label="Terminal investigation plan">
+                <strong>Investigation plan</strong>
+                <p>{terminalPlan.objective}</p>
+                <ol>{terminalPlan.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+                <small>Success: {terminalPlan.success_criteria.join("; ")}</small>
+              </section>
+            )}
+
+            {terminalActions.length > 0 && (
+              <section className="terminal-action-list" aria-label="Terminal actions">
+                {terminalActions.map((action, index) => (
+                  <div className={`terminal-action-card ${action.status}`} key={`${action.command}-${index}`}>
+                    <span>{action.status === "running" ? "Running" : action.status === "success" ? "Passed" : "Stopped"}</span>
+                    <code>{action.command}</code>
+                    <small>{action.purpose}</small>
+                  </div>
+                ))}
+              </section>
+            )}
+
             {streaming && (
               <AgentWorkingIndicator />
             )}
@@ -1075,7 +1374,9 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             {error && (
               <div className="agent-error">
                 <p>Error: {error}</p>
-                <button onClick={handleRetry}>Retry</button>
+                <button onClick={handleRetry}>
+                  {continuationThreadId ? "Continue from last step" : "Retry"}
+                </button>
               </div>
             )}
 
@@ -1083,6 +1384,18 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           </div>
 
           <form className="agent-input" onSubmit={handleSend}>
+            {activeAgentForTab === "network-architect" && (
+              <button
+                type="button"
+                className={`terminal-attach-chip ${terminalAttachRequested ? "active" : ""}`}
+                aria-pressed={terminalAttachRequested}
+                onClick={() => setTerminalAttachRequested((current) => !current)}
+                disabled={streaming || !tabId}
+                title="Allow Network Architect to use the focused verified SSH terminal for this turn"
+              >
+                {terminalAttachRequested ? "Terminal attached" : "Attach terminal"}
+              </button>
+            )}
             <textarea
               ref={inputRef}
               value={input}

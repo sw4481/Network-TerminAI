@@ -649,6 +649,13 @@ def _build_sandbox_globals(
         except Exception:
             pass
 
+    if cli_package == "zabbix":
+        try:
+            from ccie_sidecar.zabbix import install_zabbix
+            install_zabbix(globals_dict, emit=emit)
+        except Exception:
+            pass
+
     # Bind the Prometheus client when this is the prometheus agent. Reads creds
     # from sessions.db (same as Settings → Prometheus) and injects the
     # `prometheus_api_call(...)` helper the agent's prompt expects.

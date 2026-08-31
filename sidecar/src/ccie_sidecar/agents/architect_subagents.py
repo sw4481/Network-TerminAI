@@ -214,6 +214,10 @@ VENDOR_SPECS: List[dict] = [
                 "BUILDING dashboards (create/update/delete panels).",
         "configured": lambda: _cfg("ccie_sidecar.grafana_config", "get_grafana_config"),
     },
+    # Unlike credential-only vendors, Zabbix is always exposed to the Architect:
+    # the pre-bound client returns a safe Settings → Zabbix instruction until a
+    # connection is saved, rather than making the specialist disappear.
+    {"id": "zabbix", "display": "Zabbix (monitoring)", "when": "Zabbix hosts, problems, availability, current values, history, trends, templates, inventory, maintenance, or monitoring configuration.", "configured": lambda: True},
     {
         "id": "prometheus",
         "display": "Prometheus (metrics)",
@@ -284,6 +288,7 @@ VENDOR_KEYWORDS: dict[str, List[str]] = {
     "mist": ["mist", "juniper", "wlan", "wlans", "sle", "assurance"],
     "pyats": ["pyats", "testbed", "show command", "show commands"],
     "grafana": ["grafana", "dashboard", "dashboards"],
+    "zabbix": ["zabbix", "zabbix server", "zabbix agent"],
     "prometheus": ["prometheus", "promql", "scrape target",
                    "scrape targets", "time series"],
     "netbox": ["netbox", "net box", "dcim", "ipam", "source of truth", "sot"],

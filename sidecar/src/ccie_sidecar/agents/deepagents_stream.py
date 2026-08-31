@@ -109,6 +109,55 @@ def _handle_interrupt(interrupt_payload, graph, config, thread_id, on_event) -> 
     from ccie_sidecar.agents.deepagents_state import store_interrupted_graph
 
     action_requests = _extract_action_requests(interrupt_payload)
+    zabbix_req = next((r for r in action_requests if r.get("name") == "zabbix_apply"), None)
+    if zabbix_req is not None:
+        args = zabbix_req.get("args", {}) or {}
+        from ccie_sidecar.zabbix import _risk_for_method, redact_params
+        method = str(args.get("method", "")); params = args.get("params", {})
+        store_interrupted_graph(thread_id, graph, config, on_event)
+        on_event({"type": "iac_approval_request", "thread_id": thread_id, "command": method,
+                  "working_dir": "Zabbix JSON-RPC", "tool": "zabbix", "classification": {"tier": _risk_for_method(method) or "high", "params": redact_params(params), "rationale": args.get("rationale", "")}})
+        return True
+    terminal_req = next(
+        (r for r in action_requests if r.get("name") == "terminal_apply_fix"),
+        None,
+    )
+    if terminal_req is not None:
+        from ccie_sidecar.agents.terminal_agent_tools import (
+            TerminalGatewayClient,
+            terminal_context_for_thread,
+        )
+
+        terminal_context = terminal_context_for_thread(thread_id)
+        if terminal_context is None:
+            on_event({
+                "type": "error",
+                "message": "Terminal fix approval lost its capability-scoped context.",
+            })
+            return True
+        args = terminal_req.get("args", {}) or {}
+        client = TerminalGatewayClient(terminal_context, on_event)
+        try:
+            preview = client.preview_fix(
+                args.get("summary", ""),
+                list(args.get("commands") or []),
+                list(args.get("verification_commands") or []),
+                list(args.get("rollback_commands") or []),
+            )
+        except Exception as error:
+            on_event({
+                "type": "error",
+                "message": f"Terminal fix preview failed: {error}",
+            })
+            return True
+        store_interrupted_graph(thread_id, graph, config, on_event)
+        on_event({
+            "type": "terminal_fix_approval_request",
+            "thread_id": thread_id,
+            "preview": preview,
+        })
+        return True
+
     iac_req = next((r for r in action_requests if r.get("name") == "iac_apply"), None)
     if iac_req is None:
         # Not an IaC approval we handle here; let the generic path/exception
@@ -305,11 +354,12 @@ class CompiledGraph(Protocol):
 
 async def run_and_stream(
     graph: CompiledGraph,
-    input_data: dict[str, Any],
+    input_data: Any,
     config: dict[str, Any],
     on_event: Callable[[dict], None],
     return_on_interrupt: bool = False,
     stream_output: bool = False,
+    continue_on_step_limit: bool = False,
 ) -> dict[str, Any]:
     """
     Run a DeepAgents graph and stream events to our NDJSON contract.
@@ -330,6 +380,8 @@ async def run_and_stream(
     Args (additional):
         return_on_interrupt: If True, return when graph interrupts instead of waiting
         stream_output: Emit top-level LLM text deltas as token events
+        continue_on_step_limit: Preserve the checkpoint and offer continuation
+            when a long run reaches its per-segment recursion limit.
 
     Returns:
         Structured execution outcome. Existing ``interrupted`` and
@@ -355,6 +407,7 @@ async def run_and_stream(
     error_type: str | None = None
     recovery_attempts = 0
     fallback_mode: str | None = None
+    continuation_available = False
     tool_call_names: dict[str, str] = {}
     input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
 
@@ -588,23 +641,41 @@ async def run_and_stream(
                         on_event({"type": "token", "text": text})
 
     except GraphRecursionError as e:
-        # The graph hit RECURSION_LIMIT without reaching a stop condition — i.e.
-        # the agent looped (a degenerating model re-running exploratory tool calls
-        # instead of finishing or calling a terminal tool). Surface a clean,
-        # actionable message instead of the raw GraphRecursionError stack trace,
-        # which reads as a crash to the user.
+        # LangGraph's recursion limit is a superstep budget, not proof of a
+        # repeated action. Long, legitimate Architect runs can reach it while
+        # still making progress. When the caller enabled continuation, retain
+        # the compiled DeepAgents graph and its exact checkpoint so the next
+        # invocation advances from the next pending node with no prompt replay.
         import sys
         import traceback
         print(f"[run_and_stream] GraphRecursionError:\n{traceback.format_exc()}", file=sys.stderr)
-        on_event({
-            "type": "error",
-            "message": (
+
+        if continue_on_step_limit:
+            from ccie_sidecar.agents.deepagents_state import store_interrupted_graph
+
+            store_interrupted_graph(thread_id, graph, config, on_event)
+            continuation_available = True
+            on_event({
+                "type": "continuation_available",
+                "thread_id": thread_id,
+                "reason": "step_limit",
+            })
+            message = (
+                "This run reached its safety step checkpoint while it was still "
+                "working. Its exact DeepAgents progress was preserved. Select "
+                "Continue from last step to resume without replaying completed work."
+            )
+        else:
+            message = (
                 "I got stuck repeating steps and stopped before finishing "
                 "(hit the safety step limit). This usually means I kept "
                 "inspecting or retrying instead of completing the task. No live "
                 "result was returned. Retry the request; if it repeats, check "
                 "the selected platform's API configuration and catalog match."
-            ),
+            )
+        on_event({
+            "type": "error",
+            "message": message,
             "kind": "step_limit",
             "error_type": type(e).__name__,
         })
@@ -644,7 +715,7 @@ async def run_and_stream(
                 "fallback_error_type": getattr(e, "fallback_error_type", None),
             })
 
-    return {
+    outcome = {
         "interrupted": interrupted,
         "thread_id": thread_id,
         "final_emitted": final_text_seen,
@@ -654,6 +725,9 @@ async def run_and_stream(
         "recovery_attempts": recovery_attempts,
         "fallback_mode": fallback_mode,
     }
+    if continuation_available:
+        outcome["continuation_available"] = True
+    return outcome
 
 
 async def run_and_stream_code_exec(

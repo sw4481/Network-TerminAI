@@ -5,11 +5,14 @@ const ptySpawn = vi.fn(async (_arg?: any) => 'pty-1');
 const ptyKill = vi.fn(async (_arg?: any) => {});
 const ptyWrite = vi.fn(async (_id?: any, _bytes?: any) => {});
 const ptyResize = vi.fn(async (_id?: any, _cols?: any, _rows?: any) => {});
+const terminalLaunchSavedSsh = vi.fn(async (_id?: any, _connectionId?: any) => {});
 vi.mock('./tauri', () => ({
   ptySpawn: (arg?: any) => ptySpawn(arg),
   ptyKill: (arg?: any) => ptyKill(arg),
   ptyResize: (id?: any, cols?: any, rows?: any) => ptyResize(id, cols, rows),
   ptyWrite: (id?: any, bytes?: any) => ptyWrite(id, bytes),
+  terminalLaunchSavedSsh: (id?: any, connectionId?: any) =>
+    terminalLaunchSavedSsh(id, connectionId),
 }));
 
 /** Decode the bytes passed to a ptyWrite mock call back into a string. */
@@ -72,6 +75,7 @@ beforeEach(() => {
   ptyKill.mockClear();
   ptyWrite.mockClear();
   ptyResize.mockClear();
+  terminalLaunchSavedSsh.mockClear();
   installFakeXterm();
 });
 
@@ -305,6 +309,33 @@ describe('terminalRegistry session wiring', () => {
     expect(useTerminalConnectionStore.getState().get('t-lifecycle')).toMatchObject({
       lifecycle: 'disconnected', exit_status: 255,
     });
+  });
+
+  it('delegates the saved SSH launch and binding to the backend', async () => {
+    reg.getOrCreate('t-saved-bind', OPTS);
+    await Promise.resolve();
+
+    window.dispatchEvent(new CustomEvent('ssh-connect', {
+      detail: {
+        command: 'ssh admin@core',
+        targetTabId: 'pty-1',
+        connection: {
+          id: 'connection-1',
+          display_name: 'Core',
+          vendor: 'cisco',
+          platform: 'iosxe',
+          accent_color: null,
+          syntax_highlighting_enabled: true,
+          syntax_profile: 'auto',
+        },
+        credentials: { host: 'core', user: 'admin', password: null },
+      },
+    }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(ptyWrite).not.toHaveBeenCalled();
+    expect(terminalLaunchSavedSsh).toHaveBeenCalledWith('pty-1', 'connection-1');
   });
 
   it('exit event disposes the terminal', async () => {

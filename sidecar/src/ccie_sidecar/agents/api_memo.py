@@ -96,8 +96,13 @@ def install_api_memo(globals_dict: Dict[str, Any]) -> int:
     # wrapper->module->wrapper recursion.
     store: Dict[str, str] = globals_dict.setdefault("_ccie_api_memo_store", {})
     wrapped = 0
+    # Zabbix is JSON-RPC: its helper contract is (method, params), while this
+    # HTTP memoizer invokes (method, path, body, query_params). Wrapping it
+    # changes a valid two-argument call into a broken four-argument call.
+    excluded_helpers = {"zabbix_api_call"}
     for gname, fn in list(globals_dict.items()):
         if gname.endswith("_api_call") and callable(fn) \
+                and gname not in excluded_helpers \
                 and not getattr(fn, "_ccie_memoized", False):
             globals_dict[gname] = wrap_api_call(gname, fn, store)
             wrapped += 1

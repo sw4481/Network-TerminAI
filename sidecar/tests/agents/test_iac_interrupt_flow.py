@@ -80,6 +80,84 @@ def test_handle_interrupt_ignores_non_iac():
     assert has_interrupted_graph("thread-x") is False
 
 
+def test_handle_terminal_fix_interrupt_previews_exact_batch_and_stores(monkeypatch):
+    from ccie_sidecar.agents.terminal_agent_tools import register_terminal_context
+
+    thread_id = "thread-terminal-fix"
+    clear_interrupted_graph(thread_id)
+    register_terminal_context(thread_id, {
+        "base_url": "http://127.0.0.1:1/v1",
+        "capability": "opaque",
+        "lease_id": "lease-1",
+        "target": {"backendPtyId": "pty-1"},
+    })
+    captured = {}
+
+    def preview(self, summary, commands, verification_commands, rollback_commands):
+        captured.update({
+            "summary": summary,
+            "commands": commands,
+            "verification_commands": verification_commands,
+            "rollback_commands": rollback_commands,
+        })
+        return {
+            "lease_id": "lease-1",
+            "digest": "digest-1",
+            "target": {"backendPtyId": "pty-1"},
+            "summary": summary,
+            "commands": commands,
+            "verification_commands": verification_commands,
+            "rollback_commands": rollback_commands,
+            "highest_tier": "T1",
+            "per_command_tiers": [{"command": commands[0], "tier": "T1"}],
+        }
+
+    monkeypatch.setattr(
+        "ccie_sidecar.agents.terminal_agent_tools.TerminalGatewayClient.preview_fix",
+        preview,
+    )
+    payload = (_FakeInterrupt({"action_requests": [{
+        "name": "terminal_apply_fix",
+        "args": {
+            "summary": "Fix source interface",
+            "commands": ["ip radius source-interface Vlan10"],
+            "verification_commands": ["show aaa servers"],
+            "rollback_commands": ["no ip radius source-interface Vlan10"],
+        },
+    }]}),)
+    events = []
+    handled = _handle_interrupt(
+        payload,
+        graph=object(),
+        config={"configurable": {"thread_id": thread_id}},
+        thread_id=thread_id,
+        on_event=events.append,
+    )
+
+    assert handled is True
+    assert captured["commands"] == ["ip radius source-interface Vlan10"]
+    assert events == [{
+        "type": "terminal_fix_approval_request",
+        "thread_id": thread_id,
+        "preview": {
+            "lease_id": "lease-1",
+            "digest": "digest-1",
+            "target": {"backendPtyId": "pty-1"},
+            "summary": "Fix source interface",
+            "commands": ["ip radius source-interface Vlan10"],
+            "verification_commands": ["show aaa servers"],
+            "rollback_commands": ["no ip radius source-interface Vlan10"],
+            "highest_tier": "T1",
+            "per_command_tiers": [{
+                "command": "ip radius source-interface Vlan10",
+                "tier": "T1",
+            }],
+        },
+    }]
+    assert has_interrupted_graph(thread_id) is True
+    clear_interrupted_graph(thread_id)
+
+
 def test_run_and_stream_routes_interrupt_to_approval_event():
     """End-to-end (no LLM): run_and_stream must detect a __interrupt__ chunk,
     emit an iac_approval_request, store the graph, and report interrupted.

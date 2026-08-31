@@ -397,6 +397,7 @@ fn build_pty_executor(state: &AppState) -> Arc<dyn PtyExecutor> {
     Arc::new(crate::pty_runner::AppStatePtyExecutor {
         state_db: state.db.clone(),
         ptys: state.ptys.clone(),
+        terminal_agent: state.terminal_agent.clone(),
         waiters: state.block_end_waiters.clone(),
     })
 }

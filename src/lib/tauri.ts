@@ -136,6 +136,10 @@ export async function ptySpawn(opts: {
 export const ptyWrite = (tabId: string, data: Uint8Array) =>
   invoke<void>("pty_write", { tabId, data: Array.from(data) });
 
+/** Register the kernel-observed SSH process launched from a saved connection. */
+export const terminalLaunchSavedSsh = (tabId: string, connectionId: string) =>
+  invoke<void>("terminal_launch_saved_ssh", { tabId, connectionId });
+
 /**
  * Resize a PTY session (update terminal dimensions).
  *
@@ -1171,6 +1175,28 @@ export type IaCClassification = {
   note?: string;
 };
 
+export type TerminalInvestigationPlan = {
+  objective: string;
+  hypotheses: string[];
+  steps: string[];
+  success_criteria: string[];
+};
+
+export type TerminalFixBatch = {
+  summary: string;
+  commands: string[];
+  verification_commands: string[];
+  rollback_commands: string[];
+};
+
+export type TerminalFixPreview = TerminalFixBatch & {
+  lease_id: string;
+  digest: string;
+  target: import("./terminalAgentAttachment").TerminalAttachment;
+  highest_tier: string;
+  per_command_tiers: Array<{ command: string; tier: string }>;
+};
+
 export type ReactEvent =
   | { type: "thought_start"; thought: string; step: number }
   | { type: "tool_call"; name: string; args: unknown; blast_radius: string }
@@ -1179,6 +1205,7 @@ export type ReactEvent =
   | { type: "final"; response: string }
   | DiagramEvent
   | { type: "error"; message: string }
+  | { type: "continuation_available"; thread_id: string; reason: "step_limit" }
   | {
       type: "iac_approval_request";
       thread_id: string;
@@ -1186,7 +1213,28 @@ export type ReactEvent =
       working_dir: string;
       tool: string;
       classification: IaCClassification;
-    };
+    }
+  | {
+      type: "terminal_control_started";
+      lease_id: string;
+      target: import("./terminalAgentAttachment").TerminalAttachment;
+    }
+  | { type: "terminal_investigation_plan"; plan: TerminalInvestigationPlan; updated: boolean }
+  | {
+      type: "terminal_command_start";
+      plan_step_id: string;
+      command: string;
+      purpose: string;
+    }
+  | {
+      type: "terminal_command_result";
+      plan_step_id: string;
+      command: string;
+      success: boolean;
+      result: Record<string, unknown>;
+    }
+  | { type: "terminal_fix_approval_request"; thread_id: string; preview: TerminalFixPreview }
+  | { type: "terminal_lease_ended"; reason: string };
 
 /**
  * Resume an agent paused on a gated iac_apply (IaC Phase 2).
@@ -1194,7 +1242,8 @@ export type ReactEvent =
  */
 export async function agentReactResume(opts: {
   threadId: string;
-  decision: "approve" | "deny";
+  decision: "approve" | "deny" | "edit" | "continue";
+  editedAction?: { name: string; args: TerminalFixBatch };
   streamOutput?: boolean;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
@@ -1203,10 +1252,46 @@ export async function agentReactResume(opts: {
   return invoke<void>("agent_react_resume", {
     threadId: opts.threadId,
     decision: opts.decision,
+    editedAction: opts.editedAction ?? null,
     streamOutput: opts.streamOutput ?? false,
     onEvent: channel,
   });
 }
+
+/** Continue an exact DeepAgents checkpoint without resending the user prompt. */
+export async function agentReactContinue(opts: {
+  threadId: string;
+  streamOutput?: boolean;
+  onEvent: (e: ReactEvent) => void;
+}): Promise<void> {
+  return agentReactResume({
+    threadId: opts.threadId,
+    decision: "continue",
+    streamOutput: opts.streamOutput,
+    onEvent: opts.onEvent,
+  });
+}
+
+export const agentTerminalPreviewFixEdit = (opts: {
+  leaseId: string;
+  batch: TerminalFixBatch;
+}) => invoke<TerminalFixPreview>("agent_terminal_preview_fix_edit", {
+  leaseId: opts.leaseId,
+  batch: opts.batch,
+});
+
+export const agentTerminalApproveFix = (opts: {
+  leaseId: string;
+  digest: string;
+  batch: TerminalFixBatch;
+}) => invoke<void>("agent_terminal_approve_fix", {
+  leaseId: opts.leaseId,
+  digest: opts.digest,
+  batch: opts.batch,
+});
+
+export const agentTerminalCancel = (leaseId: string) =>
+  invoke<void>("agent_terminal_cancel", { leaseId });
 
 /**
  * Run a ReACT agent with attached tools (e.g., Meraki CLI).
@@ -1343,6 +1428,7 @@ export async function agentReactCodeRun(opts: {
   message: string;
   history?: ChatTurn[];
   streamOutput?: boolean;
+  terminalAttachment?: import("./terminalAgentAttachment").TerminalAttachment | null;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
   const channel = new Channel<ReactEvent>();
@@ -1352,6 +1438,7 @@ export async function agentReactCodeRun(opts: {
     message: opts.message,
     history: opts.history ?? [],
     streamOutput: opts.streamOutput ?? false,
+    terminalAttachment: opts.terminalAttachment ?? null,
     onEvent: channel,
   });
 }
@@ -1911,6 +1998,11 @@ export const grafanaSaveConfig = (config: GrafanaConfig) =>
   invoke<void>("grafana_save_config", { config });
 export const grafanaTestConnection = (config: GrafanaConfig) =>
   invoke<VendorTestResult>("grafana_test_connection", { config });
+
+export type ZabbixConfig = { url: string; authMode: "token" | "password"; token: string; username: string; password: string; verifySsl: boolean };
+export const zabbixGetConfig = () => invoke<ZabbixConfig | null>("zabbix_get_config");
+export const zabbixSaveConfig = (config: ZabbixConfig) => invoke<void>("zabbix_save_config", { config });
+export const zabbixTestConnection = (config: ZabbixConfig) => invoke<VendorTestResult>("zabbix_test_connection", { config });
 
 export type PrometheusConfig = {
   url: string;

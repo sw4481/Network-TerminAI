@@ -265,6 +265,22 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
     setContextMenu(null);
   };
 
+  const handleTroubleshootWithArchitect = () => {
+    if (!contextMenu) return;
+    setFocusedPane(paneId);
+    window.dispatchEvent(
+      new CustomEvent('ccie:invoke-agent', {
+        detail: {
+          agentId: 'network-architect',
+          message: 'Troubleshoot this terminal session.',
+          autoSend: false,
+          attachTerminal: true,
+        },
+      }),
+    );
+    setContextMenu(null);
+  };
+
   const handleCopy = async () => {
     if (!contextMenu) return;
     const selection = contextMenu.selection;
@@ -580,6 +596,16 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             🧾 Export redacted scrollback…
+          </button>
+          <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
+          <button
+            onClick={handleTroubleshootWithArchitect}
+            style={menuButtonStyle}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
+            title="Attach this terminal to one Network Architect turn"
+          >
+            🩺 Troubleshoot with Network Architect
           </button>
           <div style={{ borderTop: '1px solid var(--border-default)', margin: '4px 0' }} />
           {contextMenu.selection && contextMenu.selection.trim() && (

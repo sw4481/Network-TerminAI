@@ -182,15 +182,17 @@ async def resume_graph(
     thread_id: str,
     decision: str,
     on_event: Callable[[dict], None],
+    edited_action: dict[str, Any] | None = None,
     stream_output: bool = False,
-) -> None:
+) -> dict[str, Any]:
     """
     Resume an interrupted LangGraph with approval decision.
 
     Args:
         graph: Compiled LangGraph/DeepAgents graph
         thread_id: Thread ID for checkpointer
-        decision: "approve" | "deny"
+        decision: "approve" | "deny" | "edit"
+        edited_action: Exact reviewed tool name and arguments for an edit decision
         on_event: Event callback
         stream_output: Emit top-level model text chunks while resuming
 
@@ -203,10 +205,16 @@ async def resume_graph(
     # action_request. We gate a single iac_apply, so one decision suffices.
     if decision == "approve":
         resume_value = {"decisions": [{"type": "approve"}]}
+    elif decision == "edit":
+        if not isinstance(edited_action, dict):
+            raise ValueError("edit decision requires edited_action")
+        resume_value = {
+            "decisions": [{"type": "edit", "edited_action": edited_action}]
+        }
     else:
         resume_value = {
             "decisions": [
-                {"type": "reject", "message": "User denied the IaC apply."}
+                {"type": "reject", "message": "User denied the proposed action."}
             ]
         }
 
@@ -218,7 +226,7 @@ async def resume_graph(
         # LangGraph will continue from the interrupt point
         config = {"configurable": {"thread_id": thread_id}}
 
-        await run_and_stream(
+        return await run_and_stream(
             graph=graph,
             input_data=Command(resume=resume_value),
             config=config,
@@ -231,6 +239,31 @@ async def resume_graph(
             "type": "error",
             "message": f"Resume error: {str(e)}",
         })
+        raise
+
+
+async def continue_graph(
+    graph: Any,
+    config: dict[str, Any],
+    on_event: Callable[[dict], None],
+    stream_output: bool = False,
+) -> dict[str, Any]:
+    """Advance a checkpointed DeepAgents graph without adding new input.
+
+    Passing ``None`` is LangGraph's checkpoint continuation contract. It runs
+    the next pending node instead of appending a user message or replaying the
+    original request. A second segment boundary is preserved the same way.
+    """
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    return await run_and_stream(
+        graph=graph,
+        input_data=None,
+        config=config,
+        on_event=on_event,
+        stream_output=stream_output,
+        continue_on_step_limit=True,
+    )
 
 
 def log_tool_call(

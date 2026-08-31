@@ -413,6 +413,10 @@ def _build_client_section(
             "  Check status_code < 400 / error is None before trusting data. If error\n"
             "  says 'not configured', tell the user to set Settings → Grafana."
         )
+    if cli_package == "zabbix":
+        return (
+            "- zabbix_api_call(method, params): read-only Zabbix JSON-RPC helper. Use host.get, problem.get, item.get, history.get, trend.get, template.get, and inventory reads; json.loads its envelope and inspect error before data. Do not use requests or config files. For any allowed monitoring change, first read the target then call zabbix_apply(method, params, rationale). That exact payload pauses for operator approval; never attempt a mutation through zabbix_api_call. Blocked: user, role, token, media, script, and action administration. If unconfigured, say Settings → Zabbix."
+        )
     if cli_package == "prometheus":
         return (
             "- prometheus_api_call(method, path, body=None, query_params=None):\n"

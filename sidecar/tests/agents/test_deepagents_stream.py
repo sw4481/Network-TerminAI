@@ -396,6 +396,144 @@ async def test_graph_recursion_error_surfaces_clean_message():
 
 
 @pytest.mark.asyncio
+async def test_graph_recursion_checkpoint_can_be_continued_without_replaying_prompt():
+    """A long Network Architect run must pause with its exact graph state kept.
+
+    The continuation signal is separate from HITL approval and carries only the
+    opaque thread id needed to resume the already-checkpointed DeepAgents graph.
+    """
+    from ccie_sidecar.agents.deepagents_state import (
+        clear_interrupted_graph,
+        retrieve_interrupted_graph,
+    )
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+    from langgraph.errors import GraphRecursionError
+
+    thread_id = "architect-run-checkpoint"
+    clear_interrupted_graph(thread_id)
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        if False:
+            yield None
+        raise GraphRecursionError("segment budget reached")
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    config = {
+        "configurable": {"thread_id": thread_id},
+        "recursion_limit": 60,
+    }
+    events = []
+
+    outcome = await run_and_stream(
+        mock_graph,
+        {"messages": ["original prompt"]},
+        config,
+        events.append,
+        continue_on_step_limit=True,
+    )
+
+    continuation = [e for e in events if e["type"] == "continuation_available"]
+    assert continuation == [
+        {
+            "type": "continuation_available",
+            "thread_id": thread_id,
+            "reason": "step_limit",
+        }
+    ]
+    assert "preserved" in events[-1]["message"].lower()
+    assert outcome["continuation_available"] is True
+
+    saved = retrieve_interrupted_graph(thread_id)
+    assert saved is not None
+    assert saved.graph is mock_graph
+    assert saved.config == config
+
+
+@pytest.mark.asyncio
+async def test_continue_graph_resumes_checkpoint_with_no_new_input():
+    """Continuing sends ``None`` so LangGraph advances from the checkpoint
+    instead of appending or replaying the user's original request."""
+    from ccie_sidecar.agents.deepagents_hitl import continue_graph
+
+    observed = {}
+
+    async def mock_astream(input_data, config, stream_mode, **kwargs):
+        observed["input_data"] = input_data
+        observed["config"] = config
+        yield ((), "updates", {
+            "agent": {"messages": [AIMessage(content="Finished from checkpoint")]},
+        })
+
+    mock_graph = MagicMock()
+    mock_graph.astream = mock_astream
+    config = {
+        "configurable": {"thread_id": "architect-run-checkpoint"},
+        "recursion_limit": 60,
+    }
+    events = []
+
+    outcome = await continue_graph(
+        graph=mock_graph,
+        config=config,
+        on_event=events.append,
+    )
+
+    assert observed == {"input_data": None, "config": config}
+    assert outcome["final_emitted"] is True
+    assert events[-1] == {"type": "final", "response": "Finished from checkpoint"}
+
+
+@pytest.mark.asyncio
+async def test_real_langgraph_checkpoint_advances_after_step_limit():
+    """Integration proof against LangGraph itself, not a mocked resume API."""
+    from typing_extensions import TypedDict
+
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import START, StateGraph
+
+    from ccie_sidecar.agents.deepagents_hitl import continue_graph
+    from ccie_sidecar.agents.deepagents_state import retrieve_interrupted_graph
+    from ccie_sidecar.agents.deepagents_stream import run_and_stream
+
+    class CounterState(TypedDict):
+        count: int
+
+    def increment(state: CounterState):
+        return {"count": state["count"] + 1}
+
+    def route(state: CounterState):
+        return "increment" if state["count"] < 3 else "__end__"
+
+    builder = StateGraph(CounterState)
+    builder.add_node("increment", increment)
+    builder.add_edge(START, "increment")
+    builder.add_conditional_edges("increment", route)
+    graph = builder.compile(checkpointer=InMemorySaver())
+    config = {
+        "configurable": {"thread_id": "real-checkpoint-proof"},
+        "recursion_limit": 2,
+    }
+
+    first = await run_and_stream(
+        graph,
+        {"count": 0},
+        config,
+        lambda _event: None,
+        continue_on_step_limit=True,
+    )
+    assert first["continuation_available"] is True
+    assert graph.get_state(config).values["count"] == 2
+
+    saved = retrieve_interrupted_graph("real-checkpoint-proof")
+    assert saved is not None
+    await continue_graph(saved.graph, saved.config, lambda _event: None)
+
+    assert graph.get_state(config).values["count"] == 3
+    assert graph.get_state(config).next == ()
+
+
+@pytest.mark.asyncio
 async def test_runtime_protocol_error_has_structured_outcome():
     """A malformed response that survives middleware is typed for heartbeats."""
     from ccie_sidecar.agents.deepagents_stream import run_and_stream

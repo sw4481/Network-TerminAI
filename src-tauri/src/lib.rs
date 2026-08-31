@@ -62,6 +62,7 @@ pub mod skills;
 pub mod ssh_exec;
 pub mod structured;
 pub mod tftp;
+pub mod terminal_agent;
 pub mod topology;
 pub mod transcript_export;
 pub mod troubleshoot;
@@ -285,6 +286,10 @@ pub fn run() {
                 use tauri::Manager;
 
                 api.prevent_close();
+                window
+                    .state::<AppState>()
+                    .terminal_agent
+                    .revoke_all("application shutdown");
                 app_lifecycle::request_shutdown(
                     window.app_handle(),
                     &shutdown_for_window_events,
@@ -306,6 +311,7 @@ pub fn run() {
             commands::pty_spawn,
             commands::terminal_detach,
             commands::terminal_detached_window_close,
+            commands::terminal_launch_saved_ssh,
             commands::pty_write,
             commands::pty_resize,
             commands::pty_kill,
@@ -471,6 +477,9 @@ pub fn run() {
             commands::ai::agent_code_exec_run,
             commands::ai::agent_react_code_run,
             commands::ai::agent_react_resume,
+            commands::ai::agent_terminal_preview_fix_edit,
+            commands::ai::agent_terminal_approve_fix,
+            commands::ai::agent_terminal_cancel,
             commands::ssh::ssh_save_connection,
             commands::ssh::ssh_update_connection,
             commands::ssh::ssh_list_connections,
@@ -590,6 +599,9 @@ pub fn run() {
             commands::grafana_get_config,
             commands::grafana_save_config,
             commands::grafana_test_connection,
+            commands::zabbix_get_config,
+            commands::zabbix_save_config,
+            commands::zabbix_test_connection,
             commands::prometheus_get_config,
             commands::prometheus_save_config,
             commands::prometheus_test_connection,
@@ -921,6 +933,14 @@ pub fn run() {
             // Set the Dock icon at runtime so the TerminAI icon shows in dev too
             // (bundle.icon only applies to a built .app). No-op off macOS.
             crate::macos_icon::set_dock_icon();
+
+            let terminal_agent = app.state::<AppState>().terminal_agent.clone();
+            let gateway_url = crate::terminal_agent::gateway::start(
+                app.handle().clone(),
+                terminal_agent,
+            )
+            .map_err(std::io::Error::other)?;
+            tracing::info!(url = %gateway_url, "terminal-agent gateway listening");
 
             // Build and set menu for the main window
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};

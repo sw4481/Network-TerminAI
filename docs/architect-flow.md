@@ -1,5 +1,8 @@
 # Network Architect — actual LangGraph / DeepAgents flow
 
+Zabbix is a configured-vendor specialist: JSON-RPC reads are direct and allowed
+monitoring mutations pause at an exact-payload approval boundary.
+
 This is the real control flow when a user asks the `network-architect` agent a
 question, traced from the code (not idealized). It shows the single decision the
 LLM makes (inline vs `task()` delegation), where the memory read/write hooks sit,

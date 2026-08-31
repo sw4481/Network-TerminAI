@@ -129,6 +129,24 @@ def create_execute_python_code_tool(
             "json.loads(stealthwatch_api_call('GET','/sw-reporting/v1/tenants'))"
             "['data']['data'][0]['id'], then use it in every subsequent path."
         )
+    if cli_package == "zabbix":
+        preloaded_lines.append(
+            "- zabbix_api_call(method, params=None): your ONLY way to make a "
+            "read-only Zabbix JSON-RPC request. It is a pre-loaded global: Do NOT "
+            "import zabbix_api, inspect the helper, use requests, or read configuration "
+            "files. It returns a JSON string; parse and inspect it exactly like this: "
+            "import json; result = json.loads(zabbix_api_call('host.get', "
+            "{'output':['hostid','host','name'],'limit':10})); "
+            "if result['error']: print(result['error']); else: records = result['data']; "
+            "print(type(records).__name__); "
+            "[print(row.get('hostid'), row.get('host'), row.get('name', '')) "
+            "for row in records] if isinstance(records, list) else print(records). "
+            "The envelope is {'status_code': int, 'data': payload, 'error': str|None, "
+            "'blast_radius': 'low'}. JSON-RPC get/list calls normally put a LIST of "
+            "objects directly in result['data']; never use .items() on that list and "
+            "never assume a 'name' key exists. Only zabbix_apply(method, params, rationale) "
+            "may propose an allowed mutation; never call it for a read."
+        )
     if vault_secrets:
         secret_names = ", ".join(vault_secrets.keys())
         preloaded_lines.append(f"- Vault secrets as variables: {secret_names}")

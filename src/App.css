@@ -927,6 +927,59 @@ html, body, #root {
   cursor: not-allowed;
 }
 
+.agent-input .terminal-attach-chip {
+  align-self: center;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.agent-input .terminal-attach-chip.active {
+  background: var(--accent-subtle);
+  border-color: var(--focus-ring);
+}
+
+.terminal-investigation-card,
+.terminal-action-card {
+  margin: 8px 10px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.terminal-investigation-card p,
+.terminal-investigation-card ol {
+  margin: 6px 0;
+}
+
+.terminal-action-list {
+  display: grid;
+  gap: 6px;
+}
+
+.terminal-action-card {
+  display: grid;
+  gap: 4px;
+}
+
+.terminal-action-card > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.terminal-action-card.success {
+  border-color: var(--status-success);
+}
+
+.terminal-action-card.error {
+  border-color: var(--status-error);
+}
+
 /* Tool Approval Modal */
 .tool-approval-modal-overlay {
   position: fixed;

@@ -105,7 +105,16 @@ def build_chat_model(
             raise ValueError("Anthropic API key required (config or ANTHROPIC_API_KEY env var)")
         return ChatAnthropic(
             model=api_model,
-            anthropic_api_key=resolved_key,
+            # ``api_key`` is the current constructor spelling (the client
+            # exposes it as ``anthropic_api_key`` after construction).
+            api_key=resolved_key,
+            # Anthropic's client honors ANTHROPIC_BASE_URL by default. A stale
+            # local proxy route can survive a switch from vLLM and make agent
+            # runs authenticate somewhere other than the official API, while
+            # Settings → Test Connection correctly targets api.anthropic.com.
+            # Cloud-provider Settings intentionally has no custom base URL, so
+            # make the production endpoint explicit here as well.
+            base_url="https://api.anthropic.com",
         )
 
     # OpenAI (includes vllm via base_url override)

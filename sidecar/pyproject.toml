@@ -12,6 +12,9 @@ dependencies = [
     "jsonschema>=4.21",
     "pyang>=2.6.0",
     "requests>=2.31.0",
+    "truststore>=0.10",
+    "cryptography==48.0.0",
+    "pyopenssl==26.2.0",
     "proxmoxer>=2.0",
     # pyATS/Genie ship no Windows wheels (Cisco supports Linux/macOS only), so
     # this is a conditional dependency. On Windows the app builds+runs without

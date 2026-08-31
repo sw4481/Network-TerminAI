@@ -178,3 +178,40 @@
   color: var(--text-primary);
   cursor: not-allowed;
 }
+
+.terminal-fix-approval {
+  max-width: 680px;
+}
+
+.terminal-fix-field {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.terminal-fix-field input,
+.terminal-fix-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font: 12px/1.45 var(--font-mono, monospace);
+  resize: vertical;
+}
+
+.terminal-fix-tiers {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.terminal-fix-tiers > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

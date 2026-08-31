@@ -231,6 +231,8 @@ pub struct PtyEventEnvelope {
 
 pub struct AppState {
     pub ptys: Arc<Mutex<HashMap<String, PtyHandle>>>,
+    /// Capability-scoped Network Architect access to explicitly attached PTYs.
+    pub terminal_agent: Arc<crate::terminal_agent::TerminalAgentManager>,
     pub db: Arc<Mutex<rusqlite::Connection>>,
     pub agent: Arc<AgentBridge>,
     pub mcp_bridge: Arc<crate::mcp::McpBridge>,
@@ -424,6 +426,7 @@ impl AppState {
         let github_auth_manager = Arc::new(crate::git::GitHubAuthManager::production());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
+            terminal_agent: Arc::new(crate::terminal_agent::TerminalAgentManager::default()),
             db: db_arc,
             agent,
             mcp_bridge,
@@ -587,6 +590,7 @@ pub async fn pty_spawn(
     let tab_id = tab.id.clone();
     let db = state.db.clone();
     let block_end_waiters = state.block_end_waiters.clone();
+    let terminal_agent = state.terminal_agent.clone();
     let pane_manager = state.pane_manager.clone();
     let cwd_for_register = cwd.clone();
 
@@ -614,6 +618,9 @@ pub async fn pty_spawn(
         e.to_string()
     })?;
 
+    // Reusing a persisted tab id creates a new PTY generation. Never let a
+    // saved-device identity survive across that boundary.
+    state.terminal_agent.clear_saved_ssh_binding(&tab.id);
     state.ptys.lock().insert(tab.id.clone(), handle);
     tracing::info!(tab_id = %tab.id, "PTY spawned successfully");
 
@@ -629,6 +636,7 @@ pub async fn pty_spawn(
         let mut current_block: Option<String> = None;
         tracing::info!(tab_id = %emit_tab_id, "Event loop started for tab");
         while let Some(ev) = rx.recv().await {
+            terminal_agent.on_pty_event(&emit_tab_id, &ev);
             // Forward PTY events to PaneContextManager for Phase 2 tracking.
             // NOTE: Using tab_id as pane_id temporarily until pane mapping is added.
             // We only emit pane_activity_updated on lifecycle transitions
@@ -805,16 +813,172 @@ pub fn terminal_detached_window_close(app: AppHandle, window_id: String) -> Resu
         .map_err(|error| format!("failed to destroy detached terminal window: {error}"))
 }
 
+const SYSTEM_SSH_BINARY: &str = "/usr/bin/ssh";
+
+fn shell_quote(value: &str) -> String {
+    if value
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || "_@%+=:,./-".contains(character))
+    {
+        return value.to_string();
+    }
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn build_saved_ssh_argv(
+    host: &str,
+    user: Option<&str>,
+    port: Option<i64>,
+    identity_file: Option<&str>,
+) -> Vec<String> {
+    let destination = user
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("{value}@{host}"))
+        .unwrap_or_else(|| host.to_string());
+    let mut parts = vec![
+        SYSTEM_SSH_BINARY.to_string(),
+        "-p".to_string(),
+        port.unwrap_or(22).to_string(),
+        "-o".to_string(),
+        format!("HostName={host}"),
+    ];
+    if let Some(identity_file) = identity_file.filter(|value| !value.is_empty()) {
+        parts.push("-i".to_string());
+        parts.push(identity_file.to_string());
+    }
+    // End option parsing before the destination. Saved fields are shell-quoted,
+    // and `--` also prevents a leading dash in an imported user/host value from
+    // being reinterpreted as another OpenSSH option.
+    parts.push("--".to_string());
+    parts.push(destination);
+    parts
+}
+
+fn build_saved_ssh_command(argv: &[String]) -> String {
+    argv.iter()
+        .map(|argument| shell_quote(argument))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn matches_saved_ssh_process(executable: &str, argv: &[String], expected_argv: &[String]) -> bool {
+    executable == SYSTEM_SSH_BINARY && argv == expected_argv
+}
+
+/// Launch a saved SSH connection from backend-owned database fields, then bind
+/// its kernel-observed process generation. The renderer never supplies or
+/// writes the command and therefore cannot attest a different endpoint.
+#[tauri::command]
+pub async fn terminal_launch_saved_ssh(
+    state: State<'_, AppState>,
+    tab_id: String,
+    connection_id: String,
+) -> Result<(), String> {
+    let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+    let saved: Option<(String, Option<String>, Option<i64>, Option<String>)> = state
+        .db
+        .lock()
+        .query_row(
+            "SELECT host, user, port, identity_file FROM ssh_connections WHERE id = ?1",
+            rusqlite::params![&connection_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    let (host, user, port, identity_file) =
+        saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
+    let expected_argv = build_saved_ssh_argv(
+        &host,
+        user.as_deref(),
+        port,
+        identity_file.as_deref(),
+    );
+    let command = build_saved_ssh_command(&expected_argv);
+
+    #[cfg(target_os = "macos")]
+    {
+        state
+            .terminal_agent
+            .revoke_for_pty(&validated_tab_id, "user takeover");
+        let (launch_nonce, baseline_process_group_id) = state
+            .terminal_agent
+            .begin_saved_ssh_launch_and_write(&validated_tab_id, || {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(&validated_tab_id)
+                    .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
+                let (process_group_id, executable, _) = handle
+                    .foreground_process_identity()
+                    .ok_or_else(|| "could not verify the terminal foreground process".to_string())?;
+                let executable = executable
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or("")
+                    .trim_start_matches('-');
+                if !matches!(executable, "zsh" | "bash" | "sh" | "fish" | "nu" | "pwsh") {
+                    return Err("saved SSH launch requires a verified local shell prompt".into());
+                }
+                // Clear any partially typed prompt input, then submit the one
+                // backend-owned command while competing PTY writes are locked out.
+                handle
+                    .write(format!("\u{3}{command}\r").as_bytes())
+                    .map_err(|error| error.to_string())?;
+                Ok(process_group_id)
+            })?;
+        for _ in 0..100 {
+            let identity = {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(&validated_tab_id)
+                    .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
+                handle.foreground_process_identity()
+            };
+            if let Some((process_group_id, executable, argv)) = identity {
+                if process_group_id != baseline_process_group_id
+                    && matches_saved_ssh_process(&executable, &argv, &expected_argv)
+                {
+                    state.terminal_agent.complete_saved_ssh_launch(
+                        &validated_tab_id,
+                        &launch_nonce,
+                        &connection_id,
+                        process_group_id,
+                    )?;
+                    return Ok(());
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+        state
+            .terminal_agent
+            .cancel_saved_ssh_launch(&validated_tab_id);
+        Err("could not verify the saved SSH process in the focused PTY".into())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (validated_tab_id, connection_id);
+        Err("saved SSH terminal verification is not supported on this OS".into())
+    }
+}
+
 #[tauri::command]
 pub fn pty_write(state: State<'_, AppState>, tab_id: String, data: Vec<u8>) -> Result<(), String> {
     // Validate tab_id to prevent injection
     let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
 
-    let ptys = state.ptys.lock();
-    let h = ptys
-        .get(&validated_tab_id)
-        .ok_or_else(|| "tab not found".to_string())?;
-    h.write(&data).map_err(|e| e.to_string())
+    // Human input always wins. Revoke before writing, but never swallow the
+    // operator's keystroke.
+    state
+        .terminal_agent
+        .revoke_for_pty(&validated_tab_id, "user takeover");
+    state
+        .terminal_agent
+        .cancel_saved_ssh_launch_and_write(&validated_tab_id, || {
+            let ptys = state.ptys.lock();
+            let h = ptys
+                .get(&validated_tab_id)
+                .ok_or_else(|| "tab not found".to_string())?;
+            h.write(&data).map_err(|e| e.to_string())
+        })
 }
 
 #[tauri::command]
@@ -839,6 +1003,12 @@ pub fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String
     // Validate tab_id
     let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
 
+    state
+        .terminal_agent
+        .revoke_for_pty(&validated_tab_id, "PTY closed");
+    state
+        .terminal_agent
+        .clear_saved_ssh_binding(&validated_tab_id);
     let h = state.ptys.lock().remove(&validated_tab_id);
     if let Some(h) = h {
         let _ = h.kill();
@@ -1910,17 +2080,26 @@ pub fn api_pipe_to_terminal(
         ));
     }
 
-    let ptys = state.ptys.lock();
-    let handle = ptys
-        .get(&validated)
-        .ok_or_else(|| "terminal pty not running".to_string())?;
+    // API Runner injection is operator-originated input and must take over the
+    // PTY exactly like keyboard input before any bytes are written.
+    state
+        .terminal_agent
+        .revoke_for_pty(&validated, "user takeover");
     // Ensure a trailing newline so the shell actually runs it. If the user
     // already included one, don't add a second.
     let mut bytes = text.into_bytes();
     if !bytes.ends_with(b"\n") {
         bytes.push(b'\n');
     }
-    handle.write(&bytes).map_err(|e| e.to_string())
+    state
+        .terminal_agent
+        .cancel_saved_ssh_launch_and_write(&validated, || {
+            let ptys = state.ptys.lock();
+            let handle = ptys
+                .get(&validated)
+                .ok_or_else(|| "terminal pty not running".to_string())?;
+            handle.write(&bytes).map_err(|e| e.to_string())
+        })
 }
 
 /// Queue a user message into the AI chat for a target tab. The AI chat is
@@ -2688,6 +2867,10 @@ async fn execute_shell_tool(
         _ => return (None, "[no command in payload]".to_string()),
     };
 
+    state
+        .terminal_agent
+        .revoke_for_pty(tab_id, "user takeover");
+
     // Capture scrollback length BEFORE writing, so we can diff after.
     let scrollback_start = {
         let db = state.db.lock();
@@ -2706,17 +2889,20 @@ async fn execute_shell_tool(
         .push(tx);
 
     // Write `cmd + \r` to the PTY
-    {
-        let ptys = state.ptys.lock();
-        let h = match ptys.get(tab_id) {
-            Some(h) => h,
-            None => return (None, "[tab not found — agent cannot execute]".to_string()),
-        };
+    let write_result = state
+        .terminal_agent
+        .cancel_saved_ssh_launch_and_write(tab_id, || {
+            let ptys = state.ptys.lock();
+            let h = ptys
+                .get(tab_id)
+                .ok_or_else(|| "tab not found — agent cannot execute".to_string())?;
         let mut bytes = cmd.as_bytes().to_vec();
         bytes.push(b'\r');
-        if let Err(e) = h.write(&bytes) {
-            return (None, format!("[pty write failed: {e}]"));
-        }
+            h.write(&bytes)
+                .map_err(|error| format!("pty write failed: {error}"))
+        });
+    if let Err(error) = write_result {
+        return (None, format!("[{error}]"));
     }
 
     // Quiet-period detector: polls scrollback length until we see the scrollback
@@ -3773,16 +3959,8 @@ pub async fn ai_list_models(
 ) -> Result<Vec<String>, String> {
     match provider.as_str() {
         "anthropic" => {
-            // Anthropic doesn't have a models API, return known models
-            Ok(vec![
-                "claude-opus-4-20250514".to_string(),
-                "claude-sonnet-4-20250514".to_string(),
-                "claude-sonnet-3-5-20241022".to_string(),
-                "claude-3-5-sonnet-20240620".to_string(),
-                "claude-3-opus-20240229".to_string(),
-                "claude-3-sonnet-20240229".to_string(),
-                "claude-3-haiku-20240307".to_string(),
-            ])
+            let key = api_key.ok_or("API key required for Anthropic")?;
+            fetch_anthropic_models(&key).await
         }
         "openai" => {
             let key = api_key.ok_or("API key required for OpenAI")?;
@@ -3811,6 +3989,42 @@ pub async fn ai_list_models(
         }
         _ => Err(format!("Unknown provider: {}", provider)),
     }
+}
+
+async fn fetch_anthropic_models(api_key: &str) -> Result<Vec<String>, String> {
+    fetch_anthropic_models_from_url("https://api.anthropic.com", api_key).await
+}
+
+/// Fetches the live Anthropic Models API. Kept separately from the production
+/// URL so the request contract can be tested without reaching an external API.
+async fn fetch_anthropic_models_from_url(
+    api_base_url: &str,
+    api_key: &str,
+) -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/v1/models?limit=1000", api_base_url.trim_end_matches('/'));
+    let response = client
+        .get(&url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Anthropic models: {e}"))?
+        .error_for_status()
+        .map_err(|e| format!("Anthropic models API returned an error: {e}"))?;
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Anthropic models response: {e}"))?;
+
+    let models = json["data"]
+        .as_array()
+        .ok_or_else(|| "Invalid Anthropic models response format".to_string())?
+        .iter()
+        .filter_map(|model| model["id"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    Ok(models)
 }
 
 async fn fetch_openai_models(api_key: &str) -> Result<Vec<String>, String> {
@@ -5884,6 +6098,24 @@ pub async fn grafana_test_connection(
 
 // ---- Prometheus ------------------------------------------------------------
 
+// ---- Zabbix ----------------------------------------------------------------
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZabbixConfig { pub url: String, pub auth_mode: String, pub token: String, pub username: String, pub password: String, pub verify_ssl: bool }
+#[tauri::command]
+pub async fn zabbix_get_config(state: State<'_, AppState>) -> Result<Option<ZabbixConfig>, String> {
+ let conn = state.db.lock(); conn.query_row("SELECT url, auth_mode, token, username, password, verify_ssl FROM zabbix_config WHERE id=1", [], |r| Ok(ZabbixConfig { url:r.get(0)?, auth_mode:r.get(1)?, token:r.get(2)?, username:r.get(3)?, password:r.get(4)?, verify_ssl:r.get::<_,i64>(5)? == 1 })).optional().map_err(|e|e.to_string())
+}
+#[tauri::command]
+pub async fn zabbix_save_config(state: State<'_, AppState>, mut config: ZabbixConfig) -> Result<(), String> {
+ if config.auth_mode == "token" { config.username.clear(); config.password.clear(); } else { config.token.clear(); }
+ state.db.lock().execute("INSERT OR REPLACE INTO zabbix_config (id,url,auth_mode,token,username,password,verify_ssl) VALUES (1,?1,?2,?3,?4,?5,?6)", rusqlite::params![config.url,config.auth_mode,config.token,config.username,config.password,if config.verify_ssl {1}else{0}]).map_err(|e|e.to_string())?; Ok(())
+}
+#[tauri::command]
+pub async fn zabbix_test_connection(state: State<'_, AppState>, config: ZabbixConfig) -> Result<VendorTestResult, String> {
+ let resp=state.agent.call("zabbix.test_connection", serde_json::json!({"config":{"url":config.url,"auth_mode":config.auth_mode,"token":config.token,"username":config.username,"password":config.password,"verify_ssl":config.verify_ssl}})).await.map_err(|e|e.to_string())?; unwrap_test_result(resp)
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrometheusConfig {
@@ -7694,6 +7926,63 @@ pub mod workflows_seed;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn anthropic_model_refresh_uses_live_models_api() {
+        use wiremock::matchers::{header, method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/models"))
+            .and(query_param("limit", "1000"))
+            .and(header("x-api-key", "test-key"))
+            .and(header("anthropic-version", "2023-06-01"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(
+                r#"{"data":[{"id":"claude-live-new"},{"id":"claude-live-other"}]}"#,
+            ))
+            .mount(&server)
+            .await;
+
+        let models = fetch_anthropic_models_from_url(&server.uri(), "test-key")
+            .await
+            .expect("live Anthropic model list");
+        assert_eq!(models, vec!["claude-live-new", "claude-live-other"]);
+    }
+
+    #[test]
+    fn saved_ssh_launch_is_built_only_from_inventory_fields() {
+        let argv = build_saved_ssh_argv(
+            "switch.example",
+            Some("admin"),
+            Some(2222),
+            Some("/keys/lab key"),
+        );
+        assert_eq!(
+            argv,
+            vec![
+                "/usr/bin/ssh",
+                "-p",
+                "2222",
+                "-o",
+                "HostName=switch.example",
+                "-i",
+                "/keys/lab key",
+                "--",
+                "admin@switch.example",
+            ]
+        );
+        assert_eq!(build_saved_ssh_command(&argv), "/usr/bin/ssh -p 2222 -o HostName=switch.example -i '/keys/lab key' -- admin@switch.example");
+        assert!(matches_saved_ssh_process(SYSTEM_SSH_BINARY, &argv, &argv));
+        assert!(!matches_saved_ssh_process("/tmp/ssh", &argv, &argv));
+        let mut redirected = argv.clone();
+        redirected[4] = "HostName=other.example".into();
+        assert!(!matches_saved_ssh_process(
+            SYSTEM_SSH_BINARY,
+            &redirected,
+            &argv,
+        ));
+    }
 
     #[test]
     fn test_stealthwatch_get_config_returns_none_when_empty() {

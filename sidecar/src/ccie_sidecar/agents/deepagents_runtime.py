@@ -181,6 +181,28 @@ def _is_iac_agent(cli_package: str | None) -> bool:
     return cli_package == "iac"
 
 
+def _zabbix_runtime_middleware(cli_package: str | None) -> list:
+    """Bound Zabbix inspection loops without changing any other agent.
+
+    The approval tool is deliberately not limited: after six read/code calls the
+    model can still submit the exact mutation through ``zabbix_apply``. The
+    middleware reports the exhausted read budget back to the model instead of
+    ending the graph before it can make that proposal.
+    """
+    if cli_package != "zabbix":
+        return []
+
+    from langchain.agents.middleware import ToolCallLimitMiddleware
+
+    return [
+        ToolCallLimitMiddleware(
+            tool_name="execute_python_code",
+            run_limit=6,
+            exit_behavior="continue",
+        )
+    ]
+
+
 def _iac_extra_tools() -> list:
     """The extra tools an IaC agent gets beyond execute_python_code:
     the gated iac_apply plus the Phase 4 NL codegen tools. Factored out so the
@@ -195,6 +217,33 @@ def _iac_extra_tools() -> list:
         build_terraform_codegen_tool(),
         build_ansible_codegen_tool(),
     ]
+
+
+def _terminal_tools_for_turn(
+    agent_id: str,
+    ctx: dict | None,
+    emit: Callable[[dict], None],
+) -> tuple[list, str]:
+    """Return terminal tools only for an explicitly attached Architect turn."""
+    raw_terminal_context = (ctx or {}).get("terminal_context")
+    terminal_context = raw_terminal_context if isinstance(raw_terminal_context, dict) else None
+    if agent_id != "network-architect" or not isinstance(terminal_context, dict):
+        return [], ""
+
+    from ccie_sidecar.agents.terminal_agent_tools import (
+        build_terminal_tools,
+        register_terminal_context,
+        terminal_routing_contract,
+    )
+
+    thread_id = str(terminal_context.get("turn_id") or "")
+    if not thread_id:
+        return [], ""
+    register_terminal_context(thread_id, terminal_context)
+    return (
+        build_terminal_tools(terminal_context, emit),
+        terminal_routing_contract("", terminal_context),
+    )
 
 
 IAC_CODEGEN_GUIDANCE = """
@@ -237,6 +286,38 @@ def _get_checkpointer() -> "InMemorySaver":
     from langgraph.checkpoint.memory import InMemorySaver
 
     return InMemorySaver()
+
+
+def _continuation_options(
+    agent_id: str,
+    ctx: dict | None,
+) -> tuple[dict[str, Any], str, bool]:
+    """Return checkpoint settings for ordinary Network Architect turns only.
+
+    Approval-gated specialists already have their own interrupt/resume paths.
+    Keeping this scoped to Network Architect avoids changing any other agent's
+    lifetime or state semantics.
+    """
+    if agent_id != "network-architect":
+        return {}, "default", False
+
+    terminal_turn_id = str(
+        (((ctx or {}).get("terminal_context") or {}).get("turn_id")) or ""
+    )
+    # Attached-terminal turns already have a lease-bound approval lifecycle.
+    # Keep that established path unchanged; this fix targets ordinary chat
+    # investigations such as the Grafana/Zabbix run that reached the step cap.
+    if terminal_turn_id:
+        return {}, terminal_turn_id, False
+
+    run_id = str((ctx or {}).get("run_id") or "")
+    thread_id = run_id
+    if not thread_id:
+        import uuid
+
+        thread_id = str(uuid.uuid4())
+
+    return {"checkpointer": _get_checkpointer()}, thread_id, True
 
 
 async def deepagents_code_exec_loop(
@@ -526,6 +607,7 @@ async def deepagents_react_code_loop(
 
     recovery_telemetries: list[ModelRecoveryTelemetry] = []
     outcome: dict[str, Any] | None = None
+    terminal_context = (ctx or {}).get("terminal_context")
 
     def new_recovery_middleware(
         policy: AgentExecutionPolicy,
@@ -564,10 +646,15 @@ async def deepagents_react_code_loop(
         def emit_custom(event: dict) -> None:
             on_event(event)
 
-        is_architect = (agent_def.get("agent_id") or agent_def.get("name")) == "network-architect"
+        agent_id = agent_def.get("agent_id") or agent_def.get("name") or ""
+        is_architect = agent_id == "network-architect"
         focused_api_mode = bool(agent_def.get("focused_api_mode"))
 
         graph_kwargs: dict = {}
+        continuation_kwargs, graph_thread_id, continue_on_step_limit = (
+            _continuation_options(agent_id, ctx)
+        )
+        graph_kwargs.update(continuation_kwargs)
         extra_middleware: list = []
         arch_configured_ids: list = []
         arch_routing_hint = ""
@@ -632,6 +719,14 @@ async def deepagents_react_code_loop(
             # catalogs remain in memory; only bounded matches enter context.
             tools.insert(0, catalog_search_tool)
 
+        terminal_tools, terminal_routing_prompt = _terminal_tools_for_turn(
+            agent_id, ctx, emit_custom
+        )
+        if terminal_tools:
+            tools.extend(terminal_tools)
+            graph_kwargs["interrupt_on"] = {"terminal_apply_fix": True}
+            graph_kwargs.setdefault("checkpointer", _get_checkpointer())
+
         if _is_iac_agent(cli_package):
             from ccie_sidecar.agents.deepagents_middleware import HideBuiltinFsToolsMiddleware
             # iac_apply (gated) + Phase 4 NL codegen tools.
@@ -645,6 +740,13 @@ async def deepagents_react_code_loop(
             # it loops forever. Strip those tools — the IaC agent works through
             # execute_python_code (real subprocess) + the gated iac_apply.
             extra_middleware.append(HideBuiltinFsToolsMiddleware())
+
+        if cli_package == "zabbix":
+            from ccie_sidecar.agents.zabbix_tools import build_zabbix_apply_tool
+            tools.append(build_zabbix_apply_tool())
+            graph_kwargs["interrupt_on"] = {"zabbix_apply": True}
+            graph_kwargs["checkpointer"] = _get_checkpointer()
+            extra_middleware.extend(_zabbix_runtime_middleware(cli_package))
 
         if focused_api_mode:
             from ccie_sidecar.agents.deepagents_middleware import FocusedApiToolsMiddleware
@@ -707,6 +809,10 @@ async def deepagents_react_code_loop(
         # "" when the question names no configured vendor).
         if arch_routing_hint:
             system_prompt = arch_routing_hint + "\n\n" + system_prompt
+        # The explicit per-turn terminal attachment wins over the Architect's
+        # ordinary vendor keyword routing (for example RADIUS -> ISE API).
+        if terminal_routing_prompt:
+            system_prompt = system_prompt + "\n\n" + terminal_routing_prompt
         graph = create_deep_agent(
             model=chat_model,
             tools=tools,
@@ -753,11 +859,12 @@ async def deepagents_react_code_loop(
             graph=graph,
             input_data=input_data,
             config={
-                "configurable": {"thread_id": "default"},
+                "configurable": {"thread_id": graph_thread_id},
                 "recursion_limit": RECURSION_LIMIT,
             },
             on_event=wrapped_on_event,
             stream_output=stream_output,
+            continue_on_step_limit=continue_on_step_limit,
         )
         # Post-final: distill a lesson if this turn recovered from an error.
         # The user's answer already streamed, so this adds no answer latency.
@@ -768,6 +875,9 @@ async def deepagents_react_code_loop(
         outcome["recovery_attempts"] = recovery_attempts
         if recovery_attempts:
             outcome["fallback_mode"] = "non_streaming_model_call"
+        if terminal_context and not outcome.get("interrupted"):
+            from ccie_sidecar.agents.terminal_agent_tools import remove_terminal_context
+            remove_terminal_context(str(terminal_context.get("turn_id") or ""))
         return outcome
 
     except Exception as e:
@@ -786,7 +896,9 @@ async def deepagents_react_code_loop(
         )
         failed_outcome = {
             "interrupted": False,
-            "thread_id": "default",
+            "thread_id": str(
+                ((ctx or {}).get("terminal_context") or {}).get("turn_id") or "default"
+            ),
             "final_emitted": False,
             "steps": 0,
             "error_kind": None,
@@ -805,4 +917,7 @@ async def deepagents_react_code_loop(
                 ),
             }
         )
+        if terminal_context:
+            from ccie_sidecar.agents.terminal_agent_tools import remove_terminal_context
+            remove_terminal_context(str(terminal_context.get("turn_id") or ""))
         return failed_outcome

@@ -157,6 +157,7 @@ async fn run_change_snapshot(
     let executor: Arc<dyn crate::notebooks::runner::PtyExecutor> = Arc::new(AppStatePtyExecutor {
         state_db: state.db.clone(),
         ptys: state.ptys.clone(),
+        terminal_agent: state.terminal_agent.clone(),
         waiters: state.block_end_waiters.clone(),
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =
@@ -243,6 +244,7 @@ pub async fn change_run_post_and_report(
     let executor: Arc<dyn crate::notebooks::runner::PtyExecutor> = Arc::new(AppStatePtyExecutor {
         state_db: state.db.clone(),
         ptys: state.ptys.clone(),
+        terminal_agent: state.terminal_agent.clone(),
         waiters: state.block_end_waiters.clone(),
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =

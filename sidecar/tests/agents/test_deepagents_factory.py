@@ -15,11 +15,12 @@ from ccie_sidecar.providers.langchain_factory import build_chat_model
 @pytest.mark.parametrize(
     "provider,model,expected_class,expected_model",
     [
-        # Anthropic - alias resolution
-        ("anthropic", "claude-sonnet-4-6", ChatAnthropic, "claude-sonnet-4-20250514"),
-        ("anthropic", "claude-opus-4-7", ChatAnthropic, "claude-opus-4-20250514"),
-        ("anthropic", "claude-haiku-4-5", ChatAnthropic, "claude-haiku-4-20250514"),
-        # Anthropic - passthrough for unknown model
+        # Anthropic - current IDs are returned live by its Models API and
+        # must be forwarded unchanged.
+        ("anthropic", "claude-sonnet-4-6", ChatAnthropic, "claude-sonnet-4-6"),
+        ("anthropic", "claude-opus-4-7", ChatAnthropic, "claude-opus-4-7"),
+        ("anthropic", "claude-haiku-4-5", ChatAnthropic, "claude-haiku-4-5"),
+        # Anthropic - passthrough for any other valid model ID
         ("anthropic", "claude-3-opus-20240229", ChatAnthropic, "claude-3-opus-20240229"),
 
         # OpenAI - alias resolution
@@ -77,6 +78,25 @@ def test_vllm_base_url_normalization():
     assert isinstance(chat_model, ChatOpenAI)
     # LangChain ChatOpenAI stores base_url in openai_api_base
     assert chat_model.openai_api_base == "http://localhost:8000/v1"
+
+
+def test_anthropic_uses_the_saved_api_key():
+    """DeepAgents must pass the persisted credential to ChatAnthropic.
+
+    Guard the actual client field and endpoint so a Settings-tested key is the
+    one sent to Anthropic, not an inherited local proxy left over from another
+    provider configuration.
+    """
+    chat_model = build_chat_model(
+        {
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-6",
+            "api_key": "saved-anthropic-key",
+        }
+    )
+
+    assert chat_model.anthropic_api_key.get_secret_value() == "saved-anthropic-key"
+    assert chat_model.anthropic_api_url == "https://api.anthropic.com"
 
 
 def test_vllm_base_url_already_has_v1():
@@ -261,7 +281,7 @@ def test_model_override():
     assert isinstance(chat_model, ChatAnthropic)
     # Should use haiku, not sonnet
     actual_model = getattr(chat_model, 'model_name', None) or getattr(chat_model, 'model', None)
-    assert actual_model == "claude-haiku-4-20250514"
+    assert actual_model == "claude-haiku-4-5"
 
 
 def test_model_override_with_provider_change():

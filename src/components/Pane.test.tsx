@@ -94,6 +94,28 @@ describe('Pane activity indicator wiring', () => {
   });
 });
 
+describe('Pane Network Architect terminal action', () => {
+  it('dispatches an explicitly attached Network Architect request for this pane', () => {
+    const listener = vi.fn();
+    window.addEventListener('ccie:invoke-agent', listener);
+    const { container, getByRole } = render(
+      <Pane paneId="pane-abc" terminalId="tab-xyz-pty" shell="/bin/zsh" cwd="/home" />,
+    );
+
+    fireEvent.contextMenu(container.firstElementChild as Element, { clientX: 20, clientY: 20 });
+    fireEvent.click(getByRole('button', { name: /Troubleshoot with Network Architect/i }));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({
+      agentId: 'network-architect',
+      message: 'Troubleshoot this terminal session.',
+      autoSend: false,
+      attachTerminal: true,
+    });
+    window.removeEventListener('ccie:invoke-agent', listener);
+  });
+});
+
 describe('Pane saved SSH reconnect UI', () => {
   beforeEach(() => {
     reconnectMock.mockClear();

@@ -1,5 +1,6 @@
 """Tests for the netclaw-inspired integrations (grafana/prometheus/netbox/
 sketchfab/devnet/fwrule) — binding, envelope shape, blast radius, offline analysis."""
+import warnings
 from unittest.mock import Mock, patch
 
 
@@ -18,6 +19,7 @@ def test_credentialed_helpers_bind_by_cli_package():
     from ccie_sidecar.agents.code_exec import _build_sandbox_globals
     cases = {
         "grafana": "grafana_api_call",
+        "zabbix": "zabbix_api_call",
         "prometheus": "prometheus_api_call",
         "netbox": "netbox_api_call",
         "sketchfab": "sketchfab_api_call",
@@ -37,6 +39,151 @@ def test_grafana_unconfigured_envelope():
     assert out["data"] is None
     assert "not configured" in out["error"]
     assert out["blast_radius"] == "low"
+
+
+def test_zabbix_url_auth_and_write_classification():
+    from ccie_sidecar.zabbix import ZabbixClient, _normalise_url, _risk_for_method
+
+    assert _normalise_url("https://z.example/zabbix") == "https://z.example/zabbix/api_jsonrpc.php"
+    assert _normalise_url("https://z.example/api_jsonrpc.php") == "https://z.example/api_jsonrpc.php"
+    assert _risk_for_method("host.get") == "low"
+    assert _risk_for_method("host.create") == "medium"
+    assert _risk_for_method("host.delete") == "high"
+    assert _risk_for_method("user.get") is None
+    assert "not configured" in ZabbixClient({}).call("host.get", {})["error"]
+
+
+def test_zabbix_token_uses_bearer_and_redacts_rpc_errors():
+    from ccie_sidecar.zabbix import ZabbixClient, redact_params
+    client = ZabbixClient({"url": "https://z.example", "auth_mode": "token", "token": "very-secret"})
+    fake = Mock(status_code=200)
+    fake.json.return_value = {"jsonrpc": "2.0", "error": {"code": -32602, "message": "bad", "data": "very-secret"}}
+    with patch.object(client, "_ensure_session") as sess:
+        sess.return_value.post.return_value = fake
+        out = client.call("host.get", {})
+        headers = sess.return_value.post.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer very-secret"
+    assert "very-secret" not in out["error"]
+    assert out["status_code"] == 200
+    assert redact_params({"password": "x", "nested": [{"token": "y"}]}) == {"password": "[REDACTED]", "nested": [{"token": "[REDACTED]"}]}
+
+
+def test_zabbix_disabled_tls_verification_does_not_emit_a_warning():
+    """An intentional verify_ssl=False setting must not look like an agent error."""
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    from ccie_sidecar.zabbix import ZabbixClient
+
+    client = ZabbixClient({"url": "https://z.example", "verify_ssl": False})
+    response = Mock(status_code=200)
+    response.json.return_value = {"jsonrpc": "2.0", "result": "7.0.0"}
+
+    def post(*_args, **_kwargs):
+        warnings.warn("unverified", InsecureRequestWarning)
+        return response
+
+    with patch.object(client, "_ensure_session") as session, warnings.catch_warnings(record=True) as emitted:
+        warnings.simplefilter("always")
+        session.return_value.post.side_effect = post
+        result = client._request("apiinfo.version", {})
+
+    assert result["data"] == "7.0.0"
+    assert not any(issubclass(item.category, InsecureRequestWarning) for item in emitted)
+
+
+def test_zabbix_string_false_disables_tls_verification():
+    """Serialized Settings values must not make bool('false') verify TLS."""
+    from ccie_sidecar.zabbix import ZabbixClient
+
+    client = ZabbixClient({"url": "https://z.example", "verify_ssl": "false"})
+    response = Mock(status_code=200)
+    response.json.return_value = {"jsonrpc": "2.0", "result": "7.0.0"}
+    with patch.object(client, "_ensure_session") as session:
+        session.return_value.post.return_value = response
+        client._request("apiinfo.version", {})
+
+    assert session.return_value.post.call_args.kwargs["verify"] is False
+
+
+def test_zabbix_disabled_tls_uses_transport_independent_of_system_truststore():
+    """The sidecar's global truststore injection must not re-enable TLS checks
+    for a Zabbix connection explicitly saved with Verify SSL disabled."""
+    import ssl
+
+    from ccie_sidecar.zabbix import ZabbixClient
+
+    client = ZabbixClient({"url": "https://z.example", "verify_ssl": False})
+    adapter = client._ensure_session().get_adapter("https://z.example")
+    context = adapter.poolmanager.connection_pool_kw.get("ssl_context")
+
+    assert context is not None
+    assert context.check_hostname is False
+    assert context.verify_mode == ssl.CERT_NONE
+
+
+def test_zabbix_http_budget_finishes_before_sandbox_and_retries_connect_only():
+    """A transient TCP failure must get one bounded retry, while read failures
+    and sent POST requests are never replayed. The HTTP request must also return
+    before the surrounding 30-second code sandbox kills the tool result."""
+    from ccie_sidecar.zabbix import ZabbixClient
+
+    client = ZabbixClient({"url": "https://z.example", "verify_ssl": False})
+    session = client._ensure_session()
+    adapter = session.get_adapter("https://z.example")
+
+    assert adapter.max_retries.connect == 1
+    assert adapter.max_retries.read == 0
+    assert adapter.max_retries.status == 0
+    assert "POST" in adapter.max_retries.allowed_methods
+
+    response = Mock(status_code=200)
+    response.json.return_value = {"jsonrpc": "2.0", "result": "7.0.0"}
+    with patch.object(session, "post", return_value=response) as post:
+        result = client._request("apiinfo.version", {})
+
+    assert result["error"] is None
+    assert post.call_args.kwargs["timeout"] == (5, 15)
+
+
+def test_zabbix_json_rpc_helper_is_not_wrapped_as_an_http_catalog_call():
+    """The shared catalog guard's (method, path) contract cannot represent
+    JSON-RPC (method, params), and previously blocked every host.get."""
+    from ccie_sidecar.agents.code_exec import _build_sandbox_globals
+    sandbox = _build_sandbox_globals(
+        "zabbix", {}, emit=lambda _e: None,
+        catalogs=[{"id": "zabbix", "entries": [{"name": "zabbix_api_call"}]}],
+    )
+    assert not getattr(sandbox["zabbix_api_call"], "__catalog_guarded__", False)
+
+
+def test_zabbix_execute_tool_describes_preloaded_json_rpc_shape():
+    """The model needs an executable contract at the tool boundary, not just
+    agent prose, so it does not import helper modules or guess payload shapes."""
+    from ccie_sidecar.agents.deepagents_tools import create_execute_python_code_tool
+
+    tool = create_execute_python_code_tool("zabbix", {}, emit_callback=lambda _event: None)
+    description = tool.description
+    assert "pre-loaded global" in description
+    assert "Do NOT import zabbix_api" in description
+    assert "result = json.loads(zabbix_api_call" in description
+    assert "result['data']" in description
+    assert "isinstance(records, list)" in description
+
+
+def test_zabbix_jsonrpc_helper_is_excluded_from_http_only_wrappers(monkeypatch):
+    """Memoization/autocapture wrappers have an HTTP (method, path, body,
+    query) signature and must not rewrite Zabbix's (method, params) helper."""
+    from ccie_sidecar.agents.api_memo import install_api_memo
+    from ccie_sidecar.agents import graph_autocapture
+
+    def zabbix_call(method, params=None):
+        return f"{method}:{params}"
+
+    sandbox = {"zabbix_api_call": zabbix_call}
+    assert install_api_memo(sandbox) == 0
+    monkeypatch.setattr(graph_autocapture, "_enabled", lambda: True)
+    assert graph_autocapture.install_autocapture(sandbox) == 0
+    assert sandbox["zabbix_api_call"] is zabbix_call
+    assert sandbox["zabbix_api_call"]("host.get", {"limit": 1}) == "host.get:{'limit': 1}"
 
 
 def test_prometheus_unconfigured_envelope():

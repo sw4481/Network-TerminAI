@@ -171,9 +171,17 @@ function quoteShellArgument(value: string): string {
 }
 
 export function buildSshCommand(connection: Pick<SshConnection, "host" | "user" | "port" | "identity_file">): string {
-  const parts = ["ssh"];
-  if (connection.port && connection.port !== 22) parts.push("-p", String(connection.port));
+  // Always pin the effective port. Omitting `-p 22` would let a matching
+  // Host stanza in ~/.ssh/config silently redirect a saved device record.
+  const parts = [
+    "/usr/bin/ssh",
+    "-p",
+    String(connection.port ?? 22),
+    "-o",
+    quoteShellArgument(`HostName=${connection.host}`),
+  ];
   if (connection.identity_file) parts.push("-i", quoteShellArgument(connection.identity_file));
+  parts.push("--");
   parts.push(quoteShellArgument(connection.user ? `${connection.user}@${connection.host}` : connection.host));
   return parts.join(" ");
 }
