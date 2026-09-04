@@ -158,4 +158,12 @@ macOS is \`Ctrl\` on Linux/Windows.
 
 > *Keyboard Shortcuts Reference* and *About TerminAI* are under the
 > **Help** menu.
+
+## Editor Power Editing
+
+Inside an editor, use the context menu for multi-cursor, line operations,
+indentation, case transforms, folding, and bookmarks, including Toggle Bookmark
+and Next Bookmark. Press \`F1\` inside the
+Monaco editor to search the available editor commands. Enable \`Column Selection\`
+in Editor Settings for rectangular mouse/keyboard selection.
 `;

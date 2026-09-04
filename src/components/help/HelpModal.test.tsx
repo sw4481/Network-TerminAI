@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { HelpModal, type HelpSection } from "./HelpModal";
+import { SHORTCUTS_MD } from "./content/shortcuts";
 
 describe("HelpModal", () => {
   beforeEach(() => {
@@ -18,6 +19,14 @@ describe("HelpModal", () => {
     expect(screen.getByTestId("help-nav-quick-start")).toBeInTheDocument();
     expect(screen.getByTestId("help-nav-shortcuts")).toBeInTheDocument();
     expect(screen.getByTestId("help-nav-about")).toBeInTheDocument();
+  });
+
+  it("documents editor power-editing discoverability", () => {
+    expect(SHORTCUTS_MD).toContain("## Editor Power Editing");
+    expect(SHORTCUTS_MD).toContain("F1");
+    expect(SHORTCUTS_MD).toContain("Toggle Bookmark");
+    expect(SHORTCUTS_MD).toContain("Next Bookmark");
+    expect(SHORTCUTS_MD).toContain("Column Selection");
   });
 
   it("starts on the section indicated by the prop", () => {
