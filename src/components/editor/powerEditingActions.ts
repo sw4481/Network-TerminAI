@@ -40,11 +40,10 @@ export function registerPowerEditingActions(
     editor.addAction({
       id: `ccie.editor.powerEditing.${action.id}`,
       label: action.label,
-      commandId: action.commandId,
       contextMenuGroupId: "2_powerEditing",
       contextMenuOrder: action.order,
       run: (target) => target.trigger("power-editing", action.commandId, undefined),
-    } as Monaco.editor.IActionDescriptor & { commandId: string }),
+    }),
   );
   return { dispose: () => registrations.forEach((registration) => registration.dispose()) };
 }

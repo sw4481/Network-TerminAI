@@ -45,7 +45,11 @@ describe("power editing actions", () => {
     descriptor.run(editor);
 
     expect(descriptor.contextMenuGroupId).toBe("2_powerEditing");
-    expect(trigger).toHaveBeenCalledWith("power-editing", descriptor.commandId, undefined);
+    expect(trigger).toHaveBeenCalledWith(
+      "power-editing",
+      POWER_EDITING_ACTIONS[0].commandId,
+      undefined,
+    );
     registration.dispose();
     expect(addAction.mock.results[0].value.dispose).toHaveBeenCalledOnce();
   });
