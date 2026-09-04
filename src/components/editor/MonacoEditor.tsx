@@ -29,6 +29,7 @@ import {
 } from "./monacoModelRegistry";
 import { installGitAwareness } from "./gitAwareness";
 import { installDebugDecorations } from "./debug/debugDecorations";
+import { registerPowerEditingActions } from "./powerEditingActions";
 import "./MonacoEditor.css";
 import "./git-awareness.css";
 import "./debug/debug-decorations.css";
@@ -40,6 +41,7 @@ export type EditorSettings = {
   minimap: boolean;
   lineNumbers: boolean;
   renderWhitespace: boolean;
+  columnSelection: boolean;
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -49,6 +51,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   minimap: true,
   lineNumbers: true,
   renderWhitespace: false,
+  columnSelection: false,
 };
 
 type MonacoEditorProps = {
@@ -216,6 +219,7 @@ export function MonacoEditor({
       glyphMargin: mode === "zed",
       lineNumbers: settings.lineNumbers ? "on" : "off",
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
+      columnSelection: settings.columnSelection,
       readOnly,
       scrollbar: { vertical: "auto", horizontal: "auto" },
       });
@@ -294,6 +298,7 @@ export function MonacoEditor({
     registerAskAi("ask", "✨ Ask AI…", 1.4, [
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL,
     ]);
+    editorDisposables.push(registerPowerEditingActions(editor));
 
     const changeDisposable = editor.onDidChangeModelContent(() => {
       const lease = modelLeaseRef.current;
@@ -463,6 +468,7 @@ export function MonacoEditor({
       minimap: { enabled: settings.minimap },
       lineNumbers: settings.lineNumbers ? "on" : "off",
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
+      columnSelection: settings.columnSelection,
       fontFamily: fontFamilyForEditorMode(mode),
     });
   }, [settings, mode]);

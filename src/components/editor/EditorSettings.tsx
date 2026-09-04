@@ -120,6 +120,19 @@ export function EditorSettingsPanel({
             Render Whitespace
           </label>
         </div>
+
+        <div className="setting-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              checked={local.columnSelection}
+              onChange={(event) =>
+                update("columnSelection", event.target.checked)
+              }
+            />
+            Column Selection
+          </label>
+        </div>
       </div>
 
       <div className="settings-footer">
