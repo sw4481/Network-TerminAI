@@ -2,11 +2,18 @@ import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const model = { uri: { scheme: "inmemory" } };
+  const model = {
+    uri: { scheme: "inmemory" },
+    getLineCount: vi.fn(() => 10),
+  };
   const actionRegistrations: Array<{
     descriptor: { id: string };
     dispose: ReturnType<typeof vi.fn>;
   }> = [];
+  const paneModelController = {
+    clear: vi.fn(),
+    switchTo: vi.fn(),
+  };
   const editor = {
     addAction: vi.fn((descriptor: { id: string }) => {
       const registration = { descriptor, dispose: vi.fn() };
@@ -21,6 +28,8 @@ const mocks = vi.hoisted(() => {
     dispose: vi.fn(),
     updateOptions: vi.fn(),
     getModel: vi.fn(() => model),
+    getPosition: vi.fn(() => ({ lineNumber: 1, column: 1 })),
+    deltaDecorations: vi.fn(() => []),
     getValue: vi.fn(() => "text"),
     hasTextFocus: vi.fn(() => true),
     getSelection: vi.fn(() => null),
@@ -29,6 +38,11 @@ const mocks = vi.hoisted(() => {
     model,
     editor,
     actionRegistrations,
+    bookmarkControllers: [] as Array<{
+      setBuffer: ReturnType<typeof vi.fn>;
+      dispose: ReturnType<typeof vi.fn>;
+    }>,
+    paneModelController,
     create: vi.fn(() => editor),
     release: vi.fn(),
     applyContent: vi.fn(),
@@ -71,6 +85,28 @@ vi.mock("./gitAwareness", () => ({ installGitAwareness: vi.fn() }));
 vi.mock("./debug/debugDecorations", () => ({
   installDebugDecorations: vi.fn(),
 }));
+vi.mock("./bookmarkController", async () => {
+  const actual = await vi.importActual<typeof import("./bookmarkController")>(
+    "./bookmarkController",
+  );
+  return {
+    ...actual,
+    createBookmarkController: vi.fn((editor, monaco, bufferId) => {
+      const actualController = actual.createBookmarkController(
+        editor,
+        monaco,
+        bufferId,
+      );
+      const controller = {
+        ...actualController,
+        setBuffer: vi.fn(actualController.setBuffer),
+        dispose: vi.fn(actualController.dispose),
+      };
+      mocks.bookmarkControllers.push(controller);
+      return controller;
+    }),
+  };
+});
 vi.mock("./ZedModeProvider", () => ({
   useZedMode: () => ({ mode: "classic", vimEnabled: false }),
 }));
@@ -94,8 +130,8 @@ vi.mock("./monacoModelRegistry", () => ({
     applyContent: mocks.applyContent,
   }),
   MonacoPaneModelController: class {
-    clear = vi.fn();
-    switchTo = vi.fn();
+    clear = mocks.paneModelController.clear;
+    switchTo = mocks.paneModelController.switchTo;
   },
 }));
 
@@ -105,6 +141,7 @@ describe("MonacoEditor power editing integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.actionRegistrations.length = 0;
+    mocks.bookmarkControllers.length = 0;
   });
 
   it("creates Monaco with column selection disabled by default", async () => {
@@ -153,5 +190,113 @@ describe("MonacoEditor power editing integration", () => {
     view.unmount();
 
     expect(registration?.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("creates one bookmark controller and action set across rerenders", async () => {
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.bookmarkControllers).toHaveLength(1),
+    );
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ glyphMargin: true }),
+    );
+    expect(mocks.editor.addAction.mock.calls.filter(([action]) =>
+      action.id.startsWith("ccie.editor.bookmark."),
+    )).toHaveLength(4);
+    view.rerender(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+        readOnly
+      />,
+    );
+
+    expect(mocks.bookmarkControllers).toHaveLength(1);
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.editor.addAction.mock.calls.filter(([action]) =>
+      action.id.startsWith("ccie.editor.bookmark."),
+    )).toHaveLength(4);
+    await waitFor(() =>
+      expect(mocks.editor.updateOptions).toHaveBeenCalledWith(
+        expect.objectContaining({ readOnly: true, glyphMargin: true }),
+      ),
+    );
+
+    view.unmount();
+  });
+
+  it("disposes the bookmark controller once on unmount", async () => {
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.bookmarkControllers).toHaveLength(1),
+    );
+    const controller = mocks.bookmarkControllers[0]!;
+
+    view.unmount();
+    view.unmount();
+
+    expect(controller.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("sets the bookmark buffer after switching the Monaco model", async () => {
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer-a"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.bookmarkControllers).toHaveLength(1),
+    );
+    const controller = mocks.bookmarkControllers[0]!;
+    mocks.paneModelController.switchTo.mockClear();
+    controller.setBuffer.mockClear();
+
+    view.rerender(
+      <MonacoEditor
+        bufferId="buffer-b"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.paneModelController.switchTo).toHaveBeenCalledOnce(),
+    );
+    expect(controller.setBuffer).toHaveBeenCalledWith("buffer-b");
+    expect(controller.setBuffer.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.paneModelController.switchTo.mock.invocationCallOrder[0],
+    );
+
+    view.unmount();
   });
 });

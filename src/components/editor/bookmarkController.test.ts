@@ -20,6 +20,11 @@ function editorAtLine(initialLine: number, initialLineCount = 10) {
   let nextDecorationId = 1;
   const actionDisposables: Array<ReturnType<typeof vi.fn>> = [];
   const model = { getLineCount: vi.fn(() => currentLineCount) };
+  const getModel = vi.fn<() => typeof model | null>(() => model);
+  const getPosition = vi.fn<() => Monaco.IPosition | null>(() => ({
+    lineNumber: currentLine,
+    column: 1,
+  }));
   const editor = {
     addAction: vi.fn((descriptor: Monaco.editor.IActionDescriptor) => {
       const dispose = vi.fn();
@@ -30,8 +35,8 @@ function editorAtLine(initialLine: number, initialLineCount = 10) {
       (_oldDecorations: string[], newDecorations: Monaco.editor.IModelDeltaDecoration[]) =>
         newDecorations.map(() => `bookmark-${nextDecorationId++}`),
     ),
-    getModel: vi.fn(() => model),
-    getPosition: vi.fn(() => ({ lineNumber: currentLine, column: 1 })),
+    getModel,
+    getPosition,
     revealLineInCenter: vi.fn(),
     setPosition: vi.fn((position: Monaco.IPosition) => {
       currentLine = position.lineNumber;
@@ -133,6 +138,65 @@ describe("bookmark controller", () => {
     ]);
   });
 
+  it("executes each bookmark action with its distinct behavior", () => {
+    const { editor, rawEditor, setCurrentLine } = editorAtLine(2);
+    const controller = createBookmarkController(editor, monaco, "buffer-a");
+    const actions = Object.fromEntries(
+      rawEditor.addAction.mock.calls.map(([action]) => [action.id, action]),
+    );
+
+    actions["ccie.editor.bookmark.toggle"].run(editor);
+    expect(controller.getLines()).toEqual([2]);
+
+    setCurrentLine(5);
+    actions["ccie.editor.bookmark.toggle"].run(editor);
+    actions["ccie.editor.bookmark.next"].run(editor);
+    expect(rawEditor.setPosition).toHaveBeenLastCalledWith({
+      lineNumber: 2,
+      column: 1,
+    });
+    expect(rawEditor.revealLineInCenter).toHaveBeenLastCalledWith(2);
+
+    setCurrentLine(2);
+    actions["ccie.editor.bookmark.previous"].run(editor);
+    expect(rawEditor.setPosition).toHaveBeenLastCalledWith({
+      lineNumber: 5,
+      column: 1,
+    });
+    expect(rawEditor.revealLineInCenter).toHaveBeenLastCalledWith(5);
+
+    actions["ccie.editor.bookmark.clear"].run(editor);
+    expect(controller.getLines()).toEqual([]);
+    expect(rawEditor.deltaDecorations).toHaveBeenLastCalledWith(
+      expect.any(Array),
+      [],
+    );
+  });
+
+  it("does nothing when the model or position is unavailable", () => {
+    const { editor, rawEditor } = editorAtLine(4);
+    const controller = createBookmarkController(editor, monaco, "buffer-a");
+    const actions = Object.fromEntries(
+      rawEditor.addAction.mock.calls.map(([action]) => [action.id, action]),
+    );
+
+    rawEditor.getModel.mockReturnValueOnce(null);
+    actions["ccie.editor.bookmark.toggle"].run(editor);
+    rawEditor.getPosition.mockReturnValueOnce(null);
+    actions["ccie.editor.bookmark.toggle"].run(editor);
+    rawEditor.getPosition.mockReturnValueOnce(null);
+    actions["ccie.editor.bookmark.next"].run(editor);
+    rawEditor.getPosition.mockReturnValueOnce(null);
+    actions["ccie.editor.bookmark.previous"].run(editor);
+    rawEditor.getModel.mockReturnValueOnce(null);
+    actions["ccie.editor.bookmark.clear"].run(editor);
+
+    expect(controller.getLines()).toEqual([]);
+    expect(rawEditor.deltaDecorations).not.toHaveBeenCalled();
+    expect(rawEditor.setPosition).not.toHaveBeenCalled();
+    expect(rawEditor.revealLineInCenter).not.toHaveBeenCalled();
+  });
+
   it("normalizes and redraws bookmarks before navigation", () => {
     const { editor, rawEditor, setCurrentLine, setLineCount } = editorAtLine(2);
     const controller = createBookmarkController(editor, monaco, "buffer-a");
@@ -171,11 +235,16 @@ describe("bookmark controller", () => {
     });
     expect(rawEditor.revealLineInCenter).toHaveBeenCalledWith(2);
 
+    const decorationCallsBeforeDispose = rawEditor.deltaDecorations.mock.calls.length;
+    controller.dispose();
     controller.dispose();
 
     expect(rawEditor.deltaDecorations).toHaveBeenLastCalledWith(
       expect.any(Array),
       [],
+    );
+    expect(rawEditor.deltaDecorations).toHaveBeenCalledTimes(
+      decorationCallsBeforeDispose + 1,
     );
     actionDisposables.forEach((dispose) => {
       expect(dispose).toHaveBeenCalledOnce();
