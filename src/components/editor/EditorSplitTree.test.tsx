@@ -51,6 +51,7 @@ function treeProps() {
       minimap: true,
       lineNumbers: true,
       renderWhitespace: false,
+      columnSelection: false,
     },
     onFocus: vi.fn(),
     onSplit: vi.fn(),
