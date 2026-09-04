@@ -48,5 +48,5 @@ export function previousBookmarkLine(
     }
   }
 
-  return normalized.at(-1) ?? null;
+  return normalized[normalized.length - 1] ?? null;
 }
