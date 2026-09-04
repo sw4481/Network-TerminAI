@@ -28,7 +28,17 @@ describe("HelpModal", () => {
 
     render(<HelpModal section="shortcuts" onClose={() => {}} />);
     const content = within(screen.getByTestId("help-content-shortcuts"));
-    expect(content.getAllByText("F1", { selector: "code" })).not.toHaveLength(0);
+    expect(
+      content.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          element.textContent?.replace(/\s+/g, " ").trim() ===
+            "Inside an editor, use the context menu for multi-cursor, line operations, indentation, case transforms, folding, and bookmarks, including Toggle Bookmark and Next Bookmark. Choose Command Palette from the Monaco editor context menu to search the available editor commands. Enable Column Selection in Editor Settings for rectangular mouse/keyboard selection.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      content.getByText("Command Palette", { selector: "code" }),
+    ).toBeInTheDocument();
     expect(
       content.getByText("Column Selection", { selector: "code" }),
     ).toBeInTheDocument();
