@@ -30,6 +30,10 @@ import {
 import { installGitAwareness } from "./gitAwareness";
 import { installDebugDecorations } from "./debug/debugDecorations";
 import { registerPowerEditingActions } from "./powerEditingActions";
+import {
+  createBookmarkController,
+  type BookmarkController,
+} from "./bookmarkController";
 import "./MonacoEditor.css";
 import "./git-awareness.css";
 import "./debug/debug-decorations.css";
@@ -126,6 +130,7 @@ export function MonacoEditor({
   const editorOwnershipRef = useRef<EditorDisposalOwnership | null>(null);
   const modelLeaseRef = useRef<MonacoModelLease | null>(null);
   const paneModelControllerRef = useRef<MonacoPaneModelController | null>(null);
+  const bookmarkControllerRef = useRef<BookmarkController | null>(null);
   const [monaco, setMonaco] = useState<typeof Monaco | null>(null);
   const [editorInstance, setEditorInstance] =
     useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -216,7 +221,7 @@ export function MonacoEditor({
       quickSuggestions: true,
       parameterHints: { enabled: true },
       folding: true,
-      glyphMargin: mode === "zed",
+      glyphMargin: true,
       lineNumbers: settings.lineNumbers ? "on" : "off",
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
       columnSelection: settings.columnSelection,
@@ -232,6 +237,7 @@ export function MonacoEditor({
       editor,
       bufferIdRef.current,
     );
+    let bookmarksForEditor: BookmarkController | null = null;
 
     let ownership: EditorDisposalOwnership;
     ownership = createEditorDisposalOwnership(
@@ -241,6 +247,9 @@ export function MonacoEditor({
         const ownsCurrentEditor = editorRef.current === editor;
         if (ownsCurrentEditor) {
           editorRef.current = null;
+          if (bookmarkControllerRef.current === bookmarksForEditor) {
+            bookmarkControllerRef.current = null;
+          }
           paneModelControllerRef.current?.clear();
           paneModelControllerRef.current = null;
           const currentLease = modelLeaseRef.current;
@@ -255,6 +264,14 @@ export function MonacoEditor({
     editorRef.current = editor;
     editorOwnershipRef.current = ownership;
     onEditorReadyRef.current?.(editor, monaco);
+    const bookmarks = createBookmarkController(
+      editor,
+      monaco,
+      bufferIdRef.current,
+    );
+    bookmarksForEditor = bookmarks;
+    bookmarkControllerRef.current = bookmarks;
+    editorDisposables.push({ dispose: bookmarks.dispose });
 
     // "Ask AI" editor actions — appear in Monaco's native context menu and
     // via Cmd+L (for the custom Ask…). Each reads live values through refs
@@ -382,6 +399,7 @@ export function MonacoEditor({
     const registry = getMonacoModelRegistry(monaco);
     const nextLease = registry.acquire(activeBufferId, value, language);
     paneModelControllerRef.current?.switchTo(activeBufferId, nextLease.model);
+    bookmarkControllerRef.current?.setBuffer(activeBufferId);
     modelLeaseRef.current = nextLease;
     currentLease?.release();
   }, [monaco, editorInstance, activeBufferId, value, language]);
@@ -455,7 +473,7 @@ export function MonacoEditor({
     if (!editorRef.current) return;
     editorRef.current.updateOptions({
       readOnly,
-      glyphMargin: mode === "zed",
+      glyphMargin: true,
     });
   }, [readOnly, mode]);
 
