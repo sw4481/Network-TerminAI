@@ -3,7 +3,7 @@
 // src-tauri/src/lib.rs (see the `help_*`, `view_*`, `change_*`, etc.
 // MenuItem::with_id calls). Update both files together.
 
-export const SHORTCUTS_MD = String.raw`# Keyboard Shortcuts
+export const SHORTCUTS_MD = `# Keyboard Shortcuts
 
 Every shortcut shipped in the macOS menu bar is listed below. \`Cmd\` on
 macOS is \`Ctrl\` on Linux/Windows.
