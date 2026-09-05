@@ -288,4 +288,37 @@ describe("ciscoSelectionBridge", () => {
     expect(result).toBe("cancelled");
     expect(write).not.toHaveBeenCalled();
   });
+
+  it("rechecks the target after a pending T0 audit before writing", async () => {
+    let current = connection();
+    let markAuditStarted!: () => void;
+    let finishAudit!: (decisionId: string) => void;
+    const auditStarted = new Promise<void>((resolve) => {
+      markAuditStarted = resolve;
+    });
+    const auditPending = new Promise<string>((resolve) => {
+      finishAudit = resolve;
+    });
+    const write = vi.fn();
+    const sendPromise = sendSelectionToCisco({
+      selection: "show clock",
+      target,
+      sessionId: "session-1",
+      classify: vi.fn(async () => t0()),
+      approve: vi.fn(),
+      record: vi.fn(async () => {
+        markAuditStarted();
+        return auditPending;
+      }),
+      write,
+      getCurrentTarget: () => current,
+    });
+
+    await auditStarted;
+    current = connection({ lifecycle: "disconnected" });
+    finishAudit("decision-1");
+
+    expect(await sendPromise).toBe("cancelled");
+    expect(write).not.toHaveBeenCalled();
+  });
 });

@@ -84,16 +84,6 @@ export async function sendSelectionToCisco(
       if (action === "cancel") return "cancelled";
     }
 
-    const current = args.getCurrentTarget(args.target.terminalId);
-    if (
-      current?.terminal_id !== args.target.terminalId ||
-      current.backend_pty_id !== args.target.backendPtyId ||
-      current.lifecycle !== "connected" ||
-      current.vendor !== "cisco"
-    ) {
-      return "cancelled";
-    }
-
     for (const { command, result } of classified) {
       if (result.tier !== "T0") continue;
       await args.record({
@@ -105,6 +95,16 @@ export async function sendSelectionToCisco(
         userAction: "proceed",
         reasoning: result.reasoning,
       });
+    }
+
+    const current = args.getCurrentTarget(args.target.terminalId);
+    if (
+      current?.terminal_id !== args.target.terminalId ||
+      current.backend_pty_id !== args.target.backendPtyId ||
+      current.lifecycle !== "connected" ||
+      current.vendor !== "cisco"
+    ) {
+      return "cancelled";
     }
 
     await args.write(args.target.backendPtyId, new TextEncoder().encode(args.selection));
