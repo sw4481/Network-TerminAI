@@ -2771,6 +2771,34 @@ export type FileNode = {
 export const editorListDirectory = (path: string) =>
   invoke<FileNode[]>("editor_list_directory", { path });
 
+export type EditorSearchMatch = {
+  file_path: string;
+  line: number;
+  column: number;
+  preview: string;
+};
+
+export type EditorFindInFilesRequest = {
+  workspaceRoot: string;
+  query: string;
+  regex: boolean;
+  matchCase: boolean;
+  wholeWord: boolean;
+  filePattern?: string | null;
+  maxResults: number;
+};
+
+export const editorFindInFiles = (request: EditorFindInFilesRequest) =>
+  invoke<EditorSearchMatch[]>("editor_find_in_files", {
+    workspaceRoot: request.workspaceRoot,
+    query: request.query,
+    regex: request.regex,
+    matchCase: request.matchCase,
+    wholeWord: request.wholeWord,
+    filePattern: request.filePattern ?? null,
+    maxResults: request.maxResults,
+  });
+
 export const editorGetHomeDirectory = () =>
   invoke<string>("editor_get_home_directory");
 

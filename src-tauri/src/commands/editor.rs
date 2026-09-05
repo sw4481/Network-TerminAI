@@ -140,6 +140,14 @@ pub struct FileNode {
     pub children: Option<Vec<FileNode>>,
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EditorSearchMatch {
+    pub file_path: String,
+    pub line: usize,
+    pub column: usize,
+    pub preview: String,
+}
+
 const EDITOR_MODE_FLAG_KEY: &str = "ccie_editor_mode";
 const DEFAULT_EDITOR_MODE: &str = "monaco";
 
@@ -468,6 +476,187 @@ pub async fn editor_list_directory(path: String) -> Result<Vec<FileNode>, String
     Ok(entries)
 }
 
+/// Read-only workspace search. Filename patterns are comma-separated literal
+/// names; each item may contain one `*` wildcard.
+#[tauri::command]
+pub fn editor_find_in_files(
+    workspace_root: String,
+    query: String,
+    regex: bool,
+    match_case: bool,
+    whole_word: bool,
+    file_pattern: Option<String>,
+    max_results: usize,
+) -> Result<Vec<EditorSearchMatch>, String> {
+    if query.is_empty() {
+        return Err("query must not be empty".to_string());
+    }
+    if max_results == 0 {
+        return Err("max_results must be greater than zero".to_string());
+    }
+    if regex && whole_word {
+        return Err("whole_word is unavailable for regex searches".to_string());
+    }
+
+    let expression = if regex {
+        Some(
+            regex::RegexBuilder::new(&query)
+                .case_insensitive(!match_case)
+                .build()
+                .map_err(|error| format!("invalid regular expression: {error}"))?,
+        )
+    } else {
+        None
+    };
+    let root = validate_path(&workspace_root, Some(&workspace_root))?;
+    if !root.is_dir() {
+        return Err(format!(
+            "workspace_root is not a directory: {}",
+            root.display()
+        ));
+    }
+    let patterns: Vec<String> = file_pattern
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|pattern| !pattern.is_empty())
+        .map(str::to_string)
+        .collect();
+
+    let mut matches = Vec::new();
+    search_directory(
+        &root,
+        &root,
+        &query,
+        expression.as_ref(),
+        match_case,
+        whole_word,
+        &patterns,
+        &mut matches,
+    )?;
+    matches.sort_by(|left, right| {
+        (&left.file_path, left.line, left.column).cmp(&(&right.file_path, right.line, right.column))
+    });
+    matches.truncate(max_results);
+    Ok(matches)
+}
+
+fn search_directory(
+    root: &Path,
+    directory: &Path,
+    query: &str,
+    expression: Option<&regex::Regex>,
+    match_case: bool,
+    whole_word: bool,
+    patterns: &[String],
+    matches: &mut Vec<EditorSearchMatch>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(directory)
+        .map_err(|error| format!("Failed to read directory {}: {error}", directory.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to read directory entry: {error}"))?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if should_ignore(&name) {
+            continue;
+        }
+
+        let entry_path = entry.path();
+        let safe = validate_path(&entry_path.to_string_lossy(), Some(&root.to_string_lossy()))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect {}: {error}", entry_path.display()))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        if file_type.is_dir() {
+            search_directory(
+                root, &safe, query, expression, match_case, whole_word, patterns, matches,
+            )?;
+            continue;
+        }
+        if !file_type.is_file() || !filename_matches(&name, patterns) {
+            continue;
+        }
+
+        let content = match fs::read_to_string(&safe) {
+            Ok(content) => content,
+            Err(error) if error.kind() == std::io::ErrorKind::InvalidData => continue,
+            Err(error) => return Err(format!("Failed to read {}: {error}", safe.display())),
+        };
+        for (line_index, line) in content.lines().enumerate() {
+            let ranges = match expression {
+                Some(expression) => expression
+                    .find_iter(line)
+                    .map(|found| (found.start(), found.end()))
+                    .collect(),
+                None => literal_match_ranges(line, query, match_case),
+            };
+            for (start, end) in ranges {
+                if whole_word && !is_whole_word(line, start, end) {
+                    continue;
+                }
+                matches.push(EditorSearchMatch {
+                    file_path: safe.to_string_lossy().to_string(),
+                    line: line_index + 1,
+                    column: line[..start].chars().count() + 1,
+                    preview: line.to_string(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+fn filename_matches(name: &str, patterns: &[String]) -> bool {
+    patterns.is_empty()
+        || patterns.iter().any(|pattern| {
+            if let Some((prefix, suffix)) = pattern.split_once('*') {
+                !suffix.contains('*') && name.starts_with(prefix) && name.ends_with(suffix)
+            } else {
+                name == pattern
+            }
+        })
+}
+
+fn literal_match_ranges(line: &str, query: &str, match_case: bool) -> Vec<(usize, usize)> {
+    let line_chars: Vec<(usize, char)> = line.char_indices().collect();
+    let query_chars: Vec<char> = query.chars().collect();
+    let mut ranges = Vec::new();
+    let mut start = 0;
+    while start + query_chars.len() <= line_chars.len() {
+        let matches = line_chars[start..start + query_chars.len()]
+            .iter()
+            .map(|(_, character)| character)
+            .zip(&query_chars)
+            .all(|(left, right)| {
+                left == right || (!match_case && left.to_lowercase().eq(right.to_lowercase()))
+            });
+        if matches {
+            let start_byte = line_chars[start].0;
+            let end_index = start + query_chars.len();
+            let end_byte = line_chars
+                .get(end_index)
+                .map(|(byte, _)| *byte)
+                .unwrap_or(line.len());
+            ranges.push((start_byte, end_byte));
+            start = end_index;
+        } else {
+            start += 1;
+        }
+    }
+    ranges
+}
+
+fn is_whole_word(line: &str, start: usize, end: usize) -> bool {
+    let is_word_character = |character: char| character.is_alphanumeric() || character == '_';
+    !line[..start]
+        .chars()
+        .next_back()
+        .is_some_and(is_word_character)
+        && !line[end..].chars().next().is_some_and(is_word_character)
+}
+
 #[tauri::command]
 pub async fn editor_get_home_directory() -> Result<String, String> {
     let home = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
@@ -617,6 +806,149 @@ fn should_ignore(name: &str) -> bool {
         name,
         ".git" | "node_modules" | "__pycache__" | "target" | ".venv"
     )
+}
+
+#[cfg(test)]
+mod editor_find_in_files_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn search(
+        root: &TempDir,
+        query: &str,
+        regex: bool,
+        match_case: bool,
+        whole_word: bool,
+        file_pattern: Option<&str>,
+    ) -> Result<Vec<EditorSearchMatch>, String> {
+        editor_find_in_files(
+            root.path().to_string_lossy().to_string(),
+            query.to_string(),
+            regex,
+            match_case,
+            whole_word,
+            file_pattern.map(str::to_string),
+            100,
+        )
+    }
+
+    #[test]
+    fn find_in_files_returns_sorted_literal_matches_with_one_based_positions() {
+        let root = TempDir::new().unwrap();
+        let last = root.path().join("z-last.txt");
+        let first = root.path().join("a-first.txt");
+        std::fs::write(&last, "before\nneedle tail\n").unwrap();
+        std::fs::write(&first, "α needle first\n").unwrap();
+        let last = std::fs::canonicalize(last).unwrap();
+        let first = std::fs::canonicalize(first).unwrap();
+
+        let matches = search(&root, "needle", false, true, false, None).unwrap();
+        let actual: Vec<_> = matches
+            .iter()
+            .map(|found| {
+                (
+                    found.file_path.as_str(),
+                    found.line,
+                    found.column,
+                    found.preview.as_str(),
+                )
+            })
+            .collect();
+
+        assert_eq!(
+            actual,
+            vec![
+                (first.to_str().unwrap(), 1, 3, "α needle first"),
+                (last.to_str().unwrap(), 2, 1, "needle tail"),
+            ]
+        );
+    }
+
+    #[test]
+    fn find_in_files_applies_regex_case_and_literal_word_filters() {
+        let root = TempDir::new().unwrap();
+        std::fs::write(
+            root.path().join("router.cfg"),
+            "Interface Gi1/0/1\ninterface Gi1/0/2\ncat catalog\n",
+        )
+        .unwrap();
+        std::fs::write(root.path().join("switch.txt"), "interface Gi1/0/3\ncat\n").unwrap();
+        std::fs::write(root.path().join("README.md"), "INTERFACE Gi1/0/4\n").unwrap();
+
+        let case_sensitive = search(
+            &root,
+            r"^interface Gi\d/\d/\d$",
+            true,
+            true,
+            false,
+            Some("*.cfg, README.md"),
+        )
+        .unwrap();
+        assert_eq!(case_sensitive.len(), 1);
+        assert_eq!(case_sensitive[0].preview, "interface Gi1/0/2");
+
+        let case_insensitive = search(
+            &root,
+            r"^interface Gi\d/\d/\d$",
+            true,
+            false,
+            false,
+            Some("*.cfg, README.md"),
+        )
+        .unwrap();
+        assert_eq!(case_insensitive.len(), 3);
+
+        let literal_case_sensitive =
+            search(&root, "Interface", false, true, false, Some("*.cfg")).unwrap();
+        assert_eq!(literal_case_sensitive.len(), 1);
+
+        let literal_case_insensitive =
+            search(&root, "Interface", false, false, false, Some("*.cfg")).unwrap();
+        assert_eq!(literal_case_insensitive.len(), 2);
+
+        let words = search(&root, "cat", false, true, true, Some("*.cfg")).unwrap();
+        assert_eq!(words.len(), 1);
+        assert_eq!((words[0].line, words[0].column), (3, 1));
+
+        assert!(search(&root, "[", true, true, false, None).is_err());
+        assert!(search(&root, "cat", true, true, true, None).is_err());
+        assert!(search(&root, "", false, true, false, None).is_err());
+        assert!(editor_find_in_files(
+            root.path().to_string_lossy().to_string(),
+            "cat".to_string(),
+            false,
+            true,
+            false,
+            None,
+            0,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn find_in_files_rejects_workspace_escape_and_skips_ignored_entries() {
+        let root = TempDir::new().unwrap();
+        let ignored = root.path().join(".git");
+        std::fs::create_dir(&ignored).unwrap();
+        std::fs::write(ignored.join("secret.txt"), "hidden needle\n").unwrap();
+
+        assert!(search(&root, "needle", false, true, false, None)
+            .unwrap()
+            .is_empty());
+
+        let outside = TempDir::new().unwrap();
+        let outside_file = outside.path().join("secret.txt");
+        std::fs::write(&outside_file, "escaped needle\n").unwrap();
+        let link = root.path().join("escape.txt");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside_file, &link).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(&outside_file, &link).unwrap();
+
+        let error = search(&root, "needle", false, true, false, None)
+            .expect_err("a symlink outside the workspace must be rejected");
+        assert!(error.contains("outside workspace root"), "{error}");
+    }
 }
 
 /// Detect programming language from file extension

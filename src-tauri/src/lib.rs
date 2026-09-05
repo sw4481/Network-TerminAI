@@ -343,6 +343,7 @@ pub fn run() {
             commands::editor::editor_get_state,
             commands::editor::editor_list_recent,
             commands::editor::editor_list_directory,
+            commands::editor::editor_find_in_files,
             commands::editor::editor_get_home_directory,
             commands::editor::editor_mode_get,
             commands::editor::editor_mode_set,
