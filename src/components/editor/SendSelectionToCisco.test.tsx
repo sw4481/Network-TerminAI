@@ -54,12 +54,26 @@ function editorWithSelection(text: string) {
     endLineNumber: 3,
     endColumn: 1,
   };
-  const getValueInRange = vi.fn(() => text);
+  let currentText = text;
+  const listeners = new Set<() => void>();
+  const getValueInRange = vi.fn(() => currentText);
   const editor = {
     getSelection: vi.fn(() => selection),
     getModel: vi.fn(() => ({ getValueInRange })),
+    onDidChangeCursorSelection: (listener: () => void) => {
+      listeners.add(listener);
+      return { dispose: () => listeners.delete(listener) };
+    },
   } as unknown as Monaco.editor.IStandaloneCodeEditor;
-  return { editor, selection, getValueInRange };
+  return {
+    editor,
+    selection,
+    getValueInRange,
+    setSelection: (nextText: string) => {
+      currentText = nextText;
+      listeners.forEach((listener) => listener());
+    },
+  };
 }
 
 describe("SendSelectionToCisco", () => {
@@ -145,7 +159,60 @@ describe("SendSelectionToCisco", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Sent selection to Core.",
     );
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it("refreshes send availability when the editor selection changes", async () => {
+    const user = userEvent.setup();
+    const { editor, setSelection } = editorWithSelection("");
+    setConnections([connection()]);
+    sendSelectionToCisco.mockResolvedValue("cancelled");
+
+    render(
+      <SendSelectionToCisco
+        editor={editor}
+        sessionId="editor-tab-8"
+        onClose={vi.fn()}
+      />,
+    );
+
+    const sendButton = screen.getByRole("button", { name: "Send" });
+    expect(sendButton).toBeDisabled();
+
+    setSelection("show interfaces\n");
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await user.click(sendButton);
+    await waitFor(() =>
+      expect(sendSelectionToCisco).toHaveBeenCalledWith(
+        expect.objectContaining({ selection: "show interfaces\n" }),
+      ),
+    );
+  });
+
+  it("shows the result status before closing the picker", async () => {
+    const user = userEvent.setup();
+    const { editor } = editorWithSelection("show clock\n");
+    const onClose = vi.fn();
+    setConnections([connection()]);
+    sendSelectionToCisco.mockResolvedValue("cancelled");
+
+    render(
+      <SendSelectionToCisco
+        editor={editor}
+        sessionId="editor-tab-9"
+        onClose={onClose}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Send canceled. Verify the Cisco target is still connected and try again.",
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it("does not claim success for no-target or canceled results", async () => {
@@ -184,6 +251,6 @@ describe("SendSelectionToCisco", () => {
       "Send canceled. Verify the Cisco target is still connected and try again.",
     );
     expect(screen.queryByText(/Sent selection/)).not.toBeInTheDocument();
-    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 });

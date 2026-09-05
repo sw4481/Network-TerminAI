@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type * as Monaco from "monaco-editor";
 import { classifyCommand, recordDecision } from "../../lib/guardrails";
 import { ptyWrite } from "../../lib/tauri";
@@ -16,6 +16,8 @@ type SendSelectionToCiscoProps = {
   onClose: () => void;
 };
 
+const RESULT_STATUS_DISPLAY_MS = 250;
+
 export function SendSelectionToCisco({
   editor,
   sessionId,
@@ -32,10 +34,19 @@ export function SendSelectionToCisco({
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [, refreshSelection] = useState(0);
   const target =
     targets.find((entry) => entry.terminalId === selectedTerminalId) ??
     targets[0] ??
     null;
+
+  useEffect(() => {
+    if (!editor) return;
+    const selectionListener = editor.onDidChangeCursorSelection(() => {
+      refreshSelection((value) => value + 1);
+    });
+    return () => selectionListener.dispose();
+  }, [editor]);
 
   const selection = editor?.getSelection();
   const model = editor?.getModel();
@@ -77,7 +88,7 @@ export function SendSelectionToCisco({
       setStatus({ kind: "error", message: `Send failed: ${String(error)}` });
     } finally {
       setSending(false);
-      onClose();
+      globalThis.setTimeout(onClose, RESULT_STATUS_DISPLAY_MS);
     }
   };
 
