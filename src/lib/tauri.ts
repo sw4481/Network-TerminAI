@@ -2790,13 +2790,13 @@ export type EditorFindInFilesRequest = {
 
 export const editorFindInFiles = (request: EditorFindInFilesRequest) =>
   invoke<EditorSearchMatch[]>("editor_find_in_files", {
-    workspaceRoot: request.workspaceRoot,
+    workspace_root: request.workspaceRoot,
     query: request.query,
     regex: request.regex,
-    matchCase: request.matchCase,
-    wholeWord: request.wholeWord,
-    filePattern: request.filePattern ?? null,
-    maxResults: request.maxResults,
+    match_case: request.matchCase,
+    whole_word: request.wholeWord,
+    file_pattern: request.filePattern ?? null,
+    max_results: request.maxResults,
   });
 
 export const editorGetHomeDirectory = () =>
