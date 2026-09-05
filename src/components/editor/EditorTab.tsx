@@ -30,6 +30,7 @@ import { EditorPane } from "./EditorPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { FileExplorer } from "./FileExplorer";
 import { FindReplace } from "./FindReplace";
+import { WorkspaceFind } from "./WorkspaceFind";
 import { EditorSettingsPanel } from "./EditorSettings";
 import {
   EditorTerminalPanel,
@@ -113,6 +114,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     `editor-main:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   const [showFind, setShowFind] = useState(false);
+  const [showWorkspaceFind, setShowWorkspaceFind] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
@@ -890,10 +892,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
         setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
       } else if (
         event.key === "Escape" &&
-        (showFind || showSettings || showSymbolSearch || gitDiffReview)
+        (showFind ||
+          showWorkspaceFind ||
+          showSettings ||
+          showSymbolSearch ||
+          gitDiffReview)
       ) {
         event.preventDefault();
         setShowFind(false);
+        setShowWorkspaceFind(false);
         setShowSettings(false);
         setShowSymbolSearch(false);
         setGitDiffReview(null);
@@ -905,6 +912,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     tab.id,
     toggleExplorer,
     showFind,
+    showWorkspaceFind,
     showSettings,
     showSymbolSearch,
     gitDiffReview,
@@ -1019,6 +1027,14 @@ export function EditorTab({ tab }: { tab: Tab }) {
             data-testid="editor-find-button"
           >
             🔍
+          </button>
+          <button
+            onClick={() => setShowWorkspaceFind((value) => !value)}
+            title="Workspace Search"
+            aria-label="Workspace Search"
+            data-testid="editor-workspace-find-button"
+          >
+            🔎
           </button>
           {mode === "zed" && (
             <button
@@ -1280,6 +1296,27 @@ export function EditorTab({ tab }: { tab: Tab }) {
               <FindReplace
                 editor={focusedEditor}
                 onClose={() => setShowFind(false)}
+              />
+            )}
+            {!gitDiffReview && showWorkspaceFind && (
+              <WorkspaceFind
+                rootPath={workspace.root_path}
+                onClose={() => setShowWorkspaceFind(false)}
+                onOpenResult={async (filePath, position) => {
+                  const current =
+                    useEditorStore.getState().workspaces[tab.id];
+                  const focused = leafById(
+                    current.layout,
+                    current.focusedPaneId,
+                  );
+                  const target =
+                    focused?.detachedWindowId === null
+                      ? focused
+                      : getAttachedEditorPanes(current.layout)[0];
+                  return target
+                    ? openFileAtPane(target.id, filePath, position)
+                    : false;
+                }}
               />
             )}
             {showSettings && (
