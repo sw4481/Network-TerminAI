@@ -2,6 +2,10 @@ import { render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
+  let applyingContent = false;
+  let modelContentListener:
+    | ((event: { changes: readonly unknown[] }) => void)
+    | null = null;
   const model = {
     uri: { scheme: "inmemory" },
     getLineCount: vi.fn(() => 10),
@@ -20,7 +24,12 @@ const mocks = vi.hoisted(() => {
       actionRegistrations.push(registration);
       return registration;
     }),
-    onDidChangeModelContent: vi.fn(() => ({ dispose: vi.fn() })),
+    onDidChangeModelContent: vi.fn(
+      (listener: (event: { changes: readonly unknown[] }) => void) => {
+        modelContentListener = listener;
+        return { dispose: vi.fn() };
+      },
+    ),
     onDidChangeCursorPosition: vi.fn(() => ({ dispose: vi.fn() })),
     onDidScrollChange: vi.fn(() => ({ dispose: vi.fn() })),
     addCommand: vi.fn(),
@@ -42,10 +51,25 @@ const mocks = vi.hoisted(() => {
       setBuffer: ReturnType<typeof vi.fn>;
       dispose: ReturnType<typeof vi.fn>;
     }>,
+    macroControllers: [] as Array<{
+      recordChanges: ReturnType<typeof vi.fn>;
+      dispose: ReturnType<typeof vi.fn>;
+    }>,
     paneModelController,
     create: vi.fn(() => editor),
     release: vi.fn(),
     applyContent: vi.fn(),
+    emitModelContentChange: (changes: readonly unknown[]) => {
+      modelContentListener?.({ changes });
+    },
+    resetModelContentState: () => {
+      applyingContent = false;
+      modelContentListener = null;
+    },
+    setApplyingContent: (value: boolean) => {
+      applyingContent = value;
+    },
+    isApplyingContent: () => applyingContent,
   };
 });
 
@@ -107,6 +131,24 @@ vi.mock("./bookmarkController", async () => {
     }),
   };
 });
+vi.mock("./editorMacro", async () => {
+  const actual = await vi.importActual<typeof import("./editorMacro")>(
+    "./editorMacro",
+  );
+  return {
+    ...actual,
+    createEditorMacroController: vi.fn((editor) => {
+      const actualController = actual.createEditorMacroController(editor);
+      const controller = {
+        ...actualController,
+        recordChanges: vi.fn(actualController.recordChanges),
+        dispose: vi.fn(actualController.dispose),
+      };
+      mocks.macroControllers.push(controller);
+      return controller;
+    }),
+  };
+});
 vi.mock("./ZedModeProvider", () => ({
   useZedMode: () => ({ mode: "classic", vimEnabled: false }),
 }));
@@ -126,7 +168,7 @@ vi.mock("./monacoModelRegistry", () => ({
       model: mocks.model,
       release: mocks.release,
     }),
-    isApplyingContent: () => false,
+    isApplyingContent: mocks.isApplyingContent,
     applyContent: mocks.applyContent,
   }),
   MonacoPaneModelController: class {
@@ -142,6 +184,8 @@ describe("MonacoEditor power editing integration", () => {
     vi.clearAllMocks();
     mocks.actionRegistrations.length = 0;
     mocks.bookmarkControllers.length = 0;
+    mocks.macroControllers.length = 0;
+    mocks.resetModelContentState();
   });
 
   it("creates Monaco with column selection disabled by default", async () => {
@@ -259,6 +303,84 @@ describe("MonacoEditor power editing integration", () => {
     view.unmount();
 
     expect(controller.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("creates one macro controller and registers its actions on the same editor", async () => {
+    const { createEditorMacroController } = await import("./editorMacro");
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.macroControllers).toHaveLength(1));
+    expect(createEditorMacroController).toHaveBeenCalledWith(mocks.editor);
+    expect(
+      mocks.editor.addAction.mock.calls
+        .filter(([action]) => action.id.startsWith("ccie.editor.macro."))
+        .map(([action]) => action.id),
+    ).toEqual([
+      "ccie.editor.macro.start",
+      "ccie.editor.macro.stop",
+      "ccie.editor.macro.replay",
+      "ccie.editor.macro.clear",
+    ]);
+
+    view.unmount();
+  });
+
+  it("disposes the macro controller once on unmount", async () => {
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.macroControllers).toHaveLength(1));
+    const controller = mocks.macroControllers[0]!;
+
+    view.unmount();
+    view.unmount();
+
+    expect(controller.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("does not record externally applied model content", async () => {
+    const onChange = vi.fn();
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={onChange}
+        enableLsp={false}
+      />,
+    );
+
+    await waitFor(() => expect(mocks.macroControllers).toHaveLength(1));
+    const controller = mocks.macroControllers[0]!;
+    const changes = [{ range: {}, text: "external" }];
+    mocks.setApplyingContent(true);
+
+    mocks.emitModelContentChange(changes);
+
+    expect(controller.recordChanges).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+
+    mocks.setApplyingContent(false);
+    mocks.emitModelContentChange(changes);
+    expect(controller.recordChanges).toHaveBeenCalledWith(changes);
+    expect(onChange).toHaveBeenCalledWith("text");
+
+    view.unmount();
   });
 
   it("sets the bookmark buffer after switching the Monaco model", async () => {

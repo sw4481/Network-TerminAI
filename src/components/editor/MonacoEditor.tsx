@@ -34,6 +34,7 @@ import {
   createBookmarkController,
   type BookmarkController,
 } from "./bookmarkController";
+import { createEditorMacroController } from "./editorMacro";
 import "./MonacoEditor.css";
 import "./git-awareness.css";
 import "./debug/debug-decorations.css";
@@ -316,15 +317,14 @@ export function MonacoEditor({
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL,
     ]);
     editorDisposables.push(registerPowerEditingActions(editor));
+    const macroController = createEditorMacroController(editor);
+    editorDisposables.push({ dispose: macroController.dispose });
 
-    const changeDisposable = editor.onDidChangeModelContent(() => {
+    const changeDisposable = editor.onDidChangeModelContent((event) => {
       const lease = modelLeaseRef.current;
-      if (
-        lease &&
-        !registry.isApplyingContent(lease.bufferId)
-      ) {
-        onChangeRef.current(editor.getValue());
-      }
+      if (!lease || registry.isApplyingContent(lease.bufferId)) return;
+      macroController.recordChanges(event.changes);
+      onChangeRef.current(editor.getValue());
     });
     editorDisposables.push(changeDisposable);
 
