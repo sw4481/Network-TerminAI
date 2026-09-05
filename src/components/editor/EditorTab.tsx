@@ -30,6 +30,7 @@ import { EditorPane } from "./EditorPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { FileExplorer } from "./FileExplorer";
 import { FindReplace } from "./FindReplace";
+import { SendSelectionToCisco } from "./SendSelectionToCisco";
 import { WorkspaceFind } from "./WorkspaceFind";
 import { EditorSettingsPanel } from "./EditorSettings";
 import {
@@ -114,6 +115,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     `editor-main:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   const [showFind, setShowFind] = useState(false);
+  const [showCiscoSend, setShowCiscoSend] = useState(false);
   const [showWorkspaceFind, setShowWorkspaceFind] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
@@ -893,6 +895,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
       } else if (
         event.key === "Escape" &&
         (showFind ||
+          showCiscoSend ||
           showWorkspaceFind ||
           showSettings ||
           showSymbolSearch ||
@@ -900,6 +903,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
       ) {
         event.preventDefault();
         setShowFind(false);
+        setShowCiscoSend(false);
         setShowWorkspaceFind(false);
         setShowSettings(false);
         setShowSymbolSearch(false);
@@ -912,6 +916,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
     tab.id,
     toggleExplorer,
     showFind,
+    showCiscoSend,
     showWorkspaceFind,
     showSettings,
     showSymbolSearch,
@@ -1027,6 +1032,15 @@ export function EditorTab({ tab }: { tab: Tab }) {
             data-testid="editor-find-button"
           >
             🔍
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCiscoSend((value) => !value)}
+            title="Send Selection to Cisco"
+            aria-label="Send Selection to Cisco"
+            data-testid="editor-cisco-send-button"
+          >
+            Cisco
           </button>
           <button
             onClick={() => setShowWorkspaceFind((value) => !value)}
@@ -1296,6 +1310,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
               <FindReplace
                 editor={focusedEditor}
                 onClose={() => setShowFind(false)}
+              />
+            )}
+            {!gitDiffReview && showCiscoSend && (
+              <SendSelectionToCisco
+                editor={focusedEditor}
+                sessionId={tab.id}
+                onClose={() => setShowCiscoSend(false)}
               />
             )}
             {!gitDiffReview && showWorkspaceFind && (
