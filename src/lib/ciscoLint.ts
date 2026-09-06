@@ -260,7 +260,9 @@ function detectOrphanChildCommand(
       continue;
     }
 
-    const hasCompatibleParent = contextStack.some((context) => rule.allowedParents.has(context));
+    const currentContext = contextStack[contextStack.length - 1];
+    const hasCompatibleParent =
+      currentContext !== undefined && rule.allowedParents.has(currentContext);
     if (hasCompatibleParent) {
       return null;
     }
@@ -316,6 +318,11 @@ export function lintCiscoConfig(text: string, platform: CiscoPlatform): CiscoLin
       continue;
     }
 
+    if (isSeparatorLine(trimmed) || isCommentLine(trimmed)) {
+      contextStack.length = 0;
+      continue;
+    }
+
     const promptDiagnostic = detectCliPrompt(rawLine);
     if (promptDiagnostic) {
       diagnostics.push({ ...promptDiagnostic, line: lineNumber });
@@ -325,11 +332,6 @@ export function lintCiscoConfig(text: string, platform: CiscoPlatform): CiscoLin
     const controlDiagnostic = detectControlCharacter(rawLine, lineNumber);
     if (controlDiagnostic) {
       diagnostics.push(controlDiagnostic);
-    }
-
-    if (isSeparatorLine(trimmed) || isCommentLine(trimmed)) {
-      contextStack.length = 0;
-      continue;
     }
 
     const suspiciousOutputDiagnostic = detectSuspiciousOutput(trimmed, lineNumber, column);

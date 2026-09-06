@@ -43,6 +43,31 @@ describe("lintCiscoConfig", () => {
     ]);
   });
 
+  it("uses the innermost context for nested child-command compatibility", () => {
+    const result = lintCiscoConfig(
+      [
+        "interface Gi1/0/1",
+        " router ospf 1",
+        " ip address 192.0.2.1 255.255.255.0",
+      ].join("\n"),
+      "iosxe",
+    );
+
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "orphan-child-command",
+        line: 3,
+        severity: "warning",
+      }),
+    ]);
+  });
+
+  it("ignores control characters on separator and comment lines", () => {
+    const result = lintCiscoConfig("  !\u0000 captured separator", "iosxe");
+
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it("flags unmatched exit without requiring a final end", () => {
     const result = lintCiscoConfig("exit\ninterface Gi1/0/1\n description test", "nxos");
 
