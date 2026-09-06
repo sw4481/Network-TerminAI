@@ -144,6 +144,8 @@ export function MonacoEditor({
   vimStatusRef,
   ciscoPlatform = null,
   ciscoDiagnostics = EMPTY_CISCO_DIAGNOSTICS,
+  ciscoGuardrailStatus,
+  onCiscoLintResult,
 }: MonacoEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -499,12 +501,19 @@ export function MonacoEditor({
     ciscoMarkerModelRef.current = model;
     ciscoMarkerBufferIdRef.current = activeBufferId;
     setCiscoMarkers(monaco, model, ciscoDiagnostics);
+    onCiscoLintResult?.({
+      diagnostics: [...ciscoDiagnostics],
+      structuralStatus: "ready",
+      guardrails: ciscoGuardrailStatus ?? { state: "idle", reason: null },
+    });
   }, [
     monaco,
     editorInstance,
     activeBufferId,
     ciscoPlatform,
     ciscoDiagnostics,
+    ciscoGuardrailStatus,
+    onCiscoLintResult,
   ]);
 
   useEffect(() => {

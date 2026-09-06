@@ -526,6 +526,43 @@ describe("MonacoEditor power editing integration", () => {
     );
   });
 
+  it("reports the active Cisco lint view through the optional callback", async () => {
+    const diagnostics = [
+      {
+        line: 4,
+        column: 2,
+        endColumn: 12,
+        severity: "warning" as const,
+        message: "High impact",
+        source: "guardrails" as const,
+        code: "guardrail-save",
+      },
+    ];
+    const onCiscoLintResult = vi.fn();
+
+    render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={diagnostics}
+        ciscoGuardrailStatus={{ state: "ready", reason: null }}
+        onCiscoLintResult={onCiscoLintResult}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(onCiscoLintResult).toHaveBeenCalledWith({
+        diagnostics,
+        structuralStatus: "ready",
+        guardrails: { state: "ready", reason: null },
+      }),
+    );
+  });
+
   it("clears final-consumer Cisco markers after its old lease is released", async () => {
     const view = render(
       <MonacoEditor
