@@ -69,6 +69,7 @@ const mocks = vi.hoisted(() => {
     setModelMarkers: vi.fn(),
     setModelLanguage: vi.fn(),
     modelReferences,
+    leaseEvents: [] as string[],
     release: vi.fn(),
     applyContent: vi.fn(),
     emitModelContentChange: (changes: readonly unknown[]) => {
@@ -79,6 +80,7 @@ const mocks = vi.hoisted(() => {
       modelContentListener = null;
       activeModel = model;
       modelReferences.clear();
+      mocks.leaseEvents.length = 0;
     },
     setApplyingContent: (value: boolean) => {
       applyingContent = value;
@@ -184,6 +186,7 @@ vi.mock("./monacoModelRegistry", () => ({
         bufferId,
         (mocks.modelReferences.get(bufferId) ?? 0) + 1,
       );
+      mocks.leaseEvents.push(`acquire:${bufferId}`);
       let released = false;
       return {
         bufferId,
@@ -195,11 +198,17 @@ vi.mock("./monacoModelRegistry", () => ({
             bufferId,
             Math.max(0, (mocks.modelReferences.get(bufferId) ?? 0) - 1),
           );
+          mocks.leaseEvents.push(
+            `release:${bufferId}:${mocks.modelReferences.get(bufferId) ?? 0}`,
+          );
         }),
       };
     },
-    referenceCount: (bufferId: string) =>
-      mocks.modelReferences.get(bufferId) ?? 0,
+    referenceCount: (bufferId: string) => {
+      const count = mocks.modelReferences.get(bufferId) ?? 0;
+      mocks.leaseEvents.push(`referenceCount:${bufferId}:${count}`);
+      return count;
+    },
     isApplyingContent: mocks.isApplyingContent,
     applyContent: mocks.applyContent,
   }),
@@ -517,7 +526,7 @@ describe("MonacoEditor power editing integration", () => {
     );
   });
 
-  it("clears Cisco markers from the previous model when the buffer changes", async () => {
+  it("clears final-consumer Cisco markers after its old lease is released", async () => {
     const view = render(
       <MonacoEditor
         bufferId="buffer-a"
@@ -563,6 +572,12 @@ describe("MonacoEditor power editing integration", () => {
       "cisco-lint",
       [],
     );
+    const releaseIndex = mocks.leaseEvents.indexOf("release:buffer-a:0");
+    const referenceCountIndex = mocks.leaseEvents.indexOf(
+      "referenceCount:buffer-a:0",
+    );
+    expect(releaseIndex).toBeGreaterThanOrEqual(0);
+    expect(referenceCountIndex).toBeGreaterThan(releaseIndex);
 
     view.unmount();
   });
