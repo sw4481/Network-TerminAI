@@ -245,6 +245,7 @@ pub fn editor_buffer_update(
     base_revision: u64,
     content: String,
     language: String,
+    cisco_platform: Option<String>,
     dirty: bool,
     source_id: String,
 ) -> Result<crate::editor::EditorBufferUpdateResult, String> {
@@ -256,6 +257,7 @@ pub fn editor_buffer_update(
             base_revision,
             content,
             language,
+            cisco_platform,
             dirty,
             source_id,
         )

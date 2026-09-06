@@ -39,8 +39,25 @@ describe("editorStore normalized editor state", () => {
     expect(useEditorStore.getState().buffers["untitled:seed"]).toMatchObject({
       content: "",
       language: "plaintext",
+      cisco_platform: null,
       is_dirty: false,
       revision: 0,
+    });
+  });
+
+  it("patches only the active buffer Cisco profile", () => {
+    const store = useEditorStore.getState();
+    store.initializeWorkspace("editor-tab-1", {
+      bufferId: "untitled:seed",
+      paneId: "pane-seed",
+    });
+    const before = useEditorStore.getState().buffers["untitled:seed"];
+
+    store.patchBuffer("untitled:seed", { cisco_platform: "iosxe" });
+
+    expect(useEditorStore.getState().buffers["untitled:seed"]).toEqual({
+      ...before,
+      cisco_platform: "iosxe",
     });
   });
 

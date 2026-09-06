@@ -10,6 +10,7 @@ pub struct EditorBufferSeed {
     pub file_path: Option<String>,
     pub content: String,
     pub language: String,
+    pub cisco_platform: Option<String>,
     pub dirty: bool,
     pub source_id: String,
 }
@@ -21,6 +22,7 @@ pub struct EditorBufferSnapshot {
     pub file_path: Option<String>,
     pub content: String,
     pub language: String,
+    pub cisco_platform: Option<String>,
     pub dirty: bool,
     pub revision: u64,
     pub source_id: String,
@@ -52,6 +54,7 @@ impl EditorBufferManager {
                 file_path: seed.file_path,
                 content: seed.content,
                 language: seed.language,
+                cisco_platform: seed.cisco_platform,
                 dirty: seed.dirty,
                 revision: 0,
                 source_id: seed.source_id,
@@ -83,6 +86,7 @@ impl EditorBufferManager {
         base_revision: u64,
         content: String,
         language: String,
+        cisco_platform: Option<String>,
         dirty: bool,
         source_id: String,
     ) -> Option<EditorBufferUpdateResult> {
@@ -96,6 +100,7 @@ impl EditorBufferManager {
 
         snapshot.content = content;
         snapshot.language = language;
+        snapshot.cisco_platform = cisco_platform;
         snapshot.dirty = dirty;
         snapshot.source_id = source_id;
         snapshot.revision += 1;
@@ -137,6 +142,7 @@ mod tests {
             file_path: Some("/repo/a.ts".to_string()),
             content: content.to_string(),
             language: "typescript".to_string(),
+            cisco_platform: None,
             dirty: false,
             source_id: "main".to_string(),
         }
@@ -164,6 +170,31 @@ mod tests {
     }
 
     #[test]
+    fn editor_buffer_profile_survives_register_and_update() {
+        let manager = EditorBufferManager::new();
+        let mut seed = seed("interface Gi1");
+        seed.cisco_platform = Some("iosxe".to_string());
+        let registered = manager.register(seed);
+        assert_eq!(registered.cisco_platform.as_deref(), Some("iosxe"));
+
+        let result = manager
+            .update(
+                &registered.buffer_id,
+                registered.revision,
+                registered.content.clone(),
+                registered.language.clone(),
+                Some("nxos".to_string()),
+                true,
+                "detached".to_string(),
+            )
+            .expect("registered buffer");
+        let EditorBufferUpdateResult::Applied { snapshot } = result else {
+            panic!("expected applied update");
+        };
+        assert_eq!(snapshot.cisco_platform.as_deref(), Some("nxos"));
+    }
+
+    #[test]
     fn editor_buffer_update_accepts_current_revision_once() {
         let manager = EditorBufferManager::new();
         manager.register(seed("first"));
@@ -174,6 +205,7 @@ mod tests {
                 0,
                 "second".to_string(),
                 "typescript".to_string(),
+                None,
                 true,
                 "detached".to_string(),
             )
@@ -197,6 +229,7 @@ mod tests {
             0,
             "second".to_string(),
             "typescript".to_string(),
+            None,
             true,
             "main".to_string(),
         );
@@ -207,6 +240,7 @@ mod tests {
                 0,
                 "stale".to_string(),
                 "typescript".to_string(),
+                None,
                 true,
                 "detached".to_string(),
             )
@@ -230,6 +264,7 @@ mod tests {
                 0,
                 "second".to_string(),
                 "typescript".to_string(),
+                None,
                 true,
                 "main".to_string(),
             )
@@ -264,6 +299,7 @@ mod tests {
                 0,
                 "content".to_string(),
                 "plaintext".to_string(),
+                None,
                 true,
                 "main".to_string(),
             )

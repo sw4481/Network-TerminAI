@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import type { GitFileStatus } from "../lib/tauri";
+import type { CiscoPlatform } from "../lib/ciscoLint";
 import {
   closeEditorPane,
   createEditorPaneLayout,
@@ -45,6 +46,7 @@ export type EditorBufferState = {
   file_path: string | null;
   content: string;
   language: string;
+  cisco_platform: CiscoPlatform | null;
   is_dirty: boolean;
   revision: number;
   sync_status: EditorBufferSyncStatus;
@@ -72,6 +74,7 @@ export type EditorBufferSeed = {
   file_path?: string | null;
   content?: string;
   language?: string;
+  cisco_platform?: CiscoPlatform | null;
   is_dirty?: boolean;
   revision?: number;
   sync_status?: EditorBufferSyncStatus;
@@ -178,6 +181,7 @@ export function createEditorBuffer(
     file_path: filePath,
     content: seed.content ?? "",
     language: seed.language ?? "plaintext",
+    cisco_platform: seed.cisco_platform ?? null,
     is_dirty: seed.is_dirty ?? false,
     revision: seed.revision ?? 0,
     sync_status: seed.sync_status ?? "local",

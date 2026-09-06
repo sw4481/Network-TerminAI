@@ -8,6 +8,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { PtyEvent, Tab } from "./types";
 import type { AppearanceSettingsV1 } from "../theme/types";
+import type { CiscoPlatform } from "./ciscoLint";
 
 /**
  * Ping the Rust core to verify it's responsive.
@@ -2559,6 +2560,7 @@ export type EditorBufferSeed = {
   filePath: string | null;
   content: string;
   language: string;
+  ciscoPlatform: CiscoPlatform | null;
   dirty: boolean;
   sourceId: string;
 };
@@ -2576,6 +2578,7 @@ export type EditorBufferUpdateRequest = {
   baseRevision: number;
   content: string;
   language: string;
+  ciscoPlatform: CiscoPlatform | null;
   dirty: boolean;
   sourceId: string;
 };

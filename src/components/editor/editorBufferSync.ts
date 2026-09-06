@@ -41,6 +41,7 @@ type LocalBufferVersion = {
   sequence: number;
   content: string;
   language: string;
+  ciscoPlatform: EditorBufferSeed["ciscoPlatform"];
   dirty: boolean;
 };
 
@@ -123,13 +124,19 @@ export class EditorBufferSyncClient {
     }
   }
 
-  queueLocal(content: string, language: string, dirty: boolean): void {
+  queueLocal(
+    content: string,
+    language: string,
+    ciscoPlatform: EditorBufferSeed["ciscoPlatform"],
+    dirty: boolean,
+  ): void {
     if (this.disposed) return;
     if (
       this.hasPendingLocal() &&
       this.latestLocal &&
       this.latestLocal.content === content &&
       this.latestLocal.language === language &&
+      this.latestLocal.ciscoPlatform === ciscoPlatform &&
       this.latestLocal.dirty === dirty
     ) {
       return;
@@ -139,6 +146,7 @@ export class EditorBufferSyncClient {
       sequence: this.localSequence,
       content,
       language,
+      ciscoPlatform,
       dirty,
     };
     this.onStatus("local");
@@ -284,6 +292,7 @@ export class EditorBufferSyncClient {
         baseRevision: this.revision,
         content: sent.content,
         language: sent.language,
+        ciscoPlatform: sent.ciscoPlatform,
         dirty: sent.dirty,
         sourceId: this.sourceId,
       })

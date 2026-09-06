@@ -9,17 +9,20 @@ import type {
   EditorBufferSnapshot,
   EditorBufferUpdateResult,
 } from "../../lib/tauri";
+import type { CiscoPlatform } from "../../lib/ciscoLint";
 
 function snapshot(
   revision: number,
   content: string,
   sourceId = "backend",
+  ciscoPlatform: CiscoPlatform | null = null,
 ): EditorBufferSnapshot {
   return {
     bufferId: "file:/repo/a.ts",
     filePath: "/repo/a.ts",
     content,
     language: "typescript",
+    ciscoPlatform,
     dirty: true,
     revision,
     sourceId,
@@ -38,6 +41,7 @@ function transport(initial = snapshot(0, "initial")) {
           request.baseRevision + 1,
           request.content,
           request.sourceId,
+          request.ciscoPlatform,
         ),
       }),
     ),
@@ -92,6 +96,7 @@ const seed = {
   filePath: "/repo/a.ts",
   content: "initial",
   language: "typescript",
+  ciscoPlatform: "iosxe" as const,
   dirty: false,
   sourceId: "main-window",
 };
@@ -110,8 +115,12 @@ describe("EditorBufferSyncClient", () => {
     const sync = client(fake.value);
     await sync.start(seed);
 
-    sync.queueLocal("one", "typescript", true);
-    sync.queueLocal("two", "typescript", true);
+    expect(fake.value.register).toHaveBeenCalledWith(
+      expect.objectContaining({ ciscoPlatform: "iosxe" }),
+    );
+
+    sync.queueLocal("one", "cisco-iosxe", "iosxe", true);
+    sync.queueLocal("two", "cisco-iosxe", "iosxe", true);
     await vi.advanceTimersByTimeAsync(119);
     expect(fake.update).not.toHaveBeenCalled();
 
@@ -121,7 +130,8 @@ describe("EditorBufferSyncClient", () => {
       bufferId: seed.bufferId,
       baseRevision: 0,
       content: "two",
-      language: "typescript",
+      language: "cisco-iosxe",
+      ciscoPlatform: "iosxe",
       dirty: true,
       sourceId: "main-window",
     });
@@ -139,9 +149,9 @@ describe("EditorBufferSyncClient", () => {
     const sync = client(fake.value);
     await sync.start(seed);
 
-    sync.queueLocal("one", "typescript", true);
+    sync.queueLocal("one", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
-    sync.queueLocal("two", "typescript", true);
+    sync.queueLocal("two", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
     expect(fake.update).toHaveBeenCalledOnce();
 
@@ -180,9 +190,9 @@ describe("EditorBufferSyncClient", () => {
     const sync = client(fake.value);
     await sync.start(seed);
 
-    sync.queueLocal("one", "typescript", true);
+    sync.queueLocal("one", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
-    sync.queueLocal("two", "typescript", true);
+    sync.queueLocal("two", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
 
     expect(fake.update.mock.calls[1][0].baseRevision).toBe(1);
@@ -192,7 +202,7 @@ describe("EditorBufferSyncClient", () => {
     const fake = transport();
     const sync = client(fake.value);
     await sync.start(seed);
-    sync.queueLocal("save this", "typescript", true);
+    sync.queueLocal("save this", "typescript", null, true);
 
     const flushed = await sync.flushNow();
 
@@ -213,8 +223,8 @@ describe("EditorBufferSyncClient", () => {
     const second = client(secondTransport.value);
     await first.start(seed);
     await second.start(seed);
-    first.queueLocal("first pending", "typescript", true);
-    second.queueLocal("second pending", "typescript", true);
+    first.queueLocal("first pending", "typescript", null, true);
+    second.queueLocal("second pending", "typescript", null, true);
 
     let completed = false;
     const pending = flushEditorBufferSyncClients([first, second]).then(() => {
@@ -239,7 +249,7 @@ describe("EditorBufferSyncClient", () => {
     fake.update.mockRejectedValueOnce(new Error("transport down"));
     const sync = client(fake.value);
     await sync.start(seed);
-    sync.queueLocal("must not be lost", "typescript", true);
+    sync.queueLocal("must not be lost", "typescript", null, true);
 
     await expect(sync.flushNow()).rejects.toThrow(
       "failed to synchronize editor buffer",
@@ -261,9 +271,9 @@ describe("EditorBufferSyncClient", () => {
     await sync.start(seed);
     onSnapshot.mockClear();
 
-    sync.queueLocal("first", "typescript", true);
+    sync.queueLocal("first", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
-    sync.queueLocal("newer", "typescript", true);
+    sync.queueLocal("newer", "typescript", null, true);
     resolveFirst?.({
       status: "conflict",
       snapshot: snapshot(8, "remote"),
@@ -294,7 +304,7 @@ describe("EditorBufferSyncClient", () => {
     await sync.start(seed);
     onSnapshot.mockClear();
 
-    sync.queueLocal("loses", "typescript", true);
+    sync.queueLocal("loses", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
     await vi.advanceTimersByTimeAsync(500);
 
@@ -316,7 +326,7 @@ describe("EditorBufferSyncClient", () => {
     await sync.start(seed);
     onSnapshot.mockClear();
 
-    sync.queueLocal("loses", "typescript", true);
+    sync.queueLocal("loses", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
     const remote = snapshot(4, "remote");
     fake.emit(remote);
@@ -341,7 +351,7 @@ describe("EditorBufferSyncClient", () => {
     await sync.start(seed);
     onSnapshot.mockClear();
 
-    sync.queueLocal("accepted-first", "typescript", true);
+    sync.queueLocal("accepted-first", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
     const newerRemote = snapshot(2, "newer-remote");
     fake.emit(newerRemote);
@@ -387,7 +397,7 @@ describe("EditorBufferSyncClient", () => {
     const sync = client(fake.value, { onSnapshot });
     await sync.start(seed);
     onSnapshot.mockClear();
-    sync.queueLocal("pending", "typescript", true);
+    sync.queueLocal("pending", "typescript", null, true);
     await vi.advanceTimersByTimeAsync(120);
 
     sync.dispose();
