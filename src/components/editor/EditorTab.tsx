@@ -167,6 +167,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
         filePath: buffer.file_path,
         content: buffer.content,
         language: buffer.language,
+        ciscoPlatform: buffer.cisco_platform,
         dirty: buffer.is_dirty,
         sourceId: syncSourceId.current,
       });
@@ -181,6 +182,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
           file_path: snapshot.filePath,
           content: snapshot.content,
           language: snapshot.language,
+          cisco_platform: snapshot.ciscoPlatform,
           is_dirty: snapshot.dirty,
           revision: snapshot.revision,
           sync_status: "synced",
@@ -206,6 +208,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
         filePath: buffer.file_path,
         content: buffer.content,
         language: buffer.language,
+        ciscoPlatform: buffer.cisco_platform,
         dirty: buffer.is_dirty,
         sourceId: syncSourceId.current,
       });
@@ -965,7 +968,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
       const buffer = useEditorStore.getState().buffers[bufferId];
       syncClients.current
         .get(bufferId)
-        ?.queueLocal(content, buffer.language, true);
+        ?.queueLocal(content, buffer.language, buffer.cisco_platform, true);
     },
     onCursorChange: (
       paneId: string,

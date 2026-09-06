@@ -141,6 +141,7 @@ const authoritative = {
   filePath: "/repo/a.ts",
   content: "authoritative",
   language: "typescript",
+  ciscoPlatform: "iosxe",
   dirty: true,
   revision: 4,
   sourceId: "main",
@@ -213,6 +214,7 @@ describe("DetachedEditorWindow", () => {
       filePath: null,
       content: "",
       language: "plaintext",
+      ciscoPlatform: null,
       dirty: false,
       sourceId: expect.stringMatching(/^editor-detached:/),
     });
@@ -234,6 +236,7 @@ describe("DetachedEditorWindow", () => {
     expect(mocks.queueLocal).toHaveBeenCalledWith(
       "changed locally",
       "typescript",
+      "iosxe",
       true,
     );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

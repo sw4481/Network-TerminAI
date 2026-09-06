@@ -45,6 +45,7 @@ function bufferFromSnapshot(
     file_path: snapshot.filePath,
     content: snapshot.content,
     language: snapshot.language,
+    cisco_platform: snapshot.ciscoPlatform,
     is_dirty: snapshot.dirty,
     revision: snapshot.revision,
     sync_status: syncStatus,
@@ -133,6 +134,7 @@ export function DetachedEditorWindow() {
         filePath: null,
         content: "",
         language: "plaintext",
+        ciscoPlatform: null,
         dirty: false,
         sourceId: sourceIdRef.current,
       });
@@ -415,7 +417,12 @@ export function DetachedEditorWindow() {
                   }
                 : current,
             );
-            clientRef.current?.queueLocal(content, buffer.language, true);
+            clientRef.current?.queueLocal(
+              content,
+              buffer.language,
+              buffer.cisco_platform,
+              true,
+            );
           }}
           onCursorChange={(cursor_position) =>
             setView((current) => ({ ...current, cursor_position }))
