@@ -148,6 +148,7 @@ export function MonacoEditor({
   const paneModelControllerRef = useRef<MonacoPaneModelController | null>(null);
   const bookmarkControllerRef = useRef<BookmarkController | null>(null);
   const ciscoMarkerModelRef = useRef<Monaco.editor.ITextModel | null>(null);
+  const ciscoMarkerBufferIdRef = useRef<string | null>(null);
   const [monaco, setMonaco] = useState<typeof Monaco | null>(null);
   const [editorInstance, setEditorInstance] =
     useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -276,9 +277,17 @@ export function MonacoEditor({
           paneModelControllerRef.current?.clear();
           paneModelControllerRef.current = null;
           const markerModel = ciscoMarkerModelRef.current;
-          if (markerModel) {
+          const markerBufferId = ciscoMarkerBufferIdRef.current;
+          if (
+            markerModel &&
+            markerBufferId &&
+            getMonacoModelRegistry(monaco).referenceCount(markerBufferId) <= 1
+          ) {
             clearCiscoMarkers(monaco, markerModel);
+          }
+          if (markerModel) {
             ciscoMarkerModelRef.current = null;
+            ciscoMarkerBufferIdRef.current = null;
           }
           const currentLease = modelLeaseRef.current;
           modelLeaseRef.current = null;
@@ -460,16 +469,32 @@ export function MonacoEditor({
     if (!model) return;
 
     const previousModel = ciscoMarkerModelRef.current;
-    if (previousModel && previousModel !== model) {
-      clearCiscoMarkers(monaco, previousModel);
+    const previousBufferId = ciscoMarkerBufferIdRef.current;
+    const modelChanged =
+      previousModel !== model || previousBufferId !== activeBufferId;
+    if (
+      previousModel &&
+      previousBufferId &&
+      (modelChanged || !ciscoPlatform)
+    ) {
+      const remainingConsumers = getMonacoModelRegistry(monaco).referenceCount(
+        previousBufferId,
+      );
+      const noRemainingConsumer = modelChanged
+        ? remainingConsumers === 0
+        : remainingConsumers <= 1;
+      if (noRemainingConsumer) {
+        clearCiscoMarkers(monaco, previousModel);
+      }
     }
-    ciscoMarkerModelRef.current = model;
 
-    if (ciscoPlatform) {
-      setCiscoMarkers(monaco, model, ciscoDiagnostics);
-    } else {
-      clearCiscoMarkers(monaco, model);
+    if (!ciscoPlatform) {
+      return;
     }
+
+    ciscoMarkerModelRef.current = model;
+    ciscoMarkerBufferIdRef.current = activeBufferId;
+    setCiscoMarkers(monaco, model, ciscoDiagnostics);
   }, [
     monaco,
     editorInstance,

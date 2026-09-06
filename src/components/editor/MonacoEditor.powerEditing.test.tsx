@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     getLineCount: vi.fn(() => 10),
   };
   let activeModel = model;
+  const modelReferences = new Map<string, number>();
   const actionRegistrations: Array<{
     descriptor: { id: string };
     dispose: ReturnType<typeof vi.fn>;
@@ -67,6 +68,7 @@ const mocks = vi.hoisted(() => {
     create: vi.fn(() => editor),
     setModelMarkers: vi.fn(),
     setModelLanguage: vi.fn(),
+    modelReferences,
     release: vi.fn(),
     applyContent: vi.fn(),
     emitModelContentChange: (changes: readonly unknown[]) => {
@@ -76,6 +78,7 @@ const mocks = vi.hoisted(() => {
       applyingContent = false;
       modelContentListener = null;
       activeModel = model;
+      modelReferences.clear();
     },
     setApplyingContent: (value: boolean) => {
       applyingContent = value;
@@ -176,11 +179,27 @@ vi.mock("../../theme/AppearanceProvider", () => ({
 }));
 vi.mock("./monacoModelRegistry", () => ({
   getMonacoModelRegistry: () => ({
-    acquire: (bufferId: string) => ({
-      bufferId,
-      model: bufferId === "buffer-b" ? mocks.secondModel : mocks.model,
-      release: mocks.release,
-    }),
+    acquire: (bufferId: string) => {
+      mocks.modelReferences.set(
+        bufferId,
+        (mocks.modelReferences.get(bufferId) ?? 0) + 1,
+      );
+      let released = false;
+      return {
+        bufferId,
+        model: bufferId === "buffer-b" ? mocks.secondModel : mocks.model,
+        release: vi.fn(() => {
+          if (released) return;
+          released = true;
+          mocks.modelReferences.set(
+            bufferId,
+            Math.max(0, (mocks.modelReferences.get(bufferId) ?? 0) - 1),
+          );
+        }),
+      };
+    },
+    referenceCount: (bufferId: string) =>
+      mocks.modelReferences.get(bufferId) ?? 0,
     isApplyingContent: mocks.isApplyingContent,
     applyContent: mocks.applyContent,
   }),
@@ -546,5 +565,76 @@ describe("MonacoEditor power editing integration", () => {
     );
 
     view.unmount();
+  });
+
+  it("keeps shared-buffer Cisco markers when one pane switches or unmounts", async () => {
+    const firstPane = render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={[]}
+      />,
+    );
+    const secondPane = render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.modelReferences.get("shared-buffer")).toBe(2),
+    );
+    mocks.setModelMarkers.mockClear();
+
+    firstPane.rerender(
+      <MonacoEditor
+        bufferId="buffer-b"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.secondModel,
+        "cisco-lint",
+        [],
+      ),
+    );
+    expect(mocks.setModelMarkers).not.toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
+
+    mocks.setModelMarkers.mockClear();
+    firstPane.unmount();
+
+    expect(mocks.setModelMarkers).not.toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
+
+    secondPane.unmount();
+    expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
   });
 });
