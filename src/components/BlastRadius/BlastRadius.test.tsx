@@ -6,12 +6,17 @@ import { TypedConfirmModal } from "./TypedConfirmModal";
 import { MaintenanceWindowModal } from "./MaintenanceWindowModal";
 import { BlastRadiusHost } from "./BlastRadiusHost";
 import { useGuardrailsStore } from "../../state/guardrailsStore";
+import { invoke } from "@tauri-apps/api/core";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(async () => "decision-id-stub"),
 }));
 
+const mockedInvoke = invoke as unknown as ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
+  mockedInvoke.mockReset();
+  mockedInvoke.mockResolvedValue("decision-id-stub");
   useGuardrailsStore.setState({ pending: [] });
 });
 
@@ -257,6 +262,31 @@ describe("BlastRadiusHost queue", () => {
     });
     expect(resolved).toBe("proceed");
     expect(useGuardrailsStore.getState().pending.length).toBe(0);
+  });
+
+  it("cancels the waiting caller when approval audit persistence fails", async () => {
+    mockedInvoke.mockRejectedValueOnce(new Error("audit unavailable"));
+    const write = vi.fn();
+    const approval = useGuardrailsStore.getState().enqueueAndAwait({
+      pendingId: "p-audit-failure",
+      tier: "T1",
+      command: "configure terminal",
+      reasoning: "Configuration change",
+      vendor: "cisco",
+      platform: "iosxe",
+      sessionId: "s1",
+      ruleId: "config-rule",
+    });
+    const caller = approval.then(async (action) => {
+      if (action === "proceed") await write();
+      return action;
+    });
+
+    await useGuardrailsStore.getState().resolve("proceed");
+
+    await expect(caller).resolves.toBe("cancel");
+    expect(write).not.toHaveBeenCalled();
+    expect(useGuardrailsStore.getState().pending).toHaveLength(0);
   });
 
   it("routes T3 to MaintenanceWindowModal", async () => {

@@ -148,6 +148,7 @@ pub struct EditorSearchMatch {
     pub preview: String,
 }
 
+const EDITOR_SEARCH_PREVIEW_MAX_CHARS: usize = 160;
 const EDITOR_MODE_FLAG_KEY: &str = "ccie_editor_mode";
 const DEFAULT_EDITOR_MODE: &str = "monaco";
 
@@ -600,12 +601,34 @@ fn search_directory(
                     file_path: safe.to_string_lossy().to_string(),
                     line: line_index + 1,
                     column: line[..start].chars().count() + 1,
-                    preview: line.to_string(),
+                    preview: bounded_search_preview(line, start, end),
                 });
             }
         }
     }
     Ok(())
+}
+
+fn bounded_search_preview(line: &str, match_start: usize, match_end: usize) -> String {
+    let characters: Vec<char> = line.chars().collect();
+    if characters.len() <= EDITOR_SEARCH_PREVIEW_MAX_CHARS {
+        return line.to_string();
+    }
+
+    let match_start = line[..match_start].chars().count();
+    let match_end = line[..match_end].chars().count();
+    let match_len = match_end - match_start;
+    let (preview_start, preview_end) = if match_len >= EDITOR_SEARCH_PREVIEW_MAX_CHARS {
+        (match_start, match_start + EDITOR_SEARCH_PREVIEW_MAX_CHARS)
+    } else {
+        let context = EDITOR_SEARCH_PREVIEW_MAX_CHARS - match_len;
+        let mut preview_start = match_start.saturating_sub(context / 2);
+        let preview_end = (preview_start + EDITOR_SEARCH_PREVIEW_MAX_CHARS).min(characters.len());
+        preview_start = preview_end.saturating_sub(EDITOR_SEARCH_PREVIEW_MAX_CHARS);
+        (preview_start, preview_end)
+    };
+
+    characters[preview_start..preview_end].iter().collect()
 }
 
 fn filename_matches(name: &str, patterns: &[String]) -> bool {
@@ -862,6 +885,27 @@ mod editor_find_in_files_tests {
                 (last.to_str().unwrap(), 2, 1, "needle tail"),
             ]
         );
+    }
+
+    #[test]
+    fn find_in_files_bounds_unicode_preview_without_changing_match_position() {
+        let root = TempDir::new().unwrap();
+        let long_line = format!("{}needle{}", "é".repeat(200), "界".repeat(200));
+        std::fs::write(
+            root.path().join("unicode.txt"),
+            format!("header\n{long_line}\n"),
+        )
+        .unwrap();
+
+        let matches = search(&root, "needle", false, true, false, None).unwrap();
+
+        assert_eq!(matches.len(), 1);
+        let found = &matches[0];
+        assert_eq!((found.line, found.column), (2, 201));
+        assert!(found.preview.chars().count() <= 160);
+        assert!(found.preview.starts_with('é'));
+        assert!(found.preview.contains("needle"));
+        assert!(found.preview.ends_with('界'));
     }
 
     #[test]

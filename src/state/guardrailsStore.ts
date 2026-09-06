@@ -14,7 +14,7 @@ export interface PendingDecision {
   /**
    * Resolved by the modal layer: `proceed` -> caller goes ahead; `cancel`
    * -> caller aborts. The Promise returned by `enqueueAndAwait` resolves
-   * with this value once the user clicks.
+   * after the choice is audited; an audit failure resolves as `cancel`.
    */
   resolver: (action: "proceed" | "cancel") => void;
 }
@@ -56,8 +56,8 @@ export const useGuardrailsStore = create<GuardrailsState>((set, get) => ({
   resolve: async (action) => {
     const head = get().pending[0];
     if (!head) return;
-    head.resolver(action);
     const decisionLabel = mapDecisionLabel(head.tier, action);
+    let resolution = action;
     try {
       await recordDecision({
         sessionId: head.sessionId,
@@ -70,7 +70,9 @@ export const useGuardrailsStore = create<GuardrailsState>((set, get) => ({
       });
     } catch (e) {
       console.warn("guardrails: failed to record decision", e);
+      resolution = "cancel";
     }
+    head.resolver(resolution);
     get().shift();
   },
 }));
