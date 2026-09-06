@@ -9,6 +9,7 @@ import {
 } from "./lsp/NavigationProviders";
 import { acquireLspDocument } from "./lsp/lspDocumentSync";
 import { registerHclLanguage } from "./lsp/hclLanguage";
+import { registerCiscoLanguages } from "./lsp/ciscoLanguage";
 import { dispatchAskAi, type AskAiAction } from "./askAi";
 import { useZedMode } from "./ZedModeProvider";
 import {
@@ -181,6 +182,7 @@ export function MonacoEditor({
     loadMonaco()
       .then((m) => {
         registerHclLanguage(m);
+        registerCiscoLanguages(m);
         setMonaco(m);
       })
       .catch((e) => {
