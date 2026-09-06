@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   appearanceState: "ready" as "pending" | "ready" | "failed",
   appearanceError: null as string | null,
   retryAppearance: vi.fn(),
+  lint: vi.fn(),
+  paneProps: null as Record<string, unknown> | null,
   appearanceSettings: { appTheme: "terminai-dark", editorTheme: "follow-app" } as any,
 }));
 
@@ -80,19 +82,23 @@ vi.mock("../../theme/AppearanceProvider", () => ({
   }),
 }));
 
+vi.mock("../../hooks/useCiscoLint", () => ({
+  useCiscoLint: mocks.lint,
+}));
+
 vi.mock("./EditorPane", () => ({
-  EditorPane: ({
-    buffer,
-    onChange,
-  }: {
+  EditorPane: (props: {
     buffer: { content: string };
     onChange: (content: string) => void;
-  }) => (
-    <div data-testid="detached-editor-pane">
-      <span data-testid="detached-content">{buffer.content}</span>
-      <button onClick={() => onChange("changed locally")}>type</button>
-    </div>
-  ),
+  } & Record<string, unknown>) => {
+    mocks.paneProps = props;
+    return (
+      <div data-testid="detached-editor-pane">
+        <span data-testid="detached-content">{props.buffer.content}</span>
+        <button onClick={() => props.onChange("changed locally")}>type</button>
+      </div>
+    );
+  },
 }));
 
 vi.mock("../../hooks/useEditorSettings", () => ({
@@ -195,6 +201,12 @@ describe("DetachedEditorWindow", () => {
     mocks.appearanceState = "ready";
     mocks.appearanceError = null;
     mocks.retryAppearance.mockReset().mockResolvedValue(undefined);
+    mocks.lint.mockReset().mockReturnValue({
+      diagnostics: [],
+      structuralStatus: "ready",
+      guardrails: { state: "ready", reason: null },
+    });
+    mocks.paneProps = null;
     mocks.appearanceSettings = createDefaultAppearanceSettings();
   });
 
@@ -252,6 +264,47 @@ describe("DetachedEditorWindow", () => {
     await waitFor(() =>
       expect(mocks.gitSummary.mock.calls.length).toBeGreaterThan(1),
     );
+  });
+
+  it("passes the synchronized Cisco profile and lint result to the detached pane", async () => {
+    const diagnostics = [
+      {
+        line: 3,
+        column: 2,
+        endColumn: 8,
+        severity: "warning" as const,
+        message: "Captured prompt",
+        source: "cisco-structural" as const,
+        code: "cli-prompt",
+      },
+    ];
+    mocks.lint.mockReturnValue({
+      diagnostics,
+      structuralStatus: "ready",
+      guardrails: { state: "unavailable", reason: "classifier unavailable" },
+    });
+    mocks.start.mockImplementationOnce(async () => {
+      mocks.syncOptions?.onSnapshot({
+        ...authoritative,
+        ciscoPlatform: "nxos",
+      });
+    });
+
+    render(<DetachedEditorWindow />);
+    await screen.findByTestId("detached-editor-pane");
+
+    expect(mocks.lint).toHaveBeenLastCalledWith({
+      content: "authoritative",
+      platform: "nxos",
+    });
+    expect(mocks.paneProps).toMatchObject({
+      ciscoPlatform: "nxos",
+      ciscoDiagnostics: diagnostics,
+      ciscoGuardrailStatus: {
+        state: "unavailable",
+        reason: "classifier unavailable",
+      },
+    });
   });
 
   it("writes the exact authoritative snapshot returned by the flush", async () => {

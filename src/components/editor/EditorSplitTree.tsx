@@ -1,5 +1,7 @@
 import { Fragment, useCallback, useRef } from "react";
 import type * as Monaco from "monaco-editor";
+import type { CiscoDiagnostic, CiscoPlatform } from "../../lib/ciscoLint";
+import type { CiscoGuardrailStatus } from "../../hooks/useCiscoLint";
 import { PaneHandle } from "../PaneHandle";
 import type {
   EditorBufferState,
@@ -20,6 +22,9 @@ export type EditorSplitTreeProps = {
   tabId: string;
   rootPath: string | null;
   focusedPaneId: string;
+  ciscoPlatform?: CiscoPlatform | null;
+  ciscoDiagnostics?: readonly CiscoDiagnostic[];
+  ciscoGuardrailStatus?: CiscoGuardrailStatus;
   settings: EditorSettings;
   onFocus: (paneId: string) => void;
   onSplit: (paneId: string, direction: EditorPaneDirection) => void;
@@ -79,6 +84,7 @@ function EditorSplitBranch(props: BranchProps) {
 
   if (node.type === "leaf") {
     const buffer = props.buffers[node.bufferId];
+    const focused = props.focusedPaneId === node.id;
     if (!buffer) {
       return (
         <div
@@ -95,9 +101,12 @@ function EditorSplitBranch(props: BranchProps) {
         pane={node}
         buffer={buffer}
         rootPath={props.rootPath}
-        focused={props.focusedPaneId === node.id}
+        focused={focused}
         showControls
         canClose={props.canClose}
+        ciscoPlatform={focused ? props.ciscoPlatform : null}
+        ciscoDiagnostics={focused ? props.ciscoDiagnostics : undefined}
+        ciscoGuardrailStatus={focused ? props.ciscoGuardrailStatus : undefined}
         settings={props.settings}
         onFocus={() => props.onFocus(node.id)}
         onSplit={(direction) => props.onSplit(node.id, direction)}

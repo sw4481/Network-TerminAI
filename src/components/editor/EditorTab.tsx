@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type * as Monaco from "monaco-editor";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Tab } from "../../lib/types";
+import type { CiscoPlatform } from "../../lib/ciscoLint";
 import { registerAppShutdownTask } from "../../lib/appShutdown";
 import {
   editorDetachedWindowClose,
@@ -30,7 +31,7 @@ import { EditorPane } from "./EditorPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { FileExplorer } from "./FileExplorer";
 import { FindReplace } from "./FindReplace";
-import { SendSelectionToCisco } from "./SendSelectionToCisco";
+import { ProblemsPanel, type ProblemStatus } from "./ProblemsPanel";
 import { WorkspaceFind } from "./WorkspaceFind";
 import { EditorSettingsPanel } from "./EditorSettings";
 import {
@@ -40,6 +41,7 @@ import {
 import { useEditorSettings } from "../../hooks/useEditorSettings";
 import { useDebugSession } from "../../hooks/useDebugSession";
 import { normalizeLspLanguage } from "../../hooks/useLspClient";
+import { useCiscoLint, type CiscoLintView } from "../../hooks/useCiscoLint";
 import { useZedMode } from "./ZedModeProvider";
 import {
   EditorBufferSyncClient,
@@ -90,6 +92,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const openFileInPane = useEditorStore((s) => s.openFileInPane);
   const closeBuffer = useEditorStore((s) => s.closeBuffer);
   const setBufferContent = useEditorStore((s) => s.setBufferContent);
+  const patchBuffer = useEditorStore((s) => s.patchBuffer);
   const markBufferSaved = useEditorStore((s) => s.markBufferSaved);
   const splitPane = useEditorStore((s) => s.splitPane);
   const closePane = useEditorStore((s) => s.closePane);
@@ -115,7 +118,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
     `editor-main:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   const [showFind, setShowFind] = useState(false);
-  const [showCiscoSend, setShowCiscoSend] = useState(false);
   const [showWorkspaceFind, setShowWorkspaceFind] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
@@ -131,6 +133,50 @@ export function EditorTab({ tab }: { tab: Tab }) {
     getAttachedEditorPanes(workspace.layout)[0] ??
     getEditorPaneLeaves(workspace.layout)[0];
   const focusedBuffer = focusedPane ? buffers[focusedPane.bufferId] : undefined;
+  const ciscoLint = useCiscoLint({
+    content: focusedBuffer?.content ?? "",
+    platform: focusedBuffer?.cisco_platform ?? null,
+  });
+  const ciscoLintSignature = JSON.stringify(ciscoLint);
+  const [latestCiscoLint, setLatestCiscoLint] = useState<{
+    bufferId: string;
+    signature: string;
+    result: CiscoLintView;
+  } | null>(null);
+  useEffect(() => {
+    if (!focusedBuffer?.cisco_platform) {
+      setLatestCiscoLint(null);
+      return;
+    }
+    setLatestCiscoLint((current) =>
+      current?.bufferId === focusedBuffer.id &&
+      current.signature === ciscoLintSignature
+        ? current
+        : {
+            bufferId: focusedBuffer.id,
+            signature: ciscoLintSignature,
+            result: ciscoLint,
+          },
+    );
+  }, [focusedBuffer?.id, focusedBuffer?.cisco_platform, ciscoLintSignature]);
+  const activeCiscoLint =
+    focusedBuffer?.cisco_platform &&
+    latestCiscoLint?.bufferId === focusedBuffer.id
+      ? latestCiscoLint.result
+      : null;
+  const ciscoProblemStatuses: ProblemStatus[] = activeCiscoLint
+    ? [
+        {
+          name: "Structural",
+          state: activeCiscoLint.structuralStatus,
+          reason: null,
+        },
+        { name: "Guardrails", ...activeCiscoLint.guardrails },
+      ]
+    : [
+        { name: "Structural", state: "idle", reason: null },
+        { name: "Guardrails", state: "idle", reason: null },
+      ];
   const openBuffers = workspace.openBufferIds
     .map((bufferId) => buffers[bufferId])
     .filter((buffer): buffer is NonNullable<typeof buffer> => Boolean(buffer));
@@ -898,7 +944,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
       } else if (
         event.key === "Escape" &&
         (showFind ||
-          showCiscoSend ||
           showWorkspaceFind ||
           showSettings ||
           showSymbolSearch ||
@@ -906,7 +951,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
       ) {
         event.preventDefault();
         setShowFind(false);
-        setShowCiscoSend(false);
         setShowWorkspaceFind(false);
         setShowSettings(false);
         setShowSymbolSearch(false);
@@ -919,7 +963,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
     tab.id,
     toggleExplorer,
     showFind,
-    showCiscoSend,
     showWorkspaceFind,
     showSettings,
     showSymbolSearch,
@@ -947,6 +990,28 @@ export function EditorTab({ tab }: { tab: Tab }) {
     [workspace.layout, workspace.focusedPaneId],
   );
   const focusedEditor = editorRefs.current.get(workspace.focusedPaneId) ?? null;
+  const setCiscoPlatform = (value: string) => {
+    if (!focusedBuffer) return;
+    const platform: CiscoPlatform | null =
+      value === "iosxe" || value === "nxos" ? value : null;
+    patchBuffer(focusedBuffer.id, { cisco_platform: platform });
+    syncClients.current
+      .get(focusedBuffer.id)
+      ?.queueLocal(
+        focusedBuffer.content,
+        focusedBuffer.language,
+        platform,
+        focusedBuffer.is_dirty,
+      );
+    if (!platform) setLatestCiscoLint(null);
+  };
+  const jumpToCiscoProblem = (line: number, column: number) => {
+    const editor = focusedEditor;
+    if (!editor) return;
+    editor.revealLineInCenter(line);
+    editor.setPosition({ lineNumber: line, column });
+    editor.focus();
+  };
   const paneCallbacks = {
     onFocus: (paneId: string) => focusPane(tab.id, paneId),
     onSplit: (paneId: string, direction: "horizontal" | "vertical") =>
@@ -1036,15 +1101,16 @@ export function EditorTab({ tab }: { tab: Tab }) {
           >
             🔍
           </button>
-          <button
-            type="button"
-            onClick={() => setShowCiscoSend((value) => !value)}
-            title="Send Selection to Cisco"
-            aria-label="Send Selection to Cisco"
-            data-testid="editor-cisco-send-button"
+          <select
+            aria-label="Cisco editor mode"
+            value={focusedBuffer?.cisco_platform ?? ""}
+            disabled={!focusedBuffer}
+            onChange={(event) => setCiscoPlatform(event.target.value)}
           >
-            Cisco
-          </button>
+            <option value="">Off</option>
+            <option value="iosxe">IOS-XE</option>
+            <option value="nxos">NX-OS</option>
+          </select>
           <button
             onClick={() => setShowWorkspaceFind((value) => !value)}
             title="Workspace Search"
@@ -1264,6 +1330,9 @@ export function EditorTab({ tab }: { tab: Tab }) {
                 tabId={tab.id}
                 rootPath={workspace.root_path}
                 focusedPaneId={workspace.focusedPaneId}
+                ciscoPlatform={focusedBuffer?.cisco_platform ?? null}
+                ciscoDiagnostics={activeCiscoLint?.diagnostics}
+                ciscoGuardrailStatus={activeCiscoLint?.guardrails}
                 settings={settings}
                 {...paneCallbacks}
               />
@@ -1279,6 +1348,9 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   showControls={false}
                   canClose={false}
                   forceAttached
+                  ciscoPlatform={focusedBuffer?.cisco_platform ?? null}
+                  ciscoDiagnostics={activeCiscoLint?.diagnostics}
+                  ciscoGuardrailStatus={activeCiscoLint?.guardrails}
                   settings={settings}
                   onFocus={() => focusPane(tab.id, classicPane.id)}
                   onSplit={() => {}}
@@ -1313,13 +1385,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
               <FindReplace
                 editor={focusedEditor}
                 onClose={() => setShowFind(false)}
-              />
-            )}
-            {!gitDiffReview && showCiscoSend && (
-              <SendSelectionToCisco
-                editor={focusedEditor}
-                sessionId={tab.id}
-                onClose={() => setShowCiscoSend(false)}
               />
             )}
             {!gitDiffReview && showWorkspaceFind && (
@@ -1370,6 +1435,13 @@ export function EditorTab({ tab }: { tab: Tab }) {
               }}
             />
           </div>
+          {focusedBuffer?.cisco_platform && (
+            <ProblemsPanel
+              diagnostics={activeCiscoLint?.diagnostics ?? []}
+              statuses={ciscoProblemStatuses}
+              onJumpTo={jumpToCiscoProblem}
+            />
+          )}
         </div>
         {mode === "zed" && gitPanel.preferences.open && (
           <GitPanel

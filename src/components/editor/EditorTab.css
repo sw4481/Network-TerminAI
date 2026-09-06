@@ -82,6 +82,19 @@
   cursor: not-allowed;
 }
 
+.editor-actions select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.editor-actions select:disabled {
+  opacity: 0.5;
+}
+
 .editor-buffer-tabs {
   display: flex;
   min-height: 32px;
@@ -167,6 +180,8 @@
 }
 
 .editor-content {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   overflow: hidden;
   position: relative;
@@ -174,7 +189,7 @@
 
 .editor-canvas {
   position: relative;
-  height: 100%;
+  flex: 1;
   min-height: 0;
 }
 

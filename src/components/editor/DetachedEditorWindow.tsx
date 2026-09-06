@@ -15,6 +15,7 @@ import {
   type EditorBufferSnapshot,
 } from "../../lib/tauri";
 import { useEditorSettings } from "../../hooks/useEditorSettings";
+import { useCiscoLint } from "../../hooks/useCiscoLint";
 import { EditorBreadcrumbs } from "./EditorBreadcrumbs";
 import { EditorBufferSyncClient } from "./editorBufferSync";
 import { EditorPane } from "./EditorPane";
@@ -86,6 +87,10 @@ export function DetachedEditorWindow() {
     summary: gitSummary,
     refresh: refreshGitSummary,
   } = useGitRepositorySummary(buffer?.file_path ?? null, mode === "zed");
+  const ciscoLint = useCiscoLint({
+    content: buffer?.content ?? "",
+    platform: buffer?.cisco_platform ?? null,
+  });
 
   useEffect(() => {
     let disposed = false;
@@ -399,6 +404,9 @@ export function DetachedEditorWindow() {
           focused
           showControls={false}
           canClose={false}
+          ciscoPlatform={buffer.cisco_platform}
+          ciscoDiagnostics={ciscoLint.diagnostics}
+          ciscoGuardrailStatus={ciscoLint.guardrails}
           settings={settings}
           onFocus={() => {}}
           onSplit={() => {}}
