@@ -10,13 +10,20 @@ const mocks = vi.hoisted(() => {
     uri: { scheme: "inmemory" },
     getLineCount: vi.fn(() => 10),
   };
+  const secondModel = {
+    uri: { scheme: "inmemory" },
+    getLineCount: vi.fn(() => 10),
+  };
+  let activeModel = model;
   const actionRegistrations: Array<{
     descriptor: { id: string };
     dispose: ReturnType<typeof vi.fn>;
   }> = [];
   const paneModelController = {
     clear: vi.fn(),
-    switchTo: vi.fn(),
+    switchTo: vi.fn((_bufferId: string, nextModel: typeof model) => {
+      activeModel = nextModel;
+    }),
   };
   const editor = {
     addAction: vi.fn((descriptor: { id: string }) => {
@@ -36,7 +43,7 @@ const mocks = vi.hoisted(() => {
     focus: vi.fn(),
     dispose: vi.fn(),
     updateOptions: vi.fn(),
-    getModel: vi.fn(() => model),
+    getModel: vi.fn(() => activeModel),
     getPosition: vi.fn(() => ({ lineNumber: 1, column: 1 })),
     deltaDecorations: vi.fn(() => []),
     getValue: vi.fn(() => "text"),
@@ -45,6 +52,7 @@ const mocks = vi.hoisted(() => {
   };
   return {
     model,
+    secondModel,
     editor,
     actionRegistrations,
     bookmarkControllers: [] as Array<{
@@ -57,6 +65,8 @@ const mocks = vi.hoisted(() => {
     }>,
     paneModelController,
     create: vi.fn(() => editor),
+    setModelMarkers: vi.fn(),
+    setModelLanguage: vi.fn(),
     release: vi.fn(),
     applyContent: vi.fn(),
     emitModelContentChange: (changes: readonly unknown[]) => {
@@ -65,6 +75,7 @@ const mocks = vi.hoisted(() => {
     resetModelContentState: () => {
       applyingContent = false;
       modelContentListener = null;
+      activeModel = model;
     },
     setApplyingContent: (value: boolean) => {
       applyingContent = value;
@@ -74,11 +85,13 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("monaco-editor", () => ({
+  MarkerSeverity: { Error: 8, Warning: 4, Info: 2 },
   editor: {
     create: mocks.create,
     defineTheme: vi.fn(),
     setTheme: vi.fn(),
-    setModelLanguage: vi.fn(),
+    setModelLanguage: mocks.setModelLanguage,
+    setModelMarkers: mocks.setModelMarkers,
     registerEditorOpener: vi.fn(() => ({ dispose: vi.fn() })),
   },
   KeyMod: { CtrlCmd: 1 },
@@ -163,9 +176,9 @@ vi.mock("../../theme/AppearanceProvider", () => ({
 }));
 vi.mock("./monacoModelRegistry", () => ({
   getMonacoModelRegistry: () => ({
-    acquire: () => ({
-      bufferId: "buffer",
-      model: mocks.model,
+    acquire: (bufferId: string) => ({
+      bufferId,
+      model: bufferId === "buffer-b" ? mocks.secondModel : mocks.model,
       release: mocks.release,
     }),
     isApplyingContent: mocks.isApplyingContent,
@@ -417,6 +430,119 @@ describe("MonacoEditor power editing integration", () => {
     expect(controller.setBuffer).toHaveBeenCalledWith("buffer-b");
     expect(controller.setBuffer.mock.invocationCallOrder[0]).toBeGreaterThan(
       mocks.paneModelController.switchTo.mock.invocationCallOrder[0],
+    );
+
+    view.unmount();
+  });
+
+  it("isolates Cisco markers and clears them on mode change and disposal", async () => {
+    const diagnostics = [
+      {
+        line: 4,
+        column: 2,
+        endColumn: 12,
+        severity: "warning" as const,
+        message: "High impact",
+        source: "guardrails" as const,
+        code: "guardrail-save",
+      },
+    ];
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={diagnostics}
+        ciscoGuardrailStatus={{ state: "ready", reason: null }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        expect.any(Array),
+      ),
+    );
+
+    view.rerender(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform={null}
+        ciscoDiagnostics={[]}
+        ciscoGuardrailStatus={{ state: "idle", reason: null }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        [],
+      ),
+    );
+
+    mocks.setModelMarkers.mockClear();
+    view.unmount();
+    expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
+  });
+
+  it("clears Cisco markers from the previous model when the buffer changes", async () => {
+    const view = render(
+      <MonacoEditor
+        bufferId="buffer-a"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="nxos"
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        [],
+      ),
+    );
+    mocks.setModelMarkers.mockClear();
+
+    view.rerender(
+      <MonacoEditor
+        bufferId="buffer-b"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="nxos"
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        [],
+      ),
+    );
+    expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+      mocks.secondModel,
+      "cisco-lint",
+      [],
     );
 
     view.unmount();

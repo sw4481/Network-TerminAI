@@ -10,6 +10,13 @@ import {
 import { acquireLspDocument } from "./lsp/lspDocumentSync";
 import { registerHclLanguage } from "./lsp/hclLanguage";
 import { registerCiscoLanguages } from "./lsp/ciscoLanguage";
+import {
+  ciscoLanguageId,
+  type CiscoDiagnostic,
+  type CiscoPlatform,
+} from "../../lib/ciscoLint";
+import type { CiscoGuardrailStatus } from "../../hooks/useCiscoLint";
+import { clearCiscoMarkers, setCiscoMarkers } from "./ciscoMarkers";
 import { dispatchAskAi, type AskAiAction } from "./askAi";
 import { useZedMode } from "./ZedModeProvider";
 import {
@@ -91,7 +98,12 @@ type MonacoEditorProps = {
     position: { line: number; column: number },
   ) => boolean | Promise<boolean>;
   vimStatusRef?: RefObject<HTMLSpanElement | null>;
+  ciscoPlatform?: CiscoPlatform | null;
+  ciscoDiagnostics?: readonly CiscoDiagnostic[];
+  ciscoGuardrailStatus?: CiscoGuardrailStatus;
 };
+
+const EMPTY_CISCO_DIAGNOSTICS: readonly CiscoDiagnostic[] = [];
 
 let monacoModule: typeof Monaco | null = null;
 let monacoLoading: Promise<typeof Monaco> | null = null;
@@ -126,6 +138,8 @@ export function MonacoEditor({
   workspaceRoot = null,
   onOpenResource,
   vimStatusRef,
+  ciscoPlatform = null,
+  ciscoDiagnostics = EMPTY_CISCO_DIAGNOSTICS,
 }: MonacoEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -133,6 +147,7 @@ export function MonacoEditor({
   const modelLeaseRef = useRef<MonacoModelLease | null>(null);
   const paneModelControllerRef = useRef<MonacoPaneModelController | null>(null);
   const bookmarkControllerRef = useRef<BookmarkController | null>(null);
+  const ciscoMarkerModelRef = useRef<Monaco.editor.ITextModel | null>(null);
   const [monaco, setMonaco] = useState<typeof Monaco | null>(null);
   const [editorInstance, setEditorInstance] =
     useState<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -147,11 +162,15 @@ export function MonacoEditor({
     `standalone:${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
   );
   const activeBufferId = bufferId ?? fallbackBufferIdRef.current;
+  const effectiveModelLanguage = ciscoPlatform
+    ? ciscoLanguageId(ciscoPlatform)
+    : language;
 
   // Refs keep the latest values accessible from Monaco action callbacks,
   // which are registered once and persist for the editor lifetime.
   const tabIdRef = useRef<string | undefined>(tabId);
   const languageRef = useRef<string>(language);
+  const effectiveModelLanguageRef = useRef(effectiveModelLanguage);
   const filePathRef = useRef<string | null>(filePath);
   const bufferIdRef = useRef(activeBufferId);
   const valueRef = useRef(value);
@@ -162,6 +181,7 @@ export function MonacoEditor({
   const onEditorReadyRef = useRef(onEditorReady);
   tabIdRef.current = tabId;
   languageRef.current = language;
+  effectiveModelLanguageRef.current = effectiveModelLanguage;
   filePathRef.current = filePath;
   bufferIdRef.current = activeBufferId;
   valueRef.current = value;
@@ -174,7 +194,7 @@ export function MonacoEditor({
   const lspClient = useLspClient(
     language,
     workspaceRoot,
-    enableLsp && Boolean(filePath),
+    enableLsp && ciscoPlatform === null && Boolean(filePath),
   );
   const { sendRequest, ready: lspReady } = lspClient;
 
@@ -202,7 +222,7 @@ export function MonacoEditor({
     const modelLease = registry.acquire(
       bufferIdRef.current,
       valueRef.current,
-      languageRef.current,
+      effectiveModelLanguageRef.current,
     );
     modelLeaseRef.current = modelLease;
     let editor: Monaco.editor.IStandaloneCodeEditor;
@@ -255,6 +275,11 @@ export function MonacoEditor({
           }
           paneModelControllerRef.current?.clear();
           paneModelControllerRef.current = null;
+          const markerModel = ciscoMarkerModelRef.current;
+          if (markerModel) {
+            clearCiscoMarkers(monaco, markerModel);
+            ciscoMarkerModelRef.current = null;
+          }
           const currentLease = modelLeaseRef.current;
           modelLeaseRef.current = null;
           currentLease?.release();
@@ -399,12 +424,22 @@ export function MonacoEditor({
     if (currentLease?.bufferId === activeBufferId) return;
 
     const registry = getMonacoModelRegistry(monaco);
-    const nextLease = registry.acquire(activeBufferId, value, language);
+    const nextLease = registry.acquire(
+      activeBufferId,
+      value,
+      effectiveModelLanguage,
+    );
     paneModelControllerRef.current?.switchTo(activeBufferId, nextLease.model);
     bookmarkControllerRef.current?.setBuffer(activeBufferId);
     modelLeaseRef.current = nextLease;
     currentLease?.release();
-  }, [monaco, editorInstance, activeBufferId, value, language]);
+  }, [
+    monaco,
+    editorInstance,
+    activeBufferId,
+    value,
+    effectiveModelLanguage,
+  ]);
 
   useEffect(() => {
     if (!monaco || !editorInstance) return;
@@ -415,9 +450,33 @@ export function MonacoEditor({
     if (!monaco) return;
     const lease = modelLeaseRef.current;
     if (lease?.bufferId === activeBufferId) {
-      monaco.editor.setModelLanguage(lease.model, language);
+      monaco.editor.setModelLanguage(lease.model, effectiveModelLanguage);
     }
-  }, [monaco, activeBufferId, language]);
+  }, [monaco, activeBufferId, effectiveModelLanguage]);
+
+  useEffect(() => {
+    if (!monaco || !editorInstance) return;
+    const model = editorInstance.getModel();
+    if (!model) return;
+
+    const previousModel = ciscoMarkerModelRef.current;
+    if (previousModel && previousModel !== model) {
+      clearCiscoMarkers(monaco, previousModel);
+    }
+    ciscoMarkerModelRef.current = model;
+
+    if (ciscoPlatform) {
+      setCiscoMarkers(monaco, model, ciscoDiagnostics);
+    } else {
+      clearCiscoMarkers(monaco, model);
+    }
+  }, [
+    monaco,
+    editorInstance,
+    activeBufferId,
+    ciscoPlatform,
+    ciscoDiagnostics,
+  ]);
 
   useEffect(() => {
     if (
@@ -499,6 +558,7 @@ export function MonacoEditor({
       !editorInstance ||
       !lspReady ||
       !enableLsp ||
+      ciscoPlatform !== null ||
       !workspaceRoot ||
       !filePath
     ) {
@@ -539,6 +599,7 @@ export function MonacoEditor({
     editorInstance,
     lspReady,
     enableLsp,
+    ciscoPlatform,
     workspaceRoot,
     filePath,
     activeBufferId,
@@ -554,7 +615,8 @@ export function MonacoEditor({
       !monaco ||
       !editorInstance ||
       !lspDocumentReady ||
-      !enableLsp
+      !enableLsp ||
+      ciscoPlatform !== null
     ) {
       return;
     }
@@ -597,6 +659,7 @@ export function MonacoEditor({
     editorInstance,
     lspDocumentReady,
     enableLsp,
+    ciscoPlatform,
     language,
     sendRequest,
     mode,
