@@ -46,6 +46,7 @@ describe("useCiscoLint", () => {
       await vi.advanceTimersByTimeAsync(10);
     });
     expect(result.current.guardrails.state).toBe("ready");
+    expect(result.current.structuralStatus).toBe("ready");
     expect(classifyCommandMock).toHaveBeenNthCalledWith(
       2,
       "cisco",
@@ -124,6 +125,7 @@ describe("useCiscoLint", () => {
 
     expect(result.current).toEqual({
       diagnostics: [],
+      structuralStatus: "ready",
       guardrails: { state: "idle", reason: null },
     });
     expect(classifyCommandMock).not.toHaveBeenCalled();

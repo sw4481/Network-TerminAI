@@ -3,6 +3,7 @@ import {
   guardrailDiagnostic,
   lintCiscoConfig,
   type CiscoDiagnostic,
+  type CiscoLintResult,
   type CiscoPlatform,
 } from "../lib/ciscoLint";
 import { classifyCommand } from "../lib/guardrails";
@@ -14,13 +15,16 @@ export interface CiscoGuardrailStatus {
 
 export interface CiscoLintView {
   diagnostics: CiscoDiagnostic[];
+  structuralStatus: CiscoLintResult["structuralStatus"];
   guardrails: CiscoGuardrailStatus;
 }
 
-interface GuardrailState extends CiscoLintView {
+interface GuardrailState {
   content: string | null;
   platform: CiscoPlatform | null;
   debounceMs: number;
+  diagnostics: CiscoDiagnostic[];
+  guardrails: CiscoGuardrailStatus;
 }
 
 const IDLE: CiscoGuardrailStatus = { state: "idle", reason: null };
@@ -66,8 +70,11 @@ export function useCiscoLint({
     guardrails: IDLE,
   });
 
-  const structuralDiagnostics = useMemo(
-    () => (platform ? lintCiscoConfig(content, platform).diagnostics : []),
+  const structuralResult = useMemo(
+    () =>
+      platform
+        ? lintCiscoConfig(content, platform)
+        : { diagnostics: [], structuralStatus: "ready" as const },
     [content, platform],
   );
 
@@ -146,7 +153,11 @@ export function useCiscoLint({
   }, [content, platform, debounceMs]);
 
   if (!platform) {
-    return { diagnostics: [], guardrails: IDLE };
+    return {
+      diagnostics: [],
+      structuralStatus: structuralResult.structuralStatus,
+      guardrails: IDLE,
+    };
   }
 
   const stateIsCurrent =
@@ -159,9 +170,10 @@ export function useCiscoLint({
 
   return {
     diagnostics: sortDiagnostics([
-      ...structuralDiagnostics,
+      ...structuralResult.diagnostics,
       ...guardrailDiagnostics,
     ]),
+    structuralStatus: structuralResult.structuralStatus,
     guardrails: stateIsCurrent ? guardrailState.guardrails : IDLE,
   };
 }
