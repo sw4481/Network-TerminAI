@@ -167,12 +167,12 @@ describe("ciscoSelectionBridge", () => {
       selection: "show clock\nconfigure terminal",
       target,
       sessionId: "session-1",
-      classify: vi.fn(async (_vendor, _platform, command) =>
+      classify: vi.fn(async (_vendor, _platform, command): Promise<ClassifyResponse> =>
         command === "show clock"
           ? t0()
           : { tier: "T1", rule_id: "config-rule", reasoning: "Configuration" },
       ),
-      approve: vi.fn(async () => "cancel"),
+      approve: vi.fn(async (): Promise<"cancel" | "proceed"> => "cancel"),
       record,
       write,
       getCurrentTarget: () => connection(),
@@ -190,12 +190,12 @@ describe("ciscoSelectionBridge", () => {
       selection: "configure terminal",
       target,
       sessionId: "session-1",
-      classify: vi.fn(async () => ({
+      classify: vi.fn(async (): Promise<ClassifyResponse> => ({
         tier: "T1",
         rule_id: "config-rule",
         reasoning: "Configuration",
       })),
-      approve: vi.fn(async () => {
+      approve: vi.fn(async (): Promise<"cancel" | "proceed"> => {
         current = connection({ lifecycle: "disconnected" });
         return "proceed";
       }),
@@ -253,12 +253,12 @@ describe("ciscoSelectionBridge", () => {
       selection: "configure terminal",
       target,
       sessionId: "session-1",
-      classify: vi.fn(async () => ({
+      classify: vi.fn(async (): Promise<ClassifyResponse> => ({
         tier: "T1",
         rule_id: "config-rule",
         reasoning: "Configuration",
       })),
-      approve: vi.fn(async () => {
+      approve: vi.fn(async (): Promise<"cancel" | "proceed"> => {
         throw new Error("approval unavailable");
       }),
       record: vi.fn(),
