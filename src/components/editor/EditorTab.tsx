@@ -1339,7 +1339,6 @@ export function EditorTab({ tab }: { tab: Tab }) {
                 tabId={tab.id}
                 rootPath={workspace.root_path}
                 focusedPaneId={workspace.focusedPaneId}
-                ciscoPlatform={focusedBuffer?.cisco_platform ?? null}
                 ciscoDiagnostics={activeCiscoLint?.diagnostics}
                 ciscoGuardrailStatus={activeCiscoLint?.guardrails}
                 onCiscoLintResult={onCiscoLintResult}

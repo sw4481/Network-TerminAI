@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useRef } from "react";
 import type * as Monaco from "monaco-editor";
-import type { CiscoDiagnostic, CiscoPlatform } from "../../lib/ciscoLint";
+import type { CiscoDiagnostic } from "../../lib/ciscoLint";
 import type {
   CiscoGuardrailStatus,
   CiscoLintView,
@@ -25,7 +25,6 @@ export type EditorSplitTreeProps = {
   tabId: string;
   rootPath: string | null;
   focusedPaneId: string;
-  ciscoPlatform?: CiscoPlatform | null;
   ciscoDiagnostics?: readonly CiscoDiagnostic[];
   ciscoGuardrailStatus?: CiscoGuardrailStatus;
   onCiscoLintResult?: (result: CiscoLintView) => void;
@@ -108,7 +107,7 @@ function EditorSplitBranch(props: BranchProps) {
         focused={focused}
         showControls
         canClose={props.canClose}
-        ciscoPlatform={focused ? props.ciscoPlatform : null}
+        ciscoPlatform={buffer.cisco_platform}
         ciscoDiagnostics={focused ? props.ciscoDiagnostics : undefined}
         ciscoGuardrailStatus={focused ? props.ciscoGuardrailStatus : undefined}
         onCiscoLintResult={focused ? props.onCiscoLintResult : undefined}

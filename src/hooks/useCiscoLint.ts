@@ -28,6 +28,7 @@ interface GuardrailState {
 }
 
 const IDLE: CiscoGuardrailStatus = { state: "idle", reason: null };
+const CLASSIFY_CONCURRENCY = 4;
 
 const SEVERITY_ORDER: Record<CiscoDiagnostic["severity"], number> = {
   error: 0,
@@ -107,24 +108,32 @@ export function useCiscoLint({
       });
 
       try {
-        const results = await Promise.all(
-          sourceLines.map(({ command }) =>
-            classifyCommand("cisco", platform, command),
-          ),
-        );
-        if (requestToken.current !== token) return;
-
-        const diagnostics = results.flatMap((result, index) => {
-          const source = sourceLines[index];
-          const diagnostic = guardrailDiagnostic(
-            source.line,
-            source.column,
-            platform,
-            source.command,
-            result,
+        const diagnostics: CiscoDiagnostic[] = [];
+        for (
+          let start = 0;
+          start < sourceLines.length;
+          start += CLASSIFY_CONCURRENCY
+        ) {
+          if (requestToken.current !== token) return;
+          const batch = sourceLines.slice(start, start + CLASSIFY_CONCURRENCY);
+          const results = await Promise.all(
+            batch.map(({ command }) =>
+              classifyCommand("cisco", platform, command),
+            ),
           );
-          return diagnostic ? [diagnostic] : [];
-        });
+          if (requestToken.current !== token) return;
+          results.forEach((result, index) => {
+            const source = batch[index];
+            const diagnostic = guardrailDiagnostic(
+              source.line,
+              source.column,
+              platform,
+              source.command,
+              result,
+            );
+            if (diagnostic) diagnostics.push(diagnostic);
+          });
+        }
         setGuardrailState({
           content,
           platform,

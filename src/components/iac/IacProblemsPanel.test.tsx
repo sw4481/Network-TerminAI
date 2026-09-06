@@ -35,7 +35,29 @@ describe("IacProblemsPanel", () => {
       />,
     );
     expect(screen.getByText(/terraform validate/)).toBeInTheDocument();
-    expect(screen.getByText(/not initialized/)).toBeInTheDocument();
+    expect(screen.getByText("skipped — not initialized")).toBeInTheDocument();
+  });
+
+  it("preserves the no-linters wording", () => {
+    render(<IacProblemsPanel diagnostics={[]} linters={[]} onJumpTo={() => {}} />);
+
+    expect(screen.getByText("No linters ran.")).toBeInTheDocument();
+  });
+
+  it("claims clean when one linter ran and another was skipped", () => {
+    render(
+      <IacProblemsPanel
+        diagnostics={[]}
+        linters={[
+          { name: "terraform fmt", ran: true, available: true, reason: null },
+          { name: "terraform validate", ran: false, available: true, reason: "not initialized" },
+        ]}
+        onJumpTo={() => {}}
+      />,
+    );
+
+    expect(screen.getByText("No issues found.")).toBeInTheDocument();
+    expect(screen.getByText("skipped — not initialized")).toBeInTheDocument();
   });
 
   it("only claims clean when at least one linter actually ran with no findings", () => {

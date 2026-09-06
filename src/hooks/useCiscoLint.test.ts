@@ -118,6 +118,99 @@ describe("useCiscoLint", () => {
     );
   });
 
+  it("limits concurrent classifier IPC calls", async () => {
+    const resolvers: Array<(value: ClassifyResponse) => void> = [];
+    let active = 0;
+    let peak = 0;
+    classifyCommandMock.mockImplementation(
+      () =>
+        new Promise<ClassifyResponse>((resolve) => {
+          active += 1;
+          peak = Math.max(peak, active);
+          resolvers.push((value) => {
+            active -= 1;
+            resolve(value);
+          });
+        }),
+    );
+    const content = Array.from({ length: 9 }, (_, index) => `show line-${index + 1}`).join(
+      "\n",
+    );
+    const { result } = renderHook(() =>
+      useCiscoLint({ content, platform: "iosxe", debounceMs: 10 }),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(classifyCommandMock).toHaveBeenCalledTimes(4);
+    expect(peak).toBe(4);
+
+    await act(async () => {
+      resolvers.splice(0, 4).forEach((resolve) =>
+        resolve({ tier: "T0", rule_id: null, reasoning: "Read-only" }),
+      );
+      await Promise.resolve();
+    });
+    expect(classifyCommandMock).toHaveBeenCalledTimes(8);
+    expect(peak).toBe(4);
+
+    await act(async () => {
+      resolvers.splice(0, 4).forEach((resolve) =>
+        resolve({ tier: "T0", rule_id: null, reasoning: "Read-only" }),
+      );
+      await Promise.resolve();
+    });
+    expect(classifyCommandMock).toHaveBeenCalledTimes(9);
+    expect(peak).toBe(4);
+
+    await act(async () => {
+      resolvers[0]({ tier: "T0", rule_id: null, reasoning: "Read-only" });
+      await Promise.resolve();
+    });
+    expect(result.current.guardrails.state).toBe("ready");
+  });
+
+  it("stops scheduling stale classifier batches", async () => {
+    const oldResolvers: Array<(value: ClassifyResponse) => void> = [];
+    classifyCommandMock.mockImplementation((_vendor, _platform, command) => {
+      if (command.startsWith("old ")) {
+        return new Promise<ClassifyResponse>((resolve) => oldResolvers.push(resolve));
+      }
+      return Promise.resolve({ tier: "T0", rule_id: null, reasoning: "Read-only" });
+    });
+    const oldContent = Array.from({ length: 8 }, (_, index) => `old ${index + 1}`).join(
+      "\n",
+    );
+    const { rerender } = renderHook(
+      ({ content }) => useCiscoLint({ content, platform: "iosxe", debounceMs: 10 }),
+      { initialProps: { content: oldContent } },
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(classifyCommandMock).toHaveBeenCalledTimes(4);
+
+    rerender({ content: "show version" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    await act(async () => {
+      oldResolvers.forEach((resolve) =>
+        resolve({ tier: "T0", rule_id: null, reasoning: "Read-only" }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(classifyCommandMock).toHaveBeenCalledWith(
+      "cisco",
+      "iosxe",
+      "show version",
+    );
+    expect(classifyCommandMock).not.toHaveBeenCalledWith("cisco", "iosxe", "old 5");
+  });
+
   it("stays idle when no Cisco platform is active", () => {
     const { result } = renderHook(() =>
       useCiscoLint({ content: "Router#show version", platform: null }),

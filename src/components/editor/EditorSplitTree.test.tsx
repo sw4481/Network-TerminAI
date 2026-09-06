@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EditorBufferState } from "../../state/editorStore";
 import {
   createEditorPaneLayout,
@@ -9,15 +9,20 @@ import {
 } from "./editorPaneLayout";
 import { EditorSplitTree } from "./EditorSplitTree";
 
+const mocks = vi.hoisted(() => ({
+  monacoProps: [] as Array<Record<string, unknown>>,
+}));
+
 const editorSplitStyles = readFileSync(
   resolve(process.cwd(), "src/components/editor/editor-splits.css"),
   "utf8",
 );
 
 vi.mock("./MonacoEditor", () => ({
-  MonacoEditor: ({ bufferId }: { bufferId: string }) => (
-    <div data-testid={`model-view-${bufferId}`} />
-  ),
+  MonacoEditor: (props: { bufferId: string } & Record<string, unknown>) => {
+    mocks.monacoProps.push(props);
+    return <div data-testid={`model-view-${props.bufferId}`} />;
+  },
 }));
 
 const buffer: EditorBufferState = {
@@ -25,6 +30,7 @@ const buffer: EditorBufferState = {
   file_path: "/repo/a.ts",
   content: "shared",
   language: "typescript",
+  cisco_platform: null,
   is_dirty: false,
   revision: 0,
   sync_status: "local",
@@ -70,6 +76,10 @@ function treeProps() {
 }
 
 describe("EditorSplitTree", () => {
+  beforeEach(() => {
+    mocks.monacoProps.length = 0;
+  });
+
   it("stretches a lone root pane to fill the editor workspace", () => {
     const tree = treeProps();
     const styles = document.createElement("style");
@@ -107,6 +117,62 @@ describe("EditorSplitTree", () => {
       "data-focused",
       "false",
     );
+  });
+
+  it("keeps a shared buffer's Cisco profile on every pane while focus owns diagnostics", () => {
+    const tree = treeProps();
+    const ciscoBuffer = { ...buffer, cisco_platform: "iosxe" as const };
+    const diagnostics = [{
+      line: 1,
+      column: 1,
+      endColumn: 5,
+      severity: "warning" as const,
+      message: "Captured prompt",
+      source: "cisco-structural" as const,
+      code: "cli-prompt",
+    }];
+    const onCiscoLintResult = vi.fn();
+    const view = render(
+      <EditorSplitTree
+        {...tree}
+        buffers={{ [ciscoBuffer.id]: ciscoBuffer }}
+        ciscoDiagnostics={diagnostics}
+        ciscoGuardrailStatus={{ state: "ready", reason: null }}
+        onCiscoLintResult={onCiscoLintResult}
+      />,
+    );
+
+    expect(mocks.monacoProps.slice(-2).map((props) => props.ciscoPlatform)).toEqual([
+      "iosxe",
+      "iosxe",
+    ]);
+    expect(
+      mocks.monacoProps.slice(-2).filter((props) => props.ciscoDiagnostics === diagnostics),
+    ).toHaveLength(1);
+    expect(
+      mocks.monacoProps.slice(-2).filter(
+        (props) => props.onCiscoLintResult === onCiscoLintResult,
+      ),
+    ).toHaveLength(1);
+
+    view.rerender(
+      <EditorSplitTree
+        {...tree}
+        buffers={{ [ciscoBuffer.id]: ciscoBuffer }}
+        focusedPaneId="pane-right"
+        ciscoDiagnostics={diagnostics}
+        ciscoGuardrailStatus={{ state: "ready", reason: null }}
+        onCiscoLintResult={onCiscoLintResult}
+      />,
+    );
+
+    expect(mocks.monacoProps.slice(-2).map((props) => props.ciscoPlatform)).toEqual([
+      "iosxe",
+      "iosxe",
+    ]);
+    expect(
+      mocks.monacoProps.slice(-2).filter((props) => props.ciscoDiagnostics === diagnostics),
+    ).toHaveLength(1);
   });
 
   it("focuses a pane on pointer interaction and supports keyboard traversal", () => {

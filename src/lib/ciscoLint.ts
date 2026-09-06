@@ -283,7 +283,8 @@ function detectOrphanChildCommand(
 }
 
 function handleExit(trimmed: string, contextStack: string[]): { unmatched: boolean } {
-  if (trimmed === "exit-address-family") {
+  const comparison = trimmed.trim().toLowerCase();
+  if (comparison === "exit-address-family") {
     if (contextStack[contextStack.length - 1] !== "address-family") {
       return { unmatched: true };
     }
@@ -291,7 +292,7 @@ function handleExit(trimmed: string, contextStack: string[]): { unmatched: boole
     return { unmatched: false };
   }
 
-  if (trimmed === "exit") {
+  if (comparison === "exit") {
     if (contextStack.length === 0) {
       return { unmatched: true };
     }

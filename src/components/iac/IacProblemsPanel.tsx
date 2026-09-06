@@ -18,11 +18,18 @@ export function IacProblemsPanel({ diagnostics, linters, onJumpTo }: Props) {
     name: linter.name,
     state: linter.ran ? "ready" : linter.available ? "idle" : "unavailable",
     reason: linter.reason,
+    statusText: linter.ran ? undefined : linter.available ? "skipped" : "unavailable",
   }));
 
   return (
     <div data-testid="iac-studio-problems">
-      <ProblemsPanel diagnostics={diagnostics} statuses={statuses} onJumpTo={onJumpTo} />
+      <ProblemsPanel
+        diagnostics={diagnostics}
+        statuses={statuses}
+        onJumpTo={onJumpTo}
+        clean={diagnostics.length === 0 && linters.some((linter) => linter.ran)}
+        emptyMessage="No linters ran."
+      />
     </div>
   );
 }

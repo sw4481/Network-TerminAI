@@ -13,6 +13,7 @@ function buffer(
     file_path: filePath,
     content: "",
     language: "python",
+    cisco_platform: null,
     is_dirty: dirty,
     revision: 0,
     sync_status: "synced",

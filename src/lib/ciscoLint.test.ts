@@ -123,6 +123,19 @@ describe("lintCiscoConfig", () => {
     expect(result.diagnostics.map((d) => d.code)).not.toContain("missing-end");
   });
 
+  it("matches uppercase exits with trailing whitespace and preserves columns", () => {
+    const matched = lintCiscoConfig(
+      "router bgp 65000\n address-family ipv4\n EXIT-ADDRESS-FAMILY   \n EXIT\t",
+      "iosxe",
+    );
+    const unmatched = lintCiscoConfig("  EXIT   ", "nxos");
+
+    expect(matched.diagnostics).toEqual([]);
+    expect(unmatched.diagnostics).toEqual([
+      expect.objectContaining({ code: "unmatched-exit", column: 3 }),
+    ]);
+  });
+
   it("reports only high-confidence platform mismatches", () => {
     const ios = lintCiscoConfig("feature ospf\n", "iosxe");
     const nxos = lintCiscoConfig("router ospf 1\n", "nxos");

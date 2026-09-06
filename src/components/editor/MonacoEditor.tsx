@@ -107,8 +107,6 @@ type MonacoEditorProps = {
   onCiscoLintResult?: (result: CiscoLintView) => void;
 };
 
-const EMPTY_CISCO_DIAGNOSTICS: readonly CiscoDiagnostic[] = [];
-
 let monacoModule: typeof Monaco | null = null;
 let monacoLoading: Promise<typeof Monaco> | null = null;
 
@@ -143,7 +141,7 @@ export function MonacoEditor({
   onOpenResource,
   vimStatusRef,
   ciscoPlatform = null,
-  ciscoDiagnostics = EMPTY_CISCO_DIAGNOSTICS,
+  ciscoDiagnostics,
   ciscoGuardrailStatus,
   onCiscoLintResult,
 }: MonacoEditorProps) {
@@ -483,18 +481,20 @@ export function MonacoEditor({
       previousBufferId &&
       (modelChanged || !ciscoPlatform)
     ) {
-      const remainingConsumers = getMonacoModelRegistry(monaco).referenceCount(
-        previousBufferId,
-      );
-      const noRemainingConsumer = modelChanged
-        ? remainingConsumers === 0
-        : remainingConsumers <= 1;
-      if (noRemainingConsumer) {
+      const shouldClear =
+        (!modelChanged && !ciscoPlatform) ||
+        (modelChanged &&
+          getMonacoModelRegistry(monaco).referenceCount(previousBufferId) === 0);
+      if (shouldClear) {
         clearCiscoMarkers(monaco, previousModel);
       }
     }
 
-    if (!ciscoPlatform) {
+    if (!ciscoPlatform || ciscoDiagnostics === undefined) {
+      if (modelChanged) {
+        ciscoMarkerModelRef.current = null;
+        ciscoMarkerBufferIdRef.current = null;
+      }
       return;
     }
 

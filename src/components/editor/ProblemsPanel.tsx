@@ -15,6 +15,7 @@ export type ProblemStatus = {
   name: string;
   state: "ready" | "running" | "unavailable" | "idle";
   reason: string | null;
+  statusText?: string;
 };
 
 type Props = {
@@ -22,17 +23,27 @@ type Props = {
   statuses: ProblemStatus[];
   onJumpTo: (line: number, column: number) => void;
   title?: string;
+  clean?: boolean;
+  emptyMessage?: string;
 };
 
-export function ProblemsPanel({ diagnostics, statuses, onJumpTo, title = "Problems" }: Props) {
+export function ProblemsPanel({
+  diagnostics,
+  statuses,
+  onJumpTo,
+  title = "Problems",
+  clean,
+  emptyMessage = "No providers ran.",
+}: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
   const warnings = diagnostics.filter((diagnostic) => diagnostic.severity !== "error");
   const pendingStatuses = statuses.filter((status) => status.state !== "ready");
-  const isClean =
+  const isClean = clean ?? (
     diagnostics.length === 0 &&
     statuses.length > 0 &&
-    statuses.every((status) => status.state === "ready");
+    statuses.every((status) => status.state === "ready")
+  );
   const summary =
     `${errors.length} error${errors.length === 1 ? "" : "s"}` +
     `, ${warnings.length} warning${warnings.length === 1 ? "" : "s"}`;
@@ -85,7 +96,7 @@ export function ProblemsPanel({ diagnostics, statuses, onJumpTo, title = "Proble
                 >
                   <span className="problem-status-name">{status.name}</span>
                   <span className="problem-status-reason">
-                    {status.state}
+                    {status.statusText ?? status.state}
                     {status.reason ? ` — ${status.reason}` : ""}
                   </span>
                 </div>
@@ -94,7 +105,7 @@ export function ProblemsPanel({ diagnostics, statuses, onJumpTo, title = "Proble
           )}
 
           {diagnostics.length === 0 && statuses.length === 0 && (
-            <div className="problem-row empty">No providers ran.</div>
+            <div className="problem-row empty">{emptyMessage}</div>
           )}
         </div>
       )}

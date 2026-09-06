@@ -68,6 +68,11 @@ const mocks = vi.hoisted(() => {
     create: vi.fn(() => editor),
     setModelMarkers: vi.fn(),
     setModelLanguage: vi.fn(),
+    useLspClient: vi.fn(() => ({
+      ready: false,
+      sendRequest: vi.fn(),
+      clientId: "test",
+    })),
     modelReferences,
     leaseEvents: [] as string[],
     release: vi.fn(),
@@ -103,11 +108,7 @@ vi.mock("monaco-editor", () => ({
   KeyCode: { KeyL: 2, KeyS: 3 },
 }));
 vi.mock("../../hooks/useLspClient", () => ({
-  useLspClient: () => ({
-    ready: false,
-    sendRequest: vi.fn(),
-    clientId: "test",
-  }),
+  useLspClient: mocks.useLspClient,
 }));
 vi.mock("./lsp/hclLanguage", () => ({ registerHclLanguage: vi.fn() }));
 vi.mock("./lsp/CompletionProvider", () => ({
@@ -526,6 +527,112 @@ describe("MonacoEditor power editing integration", () => {
     );
   });
 
+  it("uses the Cisco language and suppresses the generic LSP", async () => {
+    render(
+      <MonacoEditor
+        bufferId="buffer"
+        value="text"
+        language="typescript"
+        onChange={() => {}}
+        workspaceRoot="/repo"
+        filePath="/repo/config.txt"
+        ciscoPlatform="iosxe"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelLanguage).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-iosxe",
+      ),
+    );
+    expect(mocks.useLspClient).toHaveBeenCalledWith(
+      "typescript",
+      "/repo",
+      false,
+    );
+  });
+
+  it("does not let a non-owning shared pane replace focused Cisco markers", async () => {
+    const diagnostics = [
+      {
+        line: 1,
+        column: 1,
+        endColumn: 5,
+        severity: "warning" as const,
+        message: "Captured prompt",
+        source: "cisco-structural" as const,
+        code: "cli-prompt",
+      },
+    ];
+    render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={diagnostics}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        expect.any(Array),
+      ),
+    );
+    mocks.setModelMarkers.mockClear();
+
+    render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.modelReferences.get("shared-buffer")).toBe(2),
+    );
+    expect(mocks.setModelMarkers).not.toHaveBeenCalled();
+  });
+
+  it("clears shared-buffer Cisco markers when both panes switch Off", async () => {
+    const props = {
+      bufferId: "shared-buffer",
+      value: "text",
+      language: "plaintext",
+      onChange: () => {},
+      enableLsp: false,
+      ciscoPlatform: "iosxe" as const,
+      ciscoDiagnostics: [],
+    };
+    const firstPane = render(<MonacoEditor {...props} />);
+    const secondPane = render(<MonacoEditor {...props} />);
+
+    await waitFor(() =>
+      expect(mocks.modelReferences.get("shared-buffer")).toBe(2),
+    );
+    mocks.setModelMarkers.mockClear();
+
+    firstPane.rerender(<MonacoEditor {...props} ciscoPlatform={null} />);
+    secondPane.rerender(<MonacoEditor {...props} ciscoPlatform={null} />);
+
+    await waitFor(() =>
+      expect(mocks.setModelMarkers).toHaveBeenCalledWith(
+        mocks.model,
+        "cisco-lint",
+        [],
+      ),
+    );
+  });
+
   it("reports the active Cisco lint view through the optional callback", async () => {
     const diagnostics = [
       {
@@ -688,5 +795,64 @@ describe("MonacoEditor power editing integration", () => {
       "cisco-lint",
       [],
     );
+  });
+
+  it("keeps old Cisco markers when one pane switches to a different Off buffer", async () => {
+    const firstPane = render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={[]}
+      />,
+    );
+    const secondPane = render(
+      <MonacoEditor
+        bufferId="shared-buffer"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform="iosxe"
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.modelReferences.get("shared-buffer")).toBe(2),
+    );
+    mocks.setModelMarkers.mockClear();
+
+    firstPane.rerender(
+      <MonacoEditor
+        bufferId="buffer-b"
+        value="text"
+        language="plaintext"
+        onChange={() => {}}
+        enableLsp={false}
+        ciscoPlatform={null}
+        ciscoDiagnostics={[]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(mocks.modelReferences.get("shared-buffer")).toBe(1),
+    );
+    expect(mocks.setModelMarkers).not.toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
+
+    firstPane.unmount();
+    expect(mocks.setModelMarkers).not.toHaveBeenCalledWith(
+      mocks.model,
+      "cisco-lint",
+      [],
+    );
+    secondPane.unmount();
   });
 });
