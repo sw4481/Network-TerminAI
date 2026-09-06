@@ -1,5 +1,53 @@
 import { describe, expect, it } from "vitest";
-import { lintCiscoConfig } from "./ciscoLint";
+import { guardrailDiagnostic, lintCiscoConfig } from "./ciscoLint";
+
+describe("guardrailDiagnostic", () => {
+  it("maps non-T0 findings without changing the source command", () => {
+    const command = " no ip route 0.0.0.0 0.0.0.0";
+
+    expect(
+      guardrailDiagnostic(3, 2, "iosxe", command, {
+        tier: "T3",
+        rule_id: "remove-default-route",
+        reasoning: "High impact route removal",
+      }),
+    ).toMatchObject({
+      line: 3,
+      column: 2,
+      severity: "error",
+      source: "guardrails",
+      code: "guardrail-remove-default-route",
+      message: expect.stringContaining(command),
+    });
+  });
+
+  it("does not produce a finding for T0", () => {
+    expect(
+      guardrailDiagnostic(1, 1, "nxos", "show version", {
+        tier: "T0",
+        rule_id: null,
+        reasoning: "Read-only",
+      }),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["T1", "warning", "guardrail-t1"],
+    ["T2", "warning", "guardrail-t2"],
+    ["Ambiguous", "warning", "guardrail-ambiguous"],
+  ] as const)("maps %s to a stable %s diagnostic", (tier, severity, code) => {
+    const diagnostic = guardrailDiagnostic(1, 1, "iosxe", "reload", {
+      tier,
+      rule_id: null,
+      reasoning: "Needs review",
+    });
+
+    expect(diagnostic).toMatchObject({ severity, code });
+    if (tier === "Ambiguous") {
+      expect(diagnostic?.message).toContain("Ambiguous");
+    }
+  });
+});
 
 describe("lintCiscoConfig", () => {
   it("accepts comments, known contexts, exits, and unknown release commands", () => {

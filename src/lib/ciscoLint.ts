@@ -1,3 +1,5 @@
+import type { ClassifyResponse } from "./guardrails";
+
 export type CiscoPlatform = "iosxe" | "nxos";
 
 export type CiscoDiagnosticSeverity = "error" | "warning" | "info";
@@ -8,7 +10,7 @@ export interface CiscoDiagnostic {
   endColumn: number;
   severity: CiscoDiagnosticSeverity;
   message: string;
-  source: "cisco-structural";
+  source: "cisco-structural" | "guardrails";
   code: string;
 }
 
@@ -302,6 +304,29 @@ function handleExit(trimmed: string, contextStack: string[]): { unmatched: boole
 
 export function ciscoLanguageId(platform: CiscoPlatform): "cisco-iosxe" | "cisco-nxos" {
   return platform === "iosxe" ? "cisco-iosxe" : "cisco-nxos";
+}
+
+export function guardrailDiagnostic(
+  line: number,
+  column: number,
+  platform: CiscoPlatform,
+  command: string,
+  result: ClassifyResponse,
+): CiscoDiagnostic | null {
+  if (result.tier === "T0") {
+    return null;
+  }
+
+  const label = result.tier === "Ambiguous" ? "Ambiguous" : result.tier;
+  return {
+    line,
+    column,
+    endColumn: column + command.trimStart().length,
+    severity: result.tier === "T3" ? "error" : "warning",
+    message: `${label} ${platform} guardrail for "${command}": ${result.reasoning}`,
+    source: "guardrails",
+    code: `guardrail-${result.rule_id ?? result.tier.toLowerCase()}`,
+  };
 }
 
 export function lintCiscoConfig(text: string, platform: CiscoPlatform): CiscoLintResult {
