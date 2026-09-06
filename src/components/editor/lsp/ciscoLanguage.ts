@@ -84,7 +84,10 @@ const CISCO_MONARCH_LANGUAGE: Monaco.languages.IMonarchLanguage = {
       [/'(?:[^'\\]|\\.)*'/, "string"],
       [/\$[A-Za-z_][\w.-]*/, "variable"],
       [/\b(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?\b/, "number.address"],
-      [/\b(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}(?:\/\d{1,3})?\b/i, "number.address"],
+      [
+        /(?<![\w:])(?:(?:[0-9a-f]{1,4}:){1,7}:|(?:[0-9a-f]{1,4}:){1,7}[0-9a-f]{1,4}|::(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{0,4}|(?:[0-9a-f]{1,4}:){1,6}:[0-9a-f]{1,4}(?::[0-9a-f]{1,4}){0,5})(?:\/\d{1,3})?(?![\w:])/i,
+        "number.address",
+      ],
       [
         /\b(?:FastEthernet|GigabitEthernet|TenGigabitEthernet|TwentyFiveGigE|FortyGigabitEthernet|HundredGigE|Ethernet|Port-channel|Loopback|Vlan|Tunnel|Management|mgmt|Fa|Gi|Te|Twe|Fo|Hu|Eth|Po|Lo|Vl|Tu)\d+(?:[/.:-]\d+)*\b/i,
         "type.identifier",
