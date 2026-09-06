@@ -1,6 +1,9 @@
 import type * as Monaco from "monaco-editor";
 import type { CiscoDiagnostic, CiscoPlatform } from "../../lib/ciscoLint";
-import type { CiscoGuardrailStatus } from "../../hooks/useCiscoLint";
+import type {
+  CiscoGuardrailStatus,
+  CiscoLintView,
+} from "../../hooks/useCiscoLint";
 import type { EditorBufferState } from "../../state/editorStore";
 import type { EditorSettings } from "./MonacoEditor";
 import { EditorBreadcrumbs } from "./EditorBreadcrumbs";
@@ -22,6 +25,7 @@ export type EditorPaneProps = {
   ciscoPlatform?: CiscoPlatform | null;
   ciscoDiagnostics?: readonly CiscoDiagnostic[];
   ciscoGuardrailStatus?: CiscoGuardrailStatus;
+  onCiscoLintResult?: (result: CiscoLintView) => void;
   settings: EditorSettings;
   onFocus: () => void;
   onSplit: (direction: EditorPaneDirection) => void;
@@ -55,6 +59,7 @@ export function EditorPane({
   ciscoPlatform = null,
   ciscoDiagnostics,
   ciscoGuardrailStatus,
+  onCiscoLintResult,
   settings,
   onFocus,
   onSplit,
@@ -185,6 +190,7 @@ export function EditorPane({
             ciscoPlatform={ciscoPlatform}
             ciscoDiagnostics={ciscoDiagnostics}
             ciscoGuardrailStatus={ciscoGuardrailStatus}
+            onCiscoLintResult={onCiscoLintResult}
             onEditorReady={(editor, monaco) => {
               editor.setPosition({
                 lineNumber: Math.max(1, pane.cursor_position.line),

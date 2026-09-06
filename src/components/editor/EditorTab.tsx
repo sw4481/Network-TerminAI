@@ -143,22 +143,31 @@ export function EditorTab({ tab }: { tab: Tab }) {
     signature: string;
     result: CiscoLintView;
   } | null>(null);
+  const onCiscoLintResult = useCallback(
+    (result: CiscoLintView) => {
+      if (!focusedBuffer?.cisco_platform) return;
+      const signature = JSON.stringify(result);
+      setLatestCiscoLint((current) =>
+        current?.bufferId === focusedBuffer.id &&
+        current.signature === signature
+          ? current
+          : { bufferId: focusedBuffer.id, signature, result },
+      );
+    },
+    [focusedBuffer?.id, focusedBuffer?.cisco_platform],
+  );
   useEffect(() => {
     if (!focusedBuffer?.cisco_platform) {
       setLatestCiscoLint(null);
       return;
     }
-    setLatestCiscoLint((current) =>
-      current?.bufferId === focusedBuffer.id &&
-      current.signature === ciscoLintSignature
-        ? current
-        : {
-            bufferId: focusedBuffer.id,
-            signature: ciscoLintSignature,
-            result: ciscoLint,
-          },
-    );
-  }, [focusedBuffer?.id, focusedBuffer?.cisco_platform, ciscoLintSignature]);
+    onCiscoLintResult(ciscoLint);
+  }, [
+    focusedBuffer?.id,
+    focusedBuffer?.cisco_platform,
+    ciscoLintSignature,
+    onCiscoLintResult,
+  ]);
   const activeCiscoLint =
     focusedBuffer?.cisco_platform &&
     latestCiscoLint?.bufferId === focusedBuffer.id
@@ -1333,6 +1342,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
                 ciscoPlatform={focusedBuffer?.cisco_platform ?? null}
                 ciscoDiagnostics={activeCiscoLint?.diagnostics}
                 ciscoGuardrailStatus={activeCiscoLint?.guardrails}
+                onCiscoLintResult={onCiscoLintResult}
                 settings={settings}
                 {...paneCallbacks}
               />
@@ -1351,6 +1361,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   ciscoPlatform={focusedBuffer?.cisco_platform ?? null}
                   ciscoDiagnostics={activeCiscoLint?.diagnostics}
                   ciscoGuardrailStatus={activeCiscoLint?.guardrails}
+                  onCiscoLintResult={onCiscoLintResult}
                   settings={settings}
                   onFocus={() => focusPane(tab.id, classicPane.id)}
                   onSplit={() => {}}

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EditorBufferState } from "../../state/editorStore";
 
@@ -263,6 +263,7 @@ describe("EditorTab Cisco mode", () => {
       ciscoPlatform: "iosxe",
       ciscoDiagnostics: mocks.ciscoResult.diagnostics,
       ciscoGuardrailStatus: { state: "ready", reason: null },
+      onCiscoLintResult: expect.any(Function),
     });
     expect(editor.revealLineInCenter).toHaveBeenCalledWith(5);
     expect(editor.setPosition).toHaveBeenCalledWith({
@@ -270,6 +271,33 @@ describe("EditorTab Cisco mode", () => {
       column: 4,
     });
     expect(editor.focus).toHaveBeenCalled();
+  });
+
+  it("updates the focused result through the typed Monaco callback", async () => {
+    renderEditorTab({ nextBuffer: { ...buffer, cisco_platform: "iosxe" } });
+    const onCiscoLintResult = mocks.paneProps?.onCiscoLintResult as
+      | ((result: typeof mocks.ciscoResult) => void)
+      | undefined;
+    expect(onCiscoLintResult).toEqual(expect.any(Function));
+
+    const callbackResult = {
+      ...mocks.ciscoResult,
+      diagnostics: [
+        {
+          line: 8,
+          column: 2,
+          endColumn: 12,
+          severity: "error" as const,
+          message: "Callback result",
+          source: "guardrails" as const,
+          code: "guardrail-t3",
+        },
+      ],
+    };
+    act(() => onCiscoLintResult?.(callbackResult));
+    expect(await screen.findByTestId("problem-0")).toHaveTextContent(
+      "Callback result",
+    );
   });
 
   it("does not render the removed Send Selection to Cisco surface", () => {

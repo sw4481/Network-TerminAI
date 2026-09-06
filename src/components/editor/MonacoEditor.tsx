@@ -15,7 +15,10 @@ import {
   type CiscoDiagnostic,
   type CiscoPlatform,
 } from "../../lib/ciscoLint";
-import type { CiscoGuardrailStatus } from "../../hooks/useCiscoLint";
+import type {
+  CiscoGuardrailStatus,
+  CiscoLintView,
+} from "../../hooks/useCiscoLint";
 import { clearCiscoMarkers, setCiscoMarkers } from "./ciscoMarkers";
 import { dispatchAskAi, type AskAiAction } from "./askAi";
 import { useZedMode } from "./ZedModeProvider";
@@ -101,6 +104,7 @@ type MonacoEditorProps = {
   ciscoPlatform?: CiscoPlatform | null;
   ciscoDiagnostics?: readonly CiscoDiagnostic[];
   ciscoGuardrailStatus?: CiscoGuardrailStatus;
+  onCiscoLintResult?: (result: CiscoLintView) => void;
 };
 
 const EMPTY_CISCO_DIAGNOSTICS: readonly CiscoDiagnostic[] = [];
