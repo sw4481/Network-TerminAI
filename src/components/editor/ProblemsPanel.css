@@ -1,0 +1,78 @@
+.problems-panel {
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-2);
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.problems-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+}
+
+.problems-panel-header.has-errors {
+  color: var(--status-danger);
+}
+
+.problems-panel-list {
+  overflow-y: auto;
+  padding: 0 12px 8px;
+}
+
+.problem-row {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  align-items: baseline;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  background: transparent;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 4px 0;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.problem-row.error { color: var(--status-danger); }
+.problem-row.warning { color: var(--status-warning); }
+.problem-row.info { color: var(--status-info); }
+.problem-row.clean { color: var(--status-success); cursor: default; }
+.problem-row.empty { cursor: default; }
+
+.problem-severity { min-width: 48px; text-transform: uppercase; }
+.problem-where { color: var(--text-secondary); min-width: 36px; }
+.problem-message { flex: 1; }
+.problem-source { color: var(--text-primary); font-style: italic; }
+
+.problems-panel-statuses {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-default);
+}
+
+.problem-status {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 2px 0;
+}
+
+.problem-status-name { color: var(--text-primary); }
+.problem-status-reason { font-style: italic; }
+.problem-status.unavailable .problem-status-reason { color: var(--status-danger); }
