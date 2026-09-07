@@ -124,10 +124,12 @@ async fn read_context(
     };
     // Redact the complete stream before taking the bounded tail. Truncating
     // first could split a credential marker from its value at the boundary.
-    let redacted = render_redacted_scrollback(&raw)
-        .map_err(|error| GatewayError(error.to_string()))?;
+    let redacted =
+        render_redacted_scrollback(&raw).map_err(|error| GatewayError(error.to_string()))?;
     let output = tail_utf8(&redacted, MAX_CAPTURE_BYTES).to_string();
-    Ok(Json(serde_json::json!({ "target": target, "output": output })))
+    Ok(Json(
+        serde_json::json!({ "target": target, "output": output }),
+    ))
 }
 
 async fn begin_plan(
@@ -163,7 +165,9 @@ async fn run_diagnostic(
 ) -> Result<Json<CommandResult>, GatewayError> {
     let capability = capability(&headers)?;
     if request.plan_step_id.trim().is_empty() || request.purpose.trim().is_empty() {
-        return Err(GatewayError("diagnostic requires a plan step and purpose".into()));
+        return Err(GatewayError(
+            "diagnostic requires a plan step and purpose".into(),
+        ));
     }
     let state = gateway.app.state::<AppState>();
     let target = state.terminal_agent.target(&capability, now())?;
@@ -227,11 +231,12 @@ async fn preview_fix(
     let capability = capability(&headers)?;
     let state = gateway.app.state::<AppState>();
     let rules = state.guardrails_ruleset.read();
-    Ok(Json(
-        state
-            .terminal_agent
-            .preview_fix(&capability, batch, now(), &rules)?,
-    ))
+    Ok(Json(state.terminal_agent.preview_fix(
+        &capability,
+        batch,
+        now(),
+        &rules,
+    )?))
 }
 
 async fn approve_fix(
@@ -241,12 +246,9 @@ async fn approve_fix(
 ) -> Result<Json<serde_json::Value>, GatewayError> {
     let capability = capability(&headers)?;
     let state = gateway.app.state::<AppState>();
-    state.terminal_agent.approve_fix(
-        &capability,
-        &request.digest,
-        &request.batch,
-        now(),
-    )?;
+    state
+        .terminal_agent
+        .approve_fix(&capability, &request.digest, &request.batch, now())?;
     Ok(Json(serde_json::json!({ "approved": true })))
 }
 
@@ -321,20 +323,18 @@ async fn execute_command(
     vendor: &str,
     timeout_seconds: Option<u64>,
 ) -> Result<CommandResult, GatewayError> {
-    let mut receiver = state.terminal_agent.begin_capture_and_write(
-        capability,
-        backend_pty_id,
-        now(),
-        || {
-        let ptys = state.ptys.lock();
-        let handle = ptys
-            .get(backend_pty_id)
-            .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
-        handle
-            .write(format!("{command}\r").as_bytes())
-            .map_err(|error| error.to_string())
-        },
-    )?;
+    let mut receiver =
+        state
+            .terminal_agent
+            .begin_capture_and_write(capability, backend_pty_id, now(), || {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(backend_pty_id)
+                    .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
+                handle
+                    .write(format!("{command}\r").as_bytes())
+                    .map_err(|error| error.to_string())
+            })?;
 
     let timeout_seconds = timeout_seconds
         .unwrap_or(DEFAULT_COMMAND_TIMEOUT_SECONDS)
@@ -427,13 +427,15 @@ async fn execute_command(
     }
     state.terminal_agent.end_capture(backend_pty_id);
     if timed_out {
-        state.terminal_agent.revoke(capability, "terminal command timeout");
+        state
+            .terminal_agent
+            .revoke(capability, "terminal command timeout");
         return Err(GatewayError(format!(
             "terminal command timed out after {timeout_seconds} seconds; lease revoked"
         )));
     }
-    let output = render_redacted_scrollback(&output)
-        .map_err(|error| GatewayError(error.to_string()))?;
+    let output =
+        render_redacted_scrollback(&output).map_err(|error| GatewayError(error.to_string()))?;
     if exit_code.is_some_and(|code| code != 0) {
         return Err(GatewayError(format!(
             "terminal command failed with exit code {}: {}",
@@ -472,8 +474,8 @@ fn current_context_hash(state: &AppState, backend_pty_id: &str) -> Result<String
         crate::session::read_scrollback(&db, backend_pty_id)
             .map_err(|error| GatewayError(error.to_string()))?
     };
-    let redacted = render_redacted_scrollback(&raw)
-        .map_err(|error| GatewayError(error.to_string()))?;
+    let redacted =
+        render_redacted_scrollback(&raw).map_err(|error| GatewayError(error.to_string()))?;
     Ok(hex::encode(Sha256::digest(
         tail_utf8(&redacted, MAX_CAPTURE_BYTES).as_bytes(),
     )))
@@ -495,7 +497,7 @@ fn device_cli_error(vendor: &str, output: &str) -> bool {
     output.lines().any(|line| {
         let line = line
             .trim_start_matches(|character: char| character.is_ascii_whitespace())
-            .trim_start_matches(|character: char| character == '\u{1b}' || character == '[')
+            .trim_start_matches(['\u{1b}', '['])
             .trim();
         let lower = line.to_ascii_lowercase();
         if vendor.contains("junos") || vendor.contains("juniper") {
@@ -542,9 +544,15 @@ mod tests {
 
     #[test]
     fn recognizes_vendor_cli_failures_without_matching_normal_status_text() {
-        assert!(device_cli_error("cisco", "% Invalid input detected at '^' marker."));
+        assert!(device_cli_error(
+            "cisco",
+            "% Invalid input detected at '^' marker."
+        ));
         assert!(device_cli_error("cisco", "% Authorization failed."));
-        assert!(device_cli_error("junos", "error: syntax error, expecting <command>."));
+        assert!(device_cli_error(
+            "junos",
+            "error: syntax error, expecting <command>."
+        ));
         assert!(!device_cli_error(
             "cisco",
             "RADIUS server error counters: 0\r\nCurrent state: UP"

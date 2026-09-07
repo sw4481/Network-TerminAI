@@ -1,5 +1,35 @@
 # Mistakes
 
+## 2026-09-07: Application-level TerminAI activation probe used the wrong AppleScript target
+
+- Issue: `tell application "TerminAI" to activate` failed with AppleScript error `-1728`, so the screenshot remained on the frontmost OpenHuman window.
+- Root cause analysis: The development binary is running as a process named `TerminAI` but is not registered as an AppleScript application with that name.
+- How addressed: No app state changed; I will activate the exact System Events process by name before taking the bounded footer screenshot.
+
+## 2026-09-07: Rust verification wrapper duplicated its working-directory prefix
+
+- Issue: A combined verification command entered `src-tauri` and then addressed `src-tauri/src/lib.rs`, causing the inspection subcommand to fail with `No such file or directory`.
+- Root cause analysis: I supplied a repository-relative path while also setting the command working directory to the repository's `src-tauri` subdirectory.
+- How addressed: No source files were changed by the failed inspection; I will use repository-root paths from the root or paths relative to `src-tauri`, and keep the verification commands independently scoped.
+
+## 2026-09-07: Browser skill discovery wrapper had invalid JavaScript quoting
+
+- Issue: A read-only skill-file discovery command was rejected by the tool wrapper with `SyntaxError: Unexpected token '/'` before execution.
+- Root cause analysis: The JavaScript wrapper string contained an escaping/quoting error around the ripgrep pattern.
+- How addressed: No repository command ran; I abandoned that unnecessary browser probe and continued with local CI reproduction.
+
+## 2026-09-07: Chrome skill path lookup used the wrong bundled subdirectory
+
+- Issue: The first attempt to read the Chrome-control skill returned `No such file or directory`.
+- Root cause analysis: I inferred the skill path from the catalog description instead of resolving the installed bundled path.
+- How addressed: I stopped relying on that guessed path and will only use a path returned by the installed skill catalog/file search.
+
+## 2026-09-07: Initial skill path lookup repeated the cache-layout mismatch
+
+- Issue: The first attempt to read the required skills used unversioned paths and returned `No such file or directory`.
+- Root cause analysis: The skill catalog aliases point into versioned plugin cache directories, but I initially treated the aliases as direct filesystem paths.
+- How addressed: Re-read the skills from the versioned plugin-cache paths before inspecting or changing the repository.
+
 ## 2026-09-06: SDD scratch cleanup rejected by command guard
 
 - Issue: The exact final SDD workspace cleanup command was rejected before execution because the environment blocks `rm -rf`-style commands.

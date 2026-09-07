@@ -1172,6 +1172,8 @@ export type IaCClassification = {
   create?: number;
   update?: number;
   destroy?: number;
+  params?: unknown;
+  rationale?: string;
   source?: string;
   note?: string;
 };

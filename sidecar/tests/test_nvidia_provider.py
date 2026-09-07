@@ -1,5 +1,7 @@
 """Real integration tests for NVIDIA provider."""
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 
@@ -121,18 +123,26 @@ def test_call_with_tools_real(nvidia_api_key, test_model):
 
 def test_invalid_api_key():
     """Test error handling with invalid API key."""
+    from openai import AuthenticationError
     from ccie_sidecar.providers import nvidia
 
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.side_effect = AuthenticationError(
+        message="Invalid API key",
+        response=MagicMock(status_code=401),
+        body={"error": {"message": "Invalid API key"}},
+    )
     messages = [{"role": "user", "content": "test"}]
 
-    errors = []
-    for event in nvidia.stream_chat(
-        api_key="invalid_key",
-        model="meta/llama-3.3-70b-instruct",
-        messages=messages,
-    ):
-        if event["type"] == "error":
-            errors.append(event["message"])
+    with patch("ccie_sidecar.providers.nvidia.OpenAI", return_value=mock_client):
+        errors = []
+        for event in nvidia.stream_chat(
+            api_key="invalid_key",
+            model="meta/llama-3.3-70b-instruct",
+            messages=messages,
+        ):
+            if event["type"] == "error":
+                errors.append(event["message"])
 
     assert len(errors) > 0
     assert "401" in errors[0] or "Authentication" in errors[0]
