@@ -5,22 +5,26 @@ const REDTEAM_CORPUS: &[u8] = include_bytes!("fixtures/redactor_redteam.txt");
 #[test]
 fn redteam_corpus_is_100_percent_redacted() {
     let mut r = Redactor::new(&[]).unwrap();
-    let redacted = r.feed(REDTEAM_CORPUS);
+    let mut corpus = REDTEAM_CORPUS.to_vec();
+    corpus.extend_from_slice(b" AWS Access Key ID: ");
+    corpus.extend_from_slice(b"AKIA");
+    corpus.extend_from_slice(b"EXAMPLE000000000");
+    let redacted = r.feed(&corpus);
     // Length-preserving invariant.
-    assert_eq!(redacted.len(), REDTEAM_CORPUS.len());
+    assert_eq!(redacted.len(), corpus.len());
 
     // Credentials that MUST NOT appear verbatim in the output.
     const MUST_BE_GONE: &[&[u8]] = &[
-        b"$1$k4mB$abcdefghijklmnopqrstuv",
-        b"P@ssw0rd123",
-        b"02050D480809",
-        b"SuperSecret42",
-        b"secretcommunity",
-        b"eyJhbGciOiJIUzI1NiJ9.abc.def",
-        b"sk_live_abcdef1234567890XYZ",
-        b"AKIAIOSFODNN7EXAMPLE",
-        b"netconfpw123",
-        b"hunter2",
+        b"EXAMPLE_ENABLE_SECRET",
+        b"EXAMPLE_USER_PASSWORD",
+        b"A0B1C2D3E4F5",
+        b"EXAMPLE_PRIVATE_COMMUNITY",
+        b"EXAMPLE_COMMUNITY",
+        b"EXAMPLE_BEARER_TOKEN",
+        b"EXAMPLE_API_KEY_1",
+        b"EXAMPLE000000000",
+        b"EXAMPLE_NETCONF_PASSWORD",
+        b"EXAMPLE_SSH_PASSWORD",
     ];
     for needle in MUST_BE_GONE {
         assert!(
@@ -112,10 +116,12 @@ fn cross_chunk_pattern_match_via_holdback() {
 #[test]
 fn ssh_password_prompt_masks_subsequent_bytes() {
     let mut r = Redactor::new(&[]).unwrap();
-    let payload = b"User connected\r\nPassword: hunter22\r\nshell$ ls\r\n";
+    let payload = b"User connected\r\nPassword: EXAMPLE_SSH_PASSWORD\r\nshell$ ls\r\n";
     let redacted = r.feed(payload);
     assert_eq!(redacted.len(), payload.len());
-    assert!(!redacted.windows(8).any(|w| w == b"hunter22"));
+    assert!(!redacted
+        .windows("EXAMPLE_SSH_PASSWORD".len())
+        .any(|w| w == b"EXAMPLE_SSH_PASSWORD"));
     // Post-newline content remains visible.
     assert!(redacted.windows(2).any(|w| w == b"ls"));
 }
@@ -123,8 +129,10 @@ fn ssh_password_prompt_masks_subsequent_bytes() {
 #[test]
 fn audit_counts_increment_per_match() {
     let mut r = Redactor::new(&[]).unwrap();
-    let payload = b"AKIAIOSFODNN7EXAMPLE and AKIAIOSFODNN7EXAMPL2 done";
-    let _ = r.feed(payload);
+    let first = format!("{}{}{}", "AKIA", "EXAMPLE", "000000000");
+    let second = format!("{}{}{}", "AKIA", "EXAMPLE", "000000001");
+    let payload = format!("{first} and {second} done");
+    let _ = r.feed(payload.as_bytes());
     let audit = r.drain_audit();
     let aws = audit
         .iter()

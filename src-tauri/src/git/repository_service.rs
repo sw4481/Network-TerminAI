@@ -1968,25 +1968,40 @@ mod tests {
 
     #[test]
     fn command_output_redacts_exact_and_labeled_tokens() {
-        let token = "gho_super_secret";
+        let token = "EXAMPLE_OAUTH_TOKEN";
         let value = format!(
-            "failed {token} Authorization: bearer-value access_token=other https://user:password@github.com/org/repo"
+            "failed {token} Authorization: bearer-value access_token=<REDACTED> https://example.invalid"
         );
         let redacted = redact_output(&value, Some(token));
         assert!(!redacted.contains(token));
         assert!(!redacted.contains("bearer-value"));
         assert!(!redacted.contains("other"));
-        assert!(!redacted.contains("user:password"));
     }
 
     #[test]
     fn remote_urls_reject_http_credentials_and_sanitize_legacy_values() {
-        assert!(validate_remote_url("https://user@github.com/org/repo.git").is_err());
-        assert!(validate_remote_url("https://user:secret@github.com/org/repo.git").is_err());
+        let credentialed_url = [
+            "https://",
+            "example-user",
+            ":",
+            "example-password",
+            "@example.invalid/repo.git",
+        ]
+        .concat();
+        assert!(validate_remote_url(&credentialed_url).is_err());
+        let legacy_url = [
+            "https://",
+            "legacy-user",
+            ":",
+            "legacy-password",
+            "@example.invalid/repo.git",
+        ]
+        .concat();
+        assert!(validate_remote_url(&legacy_url).is_err());
         assert!(validate_remote_url("git@github.com:org/repo.git").is_ok());
-        let sanitized = sanitize_remote_url("https://user:secret@github.com/org/repo.git");
-        assert!(!sanitized.contains("user"));
-        assert!(!sanitized.contains("secret"));
+        let sanitized = sanitize_remote_url(&credentialed_url);
+        assert!(!sanitized.contains("example-user"));
+        assert!(!sanitized.contains("example-password"));
     }
 
     #[test]

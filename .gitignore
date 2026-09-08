@@ -29,6 +29,8 @@ sidecar/build/
 sidecar/**/__pycache__/
 sidecar/**/*.pyc
 sidecar/.venv/
+scripts/**/__pycache__/
+scripts/**/*.pyc
 sidecar/tests/fixtures/*.pcap
 # RAG ONNX weights — fetched at build time by sidecar/scripts/fetch_onnx.py
 sidecar/src/ccie_sidecar/rag/models/all-MiniLM-L6-v2/
@@ -83,3 +85,6 @@ src-tauri/*.db
 sidecar/test_*.py
 TEST_*.md
 TESTING.md
+
+# Local audit notes are not part of the public repository
+/Plans/

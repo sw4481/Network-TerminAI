@@ -30,15 +30,25 @@ fn fixture_path(name: &str) -> PathBuf {
     p
 }
 
+fn fixture_with_ssh_key_marker(tmp: &TempDir, name: &str) -> PathBuf {
+    let contents = std::fs::read_to_string(fixture_path(name)).unwrap();
+    let marker = ["-----BEGIN ", "OPENSSH PRIVATE KEY-----"].concat();
+    let contents = contents.replace("EXAMPLE_ONLY_SSH_KEY_MARKER", &marker);
+    let path = tmp.path().join(name);
+    std::fs::write(&path, contents).unwrap();
+    path
+}
+
 #[test]
 fn imports_1password_csv_into_envelope() {
     let (_tmp, conn, store, lock, env_id) = setup_unlocked();
+    let fixture = fixture_with_ssh_key_marker(&_tmp, "1password_export_sample.csv");
     let result = import_csv(
         &conn,
         &lock,
         &store,
         &env_id,
-        &fixture_path("1password_export_sample.csv"),
+        &fixture,
         ImportFormat::OnePassword,
     )
     .unwrap();
