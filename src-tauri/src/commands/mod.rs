@@ -878,7 +878,7 @@ pub async fn terminal_launch_saved_ssh(
     #[cfg(not(target_os = "macos"))]
     {
         let _ = (state, tab_id, connection_id);
-        return Err("saved SSH terminal verification is not supported on this OS".into());
+        Err("saved SSH terminal verification is not supported on this OS".into())
     }
 
     #[cfg(target_os = "macos")]

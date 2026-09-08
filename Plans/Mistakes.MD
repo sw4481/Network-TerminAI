@@ -362,3 +362,21 @@
   patch and repeated the same context line.
 - How addressed: Inspected the resulting diff immediately, removed the
   duplicate attribute, and reran whitespace/diff validation before compiling.
+
+## 2026-09-07: Second-brain save payload had a JavaScript syntax error
+
+- Issue: The first attempt to save the cross-platform CI repair failed before
+  the MCP request was sent because the inline tool wrapper did not parse.
+- Root cause analysis: The large inline object literal was composed without
+  validating its string delimiters.
+- How addressed: Recorded the failed attempt and retried with a shorter,
+  delimiter-safe payload.
+
+## 2026-09-07: Non-macOS cfg branch used an unnecessary return
+
+- Issue: The first cross-platform fix still failed CI clippy with
+  `clippy::needless_return` in the non-macOS saved-SSH branch.
+- Root cause analysis: Local macOS clippy compiled out that branch, and the
+  cfg block is already the function's final expression on non-macOS.
+- How addressed: Removed `return` so the unsupported error is the cfg branch's
+  final expression, then reran the native checks and exact rustfmt gate.
