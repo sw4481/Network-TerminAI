@@ -1,5 +1,17 @@
 # Mistakes
 
+## 2026-09-08: Release launch banner retained the previous version
+
+- Issue: After bumping the release manifests to `1.1.0`, `run.sh` still displayed `TerminAI v1.0.0`.
+- Root cause analysis: The version helper synchronizes the four release manifests but the shell launch banner contained a separate hard-coded version string.
+- How addressed: Changed `run.sh` to read the displayed version from `src-tauri/tauri.conf.json`, avoiding another manually maintained version source.
+
+## 2026-09-08: Release validation launch collided with an existing Vite server
+
+- Issue: The required `./run.sh` validation exited before launching TerminAI because port 1420 was already in use.
+- Root cause analysis: A pre-existing local Vite development server occupied the fixed dev-server port, so the new Tauri dev invocation could not start its frontend.
+- How addressed: No application or user data was changed; I will inspect the existing listener and verify whether it belongs to the active TerminAI dev stack before continuing with the release checks.
+
 ## 2026-09-07: Release-preflight command used an unavailable Python alias
 
 - Issue: The first release-preflight invocation failed with `zsh: command not found: python`.

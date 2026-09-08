@@ -4,7 +4,8 @@ set -e
 # TerminAI - Quick Launch Script for macOS
 # This script sets up and runs TerminAI in development mode
 
-echo "🚀 TerminAI v1.0.0 - Quick Launch"
+APP_VERSION="$(sed -n 's/.*\"version\": \"\([^\"]*\)\".*/\1/p' src-tauri/tauri.conf.json | head -n 1)"
+echo "🚀 TerminAI v${APP_VERSION} - Quick Launch"
 echo "======================================="
 echo ""
 

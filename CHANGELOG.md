@@ -5,6 +5,21 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-09-08
+
+### Added
+
+- Offline Cisco IOS-XE and NX-OS editor linting with Monaco diagnostics.
+- Workspace search and editor power-editing actions.
+- Detachable terminal windows.
+- Terminal agent, Zabbix, Postman/API target, and advanced network-operation integrations.
+- Improved concurrent fanout workflows and cross-platform SSH handling.
+
+### Fixed
+
+- Cross-platform Rust warnings and strict CI failures in the terminal and AI command paths.
+- Fanout stress-test synchronization under concurrent worker load.
+
 ## [Unreleased]
 
 ### Planned
