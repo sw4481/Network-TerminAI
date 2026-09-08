@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Set up Python 3.12
@@ -121,6 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Read versioned release notes
@@ -211,6 +213,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Set up Bun
@@ -393,6 +396,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Download draft release metadata and latest.json

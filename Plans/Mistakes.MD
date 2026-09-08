@@ -1,5 +1,17 @@
 # Mistakes
 
+## 2026-09-08: Release preflight rejected the pushed annotated tag on GitHub
+
+- Issue: The first `v1.1.0` release run failed before building installers with `v1.1.0 must be an annotated Git tag`, even though the local and remote refs were verified as annotated tag objects.
+- Root cause analysis: The release workflow relied on the checkout action's implicit event ref, and the runner exposed the tag ref as its peeled commit for the contract check.
+- How addressed: Made every release checkout explicitly use `${{ github.ref }}` so the annotated tag object remains available to preflight and publish validation; the failed tag will be retargeted to this workflow fix and retried.
+
+## 2026-09-08: GitHub CLI and unauthenticated API were unavailable for release monitoring
+
+- Issue: The first attempt to inspect the pushed release workflow with `gh` failed because the GitHub CLI is not installed; the fallback API request returned 404 and the first output formatter had a quoting error.
+- Root cause analysis: Release monitoring assumed a local CLI or anonymous API access, but this SSH-authenticated repository is not visible to the unauthenticated API; the shell wrapper also over-escaped Python f-string syntax.
+- How addressed: No repository state was changed by the failed probes; I corrected the fallback approach and will use the authenticated browser session for read-only workflow monitoring.
+
 ## 2026-09-08: Release launch banner retained the previous version
 
 - Issue: After bumping the release manifests to `1.1.0`, `run.sh` still displayed `TerminAI v1.0.0`.
