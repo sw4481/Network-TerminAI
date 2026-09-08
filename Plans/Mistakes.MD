@@ -380,3 +380,12 @@
   cfg block is already the function's final expression on non-macOS.
 - How addressed: Removed `return` so the unsupported error is the cfg branch's
   final expression, then reran the native checks and exact rustfmt gate.
+
+## 2026-09-07: Final git verification wrapper did not parse
+
+- Issue: The first inline wrapper for the final git and remote verification
+  failed before executing because of a JavaScript syntax error.
+- Root cause analysis: The command wrapper was composed inline with malformed
+  object syntax.
+- How addressed: Recorded the failed attempt and reran the verification using
+  a simpler tool call.
