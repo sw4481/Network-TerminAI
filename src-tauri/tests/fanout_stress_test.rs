@@ -13,12 +13,12 @@ impl EventSink for NoopSink {
 }
 
 fn open_db() -> Arc<Mutex<rusqlite::Connection>> {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
-    let path = tmp.path().to_path_buf();
-    std::mem::forget(tmp);
-    Arc::new(Mutex::new(
-        ccie_terminal_lib::db::open_and_migrate(&path).unwrap(),
-    ))
+    ccie_terminal_lib::rag::vec::register_vec_auto_extension();
+    let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch("PRAGMA foreign_keys = ON").unwrap();
+    ccie_terminal_lib::rag::vec::enable_vec_extension(&conn).unwrap();
+    ccie_terminal_lib::db::apply_migrations(&mut conn).unwrap();
+    Arc::new(Mutex::new(conn))
 }
 
 fn fifty_mock_members(db: &Arc<Mutex<rusqlite::Connection>>) -> Vec<MemberRef> {

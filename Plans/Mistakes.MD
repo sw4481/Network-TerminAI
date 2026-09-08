@@ -1,5 +1,23 @@
 # Mistakes
 
+## 2026-09-07: Release-preflight command used an unavailable Python alias
+
+- Issue: The first release-preflight invocation failed with `zsh: command not found: python`.
+- Root cause analysis: This macOS shell exposes Python as `python3`, not `python`.
+- How addressed: Re-ran the unchanged preflight command with `python3`; it passed.
+
+## 2026-09-07: Repository-wide rustfmt check surfaced unrelated baseline drift
+
+- Issue: The first formatter verification used `cargo fmt --all -- --check` and reported thousands of existing differences outside the changed test.
+- Root cause analysis: The repository has pre-existing formatting drift, while this change only touches `src-tauri/tests/fanout_stress_test.rs`.
+- How addressed: Used the release-relevant file-scoped `rustfmt --edition 2021 --check tests/fanout_stress_test.rs`; it passed without modifying unrelated files.
+
+## 2026-09-07: Graphify skill lookup treated the alias as a literal path
+
+- Issue: The first attempt to read the Graphify skill used `/Users/shaunwhi/.codex/skills/r0/graphify/SKILL.md` and returned `No such file or directory`.
+- Root cause analysis: The `r0` value is a catalog alias for `/Users/shaunwhi/.codex/skills`, not a directory component in the installed filesystem path.
+- How addressed: Re-read the skill from `/Users/shaunwhi/.codex/skills/graphify/SKILL.md` before querying the repository graph.
+
 ## 2026-09-07: Application-level TerminAI activation probe used the wrong AppleScript target
 
 - Issue: `tell application "TerminAI" to activate` failed with AppleScript error `-1728`, so the screenshot remained on the frontmost OpenHuman window.
