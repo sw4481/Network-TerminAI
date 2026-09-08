@@ -199,9 +199,7 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use tauri::{
-    ipc::Channel, AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder,
-};
+use tauri::{ipc::Channel, AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::mpsc;
 
 /// Side-channel holding oneshot::Receivers for pending agent-tool approvals,
@@ -790,9 +788,7 @@ pub fn terminal_detach(
     WebviewWindowBuilder::new(
         &app,
         &window_id,
-        WebviewUrl::App(
-            format!("index.html?view=terminal-detached&tab_id={tab_id}").into(),
-        ),
+        WebviewUrl::App(format!("index.html?view=terminal-detached&tab_id={tab_id}").into()),
     )
     .title(if title.is_empty() { "Terminal" } else { &title })
     .inner_size(900.0, 650.0)
@@ -813,8 +809,10 @@ pub fn terminal_detached_window_close(app: AppHandle, window_id: String) -> Resu
         .map_err(|error| format!("failed to destroy detached terminal window: {error}"))
 }
 
+#[cfg(any(target_os = "macos", test))]
 const SYSTEM_SSH_BINARY: &str = "/usr/bin/ssh";
 
+#[cfg(any(target_os = "macos", test))]
 fn shell_quote(value: &str) -> String {
     if value
         .chars()
@@ -825,6 +823,7 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_argv(
     host: &str,
     user: Option<&str>,
@@ -854,6 +853,7 @@ fn build_saved_ssh_argv(
     parts
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_command(argv: &[String]) -> String {
     argv.iter()
         .map(|argument| shell_quote(argument))
@@ -861,6 +861,7 @@ fn build_saved_ssh_command(argv: &[String]) -> String {
         .join(" ")
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn matches_saved_ssh_process(executable: &str, argv: &[String], expected_argv: &[String]) -> bool {
     executable == SYSTEM_SSH_BINARY && argv == expected_argv
 }
@@ -874,29 +875,30 @@ pub async fn terminal_launch_saved_ssh(
     tab_id: String,
     connection_id: String,
 ) -> Result<(), String> {
-    let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
-    let saved: Option<(String, Option<String>, Option<i64>, Option<String>)> = state
-        .db
-        .lock()
-        .query_row(
-            "SELECT host, user, port, identity_file FROM ssh_connections WHERE id = ?1",
-            rusqlite::params![&connection_id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .optional()
-        .map_err(|error| error.to_string())?;
-    let (host, user, port, identity_file) =
-        saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
-    let expected_argv = build_saved_ssh_argv(
-        &host,
-        user.as_deref(),
-        port,
-        identity_file.as_deref(),
-    );
-    let command = build_saved_ssh_command(&expected_argv);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (state, tab_id, connection_id);
+        return Err("saved SSH terminal verification is not supported on this OS".into());
+    }
 
     #[cfg(target_os = "macos")]
     {
+        let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+        let saved: Option<(String, Option<String>, Option<i64>, Option<String>)> = state
+            .db
+            .lock()
+            .query_row(
+                "SELECT host, user, port, identity_file FROM ssh_connections WHERE id = ?1",
+                rusqlite::params![&connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let (host, user, port, identity_file) =
+            saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
+        let expected_argv =
+            build_saved_ssh_argv(&host, user.as_deref(), port, identity_file.as_deref());
+        let command = build_saved_ssh_command(&expected_argv);
         state
             .terminal_agent
             .revoke_for_pty(&validated_tab_id, "user takeover");
@@ -907,9 +909,10 @@ pub async fn terminal_launch_saved_ssh(
                 let handle = ptys
                     .get(&validated_tab_id)
                     .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
-                let (process_group_id, executable, _) = handle
-                    .foreground_process_identity()
-                    .ok_or_else(|| "could not verify the terminal foreground process".to_string())?;
+                let (process_group_id, executable, _) =
+                    handle.foreground_process_identity().ok_or_else(|| {
+                        "could not verify the terminal foreground process".to_string()
+                    })?;
                 let executable = executable
                     .rsplit('/')
                     .next()
@@ -952,11 +955,6 @@ pub async fn terminal_launch_saved_ssh(
             .terminal_agent
             .cancel_saved_ssh_launch(&validated_tab_id);
         Err("could not verify the saved SSH process in the focused PTY".into())
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = (validated_tab_id, connection_id);
-        Err("saved SSH terminal verification is not supported on this OS".into())
     }
 }
 
@@ -2867,9 +2865,7 @@ async fn execute_shell_tool(
         _ => return (None, "[no command in payload]".to_string()),
     };
 
-    state
-        .terminal_agent
-        .revoke_for_pty(tab_id, "user takeover");
+    state.terminal_agent.revoke_for_pty(tab_id, "user takeover");
 
     // Capture scrollback length BEFORE writing, so we can diff after.
     let scrollback_start = {
@@ -2896,8 +2892,8 @@ async fn execute_shell_tool(
             let h = ptys
                 .get(tab_id)
                 .ok_or_else(|| "tab not found — agent cannot execute".to_string())?;
-        let mut bytes = cmd.as_bytes().to_vec();
-        bytes.push(b'\r');
+            let mut bytes = cmd.as_bytes().to_vec();
+            bytes.push(b'\r');
             h.write(&bytes)
                 .map_err(|error| format!("pty write failed: {error}"))
         });
@@ -4002,7 +3998,10 @@ async fn fetch_anthropic_models_from_url(
     api_key: &str,
 ) -> Result<Vec<String>, String> {
     let client = reqwest::Client::new();
-    let url = format!("{}/v1/models?limit=1000", api_base_url.trim_end_matches('/'));
+    let url = format!(
+        "{}/v1/models?limit=1000",
+        api_base_url.trim_end_matches('/')
+    );
     let response = client
         .get(&url)
         .header("x-api-key", api_key)
@@ -6101,19 +6100,40 @@ pub async fn grafana_test_connection(
 // ---- Zabbix ----------------------------------------------------------------
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ZabbixConfig { pub url: String, pub auth_mode: String, pub token: String, pub username: String, pub password: String, pub verify_ssl: bool }
+pub struct ZabbixConfig {
+    pub url: String,
+    pub auth_mode: String,
+    pub token: String,
+    pub username: String,
+    pub password: String,
+    pub verify_ssl: bool,
+}
 #[tauri::command]
 pub async fn zabbix_get_config(state: State<'_, AppState>) -> Result<Option<ZabbixConfig>, String> {
- let conn = state.db.lock(); conn.query_row("SELECT url, auth_mode, token, username, password, verify_ssl FROM zabbix_config WHERE id=1", [], |r| Ok(ZabbixConfig { url:r.get(0)?, auth_mode:r.get(1)?, token:r.get(2)?, username:r.get(3)?, password:r.get(4)?, verify_ssl:r.get::<_,i64>(5)? == 1 })).optional().map_err(|e|e.to_string())
+    let conn = state.db.lock();
+    conn.query_row("SELECT url, auth_mode, token, username, password, verify_ssl FROM zabbix_config WHERE id=1", [], |r| Ok(ZabbixConfig { url:r.get(0)?, auth_mode:r.get(1)?, token:r.get(2)?, username:r.get(3)?, password:r.get(4)?, verify_ssl:r.get::<_,i64>(5)? == 1 })).optional().map_err(|e|e.to_string())
 }
 #[tauri::command]
-pub async fn zabbix_save_config(state: State<'_, AppState>, mut config: ZabbixConfig) -> Result<(), String> {
- if config.auth_mode == "token" { config.username.clear(); config.password.clear(); } else { config.token.clear(); }
- state.db.lock().execute("INSERT OR REPLACE INTO zabbix_config (id,url,auth_mode,token,username,password,verify_ssl) VALUES (1,?1,?2,?3,?4,?5,?6)", rusqlite::params![config.url,config.auth_mode,config.token,config.username,config.password,if config.verify_ssl {1}else{0}]).map_err(|e|e.to_string())?; Ok(())
+pub async fn zabbix_save_config(
+    state: State<'_, AppState>,
+    mut config: ZabbixConfig,
+) -> Result<(), String> {
+    if config.auth_mode == "token" {
+        config.username.clear();
+        config.password.clear();
+    } else {
+        config.token.clear();
+    }
+    state.db.lock().execute("INSERT OR REPLACE INTO zabbix_config (id,url,auth_mode,token,username,password,verify_ssl) VALUES (1,?1,?2,?3,?4,?5,?6)", rusqlite::params![config.url,config.auth_mode,config.token,config.username,config.password,if config.verify_ssl {1}else{0}]).map_err(|e|e.to_string())?;
+    Ok(())
 }
 #[tauri::command]
-pub async fn zabbix_test_connection(state: State<'_, AppState>, config: ZabbixConfig) -> Result<VendorTestResult, String> {
- let resp=state.agent.call("zabbix.test_connection", serde_json::json!({"config":{"url":config.url,"auth_mode":config.auth_mode,"token":config.token,"username":config.username,"password":config.password,"verify_ssl":config.verify_ssl}})).await.map_err(|e|e.to_string())?; unwrap_test_result(resp)
+pub async fn zabbix_test_connection(
+    state: State<'_, AppState>,
+    config: ZabbixConfig,
+) -> Result<VendorTestResult, String> {
+    let resp=state.agent.call("zabbix.test_connection", serde_json::json!({"config":{"url":config.url,"auth_mode":config.auth_mode,"token":config.token,"username":config.username,"password":config.password,"verify_ssl":config.verify_ssl}})).await.map_err(|e|e.to_string())?;
+    unwrap_test_result(resp)
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

@@ -353,3 +353,12 @@
   root instead of first resolving the exact live sidecar log and state files.
 - How addressed: Stopped using the broad result, switched to exact process and
   top-level runtime-file inspection, and did not use any archived content.
+
+## 2026-09-07: Platform-gating patch briefly duplicated an attribute
+
+- Issue: The first patch attempt added a second identical `cfg` attribute to
+  `SYSTEM_SSH_BINARY`.
+- Root cause analysis: The helper-gating patch overlapped an earlier partial
+  patch and repeated the same context line.
+- How addressed: Inspected the resulting diff immediately, removed the
+  duplicate attribute, and reran whitespace/diff validation before compiling.

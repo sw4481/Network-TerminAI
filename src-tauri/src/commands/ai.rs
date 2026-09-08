@@ -374,16 +374,19 @@ fn validate_terminal_attachment(
                 .connection_id
                 .as_deref()
                 .ok_or_else(|| "saved SSH attachment requires a connection identity".to_string())?;
-            let (live_process_group_id, foreground) = foreground_identity
-                .as_ref()
-                .ok_or_else(|| "could not verify the saved terminal foreground process".to_string())?;
+            let (live_process_group_id, foreground) =
+                foreground_identity.as_ref().ok_or_else(|| {
+                    "could not verify the saved terminal foreground process".to_string()
+                })?;
             let executable = foreground
                 .split_whitespace()
                 .next()
                 .and_then(|value| value.rsplit('/').next())
                 .unwrap_or("");
             if executable != "ssh" {
-                return Err("saved terminal attachment requires a verified foreground ssh process".into());
+                return Err(
+                    "saved terminal attachment requires a verified foreground ssh process".into(),
+                );
             }
             let connection_id = state
                 .terminal_agent
@@ -404,8 +407,8 @@ fn validate_terminal_attachment(
                 )
                 .optional()
                 .map_err(|error| error.to_string())?;
-            let (name, vendor, platform) = metadata
-                .ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
+            let (name, vendor, platform) =
+                metadata.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
             attachment.display_name = Some(name);
             attachment.vendor = Some(vendor);
             attachment.platform = Some(platform);
@@ -414,8 +417,9 @@ fn validate_terminal_attachment(
         "manual_ssh" => {
             #[cfg(target_os = "macos")]
             {
-                let (live_process_group_id, foreground) = foreground_identity
-                    .ok_or_else(|| "could not verify the manual terminal foreground process".to_string())?;
+                let (live_process_group_id, foreground) = foreground_identity.ok_or_else(|| {
+                    "could not verify the manual terminal foreground process".to_string()
+                })?;
                 if state
                     .terminal_agent
                     .saved_ssh_binding(&attachment.backend_pty_id, live_process_group_id)
@@ -429,17 +433,22 @@ fn validate_terminal_attachment(
                     .and_then(|value| value.rsplit('/').next())
                     .unwrap_or("");
                 if executable != "ssh" {
-                    return Err("manual terminal attachment requires a verified foreground ssh process".into());
+                    return Err(
+                        "manual terminal attachment requires a verified foreground ssh process"
+                            .into(),
+                    );
                 }
+                attachment
+                    .vendor
+                    .get_or_insert_with(|| "generic".to_string());
+                attachment
+                    .platform
+                    .get_or_insert_with(|| "generic".to_string());
             }
             #[cfg(not(target_os = "macos"))]
             {
                 return Err("manual SSH terminal verification is not supported on this OS".into());
             }
-            attachment.vendor.get_or_insert_with(|| "generic".to_string());
-            attachment
-                .platform
-                .get_or_insert_with(|| "generic".to_string());
         }
         _ => return Err("unsupported terminal attachment source".into()),
     }
@@ -908,13 +917,10 @@ pub async fn agent_react_code_run(
         }
         let attachment = validate_terminal_attachment(&state, attachment)?;
         let turn_id = uuid::Uuid::new_v4().to_string();
-        let grant = state.terminal_agent.issue(
-            &agent_id,
-            &turn_id,
-            attachment,
-            now_seconds(),
-            30 * 60,
-        )?;
+        let grant =
+            state
+                .terminal_agent
+                .issue(&agent_id, &turn_id, attachment, now_seconds(), 30 * 60)?;
         let base_url = state
             .terminal_agent
             .gateway_base_url()
@@ -1060,29 +1066,61 @@ pub async fn agent_react_code_run(
                 }
                 "terminal_command_start" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalCommandStart {
-                        plan_step_id: ev.get("plan_step_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        purpose: ev.get("purpose").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        plan_step_id: ev
+                            .get("plan_step_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        purpose: ev
+                            .get("purpose")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                     });
                 }
                 "terminal_command_result" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalCommandResult {
-                        plan_step_id: ev.get("plan_step_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        plan_step_id: ev
+                            .get("plan_step_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         success: ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
                         result: ev.get("result").cloned().unwrap_or(serde_json::Value::Null),
                     });
                 }
                 "terminal_fix_approval_request" => {
-                    terminal_fix_pending_for_stream.store(true, std::sync::atomic::Ordering::SeqCst);
+                    terminal_fix_pending_for_stream
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
                     let _ = on_event_clone.send(ReactEvent::TerminalFixApprovalRequest {
-                        thread_id: ev.get("thread_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        preview: ev.get("preview").cloned().unwrap_or(serde_json::Value::Null),
+                        thread_id: ev
+                            .get("thread_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        preview: ev
+                            .get("preview")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
                     });
                 }
                 "terminal_lease_ended" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalLeaseEnded {
-                        reason: ev.get("reason").and_then(|v| v.as_str()).unwrap_or("terminal lease ended").to_string(),
+                        reason: ev
+                            .get("reason")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("terminal lease ended")
+                            .to_string(),
                     });
                 }
                 _ => {
@@ -1186,10 +1224,7 @@ pub fn agent_terminal_approve_fix(
 }
 
 #[tauri::command]
-pub fn agent_terminal_cancel(
-    lease_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub fn agent_terminal_cancel(lease_id: String, state: State<'_, AppState>) -> Result<(), String> {
     state
         .terminal_agent
         .revoke_by_lease_id(&lease_id, "stopped by operator")
@@ -1342,29 +1377,61 @@ pub async fn agent_react_resume(
                 }
                 "terminal_command_start" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalCommandStart {
-                        plan_step_id: ev.get("plan_step_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        purpose: ev.get("purpose").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        plan_step_id: ev
+                            .get("plan_step_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        purpose: ev
+                            .get("purpose")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                     });
                 }
                 "terminal_command_result" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalCommandResult {
-                        plan_step_id: ev.get("plan_step_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        command: ev.get("command").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        plan_step_id: ev
+                            .get("plan_step_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        command: ev
+                            .get("command")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         success: ev.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
                         result: ev.get("result").cloned().unwrap_or(serde_json::Value::Null),
                     });
                 }
                 "terminal_fix_approval_request" => {
-                    terminal_fix_pending_for_stream.store(true, std::sync::atomic::Ordering::SeqCst);
+                    terminal_fix_pending_for_stream
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
                     let _ = on_event_clone.send(ReactEvent::TerminalFixApprovalRequest {
-                        thread_id: ev.get("thread_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        preview: ev.get("preview").cloned().unwrap_or(serde_json::Value::Null),
+                        thread_id: ev
+                            .get("thread_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        preview: ev
+                            .get("preview")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null),
                     });
                 }
                 "terminal_lease_ended" => {
                     let _ = on_event_clone.send(ReactEvent::TerminalLeaseEnded {
-                        reason: ev.get("reason").and_then(|v| v.as_str()).unwrap_or("terminal lease ended").to_string(),
+                        reason: ev
+                            .get("reason")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("terminal lease ended")
+                            .to_string(),
                     });
                 }
                 _ => {}
