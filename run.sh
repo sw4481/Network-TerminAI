@@ -58,6 +58,15 @@ if ! python -c "import ccie_sidecar, debugpy" 2>/dev/null; then
     pip install -e . > /dev/null 2>&1
 fi
 
+# The PyATS agent uses the tracked terminai-pyats wrapper in pyats_cli/. The
+# sidecar's pyATS dependency alone only provides Cisco's low-level package, so
+# a sidecar can look healthy while the heartbeat's pre-bound `pyats` client is
+# missing and silently omitted from the sandbox.
+if ! python -c "import terminai_pyats" 2>/dev/null; then
+    echo "   Installing TerminAI PyATS wrapper..."
+    pip install -e ../pyats_cli > /dev/null 2>&1
+fi
+
 echo -e "${GREEN}✅ Python sidecar ready!${NC}"
 deactivate
 cd ..

@@ -43,7 +43,7 @@ const SECTIONS: SectionDef[] = [
   {
     id: "about",
     label: "About",
-    blurb: "Version, plans, and credits.",
+    blurb: "Version, features, and credits.",
     body: ABOUT_MD,
   },
 ];

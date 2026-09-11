@@ -356,6 +356,12 @@ fn parse_agent_prefix(text: &str, default_agent: &str) -> (String, String) {
     (default_agent.to_string(), text.trim().to_string())
 }
 
+/// The sidecar reports transport failures as a successful JSON-RPC response
+/// whose result contains `ok: false`; do not treat that envelope as delivered.
+pub fn send_result_ok(result: &serde_json::Value) -> bool {
+    result.get("ok").and_then(serde_json::Value::as_bool) == Some(true)
+}
+
 /// Run an agent headlessly and collect its final text. Mirrors AgentPanel's
 /// dispatch: it branches on the agent's `execution_mode` to pick the right
 /// sidecar RPC (`react-code` → agent.react_code_loop, `code` →
@@ -583,5 +589,14 @@ mod tests {
         // through to the default agent (the whole text is kept as the message).
         let (a3, _m3) = parse_agent_prefix("/ what now", "network-architect");
         assert_eq!(a3, "network-architect");
+    }
+
+    #[test]
+    fn send_result_requires_explicit_success() {
+        assert!(send_result_ok(&serde_json::json!({"ok": true})));
+        assert!(!send_result_ok(&serde_json::json!({"ok": false})));
+        assert!(!send_result_ok(&serde_json::json!({
+            "message": "not linked"
+        })));
     }
 }

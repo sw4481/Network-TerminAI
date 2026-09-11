@@ -1,414 +1,573 @@
-// User Guide content — full reference for every feature shipped across Plans 00–15.
-// Authored as a markdown string so react-markdown can render it directly.
-//
-// Sections deliberately read top-to-bottom: a brand-new operator can scan once
-// to learn the whole app, while a returning user can jump via the in-modal
-// search box.
+export const USER_GUIDE_MD = String.raw`# TerminAI User Guide
+
+TerminAI is a local desktop workspace for network operations. It combines
+interactive terminals, device connections, structured output, AI assistance,
+repeatable checks, an editor, and evidence-oriented exports.
 
-export const USER_GUIDE_MD = String.raw`# TerminAI — User Guide
+> **Start here:** press Cmd+K to find an action, F1 to return to this
+> guide, or Cmd+/ for the five-minute Quick Start. Search this help window
+> for any device, feature, menu, or shortcut name.
+
+The exact data available to a feature depends on the connected device, provider
+credentials, endpoint permissions, and installed integration. When a feature
+can change infrastructure, TerminAI shows an approval or guardrail step before
+the operation is sent.
 
-TerminAI is a Warp-inspired, AI-augmented terminal built specifically for
-network engineers. It runs locally as a desktop app (Tauri + React + Rust), with
-a Python sidecar for parsing and AI features. Every feature documented below is
-shipped and exercised by the regression test suite.
+## 1. Start, configure, and understand the workspace
 
-> **Tip:** Press \`Cmd+/\` for the Quick Start, \`F1\` for this guide, and use
-> the search box at the top of this modal to jump to any section.
+### First launch
 
----
+1. Open **Settings → General**.
+2. Select an AI provider and model.
+3. Enter the provider API key or local base URL, then choose **Save
+   Configuration**.
+4. Choose **Test Connection** before using AI features.
+5. Create a saved device under **Operate → SSH → Saved Connections…**, or use
+   the terminal as a normal local shell.
 
-## 1. Foundation & Sidecar (Plan 00)
+Supported AI provider choices are Anthropic, OpenAI, Google Gemini, NVIDIA,
+vLLM-compatible endpoints, and Ollama. Cloud providers use their normal
+service endpoint; vLLM and Ollama use the base URL configured in Settings.
 
-**What it does** — Boots the long-running Python sidecar that hosts Genie /
-TextFSM parsers, AI clients, and structured-output helpers. The sidecar is
-launched on first feature use and kept alive via a heartbeat thread.
+The footer reports sidecar and application health. The Python sidecar supports
+parsing, AI clients, structured results, and related helpers. It starts when a
+feature needs it and remains available while the app is open. If it is not
+healthy, open **Settings → Terminal → Diagnostic logs** before restarting.
 
-**How to open it** — Nothing to open: it just runs. The status footer at the
-bottom-right shows a green dot when the sidecar is healthy.
+### Tabs and session restore
 
-**Typical workflow**
-- Run any \`show\` command in a terminal tab — the sidecar parses the output
-  in the background.
-- Watch the footer chip flip green within a few seconds of boot.
-- If the chip stays red, restart the app (rebuilding from a stale
-  \`target/debug/python/\` is the most common cause).
+The workspace can contain terminal, API, NETCONF, editor, IaC Studio,
+topology, vault, recordings, troubleshooting, subnet, recording-player, and
+heartbeat tabs. The active tab is shown in the tab bar; close a tab from its
+tab action and use **View → Reopen Closed Tab** or **View → Recently Closed…**
+to recover a recently closed terminal tab.
 
-**Tips**
-- Parser cache lives in the SQLite app DB; clearing the DB resets it.
-- Sidecar logs land in your platform log directory — search for
-  \`ccie_sidecar.log\`.
+TerminAI saves tabs, pane layouts, and terminal scrollback locally. Restored
+tabs may still require reconnecting to a remote device. A saved SSH profile is
+an inventory entry; it is not proof that a live PTY is currently connected.
 
----
+## 2. Terminal modes, panes, and command blocks
 
-## 2. Command Blocks (Plan 01)
+### Terminal Mode and Blocks Mode
 
-**What it does** — Every prompt-to-output pair becomes a *block* — a discrete,
-collapsible card with its own actions: copy, share via \`ccie-terminal://\`
-deep link, pin, tag, and bookmark.
+Use **Terminal Mode** for interactive programs, full-screen commands, shells,
+SSH sessions, vim, and top. Use **Blocks Mode** when each command/result
+pair should remain a separate unit that can be searched, copied, tagged, and
+reviewed later. Switch modes from the terminal mode control.
 
-**How to open it** — Blocks render inline as you run commands. Click the
-header to collapse, the **⋯** menu for actions, and the tag chips to filter.
+Each terminal pane owns an independent PTY. Split right or split down from the
+pane controls, drag the divider to resize, and focus a pane before running a
+command. The pane metadata card shows connection and activity information;
+toggle it with Cmd+Shift+L. When a pane needs attention, the activity
+indicator and notification center identify it.
 
-**Typical workflow**
-- Run a command — a new block appears.
-- Click the **pin** icon to keep the block visible while you scroll.
-- Click **share** to mint a \`ccie-terminal://block/<id>\` URL — clicking
-  the URL anywhere on the same machine reopens the block.
-- Tag blocks with \`#mop\`, \`#troubleshoot\`, etc., then filter via the tag
-  chip strip at the top of the tab.
+Use **Pane → Compose Input…** or Cmd+Shift+Enter for multi-line input. This
+is useful for a pasted configuration block or a command that should be
+reviewed before submission.
 
-**Tips**
-- The Block toolbar exposes Re-Run and Send-to-Workflow.
-- Collapsed state is persisted per-block; closing the tab does not lose it.
+### Command blocks
 
----
+In Blocks Mode, a command and its output appear in a block. A block can be:
 
-## 3. Workflows (Plan 02)
+- collapsed to reduce noise;
+- rerun from its action menu;
+- copied without terminal control sequences;
+- bookmarked or pinned for later reference;
+- tagged and filtered with the tag bar;
+- shared through the local ccie-terminal:// block link;
+- sent to a workflow or used to create a runnable notebook/MOP.
 
-**What it does** — Parameterised, multi-step command templates. Workflows are
-authored in YAML and seeded on first run; you can also add your own from the
-**Tools → Workflows** menu.
+Blocks retain command, output, exit status, duration, timestamp, and working
+directory metadata. Use the search bar to find commands, AI conversations,
+and skills. The block notebook stores a selected set of blocks as a reusable
+working record.
 
-**How to open it** — \`Cmd+Shift+W\` or **Tools → Workflows**.
+Shell integration improves block boundaries. The bundled shell snippets use
+OSC 133 markers so the app can distinguish prompts, commands, output, and
+completion. If blocks are not forming correctly, enable the matching shell
+snippet described in [Troubleshooting](../../docs/TROUBLESHOOTING.md).
 
-**Typical workflow**
-- Open the workflow picker.
-- Pick a workflow (e.g. *Interface Health Check*).
-- Fill the parameter form (interface name, VRF, timeout, etc.).
-- The workflow runs in the active tab as a sequence of blocks.
+## 3. SSH, SFTP, serial, FTP, and TFTP
 
-**Tips**
-- Workflows can call the AI agent for natural-language steps.
-- Use **Export / Import** in the WorkflowPicker to share \`.yaml\` files.
+### Saved SSH connections
 
----
+Open **Operate → SSH → Saved Connections…** to create or edit a device entry.
+Store a display name, host, port, username, authentication details, tags, and
+folders. Search the inventory by name or tag and select a connection to open a
+terminal tab. Use the inventory import option when you already have a supported
+SSH inventory file.
 
-## 4. Notebooks / Runnable MOPs (Plan 03)
+Saved inventory and live connection state are different. If a device does not
+appear as a live target for a feature, connect it first and wait for its PTY to
+be ready.
 
-**What it does** — Markdown notebooks where code fences become *runnable
-cells*. Use them as living MOPs (Method of Procedure) — narrative, command
-cells, expected output, and verification all in one document.
+### SFTP
 
-**How to open it** — \`Cmd+Shift+N\` or **Tools → Notebooks**.
+Open **Operate → SSH → SFTP…**, select a saved SSH connection, and connect.
+The two-pane browser supports remote path navigation, refresh, upload,
+download, creating folders, renaming, deleting, and canceling transfers.
+Confirm the selected path before destructive file operations.
 
-**Typical workflow**
-- Open the notebook library, click **New** or **Import**.
-- Author markdown with \`\`\`cisco\`\`\` or \`\`\`bash\`\`\` fenced cells.
-- Open the notebook in a panel and click **Run** on each cell — the active
-  terminal tab executes the command, and a result block is captured back into
-  the notebook.
-- Pause / Resume the run from the notebook header.
+### Serial console
 
-**Tips**
-- Notebooks are tied to a tab via PTY wiring; open a target SSH session first.
-- Use **Create-MOP from blocks** in the BlockToolbar to seed a notebook from
-  a series of blocks you already ran.
+Open **Operate → SSH → Serial Console…**. Refresh the available USB ports,
+choose a port, then set baud rate, data bits, parity, stop bits, and flow
+control before connecting. Disconnect before changing serial parameters. Use
+**Send Break** only when the target device and your procedure call for it.
 
----
+### FTP and TFTP servers
 
-## 5. Command Palette (Plan 04)
+Configure the embedded servers under **Settings → FTP Server** and **Settings
+→ TFTP Server**. Start or stop the service, review the bind address and
+directory, and check the status indicator. TFTP on a privileged port may
+require the platform authorization prompt. Treat the served directory as
+shared network state and avoid placing credentials there.
 
-**What it does** — Single-keystroke fuzzy search across history, blocks,
-saved devices, workflows, notebooks, and more.
+## 4. API and NETCONF workspaces
 
-**How to open it** — \`Cmd+K\` or **Tools → Command Palette**.
+### API requests
 
-**Typical workflow**
-- Press \`Cmd+K\`.
-- Start typing — results group by category (Commands / Blocks / Devices).
-- Use \`Tab\` to scope to a single category; \`Enter\` to action.
+Create an API tab from the tab/new-workspace controls. Build a request with its
+method, URL, headers, query values, body, and selected environment. Save a
+request for reuse, inspect response headers/body/status, and open request
+history for previous runs.
 
-**Tips**
-- The palette tracks usage so frequently picked items rise to the top
-  (boot-time trim caps usage at 5000 rows per type).
-- Scope filters: \`>device\` only searches saved hosts, \`@cmd\` filters to
-  command history.
+Import an OpenAPI description or a Postman collection when you want to start
+from an existing catalog. Create environments and variables instead of
+copying secrets into each request. A response can be sent to the terminal or
+provided to the AI explanation flow. Review the destination and method before
+sending a write request.
 
----
+### NETCONF sessions
 
-## 6. Structured Show-Output (Plan 05)
+Create a NETCONF tab, choose or create a device profile, and connect. Use the
+YANG browser and RPC editor to build a request, then send it and inspect the
+response. Save frequently used RPCs, review request history, and use response
+explanation when you need help interpreting modeled data.
 
-**What it does** — Parses \`show\` command output via Genie / TextFSM into
-structured tables. Each block can be viewed as raw, structured, or diff.
+For operational state, use the device's modeled get path; for configuration,
+use get-config or a modeled edit operation as appropriate. The app does not
+turn every CLI command into a NETCONF RPC automatically. Confirm the device,
+datastore, namespace, and operation before sending a change.
 
-**How to open it** — Run any supported \`show\` command, then use the
-**View** menu or shortcuts: \`Cmd+1\` (Raw) / \`Cmd+2\` (Structured) / \`Cmd+3\`
-(Diff).
+## 5. Editor and code workspaces
 
-**Typical workflow**
-- Run \`show interfaces\`.
-- Switch to **Structured** view — sortable, filterable table appears.
-- Pin a snapshot with \`Cmd+Shift+P\`.
-- Re-run later, switch to **Diff** view — added / removed / changed rows
-  highlight automatically.
-- Export via **View → Export Structured as CSV / JSON** or copy as
-  Markdown table.
+### Files and editing
 
-**Tips**
-- The structured view stores snapshots in a public API (\`diff_snapshots\`)
-  consumed by Plans 06 and 08.
-- Cell-level severity chips highlight admin-down interfaces, errors, etc.
+Create an Editor tab and choose a workspace folder. The Explorer creates files
+and folders and opens files in buffer tabs. Use split-right or split-down to
+compare files, detach a pane into a separate window, or bring it back into the
+main workspace. Unsaved buffers show a dirty marker; save before closing or
+switching repositories.
 
----
+Find and Replace searches the active file. Workspace Search searches matching
+files using a query and file pattern. Editor Settings control font size, tab
+size, word wrap, and related editing preferences. The global **Settings →
+Editor** tab selects the editor style, theme, Vim mode, and column selection.
 
-## 7. Pre/Post Change Verification (Plan 06)
+The editor's command palette and context menu provide multi-cursor editing,
+line operations, indentation and case transforms, folding, and bookmarks. Use
+**Toggle Bookmark** and **Next Bookmark** to move through a file.
 
-**What it does** — Capture a *pre* snapshot of a curated command bundle,
-make your change, capture a *post* snapshot, and generate a side-by-side
-diff report.
+### Cisco editor mode and diagnostics
 
-**How to open it** — \`Cmd+Shift+C\` (Open Change Window) or **Change** menu.
+The Editor tab can enable the offline Cisco profile for **IOS-XE** or **NX-OS**.
+The validator is local and read-only: it reports syntax/profile findings in
+the editor and Problems panel, but it does not connect to a device or apply a
+configuration. Click a Problems row to jump to the relevant line. Guardrails
+classify command risk; they are not a complete Cisco syntax validator.
 
-**Typical workflow**
-- Open the Change Window, pick (or create) a bundle of commands.
-- Click **Run Pre-Check** (\`Cmd+Shift+1\`).
-- Make your change in the terminal.
-- Click **Run Post-Check** (\`Cmd+Shift+2\`) — the diff report opens.
-- Click **Export Report as Markdown** to save the change record.
+### Git and Python debugging
 
-**Tips**
-- Built-in bundles cover most common change classes (interface, BGP, ACL).
-- Approvals can be appended to a report for audit purposes.
+Open the Git panel for the active workspace repository. Rescan repositories,
+switch branches, inspect remotes, clone a repository, review staged and
+unstaged diffs, commit with a message, and search repository history. Review
+the diff before committing or pushing.
 
----
+Python projects can expose debug controls in the editor: toggle breakpoints,
+start/pause, step over, step into, step out, restart, stop, and show or hide
+the debug panel. Debug behavior depends on the project and available Python
+debug configuration.
 
-## 8. Multi-Device Fan-Out (Plan 07)
+## 6. AI agents, skills, MCP, search, and the Context Graph
 
-**What it does** — Run the same command across up to 50 devices concurrently
-over SSH (russh). Per-device output, progress, and exit status surface in a
-single panel; ZIP export bundles everything.
+### Agent panel
 
-**How to open it** — \`Cmd+Shift+F\` or **Fan-Out → Open Fan-Out Panel**.
+The Agent panel accepts natural-language requests. It can translate a request
+into a command, explain a failure, call configured tools, retrieve local RAG
+sources, and continue a multi-step investigation. The Sources drawer shows
+which local documents informed a grounded answer. A tool approval card shows
+the tool, target, and parameters before an enabled consequential action runs.
 
-**Typical workflow**
-- Manage device groups via **Fan-Out → Manage Device Groups…** (CSV import
-  supported).
-- Open the Fan-Out Panel, pick a group + command.
-- Watch progress per device; cancel or retry stragglers individually.
-- Export the run as a ZIP.
+Use the agent activity indicator to see whether a request is working, waiting,
+or needs attention. A successful HTTP response or a generated sentence is not
+itself proof that a device change completed; verify the actual device result.
 
-**Tips**
-- The 50-device cap is a safety rail; raise it only if your jump-host can
-  cope.
-- Failed runs leave a \`failed\` row in fanout history; the boot routine
-  cleans up *interrupted* runs from a prior crash.
+### Skills
 
----
+Open **Settings → Skills** to list installed skills, reload them, or create a
+new one. A skill packages reusable instructions and optional helper scripts.
+Use a precise description and document the required inputs, tools, and safe
+operating boundary. Invoke it from the Agent panel or Command Palette when
+its trigger matches your task.
 
-## 9. Config Drift (Plan 08)
+### MCP servers
 
-**What it does** — Define an *intent* (Jinja2 template + variables) and
-detect when device config drifts from intent.
+Open **Settings → MCP Servers** to add a server manually or import its
+configuration. Review the command/URL, arguments, environment requirements,
+enabled state, and exposed tools. Disable a server when it is not needed.
+MCP tool approval is separate from ordinary local shell execution; review the
+server and action before allowing a write-capable tool.
 
-**How to open it** — \`Cmd+Shift+D\` (Drift Sidebar) or **Drift → Manage
-Intent Templates…**.
+### Full-text search and Command Palette
 
-**Typical workflow**
-- Author an intent (e.g. *standard core router*).
-- Bind it to a device via the selector.
-- Run **Drift → On-demand check** or schedule one.
-- The Drift Sidebar shows a delta — added, removed, changed lines, with
-  context.
+The search bar searches command history, AI conversations, and skills. The
+Command Palette (Cmd+K) searches commands, blocks, saved devices,
+workflows, notebooks, and application actions. Type a few distinctive words,
+use the scope controls when available, move with the arrow keys, and press
+Enter to act. Press Escape to close without changing the workspace.
 
-**Tips**
-- Schedules use \`tokio-cron-scheduler\`; pause / resume per-intent.
-- Reports are stored per-device — historical drift is queryable.
+### Context Graph
 
----
+The experimental Context Graph is configured under **Settings → General** and
+is off by default. When enabled, an agent can query related topology, drift,
+knowledge-base, and persistent fact/decision context. Set the memory freshness
+window so older facts are treated as stale. Disable it to restore the prior
+agent context behavior immediately.
 
-## 10. AI Guardrails / Blast-Radius (Plan 09)
+## 7. Workflows and notebooks
 
-**What it does** — Every command the AI produces (or you type) is classified
-into Tier 0–3:
-- **Tier 0**: read-only (safe).
-- **Tier 1**: low risk (single config touch).
-- **Tier 2**: medium risk (multiple touches / interface admin state).
-- **Tier 3**: catastrophic (\`reload\`, \`erase\`, route-map deletes).
+### Workflows
 
-Tier 1+ surfaces a confirmation modal with rule context, blast-radius summary,
-and a *second-opinion* button (re-asks the AI).
+Open **Operate → Tools → Workflows** or press Cmd+Shift+W. Choose a
+workflow, fill its parameters, and run it in the active terminal. A workflow
+can contain multiple commands and AI-assisted steps; output appears as normal
+blocks so it can be reviewed and reused.
 
-**How to open it** — \`Cmd+Shift+G\` (Rule Editor) or **Guardrails → Decision
-Log**.
+Use the workflow editor to set a name, description, vendor/platform scope,
+tags, parameters, defaults, and command steps. Import and export YAML to share
+templates. Pin commonly used workflows in the global command bar. Treat an
+imported workflow as untrusted until you review every command and parameter.
 
-**Typical workflow**
-- Enter or accept a command.
-- If Tier 1+, the modal explains why and asks for confirmation.
-- Approve / cancel / second-opinion. Every decision is logged.
-- Edit rules via \`Cmd+Shift+G\` (regex live-test included).
+### Runnable notebooks / MOPs
 
-**Tips**
-- 278 builtin rules cover Cisco IOS-XE, NX-OS, and IOS-XR primitives.
-- Export / import your custom ruleset to share across teams.
+Open **Operate → Tools → Notebooks** or press Cmd+Shift+N. Create or import
+a Markdown MOP, select its target device, enter parameters, and run cells in
+order. Supported cell types include narrative text, command cells, assertions,
+and operator prompts. A command cell runs through the selected terminal and
+captures its result; assertions compare structured values to expected values.
 
----
+Pause or resume a run from the notebook toolbar. Use **Create MOP from
+blocks** when you already have a useful command sequence in the terminal.
+Open the target SSH/terminal session before running device-bound cells.
 
-## 11. Session Chains / Jump-Host Chains (Plan 10)
+## 8. Output, change verification, fan-out, drift, and guardrails
 
-**What it does** — Multi-hop SSH chains. Define an A → B → C path once and
-re-run it on demand; the active tab connects through the chain.
+### Structured output
 
-**How to open it** — \`Cmd+Shift+J\` (Manage Chains) or \`Cmd+Alt+J\`
-(connect active tab via chain).
+Run a supported show command, then choose **View → Show Raw Output**
+(Cmd+1), **Show Structured** (Cmd+2), or **Show Diff** (Cmd+3).
+Structured tables can be sorted and filtered. Compare a later snapshot with a
+previous one to highlight added, removed, or changed rows. Use the in-block
+export/copy controls for CSV, JSON, or Markdown.
 
-**Typical workflow**
-- **Chains → New Chain…** — define hops (host, user, auth method).
-- Save and validate (per-hop probe).
-- On any tab, \`Cmd+Alt+J\` to pick a chain — the tab reconnects through it.
-- **Chains → Reconnect Active Chain** to re-run the last chain.
+Parsing depends on the available Genie/TextFSM coverage and the command's
+vendor/platform output. If parsing is unavailable, the raw output remains the
+source of truth.
 
-**Tips**
-- 4 builtin templates cover common bastion topologies; clone and edit.
-- Live PTY/NETCONF dispatch is wired; live execution is stubbed where
-  upstream credentials aren't available.
+### Pre/post change verification
 
----
+1. Open **Audit → Change** or press Cmd+Shift+C.
+2. Select an existing command bundle, or use **New Bundle…** to define the
+   pre/post commands and metadata.
+3. Run **Pre-Check** (Cmd+Shift+1) and review the captured results.
+4. Make the planned change, subject to guardrail approval.
+5. Run **Post-Check** (Cmd+Shift+2) and inspect the diff report.
+6. Export the report as Markdown and attach it to the change record.
 
-## 12. Packet Capture (Plan 11)
+Use **Manage Bundles…** to edit or remove bundles. A pre/post report documents
+what was observed; it does not replace a device-side commit or rollback plan.
 
-**What it does** — Drive an IOS-XE Embedded Packet Capture (\`monitor capture\`),
-fetch the resulting \`.pcap\`, and view it inline (packet list, hex, protocol
-hierarchy, follow-stream).
+### Multi-device fan-out
 
-**How to open it** — \`Cmd+Shift+K\` (Captures Panel).
+Open **Audit → Fan-Out** or press Cmd+Shift+F. Manage device groups first,
+including CSV import where supported. Select a group and command, review the
+target count, and start the run. The panel shows per-device progress, output,
+exit state, and failures. Cancel the run or retry an individual straggler when
+available, then export the result archive.
 
-**Typical workflow**
-- Open the Captures Panel.
-- Pick a quick-capture template (or author one) — interface, ACL match,
-  buffer size, duration.
-- Start the capture; the panel polls until done, downloads via
-  \`russh-sftp\`, and opens an inline viewer.
-- Export the \`.pcap\` to disk.
+Fan-out is intentionally bounded for safety. Confirm group membership and
+command scope before starting; a read-only command is the safer first test.
 
-**Tips**
-- Capture cleanup runs on failure (no orphaned device-side files).
-- The PcapPanel can be docked or opened as an overlay.
+### Configuration drift
 
----
+Open **Audit → Drift** or press Cmd+Shift+D, then use **Manage Intent
+Templates…**. Create an intent with the expected template and variables,
+associate it with a device, and run an on-demand or scheduled check. The Drift
+Sidebar groups added, removed, and changed lines with surrounding context.
 
-## 13. RAG / AI Completion (Plan 12)
+Pause or resume schedules, acknowledge findings, and open historical reports
+to distinguish a reviewed exception from an unresolved drift. The expected
+configuration is an intent; the check does not silently remediate the device.
 
-**What it does** — Vendor-aware grounding for the AI agent. Local docs
-(uploaded markdown, PDFs, Cisco config guides) are embedded with a local
-ONNX MiniLM model (384-dim) and stored in \`sqlite-vec\`. Agent responses
-include a **Sources** badge with citations.
+### Guardrails and decision log
 
-**How to open it** — Settings → **RAG** tab; click the **Sources** badge in
-any AgentPanel response to open the drawer.
+Guardrails classify typed and AI-generated commands by risk. Read-only work is
+normally allowed; higher-risk commands display the classification, matched
+rule, target context, and blast-radius summary before execution. Choose
+**Approve**, **Deny**, or **Second Opinion** when offered.
 
-**Typical workflow**
-- Settings → RAG → upload docs (or run the optional seed pack).
-- Tag docs by vendor / platform.
-- Ask the agent a question — the response cites which docs it pulled from.
-- Click the badge to inspect the snippet that was retrieved.
+Open **Audit → Guardrails → Rule Editor…** or press Cmd+Shift+G to inspect
+and edit rules. Use its regex test with representative commands, and export or
+import a ruleset when sharing policy. Open **Decision Log…** to review prior
+approvals and denials. A guardrail warning is advisory about command risk; it
+does not prove that the command is syntactically valid or that a device
+accepted it.
 
-**Tips**
-- All embeddings happen locally — nothing leaves your machine.
-- Adjust top-K and similarity threshold in the RAG settings tab.
+## 9. Troubleshooting and heartbeat monitoring
 
----
+### AI troubleshooting playbooks
 
-## 14. Topology Awareness (Plan 13)
+Open **Audit → Troubleshoot** or press Cmd+Shift+T. Describe a symptom,
+choose a matching playbook, provide optional variables, and select **Start**.
+The executor walks the playbook, runs read-only steps, displays evidence and
+narration, and pauses for operator prompts. Tier-1 and higher operations still
+require explicit approval.
 
-**What it does** — Ingest CDP / LLDP / BGP / OSPF / IS-IS neighbor output
-from any tab and render the device graph using \`@xyflow/react\` (React Flow
-v12). Click a node to SSH into it (resolved via the device registry).
+Open **Playbook Editor…** with Cmd+Alt+T to create or edit YAML playbooks.
+Use **Browse Builtin Playbooks** to inspect the starting examples. Validate
+the vendor/platform scope, symptom keywords, step IDs, branch cases, command
+steps, assertions, and expected values before saving.
 
-**How to open it** — Open a topology tab from the tab strip, or use the
-**Inline Topology Panel** that appears under matching show-blocks.
+### Heartbeats
 
-**Typical workflow**
-- Run \`show cdp neighbors detail\` (or LLDP, BGP, OSPF, IS-IS).
-- The inline topology panel parses neighbors and offers to save them.
-- Open the global Topology tab to see the merged graph.
-- Click a node — if the device exists in the registry, a new SSH tab opens.
-- Auto-refresh runs on a configurable interval (persisted).
+Open **Operate → Heartbeat → Heartbeats…** or press Cmd+Shift+H. Create a
+heartbeat with its name, interval, target, and check instructions. Filter by
+enabled/disabled state and sort by name, next run, or last run. Expand a card
+to inspect executions, run it immediately, pause/resume it, or delete it.
+Deleting a heartbeat also removes its execution history, so confirm that
+action carefully.
 
-**Tips**
-- Save Neighbor Modal warns before overwriting an existing edge.
-- Edge color legend distinguishes layer-2 vs. routing protocols.
+## 10. Packet capture, topology, diagrams, subnetting, and browser
 
----
+### Packet capture
 
-## 15. Credential Vault + Session Recording (Plan 14)
+Open **Operate → Captures** or press Cmd+Shift+K. Use a quick-capture
+template or the advanced form to select the interface, ACL/filter expression,
+buffer, and duration. Start the IOS-XE Embedded Packet Capture, wait for the
+capture to finish, fetch the PCAP, and inspect it in the viewer.
 
-**Credential Vault**
+The viewer provides packet rows, protocol hierarchy, hex data, and stream
+inspection where available. Findings can scan built-in rules and show evidence
+packets. Export the PCAP and review the destination path before sharing it.
 
-**What it does** — Argon2id-hashed master password unlocks per-envelope
-AES-256-GCM secrets. Idle-lock sweep relocks envelopes 30 s after the
-configured timeout; CSV import covers 1Password and Bitwarden exports.
+### Topology
 
-**How to open it** — \`Cmd+Shift+V\` or **Vault → Open Vault Tab**.
+Create a Topology tab or use the inline topology panel attached to recognized
+neighbor output. Run supported CDP, LLDP, BGP, OSPF, or IS-IS commands and
+ingest the result. The graph can be filtered by vendor, platform, protocol,
+and site data where present.
 
-**Typical workflow**
-- Create an envelope (master password).
-- Add secrets — username, password, notes, optional \`identity_file\` path.
-- Lock the active envelope: \`Cmd+L\`. Lock all: **Vault → Lock All Envelopes**.
-- Import: **Vault → Import from 1Password / Bitwarden CSV…**.
-- Audit log: **Vault → Audit Log…** — every reveal/rotation is timestamped.
+Select a node to inspect management reference, platform, neighbors, and
+available actions. Save a neighbor when it should become a reusable device
+entry, discover a device from the topology flow, or open SSH/NETCONF from the
+inspector. Saving can warn before replacing an existing edge. Topology is an
+observation and inventory aid; it does not automatically change a device.
 
-**Tips**
-- Idle timeout is per-envelope; set it short for production credentials.
-- Auto-lock fires \`vault://auto-locked\` so any open tab re-prompts you.
+### Diagrams
 
-**Session Recording**
+Open **Operate → Diagrams** or press Cmd+Shift+I to view an agent-produced
+diagram. Review the source before trusting the visual interpretation, then
+use the viewer's export action when you need an image or document artifact.
 
-**What it does** — Records terminal sessions in asciinema v2 format with a
-streaming credential redactor (red-team corpus tested). Replay in-app via the
-embedded CastPlayer.
+### Subnet calculator
 
-**How to open it** — \`Cmd+Shift+R\` toggles recording on the active terminal
-tab. **Recording → Open Recordings** opens the library.
+Open **Operate → Tools → Subnet Calculator** or press Cmd+Shift+U. Choose
+one of the six tools:
 
-**Typical workflow**
-- \`Cmd+Shift+R\` to start; the tab status indicator turns red.
-- Run your session.
-- \`Cmd+Shift+R\` to stop. The cast file is saved to your platform's
-  app-local data dir under \`recordings/\`.
-- Open the Recordings tab, double-click a cast — the player scrubs through
-  the session at variable speed.
+- **CIDR** calculates network, broadcast, host range, and related values.
+- **Split** divides a network into smaller subnets.
+- **VLSM** designs variable-length subnets from requirements.
+- **Super** combines compatible networks into a supernet.
+- **Check** validates an IP, mask, CIDR, or membership relationship.
+- **Visual** displays the address/subnet relationship graphically.
 
-**Tips**
-- Redaction is *streaming* — secrets never land on disk.
-- Use **Export** to share a redacted \`.cast\` file externally.
+Use **Quick Reference** for the common mask and host-count reference while
+working.
 
----
+### Browser window
 
-## 16. AI Troubleshooting Tree (Plan 15)
+Open **Operate → Browser → New Browser Window…** or press Cmd+Shift+B,
+enter a URL, and review the opened page. Browser-control integration can be
+configured under **Settings → Browser**. Treat imported cookies and authenticated
+browser sessions as sensitive; use the browser only with sites and accounts
+you intend to expose to the configured workflow.
 
-**What it does** — Symptom-to-playbook matcher. Type a symptom (e.g.
-*"BGP neighbor flapping"*); a hybrid BM25 + embedding matcher picks the best
-playbook from your YAML catalogue (6 builtins + your own). The executor
-walks the decision tree, runs commands via the active tab, narrates findings
-via the AI, and surfaces a root-cause card.
+## 11. IaC Studio, Terraform state, and Git/CI
 
-**How to open it** — \`Cmd+Shift+T\` (Troubleshoot tab) or
-\`Cmd+Alt+T\` (Playbook Editor).
+### IaC Studio
 
-**Typical workflow**
-- Open the Troubleshoot tab.
-- Type a symptom → the matcher proposes a playbook.
-- Click **Start** — the executor runs Tier-0 commands (hard gate: nothing
-  Tier-1+ runs without explicit approval).
-- Answer prompts, follow the narration, and accept or reject the AI's
-  proposed root cause.
-- Author your own playbooks in the Playbook Editor (\`Cmd+Alt+T\`).
-
-**Tips**
-- 6 builtin playbooks cover BGP, OSPF, interface, ACL, OSPF area, and
-  reachability symptoms.
-- Failure-mode E2E tests verify guardrail enforcement.
-
----
-
-## Reference
-
-- Full docs: \`docs/USER_GUIDE.md\`, plus per-feature docs:
-  \`docs/COMMAND_BLOCKS.md\`, \`docs/WORKFLOWS.md\`, \`docs/NOTEBOOKS.md\`,
-  \`docs/STRUCTURED_OUTPUT.md\`, \`docs/CHANGE_VERIFICATION.md\`,
-  \`docs/FANOUT.md\`, \`docs/DRIFT.md\`, \`docs/GUARDRAILS.md\`,
-  \`docs/PACKET_CAPTURE.md\`,
-  \`docs/TOPOLOGY.md\`, \`docs/VAULT_AND_RECORDING.md\`.
-- Troubleshooting: \`docs/TROUBLESHOOTING.md\`.
-- Architecture: \`docs/ARCHITECTURE.md\`.
+Open **Operate → IaC → Open IaC Studio** or press Cmd+Shift+E. Select a
+project/workspace and open files in the editor. Use **New Resource…** to
+describe a Terraform or Ansible resource, review the generated diff, and
+accept or reject it. Use **New Pipeline…** to choose a CI platform, tool,
+flow, and optional auth/environment details.
+
+**Get Started with Pipelines…** walks through repository, operation, runner,
+target, and connection choices before generating a pipeline proposal. Review
+the generated files and diff before writing them. IaC operations display an
+approval modal with resource and risk information; approve only the exact
+operation you intend.
+
+Use the Git controls to initialize or select a repository, commit selected
+paths, configure a remote, and push. The GitHub/GitLab run panels show CI
+status when the repository and credentials are configured.
+
+### Terraform state
+
+Open **Operate → IaC → Open Terraform State** or press Cmd+Shift+S. Choose
+the project directory, search resources, and inspect state entries. State can
+contain sensitive values; do not paste it into public issues or untrusted AI
+prompts.
+
+## 12. Credential Vault and session recordings
+
+### Credential Vault
+
+Open **Operate → Vault** or press Cmd+Shift+V. Create an envelope with a
+strong passphrase, unlock it, and add named secrets with usernames, passwords,
+notes, or an identity-file path. Reveal only what you need and lock the active
+envelope with Cmd+L; **Lock All Envelopes** closes every unlocked envelope.
+
+Use **Import from 1Password/Bitwarden CSV…** only with an export you trust,
+then verify the imported records and remove the temporary export. The audit
+log records vault actions such as reveal and rotation. Auto-lock and idle
+timeout behavior can require the passphrase again.
+
+### Session recording
+
+Press Cmd+Shift+R to start or stop recording the active terminal tab. Recordings
+use the asciinema v2 cast format. Open
+**Operate → Recording → Open Recordings** to list casts and open the player.
+The player supports replay controls and scrubbing; export a redacted cast only
+after reviewing it for device output and customer data.
+
+Recording redaction operates while the stream is written, but no automatic
+redactor catches every possible secret. Do not treat an exported recording as
+safe until you review it.
+
+## 13. RAG library and integrations
+
+### RAG library
+
+Open **Settings → RAG**. Add PDF, HTML, Markdown, or text documents, give them
+useful titles and vendor/platform tags, and wait for indexing to finish. The
+local embedding/index store powers source retrieval for AI responses. Delete
+outdated documents or adjust retrieval settings when answers cite the wrong
+material. Select a Sources badge in an agent response to inspect the retrieved
+snippet.
+
+### Settings overview
+
+The Settings window includes these areas:
+
+- **General** — AI provider/model, API key or base URL, connection test,
+  streaming preference, and experimental Context Graph.
+- **Appearance** — application theme and visual preferences.
+- **Editor** — editor style, theme, Vim mode, and column selection.
+- **MCP Servers** — external tool server configuration.
+- **Skills** — reusable AI workflow management.
+- **Agents** — agent definitions and sources/tools.
+- **RAG** — local document ingestion and retrieval.
+- **FTP Server / TFTP Server** — embedded file-service configuration.
+- **Git / CI** — repository and CI integration settings.
+- **Updates** — signed updater status and update checks.
+- **pyATS, Proxmox, Stealthwatch, ISE, CML, Catalyst Center, Splunk, ACI,
+  gNMI, FMC, ThousandEyes, Meraki, Secure Endpoint, Cisco XDR, Juniper Mist,
+  Grafana, Zabbix, Prometheus, NetBox, Sketchfab, and WhatsApp** — endpoint,
+  authentication, TLS, and integration-specific settings.
+- **Terminal** — terminal appearance, command suggestions, notifications,
+  and diagnostic log locations.
+- **Browser** — browser-control setup and compatible client instructions.
+
+Save and test each integration before using its agent or workspace. Credentials
+are not interchangeable between integrations; configure the provider expected
+by the specific agent.
+
+## 14. Keyboard and help
+
+On macOS, Cmd is the modifier shown below. On Windows/Linux, use the
+equivalent Ctrl shortcut where the native menu provides it.
+
+| Shortcut | Action |
+| --- | --- |
+| Cmd+K | Command Palette |
+| Cmd+Shift+W | Workflows |
+| Cmd+Shift+N | Notebooks |
+| Cmd+Shift+U | Subnet Calculator |
+| Cmd+Shift+B | New Browser Window |
+| Cmd+Shift+I | Diagram Viewer |
+| Cmd+Shift+L | Toggle Pane Metadata Card |
+| Cmd+Shift+Enter | Compose Input |
+| Cmd+1, Cmd+2, Cmd+3 | Raw, Structured, Diff output |
+| Cmd+Shift+O | Reopen Closed Tab |
+| Cmd+Shift+C | Change Window |
+| Cmd+Shift+1, Cmd+Shift+2 | Pre-Check, Post-Check |
+| Cmd+Shift+F | Fan-Out |
+| Cmd+Shift+D | Drift Sidebar |
+| Cmd+Shift+G | Guardrail Rule Editor |
+| Cmd+Shift+K | Captures Panel |
+| Cmd+Shift+E | IaC Studio |
+| Cmd+Shift+S | Terraform State |
+| Cmd+Shift+V | Vault |
+| Cmd+L | Lock Active Vault Envelope |
+| Cmd+Shift+R | Start/Stop Recording |
+| Cmd+Shift+T | Troubleshoot |
+| Cmd+Alt+T | Troubleshoot Playbook Editor |
+| Cmd+Shift+H | Heartbeats |
+| F1 | User Guide |
+| Cmd+/ | Quick Start and Shortcuts |
+
+Use the **Help** menu for the same help surfaces when a shortcut is unavailable
+or conflicts with a platform/browser key binding. The editor's context menu
+contains additional Monaco/Zed commands, including bookmarks, multi-cursor,
+folding, and Vim-mode actions.
+
+## 15. Troubleshooting checklist
+
+### AI is not responding
+
+Check the provider, model, API key/base URL, and **Test Connection** result in
+Settings. For a local endpoint, verify that the host is reachable from the
+machine running TerminAI. Check the sidecar status and diagnostic logs.
+
+### A command or tool did not run
+
+Read the approval card and risk classification. Confirm the active tab, live
+connection, device identity, and selected environment. For MCP, confirm the
+server is enabled and its tool is available. For agents, inspect the Sources
+drawer and activity detail.
+
+### Structured output is empty
+
+Use Raw output first. Confirm that the command is supported for the device
+vendor/platform and that the response is complete. Parser coverage varies;
+raw output is retained when no structured parser matches.
+
+### SSH/SFTP/serial problems
+
+Check host, port, username, authentication, and local network reachability.
+For SFTP, connect from a saved SSH entry. For serial, refresh ports and verify
+line settings before connecting. For TFTP, review bind permissions and the
+served directory.
+
+### Help or shortcuts look wrong
+
+Use the native **Help** menu to confirm the current accelerator. The menu is
+the authoritative platform-specific shortcut source; editor keybindings can
+also change when Vim or Zed mode is enabled.
+
+For deeper recovery steps, see [Troubleshooting](../../docs/TROUBLESHOOTING.md),
+[Security](../../docs/SECURITY.md), and the per-feature documents listed in
+the repository README.
 `;

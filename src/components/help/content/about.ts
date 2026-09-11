@@ -1,72 +1,55 @@
-// About — version, project intent, and credits.
-
 export const ABOUT_MD = String.raw`# About TerminAI
 
-**TerminAI** is a Warp-inspired, AI-augmented terminal built by and for
-network engineers preparing for (and running) production CCIE-track work.
-It is a desktop-first application (Tauri + React + Rust) with a Python
-sidecar for parsing and AI features. Everything runs locally — your
-sessions, secrets, and embeddings never leave your machine.
+**TerminAI 1.1.0** is a desktop terminal and network-operations workspace for
+engineers. It combines React and xterm.js in a Tauri desktop shell, Rust
+services and SQLite persistence, and a Python sidecar for parsing and AI
+features.
 
-**Version**: 1.0.0
-**License**: see \`LICENSE\` in the repo root.
+The app keeps sessions, vault data, recordings, and local RAG indexes on the
+machine where it runs. Requests sent to a configured cloud or local AI provider
+are subject to that provider's handling and retention policies.
 
----
+## What is included
+
+- Interactive local and SSH terminals with Terminal Mode, Blocks Mode, tabs,
+  panes, restore, and shell integration.
+- Structured device output, snapshots, change verification, fan-out, drift,
+  guardrails, troubleshooting playbooks, and heartbeat monitoring.
+- API and NETCONF workspaces, SFTP and serial console access, packet capture,
+  topology, diagrams, subnet tools, and a controlled browser window.
+- An editor with workspace search, Git, Python debugging, Cisco IOS-XE/NX-OS
+  offline diagnostics, IaC Studio, Terraform state, and CI run views.
+- AI providers, agents, skills, MCP servers, local RAG, a Credential Vault,
+  redacted session recording, workflows, notebooks, and exports.
 
 ## Documentation
 
-The full markdown documentation set ships with the source tree:
+Start with the in-app **User Guide** and **Quick Start**. The repository's
+GitHub README links to the detailed feature references, including:
 
-- \`docs/USER_GUIDE.md\` — extended user guide
-- \`docs/ARCHITECTURE.md\` — three-layer architecture overview
-- \`docs/TROUBLESHOOTING.md\` — common issues and fixes
-- \`docs/SECURITY.md\` — vault, recording redaction, threat model
-- Per-feature: \`COMMAND_BLOCKS\`, \`WORKFLOWS\`, \`NOTEBOOKS\`,
-  \`STRUCTURED_OUTPUT\`, \`CHANGE_VERIFICATION\`, \`FANOUT\`, \`DRIFT\`,
-  \`GUARDRAILS\`, \`PACKET_CAPTURE\`, \`TOPOLOGY\`,
-  \`VAULT_AND_RECORDING\`, \`COMMAND_PALETTE\`, \`PARSING\`.
+- docs/CONFIG.md — providers, settings, and data locations
+- docs/TROUBLESHOOTING.md — recovery and diagnostics
+- docs/SECURITY.md — vault, recording, and security guidance
+- docs/ARCHITECTURE.md — frontend, Rust, and sidecar boundaries
+- docs/COMMAND_BLOCKS.md, docs/WORKFLOWS.md, and docs/NOTEBOOKS.md
+- docs/STRUCTURED_OUTPUT.md, docs/CHANGE_VERIFICATION.md,
+  docs/FANOUT.md, docs/DRIFT.md, and docs/GUARDRAILS.md
+- docs/PACKET_CAPTURE.md, docs/TOPOLOGY.md, and
+  docs/VAULT_AND_RECORDING.md
+- docs/MCP_SETUP.md, docs/MERAKI_CLI.md, and docs/API.md
 
----
+## Safety boundary
 
-## Plans (all complete)
+The application can help prepare commands and operations, but network changes
+remain subject to the active connection, provider/tool permissions, and
+guardrail approval. Always verify the target and the resulting device state.
+Offline Cisco editor diagnostics are read-only and do not apply configuration.
 
-| # | Plan | One-line summary |
-|---|------|------------------|
-| 00 | Foundation | Tauri shell, SQLite, sidecar bootstrap |
-| 01 | Command Blocks | Collapse / pin / share / tag / bookmark |
-| 02 | Workflows | Parameterised multi-step command templates |
-| 03 | Notebooks | Markdown notebooks with runnable cells (MOPs) |
-| 04 | Command Palette | \`Cmd+K\` fuzzy search across the app |
-| 05 | Structured Output | Genie / TextFSM tables + diff snapshots |
-| 06 | Change Verification | Pre/post bundle diff reports + Markdown export |
-| 07 | Multi-Device Fan-Out | russh, 50-cap, ZIP export |
-| 08 | Config Drift | Jinja2 intents + scheduled drift checks |
-| 09 | AI Guardrails | 4-tier blast-radius classifier + 278 builtins |
-| 10 | Session Chains | Multi-hop SSH, 4 templates |
-| 11 | Packet Capture | IOS-XE EPC → inline pcap viewer |
-| 12 | RAG | Local ONNX MiniLM + sqlite-vec, sources drawer |
-| 13 | Topology | CDP/LLDP/BGP/OSPF/IS-IS → React Flow graph |
-| 14 | Vault + Recording | Argon2id+AES-GCM vault, asciinema v2 with redaction |
-| 15 | Troubleshooting Tree | YAML playbooks + AI narration + Tier-0 hard gate |
+## Credits
 
----
+TerminAI builds on Tauri, React, xterm.js, Cisco Genie/pyATS, TextFSM,
+asciinema, sqlite-vec, ONNX Runtime, MiniLM, React Flow, russh, russh-sftp,
+tokio-cron-scheduler, minijinja, Argon2, AES-GCM, and react-markdown.
 
-## Acknowledgements
-
-Built on a stack of excellent open-source projects:
-
-- **Tauri** — the desktop shell and IPC plumbing.
-- **React** + **xterm.js** — the frontend.
-- **Cisco Genie / pyATS** + **TextFSM** — structured show parsing.
-- **asciinema** v2 cast format — session recording.
-- **sqlite-vec** — local vector index for RAG.
-- **\`@xyflow/react\`** (React Flow v12) — topology canvas.
-- **\`russh\`** + **\`russh-sftp\`** — pure-Rust SSH/SFTP for fan-out and pcap fetch.
-- **\`tokio-cron-scheduler\`** — drift schedules.
-- **\`minijinja\`** + **\`similar\`** — intent rendering and diff.
-- **Argon2** + **\`aes-gcm\`** — vault crypto.
-- **ONNX Runtime** + **MiniLM** — local embeddings.
-- **\`react-markdown\`** — this very help modal.
-
-Thank you to every upstream maintainer.
+See the repository license and contribution guidance for project terms.
 `;

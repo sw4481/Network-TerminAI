@@ -1,10 +1,18 @@
 # TerminAI
 
-A Warp-inspired AI-powered terminal built for network engineers. TerminAI combines a modern terminal emulator with deeply integrated AI capabilities, intelligent command assistance, and powerful automation through skills and MCP (Model Context Protocol) tools.
+TerminAI is a desktop terminal and network-operations workspace for engineers
+who need interactive shells, device access, AI assistance, repeatable checks,
+and evidence they can keep with a change record.
 
-## Downloads
+It combines xterm.js terminals, SSH/SFTP/serial access, command blocks,
+structured network output, an embedded editor, API and NETCONF workspaces,
+AI agents, workflows, notebooks, packet capture, topology, IaC, and local
+security and audit features in one application.
 
-Download the current release from [TerminAI Releases](https://github.com/sw4481/TerminAI/releases/latest).
+## Download and install
+
+Download the latest installer from
+[GitHub Releases](https://github.com/sw4481/TerminAI/releases/latest).
 
 | Platform | Supported system | Download |
 | --- | --- | --- |
@@ -12,42 +20,46 @@ Download the current release from [TerminAI Releases](https://github.com/sw4481/
 | Windows | Windows 11, x64 | NSIS `-setup.exe` |
 | Linux | Ubuntu 22.04 or 24.04, x64 | `.AppImage` or `.deb` |
 
-Python and the TerminAI sidecar are included in every installer; end users do
-not need Rust, Bun, or Python.
+The installers include the application sidecar. End users do not need Rust,
+Bun, or Python to run the packaged product.
 
-> **Zero-cost distribution notice:** Tauri signs every in-app update, and each
-> release includes `SHA256SUMS.txt`, but the first-download macOS and Windows
-> installers do not carry paid Apple Developer ID or Windows Authenticode
-> publisher signatures. macOS will show a Gatekeeper warning, and Windows can
-> show or enforce a SmartScreen/Smart App Control block. Verify the checksum
-> before using either operating-system override.
+### Verify the download
 
-### Install on macOS
+Every release includes `SHA256SUMS.txt`. Verify the checksum before launching
+an installer, especially because the zero-cost release artifacts do not carry
+paid Apple Developer ID or Windows Authenticode publisher signatures.
 
-1. Download the Apple Silicon `.dmg`.
-2. Download `SHA256SUMS.txt`, run `shasum -a 256 TerminAI*.dmg`, and confirm the
-   result matches the `.dmg` line in the checksum file.
+### macOS
+
+1. Download the Apple Silicon `.dmg` and `SHA256SUMS.txt`.
+2. In Terminal, run `shasum -a 256 TerminAI_*.dmg` and compare the result with
+   the matching line in `SHA256SUMS.txt`.
 3. Open the DMG and drag **TerminAI** to **Applications**.
-4. Try to open TerminAI once. macOS will block the unnotarized app.
-5. Open **System Settings → Privacy & Security**, scroll to **Security**, select
-   **Open Anyway**, authenticate, and then select **Open**. Apple makes this
-   override available for about an hour after the blocked launch attempt.
+4. Launch TerminAI once. macOS may block the first launch because the app is
+   not notarized with a paid Developer ID.
+5. Open **System Settings → Privacy & Security**, choose **Open Anyway** for
+   TerminAI, authenticate, and then select **Open**.
 
-### Install on Windows
+### Windows
 
-1. Download the x64 `-setup.exe` installer.
-2. Download `SHA256SUMS.txt`, run
-   `Get-FileHash .\TerminAI*-setup.exe -Algorithm SHA256` in PowerShell, and
-   confirm the result matches the installer line in the checksum file.
-3. Run the installer. If Microsoft Defender SmartScreen offers **More info →
-   Run anyway**, use it only after verifying the checksum and GitHub download
-   source. Smart App Control or an organization policy can block an unsigned
-   installer completely; there is no supported zero-cost bypass for that case.
-4. Follow the NSIS installer prompts.
+1. Download the x64 `-setup.exe` installer and `SHA256SUMS.txt`.
+2. In PowerShell, run:
 
-### Install on Linux
+   ```powershell
+   Get-FileHash .\TerminAI*-setup.exe -Algorithm SHA256
+   ```
 
-For the AppImage:
+   Compare the result with the matching release checksum.
+3. Run the installer. If SmartScreen shows **More info → Run anyway**, use
+   that override only after verifying the checksum and GitHub source.
+4. Complete the NSIS installer prompts.
+
+Smart App Control or an organization policy can block an unsigned installer;
+there is no supported bypass for a policy-enforced block.
+
+### Linux
+
+For an AppImage:
 
 ```bash
 sha256sum TerminAI_*.AppImage
@@ -55,214 +67,222 @@ chmod +x TerminAI_*.AppImage
 ./TerminAI_*.AppImage
 ```
 
-For the Debian package:
+For Debian/Ubuntu:
 
 ```bash
 sha256sum TerminAI_*.deb
 sudo apt install ./TerminAI_*.deb
 ```
 
-Compare each printed hash with its entry in `SHA256SUMS.txt` before launching
-or installing the file.
+Compare the printed hash with `SHA256SUMS.txt` before launching or installing.
+
+## First launch
+
+1. Open **Settings → General**.
+2. Choose an AI provider and model. TerminAI supports Anthropic, OpenAI,
+   Google Gemini, NVIDIA, vLLM-compatible endpoints, and Ollama.
+3. Enter the provider credential or local base URL, select **Save
+   Configuration**, then select **Test Connection**.
+4. Open **SSH → Saved Connections…** to create a reusable device entry, or
+   use the terminal like a normal local shell and connect with `ssh`.
+5. Press `F1` for the in-app User Guide or `Cmd+/` for Quick Start and
+   Shortcuts.
+
+If you are using a local provider, configure its reachable base URL rather
+than entering a cloud API key. Keep credentials out of shell history and
+shared workflow files; use the Credential Vault for reusable secrets.
+
+## The everyday workflow
+
+### Connect and work in a terminal
+
+Create a terminal tab, connect through a saved SSH profile, or use the local
+shell. Use **Terminal Mode** for interactive programs such as `vim`, `top`,
+and device shells. Use **Blocks Mode** when you want each command and result
+to remain a separate, searchable work unit.
+
+Split a tab horizontally or vertically to compare devices or keep a reference
+session visible. Each pane has its own PTY. Sessions, tabs, pane layouts, and
+scrollback are restored across launches unless you remove them.
+
+### Review output as evidence
+
+Run a supported `show` command and switch between raw text, structured output,
+and diff views. Structured output can be filtered, sorted, copied as Markdown,
+or exported as CSV/JSON. Pin or bookmark important blocks, add tags such as
+`mop` or `incident`, collapse noisy output, rerun a command, and send a block
+to a workflow or notebook.
+
+### Use AI with a review boundary
+
+The AI panel can translate natural language into commands, explain failures,
+answer questions using local RAG sources, invoke skills and MCP tools, and
+work through troubleshooting playbooks. Commands and tool calls remain subject
+to guardrails and approval prompts. Review the target, command, and stated
+risk before approving a change.
+
+### Record a change
+
+Use **Audit → Change** for a pre-check/post-check bundle, **Audit → Drift** to
+compare device state with intent, or **Audit → Fan-Out** to run a read or
+approved operation across a device group. Export the resulting report or
+archive as part of the change record.
+
+## Feature guide
+
+The in-app User Guide is the most convenient complete reference. The table
+below maps each major capability to its starting point and the task it solves.
+
+| Area | Open it | Use it for |
+| --- | --- | --- |
+| Terminal and panes | New terminal tab; pane controls | Local shells, device sessions, split-screen operations, tab restore, pane focus, metadata, notifications, and detach/pop-in windows |
+| Command blocks | Run commands in Blocks Mode | Collapse, rerun, copy, tag, bookmark, pin, share, search, and convert command results into notebooks or workflows |
+| SSH and SFTP | **SSH → Saved Connections…** or **SSH → SFTP…** | Saved device inventory, folders/tags, SSH connections, file transfer, remote folders, rename/delete, and canceled transfers |
+| Serial console | **SSH → Serial Console…** | USB serial access with port refresh, baud, data bits, parity, stop bits, flow control, disconnect, and break |
+| API workspace | Create an API tab | HTTP requests, saved requests, environments, OpenAPI/Postman import, request history, response explanation, and piping results to the terminal or AI |
+| NETCONF workspace | Create a NETCONF tab | Device profiles, YANG/RPC editing, saved RPCs, response history, response explanation, and read/approved device operations |
+| Editor | Create an Editor tab | Workspace files, split and detached panes, search/replace, bookmarks, Git status/diff/history, Python debug controls, YAML/HCL support, and Cisco IOS-XE/NX-OS offline diagnostics |
+| AI providers | **Settings → General** | Select provider/model, save or test connectivity, choose streaming behavior, and optionally enable the experimental Context Graph |
+| Agents | **Settings → Agents** | Manage agent definitions and their tool/source configuration; use the Agent panel for natural-language operations |
+| Skills | **Settings → Skills** | Discover, reload, create, and invoke reusable AI workflows with prompts and helper scripts |
+| MCP servers | **Settings → MCP Servers** | Add, import, enable, disable, and remove external Model Context Protocol servers and review tool access |
+| Workflows | `Cmd+Shift+W` or **Operate → Tools → Workflows** | Run parameterized multi-step command templates; create, edit, import, export, and pin workflows |
+| Notebooks / MOPs | `Cmd+Shift+N` or **Operate → Tools → Notebooks** | Write Markdown runbooks with command, assertion, prompt, and narrative cells; run against a selected device and pause/resume execution |
+| Command Palette | `Cmd+K` | Search commands, blocks, devices, workflows, notebooks, skills, and other app actions from one place |
+| Change verification | `Cmd+Shift+C` or **Audit → Change** | Capture pre/post command bundles, review diffs, record approvals, and export Markdown reports |
+| Fan-out | `Cmd+Shift+F` or **Audit → Fan-Out** | Manage device groups, run a command across multiple SSH targets, inspect per-device status, retry/cancel work, and export results |
+| Configuration drift | `Cmd+Shift+D` or **Audit → Drift** | Create Jinja-style intent templates, bind devices, run checks, schedule checks, acknowledge findings, and review history |
+| Guardrails | `Cmd+Shift+G` or **Audit → Guardrails** | Review risk classifications, edit rules, approve/deny/second-opinion requests, and inspect the decision log |
+| Troubleshooting | `Cmd+Shift+T` or **Audit → Troubleshoot** | Match symptoms to playbooks, execute read-only steps, answer prompts, review evidence, and author YAML playbooks |
+| Heartbeats | `Cmd+Shift+H` or **Operate → Heartbeat** | Schedule recurring checks, filter/sort them, pause/resume, run immediately, and inspect execution history |
+| Packet capture | `Cmd+Shift+K` or **Operate → Captures** | Start IOS-XE EPC captures from templates or advanced parameters, fetch the PCAP, inspect packets/hex/protocols, scan findings, and export |
+| Topology | Create a Topology tab or use inline topology | Ingest CDP, LLDP, BGP, OSPF, and IS-IS neighbors; filter the graph, inspect nodes, discover devices, save neighbors, and open SSH/NETCONF |
+| Diagrams | `Cmd+Shift+I` or **Operate → Diagrams** | View agent-produced Mermaid/draw.io-style diagrams and export the rendered diagram |
+| Subnet tools | `Cmd+Shift+U` or **Operate → Tools → Subnet Calculator** | CIDR calculation, subnet splitting, VLSM design, supernetting, IP checks, visualization, and quick reference |
+| Browser window | `Cmd+Shift+B` or **Operate → Browser** | Open a controlled browser window for a supplied URL and configure browser-control integration in Settings |
+| IaC Studio | `Cmd+Shift+E` or **Operate → IaC** | Edit Terraform/Ansible-oriented resources and pipelines, review generated diffs, run approved operations, push to Git, and inspect GitHub Actions/GitLab CI runs |
+| Terraform state | `Cmd+Shift+S` or **Operate → IaC → Open Terraform State** | Open a project state directory, search resources, and inspect state without leaving the app |
+| Credential Vault | `Cmd+Shift+V` or **Operate → Vault** | Create encrypted envelopes, add/reveal secrets, import 1Password/Bitwarden CSV, lock envelopes, and review the audit log |
+| Recording | `Cmd+Shift+R` or **Operate → Recording** | Record a terminal session with redaction, replay it, scrub playback, and export a redacted cast |
+| RAG library | **Settings → RAG** | Add PDF/HTML/Markdown/text knowledge, tag it, manage indexing, and inspect retrieved source snippets from AI answers |
+| Integrations | **Settings** | Configure FTP/TFTP, Git/CI, pyATS, Proxmox, Stealthwatch, ISE, CML, Catalyst Center, Splunk, ACI, gNMI, FMC, ThousandEyes, Meraki, Secure Endpoint, Cisco XDR, Juniper Mist, Grafana, Zabbix, Prometheus, NetBox, Sketchfab, and WhatsApp |
+
+## Security and data handling
+
+TerminAI keeps application data, sessions, local embeddings, recordings, and
+vault data on the local machine. The selected AI provider receives requests
+you send to it; configure the provider deliberately and review tool approvals.
+Vault secrets are protected by an envelope passphrase and encrypted storage.
+Recordings redact recognized credentials while streaming, but you should still
+review exported recordings before sharing them.
+
+The app preserves the historical `ccie-terminal` identifiers and data roots
+for upgrade compatibility:
+
+| Platform | Configuration | Application data |
+| --- | --- | --- |
+| macOS | `~/Library/Application Support/ccie-terminal` | same application-support root |
+| Windows | `%APPDATA%\\ccie-terminal` | same application-data root |
+| Linux | `~/.config/ccie-terminal` | `~/.local/share/ccie-terminal` |
 
 TerminAI checks the signed GitHub updater feed at launch and from **Settings →
-Updates**. It downloads an update only after its Tauri signature verifies. The
-historical identifier (`com.ccie.terminal`) and `ccie-terminal` data roots are
-intentionally retained, so upgrading or reinstalling preserves sessions,
-credentials, vaults, and RAG data.
+Updates**. It downloads an update only after the Tauri signature verifies.
 
-## Key Features
+## Configuration and troubleshooting
 
-- **Split Panes**: View multiple terminals side-by-side within a single tab
-  - Horizontal and vertical splits with drag-to-resize handles
-  - Independent PTY session per pane for simultaneous work
-  - Keyboard navigation (Cmd+Alt+Arrows) and focus management
-  - Layout persistence across restarts
-  - Works seamlessly with both Terminal and Blocks modes
-- **Dual-Mode Terminal**: Choose the interface that fits your workflow
-  - **Terminal Mode** (default): Traditional xterm.js for interactive programs (SSH, vim, top)
-  - **Blocks Mode**: Warp-style interface with command history blocks and input editor
-  - Seamless mode switching with instant toggle
-- **Command Blocks**: Organize terminal into discrete, manageable command units
-  - Automatic block creation via OSC 133 shell integration
-  - Collapsible command outputs with clean rendering
-  - Bookmark important commands for quick access
-  - Rerun commands with one click
-  - Copy outputs without ANSI escape sequences
-  - Exit code tracking and visual indicators
-  - Command metadata (duration, timestamp, working directory)
-- **Command Palette**: Universal Cmd+K launcher for commands, skills, and actions
-  - Fuzzy search across all items with intelligent matching
-  - Recent commands quick access (last 20)
-  - Bookmarked commands for workflows
-  - Keyboard-driven navigation (↑/↓/Enter/Esc)
-  - Built-in actions (new tab, search, toggle panels)
-- **ReACT Agents with Tool Integration**: Build custom AI agents with natural language interfaces
-  - **Meraki Dashboard Integration**: Full-coverage CLI for all 933 Meraki API endpoints
-  - Natural language queries to Cisco Meraki infrastructure
-  - Automatic blast-radius classification and approval gating
-  - Context tracking and disambiguation
-  - MCP-compatible tool catalogs for agent definitions
-- **AI-Powered Command Translation**: Type natural language queries and get shell commands instantly
-- **Intelligent Error Explanation**: Automatic AI analysis and suggestions when commands fail
-- **Multi-Tab Terminal**: Full xterm.js-based terminal with tab management and session persistence
-- **Skills System**: Reusable AI workflows with custom prompts and helper scripts
-- **MCP Integration**: Connect external tools and services through the Model Context Protocol
-- **Full-Text Search**: Instant search across command history, AI conversations, and skills
-- **Session Management**: Save and restore entire terminal sessions with tabs, scrollback, and AI context
-- **Multiple AI Providers**: Support for Anthropic Claude, OpenAI, Google Gemini, Ollama, and vLLM
-- **Shell Integration**: Enhanced shell prompts with command tracking (OSC 133 sequences)
+For provider profiles, environment variables, data locations, and sidecar
+behavior, see [Configuration](docs/CONFIG.md). For common launch, sidecar,
+provider, SSH, MCP, and session issues, see
+[Troubleshooting](docs/TROUBLESHOOTING.md).
 
-## Quick Start
+Useful first checks:
 
-### Development requirements
+1. Confirm the provider URL/key in **Settings → General** and use **Test
+   Connection**.
+2. Check the sidecar status indicator in the footer.
+3. Open **Settings → Terminal → Diagnostic logs** to locate application and
+   sidecar logs.
+4. For an SSH problem, test the same host from a normal shell, then inspect
+   the saved connection's hostname, port, username, and authentication mode.
+5. For a tool or agent problem, inspect the approval card and the agent/MCP
+   source drawer before retrying.
 
-- Rust 1.97.0 (`rustup`; pinned by `rust-toolchain.toml`)
-- Node 22+ and [Bun](https://bun.sh)
+## Documentation
+
+- In-app **User Guide**, **Quick Start**, **Shortcuts**, and **About**: press
+  `F1` or `Cmd+/`.
+- [Configuration](docs/CONFIG.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Security](docs/SECURITY.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Command Blocks](docs/COMMAND_BLOCKS.md)
+- [Workflows](docs/WORKFLOWS.md)
+- [Notebooks](docs/NOTEBOOKS.md)
+- [Structured Output](docs/STRUCTURED_OUTPUT.md)
+- [Change Verification](docs/CHANGE_VERIFICATION.md)
+- [Fan-Out](docs/FANOUT.md)
+- [Drift](docs/DRIFT.md)
+- [Guardrails](docs/GUARDRAILS.md)
+- [Packet Capture](docs/PACKET_CAPTURE.md)
+- [Topology](docs/TOPOLOGY.md)
+- [Vault and Recording](docs/VAULT_AND_RECORDING.md)
+- [MCP Setup](docs/MCP_SETUP.md)
+- [Meraki CLI](docs/MERAKI_CLI.md)
+- [API and sidecar protocol](docs/API.md)
+- [Contributing](docs/CONTRIBUTING.md)
+
+## Run from source
+
+### Requirements
+
+- Rust 1.97.0, pinned by `rust-toolchain.toml`
+- Node 22+
+- Bun 1.3.6 or newer
 - Python 3.12
-- At least one AI provider API key (see Configuration)
-
-### Run from source
+- `uv` for the frozen sidecar environment
+- Credentials for at least one AI provider if you want AI features
 
 ```bash
 git clone https://github.com/sw4481/TerminAI.git
 cd TerminAI
-
-# Install frontend dependencies
 bun install
-
-# Set up the frozen Python sidecar environment
 cd sidecar
 uv sync --frozen --extra dev
 cd ..
-
-# Run the application
 ./run.sh
 ```
 
-### Configuration
-
-1. On first launch, TerminAI creates configuration and application-data files
-   under the historical `ccie-terminal` roots. These names are retained for
-   upgrade compatibility:
-   - macOS: `~/Library/Application Support/ccie-terminal`
-   - Windows: `%APPDATA%\ccie-terminal`
-   - Linux config: `~/.config/ccie-terminal`
-   - Linux application data: `~/.local/share/ccie-terminal`
-
-2. Add your API key to `~/.config/ccie-terminal/.env`:
-```bash
-ANTHROPIC_API_KEY=sk-ant-...
-# or
-OPENAI_API_KEY=sk-...
-# or
-GOOGLE_API_KEY=...
-```
-
-3. Configure profiles in `~/.config/ccie-terminal/config.toml`:
-```toml
-[profiles.fast]
-provider = "anthropic"
-model = "claude-sonnet-4-6"
-
-[profiles.smart]
-provider = "anthropic"
-model = "claude-opus-4-7"
-```
-
-Both files support live reloading - changes take effect immediately.
-
-## Building for Production
+### Build and test
 
 ```bash
-# Build the portable sidecar, then the application
+bun run build
+bun test
+cd src-tauri && cargo test
+cd ../sidecar && pytest
+```
+
+To build a release bundle:
+
+```bash
 cd sidecar && ./scripts/build_sidecar.sh && cd ..
 bun tauri build -- --locked
-
-# Output will be in src-tauri/target/release/bundle/
 ```
 
-## Documentation
+Build artifacts are written under `src-tauri/target/release/bundle/`.
 
-- [User Guide](docs/USER_GUIDE.md) - Complete tutorial and feature reference
-- [Meraki CLI Integration](docs/MERAKI_CLI.md) - Natural language interface to Cisco Meraki Dashboard API
-- [Split Panes](docs/SPLIT_PANES.md) - Split panes usage, keyboard shortcuts, and architecture
-- [Command Blocks](docs/COMMAND_BLOCKS.md) - Command blocks architecture and usage guide
-- [API Documentation](docs/API.md) - Tauri commands, Python sidecar protocol, and integrations
-- [Architecture](docs/ARCHITECTURE.md) - System design and data flow
-- [Configuration](docs/CONFIG.md) - LLM profiles, environment variables, and settings
-- [MCP Setup](docs/MCP_SETUP.md) - Model Context Protocol server integration
-- [Contributing](docs/CONTRIBUTING.md) - Development setup and contribution guidelines
+## Project status
 
-## Screenshots
-
-> Note: Screenshots coming soon in `docs/screenshots/`
-
-## Development
-
-```bash
-# Run tests
-cd src-tauri && cargo test        # Rust tests
-cd sidecar && pytest              # Python tests
-bun test                          # TypeScript tests
-
-# Run in development mode
-./run.sh
-
-# Watch TypeScript changes
-bun run dev
-```
-
-## Project Status
-
-TerminAI v1.0 - All core features implemented and tested:
-- Phase 0: Scaffolding and sidecar communication
-- Phase 1: Multi-tab terminal with xterm.js
-- Phase 2: AI chat panel with streaming
-- Phase 3: Natural language command translation
-- Phase 4: MCP server management UI
-- Phase 5: Skills system with authoring wizard
-- Phase 6: Full-text search and session persistence
-- Phase 7: Hardening and release preparation
-
-## Tech Stack
-
-- **Frontend**: React 19 + TypeScript + Vite + xterm.js
-- **Backend**: Tauri v2 (Rust) + SQLite + Tokio
-- **AI Sidecar**: Python 3.12 + Anthropic SDK + OpenAI SDK
-- **State Management**: Zustand
-- **Terminal**: xterm.js with addons (fit, web-links)
-- **Database**: SQLite with FTS5 for full-text search
-
-## Architecture
-
-TerminAI uses a three-layer architecture:
-
-1. **Frontend (React)**: User interface, xterm.js terminals, state management
-2. **Core (Rust/Tauri)**: PTY management, database, MCP client, skills loader
-3. **Sidecar (Python)**: LLM integration, AI workflows, skill execution
-
-Data flows through:
-- Frontend ↔ Tauri: IPC commands via `@tauri-apps/api`
-- Tauri ↔ Sidecar: NDJSON protocol over stdio
-- Tauri ↔ PTY: portable-pty with command parsing
-- Tauri ↔ MCP: JSON-RPC 2.0 over stdio/SSE
-
-See [Architecture Documentation](docs/ARCHITECTURE.md) for details.
+The current release is **TerminAI 1.1.0**. The repository is under active
+development; the in-app guide and linked feature documents describe the
+behavior shipped by the current checkout. Integrations may require their own
+service credentials, reachable endpoints, or platform-specific permissions.
 
 ## License
 
-TBD
+See [`LICENSE`](LICENSE) when present in the release or source distribution.
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for:
-- Development environment setup
-- Code style guidelines
-- Testing requirements
-- Pull request process
-
-## Support
-
-For issues, questions, or feature requests, open an issue in the
-[TerminAI repository](https://github.com/sw4481/TerminAI/issues).
+Bug reports, feature requests, and pull requests are welcome. Start with
+[CONTRIBUTING.md](docs/CONTRIBUTING.md), include reproducible steps, and avoid
+including credentials, tokens, private device output, or customer data.

@@ -1,169 +1,71 @@
-// Comprehensive keyboard-shortcut table.
-// Sourced one-to-one from the Tauri menu definitions in
-// src-tauri/src/lib.rs (see the `help_*`, `view_*`, `change_*`, etc.
-// MenuItem::with_id calls). Update both files together.
-
 export const SHORTCUTS_MD = `# Keyboard Shortcuts
 
-Every shortcut shipped in the macOS menu bar is listed below. \`Cmd\` on
-macOS is \`Ctrl\` on Linux/Windows.
+On macOS, Cmd is the modifier shown below. On Windows and Linux, use the
+equivalent Ctrl accelerator where the native menu provides it. If a
+shortcut conflicts with a platform or editor binding, use the native menu.
 
----
-
-## General
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+K\` | Command Palette |
-| \`Cmd+Shift+W\` | Open Workflows |
-| \`Cmd+Shift+N\` | Open Notebooks |
-| \`F1\` | Open User Guide |
-| \`Cmd+/\` | Quick Start & Shortcuts |
-
----
-
-## View / Block
+## General and workspace
 
 | Shortcut | Action |
-|----------|--------|
-| \`Cmd+1\` | Show Raw Output |
-| \`Cmd+2\` | Show Structured |
-| \`Cmd+3\` | Show Diff |
-| \`Cmd+Shift+P\` | Pin Snapshot… |
+| --- | --- |
+| Cmd+K | Command Palette |
+| Cmd+Shift+W | Workflows |
+| Cmd+Shift+N | Notebooks |
+| Cmd+Shift+U | Subnet Calculator |
+| Cmd+Shift+O | Reopen Closed Tab |
+| Cmd+Shift+B | New Browser Window |
+| Cmd+Shift+I | Diagram Viewer |
+| Cmd+Shift+L | Toggle Pane Metadata Card |
+| Cmd+Shift+Enter | Compose Input |
 
-> Export actions live under the **View** menu (no shortcut by default):
-> *Export Structured as CSV*, *Export Structured as JSON*,
-> *Copy as Markdown Table*.
-
----
-
-## Change Verification
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+C\` | Open Change Window |
-| \`Cmd+Shift+1\` | Run Pre-Check |
-| \`Cmd+Shift+2\` | Run Post-Check |
-
-> Bundle management and Markdown export live under the **Change** menu.
-
----
-
-## Multi-Device Fan-Out
+## Output and audit
 
 | Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+F\` | Open Fan-Out Panel |
+| --- | --- |
+| Cmd+1 | Show Raw Output |
+| Cmd+2 | Show Structured Output |
+| Cmd+3 | Show Diff Output |
+| Cmd+Shift+C | Open Change Window |
+| Cmd+Shift+1 | Run Change Pre-Check |
+| Cmd+Shift+2 | Run Change Post-Check |
+| Cmd+Shift+F | Open Fan-Out Panel |
+| Cmd+Shift+D | Open Drift Sidebar |
+| Cmd+Shift+G | Open Guardrail Rule Editor |
+| Cmd+Shift+K | Open Packet Captures Panel |
+| Cmd+Shift+T | Open Troubleshoot Tab |
+| Cmd+Alt+T | Open Troubleshoot Playbook Editor |
+| Cmd+Shift+H | Open Heartbeats |
 
-> *Manage Device Groups…* is under the **Fan-Out** menu.
-
----
-
-## Config Drift
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+D\` | Open Drift Sidebar |
-
-> *Manage Intent Templates…* is under the **Drift** menu.
-
----
-
-## Infrastructure as Code
+## Infrastructure and credentials
 
 | Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+E\` | Open IaC Studio (editor workspace) |
-| \`Cmd+Shift+S\` | Open Terraform State |
-
-> Both live under the **Operate → IaC** menu.
-
----
-
-## AI Guardrails
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+G\` | Guardrail Rule Editor |
-
-> *Decision Log…* is under the **Guardrails** menu.
-
----
-
-## Session Chains
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+J\` | Manage Chains… |
-| \`Cmd+Alt+J\` | Connect Active Tab Using Chain… |
-
-> *New Chain…*, *Chain Templates…*, and *Reconnect Active Chain* are under
-> the **Chains** menu.
-
----
-
-## Packet Capture
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+K\` | Open Captures Panel |
-
----
-
-## Credential Vault
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+V\` | Open Vault Tab |
-| \`Cmd+L\` | Lock Active Envelope |
-
-> *Lock All Envelopes*, *New Envelope…*, *Import from 1Password/Bitwarden
-> CSV…*, and *Audit Log…* are under the **Vault** menu.
-
----
-
-## Session Recording
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+R\` | Start/Stop Recording (Active Tab) |
-
-> *Open Recordings* is under the **Recording** menu.
-
----
-
-## AI Troubleshooting
-
-| Shortcut | Action |
-|----------|--------|
-| \`Cmd+Shift+T\` | Open Troubleshoot Tab |
-| \`Cmd+Alt+T\` | Playbook Editor… |
-
-> *Browse Builtin Playbooks* is under the **Troubleshoot** menu.
-
----
-
-## SSH
-
-> *Saved Connections…* is under the **SSH** menu (no shortcut).
-
----
+| --- | --- |
+| Cmd+Shift+E | Open IaC Studio |
+| Cmd+Shift+S | Open Terraform State |
+| Cmd+Shift+V | Open Credential Vault |
+| Cmd+L | Lock Active Vault Envelope |
+| Cmd+Shift+R | Start/Stop Recording on Active Tab |
 
 ## Help
 
 | Shortcut | Action |
-|----------|--------|
-| \`F1\` | User Guide |
-| \`Cmd+/\` | Quick Start & Shortcuts |
+| --- | --- |
+| F1 | User Guide |
+| Cmd+/ | Quick Start and Shortcuts |
 
-> *Keyboard Shortcuts Reference* and *About TerminAI* are under the
-> **Help** menu.
+The **Help** menu also opens **Keyboard Shortcuts Reference** and **About
+TerminAI**. The **SSH**, **Operate**, and **Audit** menus contain additional
+actions without default accelerators, including saved connections, SFTP,
+serial console, bundle management, device groups, intent templates, decision
+log, vault import/audit, recording library, and built-in playbooks.
 
 ## Editor Power Editing
 
 Inside an editor, use the context menu for multi-cursor, line operations,
 indentation, case transforms, folding, and bookmarks, including Toggle Bookmark
-and Next Bookmark. Choose \`Command Palette\` from the Monaco editor context menu
-to search the available editor commands. Enable \`Column Selection\` in Editor
-Settings for rectangular mouse/keyboard selection.
+and Next Bookmark. Choose \`Command Palette\` from the Monaco editor context
+menu to search the available editor commands. Enable \`Column Selection\` in
+Editor Settings for rectangular mouse/keyboard selection.
+
+Editor-specific keybindings can differ from the application menu.
 `;

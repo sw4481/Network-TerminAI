@@ -2255,7 +2255,7 @@
     "action": "dismiss-assurance-alerts",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/dismiss"
     },
     "args": {
       "organizationId": {
@@ -2950,7 +2950,7 @@
     "action": "get-assurance-alert",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/{id}"
     },
     "args": {
       "organizationId": {
@@ -2977,7 +2977,7 @@
     "action": "list-assurance-alerts",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts"
     },
     "args": {
       "organizationId": {
@@ -3079,7 +3079,7 @@
     "action": "get-assurance-alerts-overview",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/overview"
     },
     "args": {
       "organizationId": {
@@ -3153,7 +3153,7 @@
     "action": "get-assurance-alerts-overview-by-network",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/overview/byNetwork"
     },
     "args": {
       "organizationId": {
@@ -3251,7 +3251,7 @@
     "action": "get-assurance-alerts-overview-by-type",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/overview/byType"
     },
     "args": {
       "organizationId": {
@@ -3361,7 +3361,7 @@
     "action": "get-assurance-alerts-overview-historical",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/overview/historical"
     },
     "args": {
       "organizationId": {
@@ -3421,7 +3421,7 @@
     "action": "list-assurance-alerts-taxonomy-categories",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/taxonomy/categories"
     },
     "args": {
       "organizationId": {
@@ -3443,7 +3443,7 @@
     "action": "list-assurance-alerts-taxonomy-types",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/taxonomy/types"
     },
     "args": {
       "organizationId": {
@@ -3778,7 +3778,7 @@
     "action": "list-devices",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/devicess"
+      "path": "/organizations/{organizationId}/devices"
     },
     "args": {
       "organizationId": {
@@ -3876,7 +3876,7 @@
     "action": "list-devices-availabilities",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/devicess"
+      "path": "/organizations/{organizationId}/devices/availabilities"
     },
     "args": {
       "organizationId": {
@@ -4785,7 +4785,7 @@
     "action": "list-devices-statuses",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/devicess"
+      "path": "/organizations/{organizationId}/devices/statuses"
     },
     "args": {
       "organizationId": {
@@ -4855,7 +4855,7 @@
     "action": "get-devices-statuses-overview",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/devicess"
+      "path": "/organizations/{organizationId}/devices/statuses/overview"
     },
     "args": {
       "organizationId": {
@@ -7676,7 +7676,7 @@
     "action": "restore-assurance-alerts",
     "endpoint": {
       "method": "GET",
-      "path": "/organizations/{organizationId}/assurances"
+      "path": "/organizations/{organizationId}/assurance/alerts/restore"
     },
     "args": {
       "organizationId": {
@@ -10824,7 +10824,7 @@
     "action": "list-health-alerts",
     "endpoint": {
       "method": "GET",
-      "path": "/networks/{networkId}/healths"
+      "path": "/networks/{networkId}/health/alerts"
     },
     "args": {
       "networkId": {

@@ -38,6 +38,25 @@ def _log(msg: str) -> None:
         pass
 
 
+_NATIVE_OUTPUT_LOCK = threading.Lock()
+
+
+def _call_native_quietly(fn):
+    """Run a neonize call without allowing native stdout to corrupt NDJSON."""
+    import os
+
+    with _NATIVE_OUTPUT_LOCK:
+        saved_stdout = os.dup(1)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull, 1)
+            return fn()
+        finally:
+            os.dup2(saved_stdout, 1)
+            os.close(devnull)
+            os.close(saved_stdout)
+
+
 class _WhatsAppBridge:
     """Module-level singleton. All public methods are safe to call from the
     sidecar RPC thread; the neonize client itself lives on `_thread`."""
@@ -53,6 +72,7 @@ class _WhatsAppBridge:
         self._me: Optional[str] = None
         self._error: Optional[str] = None
         self._allowlist: list[str] = []
+        self._stop_event = threading.Event()
         # Full JID (…@g.us or …@s.whatsapp.net) CCIE is scoped to. Empty => any.
         self._bound_chat: str = ""
         # IDs of messages CCIE itself sent. On a single account, every outgoing
@@ -123,6 +143,7 @@ class _WhatsAppBridge:
             if self._thread is not None and self._thread.is_alive():
                 # Already running — just refresh allowlist/scope and report state.
                 return self._status_locked()
+            self._stop_event.clear()
             self._state = "starting"
             self._qr_png_data_url = None
             self._error = None
@@ -140,60 +161,87 @@ class _WhatsAppBridge:
             return self._status_locked()
 
     def _run(self, session_dir: str) -> None:
-        try:
-            import os
+        import os
 
-            os.makedirs(session_dir, exist_ok=True)
-            from neonize.client import NewClient
-            from neonize.events import ConnectedEv, MessageEv
+        os.makedirs(session_dir, exist_ok=True)
 
-            # neonize 0.4's NewClient takes the sqlite store path as its first
-            # positional arg (`name`); there is no `database=` kwarg.
-            db_path = os.path.join(session_dir, "neonize.db")
-            client = NewClient(db_path)
-            with self._lock:
-                self._client = client
-
-            @client.qr
-            def _on_qr(_c: Any, qr_data: bytes) -> None:  # noqa: ANN401
-                self._set_qr(qr_data)
-
-            @client.event(ConnectedEv)
-            def _on_connected(c: Any, _e: Any) -> None:  # noqa: ANN401
-                me_user = None
-                try:
-                    me = c.get_me()
-                    me_user = getattr(getattr(me, "JID", None), "User", None)
-                except Exception:
-                    pass
-                self._set_linked(me_user)
-
-            @client.event(MessageEv)
-            def _on_message(_c: Any, ev: Any) -> None:  # noqa: ANN401
-                self._on_message(ev)
-
-            # Try to also capture group/receipt/history events that reveal chats
-            # even when no text arrives (e.g. a freshly-created solo group).
+        # Recreate the client after every disconnect. neonize's connect() blocks
+        # until the websocket dies; leaving the old client in place makes the
+        # bridge report a permanently false "linked" state and send into a
+        # dead socket.
+        attempt = 0
+        while not self._stop_event.is_set():
+            client: Any = None
             try:
-                from neonize.events import ReceiptEv
+                from neonize.client import NewClient
+                from neonize.events import ConnectedEv, MessageEv
 
-                @client.event(ReceiptEv)
-                def _on_receipt(_c: Any, ev: Any) -> None:  # noqa: ANN401
-                    self._on_receipt(ev)
-            except Exception as e:
-                _log(f"ReceiptEv not available: {e}")
+                # neonize 0.4's NewClient takes the sqlite store path as its
+                # first positional arg (`name`); there is no `database=` kwarg.
+                db_path = os.path.join(session_dir, "neonize.db")
+                client = NewClient(db_path)
+                with self._lock:
+                    self._client = client
 
-            _log(f"connecting… session_dir={session_dir}")
-            client.connect()  # blocks until disconnect; runs the C event loop
-            _log("connect() returned (disconnected)")
-        except Exception as e:  # pragma: no cover - requires native lib
-            _log(f"_run error: {e}")
-            with self._lock:
-                self._state = "error"
-                self._error = str(e)
+                @client.qr
+                def _on_qr(_c: Any, qr_data: bytes) -> None:  # noqa: ANN401
+                    self._set_qr(qr_data)
+
+                @client.event(ConnectedEv)
+                def _on_connected(c: Any, _e: Any) -> None:  # noqa: ANN401
+                    me_user = None
+                    try:
+                        me = c.get_me()
+                        me_user = getattr(getattr(me, "JID", None), "User", None)
+                    except Exception:
+                        pass
+                    self._set_linked(me_user)
+
+                @client.event(MessageEv)
+                def _on_message(_c: Any, ev: Any) -> None:  # noqa: ANN401
+                    self._on_message(ev)
+
+                # Try to also capture group/receipt/history events that reveal
+                # chats even when no text arrives.
+                try:
+                    from neonize.events import ReceiptEv
+
+                    @client.event(ReceiptEv)
+                    def _on_receipt(_c: Any, ev: Any) -> None:  # noqa: ANN401
+                        self._on_receipt(ev)
+                except Exception as e:
+                    _log(f"ReceiptEv not available: {e}")
+
+                _log(f"connecting… session_dir={session_dir}")
+                client.connect()  # blocks until disconnect; runs the C event loop
+                if self._stop_event.is_set():
+                    break
+                _log("connect() returned (disconnected); scheduling reconnect")
+            except Exception as e:  # pragma: no cover - requires native lib
+                if self._stop_event.is_set():
+                    break
+                _log(f"_run error; scheduling reconnect: {e}")
+            finally:
+                with self._lock:
+                    if self._client is client:
+                        self._client = None
+                    if not self._stop_event.is_set():
+                        self._state = "starting"
+                        self._error = "WhatsApp connection lost; reconnecting"
+
+            if self._stop_event.is_set():
+                break
+            delay = self._reconnect_delay(attempt)
+            attempt += 1
+            self._stop_event.wait(delay)
+
+    def _reconnect_delay(self, attempt: int) -> float:
+        """Bound reconnect backoff so a transient outage cannot spin the client."""
+        return min(60.0, max(1.0, 2.0**min(attempt, 5)))
 
     def unlink(self) -> dict[str, Any]:
         with self._lock:
+            self._stop_event.set()
             client = self._client
         if client is not None:
             try:
@@ -372,10 +420,11 @@ class _WhatsAppBridge:
             client = self._client
             state = self._state
         if client is None or state != "linked":
+            _log(f"send rejected: state={state}")
             return {"ok": False, "message": f"WhatsApp not linked (state={state})"}
         try:
             jid = _parse_jid(to)
-            resp = client.send_message(jid, text)
+            resp = _call_native_quietly(lambda: client.send_message(jid, text))
             # Record the outgoing ID so its inbound echo (IsFromMe) is ignored.
             sent_id = getattr(resp, "ID", "") or ""
             if sent_id:
@@ -385,8 +434,10 @@ class _WhatsAppBridge:
                     if len(self._sent_order) > 500:
                         old = self._sent_order.pop(0)
                         self._sent_ids.discard(old)
+            _log("send succeeded")
             return {"ok": True}
         except Exception as e:
+            _log(f"send failed: {type(e).__name__}")
             return {"ok": False, "message": str(e)}
 
     def list_groups(self) -> dict[str, Any]:

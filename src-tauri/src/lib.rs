@@ -1669,14 +1669,43 @@ pub fn run() {
                             text.push_str(&format!("\n\n{}", details));
                         }
                         let agent = self.agent.clone();
+                        let heartbeat_id = heartbeat_id.to_string();
+                        let cooldown = self.wa_cooldown.clone();
                         tauri::async_runtime::spawn(async move {
+                            let mut delivered = false;
                             for to in recipients {
-                                let _ = agent
+                                match agent
                                     .call(
                                         "whatsapp.send",
                                         serde_json::json!({ "to": to, "text": text }),
                                     )
-                                    .await;
+                                    .await
+                                {
+                                    Ok(crate::agent_bridge::AgentResponse::Done { result })
+                                        if crate::whatsapp::send_result_ok(&result) =>
+                                    {
+                                        delivered = true;
+                                    }
+                                    Ok(crate::agent_bridge::AgentResponse::Done { .. }) => {
+                                        tracing::warn!(
+                                            heartbeat_id = %heartbeat_id,
+                                            "WhatsApp heartbeat delivery was rejected"
+                                        );
+                                    }
+                                    Ok(crate::agent_bridge::AgentResponse::Error { .. })
+                                    | Ok(crate::agent_bridge::AgentResponse::Token { .. })
+                                    | Err(_) => {
+                                        tracing::warn!(
+                                            heartbeat_id = %heartbeat_id,
+                                            "WhatsApp heartbeat delivery failed"
+                                        );
+                                    }
+                                }
+                            }
+                            // A failed send must not consume the cooldown; the
+                            // next eligible heartbeat should get another chance.
+                            if !delivered {
+                                cooldown.lock().remove(&heartbeat_id);
                             }
                         });
                     }

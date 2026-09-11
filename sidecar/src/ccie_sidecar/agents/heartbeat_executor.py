@@ -81,6 +81,39 @@ substitute remembered data for an API result, and report unknown when an exact
 catalog match or live API response is unavailable."""
 
 
+_PYATS_HEARTBEAT_GUIDANCE = """
+
+==================================================================
+CURRENT PYATS HEARTBEAT API CONTRACT — follow this EXACT recipe.
+==================================================================
+The pre-bound `pyats` object is the TerminAI PyATS client. Do NOT import
+`pyats.call`, `pyats.topology`, or any other low-level pyATS module.
+
+Before the first PyATS operation, make exactly ONE TOP-LEVEL search_api_catalog
+call (not Python) with:
+  query="list-devices run-show-command device-health"
+  catalog_id="pyats"
+  limit=5
+Use the returned operation records to authorize the client calls below. Do not
+repeat discovery; if a required operation is missing, report that state as
+unknown instead of guessing.
+
+Then use as few execute_python_code blocks as possible, preferably one, to:
+  1. Set `env = pyats.call("list-devices")`; its `env["data"]` value is a list
+     of dictionaries, so set `names = [d["name"] for d in env["data"]]`.
+  2. For each discovered name, call
+     pyats.call("run-show-command", device=name,
+                command="show logging | include ERROR|WARN|CRIT") exactly once.
+  3. Summarize the returned data and stop. Never call the removed
+     `show-command` verb and never guess device names.
+"""
+
+
+_PYATS_HEARTBEAT_ROLE = """You are a focused, read-only PyATS heartbeat agent.
+Use only the live PyATS workflow below. Never guess device names or substitute
+remembered state for a live operation result."""
+
+
 # Universal efficiency directive appended to EVERY heartbeat agent's prompt.
 # MEASURED 2026-06-30: on hosted gpt-oss-120b each execute_python_code round-trip
 # costs 40-70s (the vendor API calls themselves are <1s), and the model was
@@ -293,9 +326,9 @@ async def _execute_agent(
 
     tool = attached_tools[0]
 
-    # Heartbeat-specific prompt guidance gives the unattended Meraki run one
-    # bounded catalog lookup and one network-scoped API block. It also overrides
-    # stale SDK wording in prompts saved before catalog grounding was required.
+    # Heartbeat-specific prompt guidance gives unattended vendor runs a bounded
+    # discovery step and a compact live workflow. It also overrides stale
+    # wording in prompts saved before catalog grounding was required.
     system_prompt = agent.get("system_prompt", "")
     if agent_id == "meraki":
         # User overrides are optimized for interactive chat and can be tens of
@@ -303,6 +336,8 @@ async def _execute_agent(
         # compact, current, read-only contract; the saved check prompt supplies
         # its exact organization/network scope.
         system_prompt = _MERAKI_HEARTBEAT_ROLE + _MERAKI_HEARTBEAT_GUIDANCE
+    elif agent_id == "pyats":
+        system_prompt = _PYATS_HEARTBEAT_ROLE + _PYATS_HEARTBEAT_GUIDANCE
     # Every heartbeat agent gets the round-trip-minimization directive — the
     # 8-steps-instead-of-2 blowup that broke checks was not Meraki-specific.
     system_prompt += _HEARTBEAT_EFFICIENCY_DIRECTIVE

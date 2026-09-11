@@ -1,76 +1,58 @@
-// Quick Start — "get productive in five minutes". Aim for someone who has
-// just installed the app and wants to do the most common 5 tasks fast.
-
 export const QUICK_START_MD = String.raw`# Quick Start
 
-Five minutes from launch to confidence. Each section is intentionally tiny —
-follow them in order on your first run.
+Use this path to go from first launch to a verified device check in about five
+minutes. Press F1 for the full reference or search this help window for a
+specific feature.
 
----
+## 1. Configure AI (optional)
 
-## 1. Connect to a device
+Open **Settings → General**, choose a provider and model, enter its API key or
+local base URL, then select **Save Configuration** and **Test Connection**.
+You can use the terminal, SSH, SFTP, serial, API, or NETCONF features without
+AI; AI translation, agents, skills, and explanations need a working provider.
 
-- Press \`Cmd+K\` to open the **Command Palette**.
-- Type the host name (or use the **SSH → Saved Connections…** menu).
-- Pick the device → a new tab opens already authenticated.
+## 2. Connect to a device
 
-> *No saved devices yet?* Type \`ssh user@host\` in any tab, run it once,
-> and use **Save Connection** in the inline action bar.
+Open **Operate → SSH → Saved Connections…** and create a device entry, or open
+a terminal tab and run an ordinary ssh user@host command. Select the saved
+entry to open a device tab. Wait for the live session to finish connecting
+before using workflows or device-bound tools.
 
----
+## 3. Run and review a command
 
-## 2. Run and view a command
+Run a read-only command such as show interfaces. In Blocks Mode, the result
+appears as a block. Try:
 
-- Run \`show interfaces\` (or any \`show\` command).
-- A new **block** appears. Try the view modes:
-  - \`Cmd+1\` — raw text
-  - \`Cmd+2\` — structured table (sortable, filterable)
-  - \`Cmd+3\` — diff vs. a pinned snapshot
-- Pin the snapshot with \`Cmd+Shift+P\` so you can diff against it later.
+- Cmd+1 — raw output;
+- Cmd+2 — structured output when a parser matches;
+- Cmd+3 — compare with an available snapshot.
 
----
+Collapse or bookmark the block, add a tag, and use the block action menu to
+copy, rerun, export, or send it to a workflow/MOP.
 
-## 3. Save credentials securely
+## 4. Make the next task repeatable
 
-- Press \`Cmd+Shift+V\` to open the **Vault** tab.
-- Create an envelope (you'll set a master password).
-- Add a secret — username, password, optional identity-file path.
-- Lock the active envelope with \`Cmd+L\` when you're done.
+Press Cmd+Shift+W to open **Workflows**, choose a parameterized template,
+fill its inputs, and run it in the active tab. For a narrative procedure,
+press Cmd+Shift+N to create a notebook/MOP with narrative, command, prompt,
+and assertion cells.
 
-> CSV import from 1Password or Bitwarden is under
-> **Vault → Import from 1Password/Bitwarden CSV…**.
+## 5. Capture evidence for a change
 
----
+Press Cmd+Shift+C to open the Change Window. Run a **Pre-Check**, perform
+the approved change, then run a **Post-Check** and export the Markdown report.
+For a device fleet, use **Audit → Fan-Out**. For expected configuration, use
+**Audit → Drift**.
 
-## 4. Run a pre/post change check
+## Keep credentials safe
 
-- \`Cmd+Shift+C\` opens the **Change Window**.
-- Pick a bundle (built-in *Interface Health* is a good starter).
-- \`Cmd+Shift+1\` runs the **pre-check**.
-- Make your change in the terminal.
-- \`Cmd+Shift+2\` runs the **post-check** and opens the diff report.
+Press Cmd+Shift+V to create or unlock a Credential Vault envelope. Add
+secrets there instead of pasting them into workflow files. Press Cmd+L to
+lock the active envelope when you are finished.
 
-> Export the report as Markdown via the Change menu — drop it straight into
-> your change ticket.
+## Find anything else
 
----
-
-## 5. AI troubleshooting (new!)
-
-- Press \`Cmd+Shift+T\` to open the **Troubleshoot** tab.
-- Type a symptom (e.g. *"BGP neighbor flapping with R2"*).
-- Pick a playbook from the suggestions.
-- Click **Start** — the executor runs read-only commands, narrates findings,
-  and proposes a root cause.
-- Review the AI's suggestion before accepting any remediation.
-
-> Tier-1+ commands are gated by guardrails; you'll see a confirmation modal
-> with the blast-radius summary before anything runs.
-
----
-
-## 6. The keyboard shortcuts
-
-The cheat sheet lives one tab over (**Shortcuts**) — \`Cmd+/\` brings up this
-modal pre-scrolled to it. Print it once and you'll never need it again.
+Press Cmd+K and search for a device, block, workflow, notebook, skill, or
+action. Press F1 for the complete feature guide, or open the **Shortcuts**
+and **About** sections from the left side of this help window.
 `;

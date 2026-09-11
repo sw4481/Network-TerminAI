@@ -9,6 +9,7 @@ import pytest
 from ccie_sidecar.agents.heartbeat_executor import (
     _HEARTBEAT_EFFICIENCY_DIRECTIVE,
     _MERAKI_HEARTBEAT_GUIDANCE,
+    _PYATS_HEARTBEAT_GUIDANCE,
     MERAKI_HEARTBEAT_CATALOG_QUERY,
     _execute_agent,
     _parse_agent_output,
@@ -34,6 +35,17 @@ def test_meraki_heartbeat_guidance_uses_one_grounded_network_scoped_recipe():
     assert '"active": True' in guidance
     assert "do not explore first" not in guidance.lower()
     assert "Never request organization-wide device statuses or alerts" in guidance
+
+
+def test_pyats_heartbeat_guidance_uses_grounded_current_verbs():
+    guidance = _PYATS_HEARTBEAT_GUIDANCE
+
+    assert "TOP-LEVEL search_api_catalog" in guidance
+    assert 'catalog_id="pyats"' in guidance
+    assert "pyats.call(\"list-devices\")" in guidance
+    assert 'names = [d["name"] for d in env["data"]]' in guidance
+    assert "pyats.call(\"run-show-command\"" in guidance
+    assert "from pyats import call" not in guidance
 
 
 class TestExecuteCheck:

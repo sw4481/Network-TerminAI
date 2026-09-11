@@ -181,6 +181,32 @@ def test_meraki_catalog_repairs_generated_extra_plural_suffixes():
     )
 
 
+def test_meraki_heartbeat_catalog_authorizes_current_scoped_routes():
+    """The heartbeat's four read paths must be discoverable and authorized."""
+    index = CatalogIndex([_catalog("meraki")])
+    result = index.search(
+        "getOrganizations getOrganizationNetworks "
+        "getOrganizationDevicesStatuses getOrganizationAssuranceAlerts",
+        catalog_id="meraki",
+        limit=5,
+    )
+
+    assert {
+        "/organizations",
+        "/organizations/{organizationId}/networks",
+        "/organizations/{organizationId}/devices/statuses",
+        "/organizations/{organizationId}/assurance/alerts",
+    }.issubset({match.get("path") for match in result["matches"]})
+
+    for path in (
+        "/organizations",
+        "/organizations/{organizationId}/networks",
+        "/organizations/{organizationId}/devices/statuses",
+        "/organizations/{organizationId}/assurance/alerts",
+    ):
+        index.require_authorized("meraki", "GET", path)
+
+
 @pytest.mark.parametrize(
     ("sdk_method", "expected_path"),
     [
