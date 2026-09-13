@@ -1,0 +1,248 @@
+.topology-integration {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  height: 100%;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+  color: var(--text-primary);
+  background: var(--app-canvas);
+}
+
+.topology-integration h2,
+.topology-integration h3,
+.topology-integration h4,
+.topology-integration p { margin: 0; }
+
+.topology-integration__header {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1fr) minmax(300px, auto);
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.topology-integration__identity h2 { font-size: 17px; line-height: 1.2; }
+.topology-integration__identity p,
+.topology-integration__section-heading p,
+.topology-integration__upload p,
+.topology-integration__external-note,
+.topology-integration__empty,
+.topology-integration__result-meta { color: var(--text-muted); font-size: 12px; }
+.topology-integration__identity p { margin-top: 2px; }
+
+.topology-integration__state {
+  position: relative;
+  min-width: 0;
+  padding: 8px 10px 8px 26px;
+  border-left: 2px solid var(--status-info);
+  color: var(--text-primary);
+  background: var(--surface-1);
+  font-size: 12px;
+}
+
+.topology-integration__state::before {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-info);
+  content: "";
+  transform: translateY(-50%);
+}
+
+.topology-integration__state--disabled,
+.topology-integration__state--incomplete,
+.topology-integration__state--locked {
+  border-left-color: var(--status-warning);
+  color: var(--status-warning);
+  background: var(--status-warning-surface);
+}
+
+.topology-integration__state--disabled::before,
+.topology-integration__state--incomplete::before,
+.topology-integration__state--locked::before { background: var(--status-warning); }
+
+.topology-integration__state--failed {
+  border-left-color: var(--status-danger);
+  color: var(--status-danger);
+  background: var(--status-danger-surface);
+}
+
+.topology-integration__state--failed::before { background: var(--status-danger); }
+
+.topology-integration__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.topology-integration__external-note { flex-basis: 100%; text-align: right; }
+
+.topology-integration__button {
+  min-height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.topology-integration__button--primary {
+  border-color: var(--status-info);
+  color: var(--app-canvas);
+  background: var(--status-info);
+  font-weight: 700;
+}
+
+.topology-integration__button--secondary:hover,
+.topology-integration__button--upload:hover { border-color: var(--status-info); background: var(--surface-1); }
+.topology-integration__button--primary:hover { background: var(--text-primary); }
+
+.topology-integration__uploads,
+.topology-integration__latest,
+.topology-integration__activity {
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.topology-integration__uploads { padding: 12px; }
+
+.topology-integration__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topology-integration__section-heading h3 { font-size: 14px; }
+.topology-integration__section-heading > span {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+.topology-integration__section-heading > .is-success { border-color: var(--status-info); color: var(--status-info); }
+.topology-integration__section-heading > .is-failed { border-color: var(--status-danger); color: var(--status-danger); }
+
+.topology-integration__upload-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.75fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.topology-integration__upload {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(132px, auto) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 10px;
+  border-left: 2px solid var(--status-info);
+  background: var(--surface-3);
+}
+
+.topology-integration__upload:last-child { grid-template-columns: minmax(180px, 1fr) auto; border-left-color: var(--border-default); }
+.topology-integration__upload h4 { font-size: 13px; }
+.topology-integration__upload p { margin-top: 3px; }
+.topology-integration__upload label { display: grid; gap: 5px; color: var(--text-muted); font-size: 11px; }
+.topology-integration__upload select {
+  min-height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.topology-integration__switch-source {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, auto) auto;
+  align-items: end;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-default);
+}
+
+.topology-integration__switch-source > div > strong { font-size: 12px; }
+.topology-integration__source-state { grid-column: 1 / -1; color: var(--text-muted); font-size: 11px; }
+.topology-integration__source-state.is-failed { color: var(--status-danger); }
+
+.topology-integration__operations {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.2fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.topology-integration__latest,
+.topology-integration__activity { min-height: 166px; padding: 12px; }
+.topology-integration__result-body,
+.topology-integration__empty { margin-top: 14px; }
+.topology-integration__result-body { display: grid; gap: 9px; font-size: 12px; }
+.topology-integration__result-body strong { color: var(--status-info); }
+.topology-integration__warning {
+  padding: 8px 10px;
+  border-left: 2px solid var(--status-warning);
+  color: var(--status-warning);
+  background: var(--status-warning-surface);
+}
+
+.topology-integration__table-wrap { margin-top: 9px; overflow-x: auto; }
+.topology-integration table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.topology-integration th,
+.topology-integration td { padding: 7px 8px; border-bottom: 1px solid var(--border-default); text-align: left; white-space: nowrap; }
+.topology-integration th { color: var(--text-muted); font-weight: 600; }
+.topology-integration tbody tr:hover { background: var(--surface-3); }
+
+.topology-integration button:focus-visible,
+.topology-integration select:focus-visible { outline: 2px solid var(--status-info); outline-offset: 2px; }
+.topology-integration button:disabled,
+.topology-integration select:disabled { cursor: not-allowed; opacity: 0.44; }
+.topology-integration__button--primary:disabled {
+  border-color: var(--border-default);
+  color: var(--text-muted);
+  background: var(--surface-3);
+}
+
+@media (max-width: 1080px) {
+  .topology-integration__header { grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr); }
+  .topology-integration__actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .topology-integration__external-note { flex-basis: auto; text-align: left; }
+  .topology-integration__upload-grid,
+  .topology-integration__operations { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .topology-integration { height: auto; min-height: 100%; }
+  .topology-integration__header,
+  .topology-integration__upload,
+  .topology-integration__upload:last-child,
+  .topology-integration__switch-source { grid-template-columns: 1fr; align-items: stretch; }
+  .topology-integration__actions { grid-column: auto; justify-content: stretch; }
+  .topology-integration__actions .topology-integration__button { flex: 1 1 160px; }
+  .topology-integration__external-note { flex-basis: 100%; }
+  .topology-integration__section-heading { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topology-integration *,
+  .topology-integration *::before,
+  .topology-integration *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

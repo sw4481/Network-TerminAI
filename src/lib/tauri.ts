@@ -14,6 +14,7 @@ export type TopolographConfig = { singletonId: string; enabled: boolean; baseUrl
 export type TopolographConnectionStage = { name: string; status: "passed" | "failed" | "skipped" };
 export type TopolographConnectionReport = { ok: boolean; message: string; warnings: string[]; serverName: string; serverVersion: string; latencyMs: number | null; tools: string[]; missingTools: string[]; unexpectedTools: string[]; stages: TopolographConnectionStage[] };
 export type TopolographUploadResult = { ok: boolean; message: string; bytes: number; warnings: string[] };
+export type PyatsDeviceSummary = { name: string; os: "iosxe" | "nxos" };
 export type TopolographPyatsLsdbImportRequest = { device: string; protocol: "ospf" | "ospfv3" | "isis"; description?: string | null };
 export type TopolographAuditEvent = { id: number; action: string; outcome: string; occurredAt: number; targetLabel?: string; durationMs?: number };
 export type StpPort = { deviceId: string; interface: string; role: string | null; state: string | null; cost?: number | null; bundleId?: string | null; explicitEvidence?: string | null };
@@ -29,6 +30,7 @@ export const topolographConfigGet = () => invoke<TopolographConfig | null>("topo
 export const topolographConfigSave = (config: TopolographConfig) => invoke<void>("topolograph_config_save", { config });
 export const topolographTestConnection = (config: TopolographConfig) => invoke<TopolographConnectionReport>("topolograph_test_connection", { config });
 export const topolographUploadLsdbFile = (request: { path: string; protocol: string }) => invoke<TopolographUploadResult>("topolograph_upload_lsdb_file", { request });
+export const pyatsListSupportedDevices = () => invoke<PyatsDeviceSummary[]>("pyats_list_supported_devices");
 export const topolographImportLsdbFromPyats = (request: TopolographPyatsLsdbImportRequest) => invoke<TopolographUploadResult>("topolograph_import_lsdb_from_pyats", { request });
 export const topolographUploadYamlFile = (path: string) => invoke<TopolographUploadResult>("topolograph_upload_yaml_file", { path });
 export const topolographAuditList = () => invoke<TopolographAuditEvent[]>("topolograph_audit_list", { limit: 50 });

@@ -6,9 +6,65 @@ use super::{
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use tauri::State;
 use zeroize::Zeroizing;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PyatsDeviceSummary {
+    pub name: String,
+    pub os: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(default)]
+struct SavedPyatsTestbed {
+    devices: BTreeMap<String, SavedPyatsDevice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SavedPyatsDevice {
+    os: Option<String>,
+}
+
+struct PyatsDeviceCatalog {
+    testbed_path: PathBuf,
+}
+
+impl PyatsDeviceCatalog {
+    fn new(testbed_path: PathBuf) -> Self {
+        Self { testbed_path }
+    }
+
+    fn supported_devices(&self) -> Result<Vec<PyatsDeviceSummary>, String> {
+        let yaml = match std::fs::read_to_string(&self.testbed_path) {
+            Ok(yaml) => yaml,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(_) => return Err("Saved pyATS testbed could not be read.".into()),
+        };
+        let testbed: SavedPyatsTestbed = serde_yaml::from_str(&yaml)
+            .map_err(|_| "Saved pyATS testbed is invalid.".to_string())?;
+        let mut devices = testbed
+            .devices
+            .into_iter()
+            .filter_map(|(name, device)| {
+                let name = name.trim().to_string();
+                let os = device.os?.trim().to_ascii_lowercase();
+                (!name.is_empty() && matches!(os.as_str(), "iosxe" | "nxos"))
+                    .then_some(PyatsDeviceSummary { name, os })
+            })
+            .collect::<Vec<_>>();
+        devices.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(devices)
+    }
+}
+
+#[tauri::command]
+pub fn pyats_list_supported_devices() -> Result<Vec<PyatsDeviceSummary>, String> {
+    PyatsDeviceCatalog::new(crate::pyats::pyats_dir().join("testbed.yaml")).supported_devices()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -307,13 +363,99 @@ mod tests {
     }
 
     #[test]
-    fn registers_only_the_dedicated_pyats_lsdb_import_command() {
+    fn lists_only_supported_devices_without_exposing_testbed_details() {
+        let temp = tempfile::tempdir().unwrap();
+        let testbed_path = temp.path().join("testbed.yaml");
+        std::fs::write(
+            &testbed_path,
+            r#"
+devices:
+  CORE1:
+    os: iosxe
+    credentials:
+      default:
+        username: admin
+        password: private-password
+    connections:
+      cli:
+        ip: 192.0.2.10
+  EDGE1:
+    os: NXOS
+    custom:
+      environment: private-environment
+  ROUTER1:
+    os: iosxr
+"#,
+        )
+        .unwrap();
+
+        let devices = PyatsDeviceCatalog::new(testbed_path)
+            .supported_devices()
+            .unwrap();
+
+        assert_eq!(
+            devices,
+            vec![
+                PyatsDeviceSummary {
+                    name: "CORE1".into(),
+                    os: "iosxe".into(),
+                },
+                PyatsDeviceSummary {
+                    name: "EDGE1".into(),
+                    os: "nxos".into(),
+                },
+            ]
+        );
+        assert_eq!(
+            serde_json::to_value(&devices).unwrap(),
+            json!([
+                { "name": "CORE1", "os": "iosxe" },
+                { "name": "EDGE1", "os": "nxos" },
+            ])
+        );
+        let encoded = serde_json::to_string(&devices).unwrap();
+        for forbidden in [
+            "192.0.2.10",
+            "admin",
+            "private-password",
+            "private-environment",
+            "credentials",
+            "connections",
+        ] {
+            assert!(!encoded.contains(forbidden), "{forbidden}");
+        }
+    }
+
+    #[test]
+    fn returns_safe_catalog_states_for_missing_and_invalid_testbeds() {
+        let temp = tempfile::tempdir().unwrap();
+        let missing = PyatsDeviceCatalog::new(temp.path().join("missing.yaml"));
+        assert_eq!(missing.supported_devices().unwrap(), Vec::new());
+
+        let invalid_path = temp.path().join("invalid.yaml");
+        std::fs::write(&invalid_path, "devices: [private-invalid-value").unwrap();
+        let error = PyatsDeviceCatalog::new(invalid_path)
+            .supported_devices()
+            .unwrap_err();
+        assert_eq!(error, "Saved pyATS testbed is invalid.");
+        assert!(!error.contains("private-invalid-value"));
+        assert!(!error.contains(temp.path().to_string_lossy().as_ref()));
+    }
+
+    #[test]
+    fn registers_only_the_dedicated_pyats_commands() {
         let command_table = include_str!("../../lib.rs");
         assert_eq!(
             command_table
                 .matches(
                     "commands::topolograph::pyats_import::topolograph_import_lsdb_from_pyats,",
                 )
+                .count(),
+            1
+        );
+        assert_eq!(
+            command_table
+                .matches("commands::topolograph::pyats_import::pyats_list_supported_devices,",)
                 .count(),
             1
         );

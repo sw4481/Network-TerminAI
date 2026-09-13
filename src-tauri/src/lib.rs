@@ -611,6 +611,7 @@ pub fn run() {
             commands::topolograph::topolograph_config_save,
             commands::topolograph::topolograph_test_connection,
             commands::topolograph::topolograph_upload_lsdb_file,
+            commands::topolograph::pyats_import::pyats_list_supported_devices,
             commands::topolograph::pyats_import::topolograph_import_lsdb_from_pyats,
             commands::topolograph::topolograph_upload_yaml_file,
             commands::topolograph::topolograph_audit_list,
