@@ -115,6 +115,9 @@ pub fn run() {
     };
     let state = AppState::new(db, db_path);
     tracing::info!("Application state initialized");
+    if let Err(error) = state.stp.start() {
+        tracing::warn!(error = %error, "stp: scheduler failed to start");
+    }
 
     // Auto-unlock vaults marked with auto_unlock=1
     state.auto_unlock_vaults();
@@ -286,6 +289,7 @@ pub fn run() {
                 use tauri::Manager;
 
                 api.prevent_close();
+                let _ = window.state::<AppState>().stp.shutdown();
                 window
                     .state::<AppState>()
                     .terminal_agent
@@ -603,6 +607,18 @@ pub fn run() {
             commands::zabbix_get_config,
             commands::zabbix_save_config,
             commands::zabbix_test_connection,
+            commands::topolograph::topolograph_config_get,
+            commands::topolograph::topolograph_config_save,
+            commands::topolograph::topolograph_test_connection,
+            commands::topolograph::topolograph_upload_lsdb_file,
+            commands::topolograph::pyats_import::topolograph_import_lsdb_from_pyats,
+            commands::topolograph::topolograph_upload_yaml_file,
+            commands::topolograph::topolograph_audit_list,
+            commands::stp::stp_settings_get,
+            commands::stp::stp_settings_save,
+            commands::stp::stp_collect_now,
+            commands::stp::stp_snapshot_list,
+            commands::stp::stp_snapshot_get,
             commands::prometheus_get_config,
             commands::prometheus_save_config,
             commands::prometheus_test_connection,
@@ -1754,6 +1770,7 @@ pub fn run() {
 
         match event {
             tauri::RunEvent::ExitRequested { code, api, .. } => {
+                let _ = app_handle.state::<commands::AppState>().stp.shutdown();
                 let shutdown = app_handle.state::<app_lifecycle::ShutdownCoordinator>();
                 if app_lifecycle::exit_request_disposition(&shutdown, code)
                     == app_lifecycle::ExitRequestDisposition::Intercept

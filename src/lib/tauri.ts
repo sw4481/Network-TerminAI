@@ -10,6 +10,33 @@ import type { PtyEvent, Tab } from "./types";
 import type { AppearanceSettingsV1 } from "../theme/types";
 import type { CiscoPlatform } from "./ciscoLint";
 
+export type TopolographConfig = { singletonId: string; enabled: boolean; baseUrl: string; secretId: string; verifyTls: boolean; updatedAt: number };
+export type TopolographConnectionStage = { name: string; status: "passed" | "failed" | "skipped" };
+export type TopolographConnectionReport = { ok: boolean; message: string; warnings: string[]; serverName: string; serverVersion: string; latencyMs: number | null; tools: string[]; missingTools: string[]; unexpectedTools: string[]; stages: TopolographConnectionStage[] };
+export type TopolographUploadResult = { ok: boolean; message: string; bytes: number; warnings: string[] };
+export type TopolographPyatsLsdbImportRequest = { device: string; protocol: "ospf" | "ospfv3" | "isis"; description?: string | null };
+export type TopolographAuditEvent = { id: number; action: string; outcome: string; occurredAt: number; targetLabel?: string; durationMs?: number };
+export type StpPort = { deviceId: string; interface: string; role: string | null; state: string | null; cost?: number | null; bundleId?: string | null; explicitEvidence?: string | null };
+export type StpInstance = { id: string; label: string | null; vlan: string | null; mode: string | null; bridgeId: string | null; rootId: string | null; topologyChangeCount?: number | null; mstRegion?: string | null; bridgePriority?: number | null; rootPriority?: number | null; rootCost?: number | null; rootPort?: string | null; ports: StpPort[] };
+export type StpLink = { id?: string; localDeviceId: string; localInterface: string; remoteDeviceId: string | null; instanceId: string | null; bidirectional: boolean };
+export type StpFinding = { kind: string; severity: string; deviceId: string | null; interface: string | null; detail: string };
+export type StpDevice = { deviceId: string; platform: string };
+export type StpGap = { source: string; code: string };
+export type StpPayload = { devices: StpDevice[]; instances: StpInstance[]; links: StpLink[]; findings: StpFinding[]; gaps: StpGap[] };
+export type StpSnapshot = { id: string; startedAt: number; finishedAt: number | null; trigger: "manual" | "scheduled"; status: "complete" | "partial" | "failed"; baselineEligible: boolean; schemaVersion: number; payload: StpPayload; errorSummary: string | null };
+export type StpSettings = { singletonId: string; scheduleEnabled: boolean; intervalMinutes: number; updatedAt: number };
+export const topolographConfigGet = () => invoke<TopolographConfig | null>("topolograph_config_get");
+export const topolographConfigSave = (config: TopolographConfig) => invoke<void>("topolograph_config_save", { config });
+export const topolographTestConnection = (config: TopolographConfig) => invoke<TopolographConnectionReport>("topolograph_test_connection", { config });
+export const topolographUploadLsdbFile = (request: { path: string; protocol: string }) => invoke<TopolographUploadResult>("topolograph_upload_lsdb_file", { request });
+export const topolographImportLsdbFromPyats = (request: TopolographPyatsLsdbImportRequest) => invoke<TopolographUploadResult>("topolograph_import_lsdb_from_pyats", { request });
+export const topolographUploadYamlFile = (path: string) => invoke<TopolographUploadResult>("topolograph_upload_yaml_file", { path });
+export const topolographAuditList = () => invoke<TopolographAuditEvent[]>("topolograph_audit_list", { limit: 50 });
+export const stpSnapshotList = () => invoke<StpSnapshot[]>("stp_snapshot_list", { limit: 100 });
+export const stpSettingsGet = () => invoke<StpSettings>("stp_settings_get");
+export const stpSettingsSave = (settings: StpSettings) => invoke<StpSettings>("stp_settings_save", { settings });
+export const stpCollectNow = () => invoke<StpSnapshot>("stp_collect_now");
+
 /**
  * Ping the Rust core to verify it's responsive.
  * Used for health checks and testing.
