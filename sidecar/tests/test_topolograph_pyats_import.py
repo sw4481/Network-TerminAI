@@ -284,7 +284,7 @@ def test_import_returns_safe_collection_error_without_exception_text(failure_sta
     assert "selected-token" not in encoded
 
 
-def test_import_preserves_topolograph_error_code_without_raw_output_or_token():
+def test_import_preserves_topolograph_error_code_in_bridged_safe_message():
     output = "RAW-LSDB selected-token 192.0.2.15"
     FakeTopolographClient.upload_error = TopolographError(
         "UPSTREAM_TIMEOUT", "unsafe upstream selected-token"
@@ -299,5 +299,11 @@ def test_import_preserves_topolograph_error_code_without_raw_output_or_token():
     encoded = json.dumps(response)
     assert response["type"] == "error"
     assert response["code"] == "UPSTREAM_TIMEOUT"
+    # SidecarSupervisor drops the separate code field and preserves only message.
+    bridged_message = response["message"]
+    assert (
+        bridged_message
+        == "UPSTREAM_TIMEOUT: The Topolograph upload was not completed."
+    )
     assert output not in encoded
     assert "selected-token" not in encoded

@@ -202,5 +202,5 @@ class TopolographPyatsLsdbRequestHandler:
             "id": req_id,
             "type": "error",
             "code": code,
-            "message": message,
+            "message": f"{code}: {message}",
         }
