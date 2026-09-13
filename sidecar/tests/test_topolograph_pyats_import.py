@@ -165,6 +165,7 @@ def test_import_uses_exact_platform_command_and_direct_device_execute(
         {"device": ""},
         {"protocol": "bgp"},
         {"base_url": ""},
+        {"base_url": "https://[malformed"},
         {"verify_tls": "yes"},
         {"token": ""},
         {"description": 7},

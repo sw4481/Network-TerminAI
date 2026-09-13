@@ -87,7 +87,10 @@ class LsdbImportRequest:
 
     @staticmethod
     def _valid_base_url(value: str) -> bool:
-        parts = urlsplit(value.strip())
+        try:
+            parts = urlsplit(value.strip())
+        except ValueError:
+            return False
         return (
             parts.scheme in {"http", "https"}
             and bool(parts.netloc)
