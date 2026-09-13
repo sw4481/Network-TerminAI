@@ -78,6 +78,13 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
     method = req.get("method")
     params = req.get("params", {})
 
+    if method == "topolograph.import_lsdb_from_pyats":
+        from ccie_sidecar.topolograph_pyats_import import (
+            TopolographPyatsLsdbRequestHandler,
+        )
+
+        return TopolographPyatsLsdbRequestHandler().handle(req_id, params)
+
     if method == "ping":
         return {"id": req_id, "type": "done", "result": "pong"}
 
