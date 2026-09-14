@@ -11,6 +11,9 @@ pub struct AgentsLoader {
 }
 
 impl AgentsLoader {
+    const TOPOLOGRAPH_ROUTING_METADATA: &'static str =
+        "execution-mode: react-code\nengine: deepagents\n";
+
     pub fn new(agents_dir: PathBuf) -> Self {
         Self {
             agents_dir,
@@ -246,6 +249,10 @@ impl AgentsLoader {
 
                 let user_path = self.agents_dir.join(agent_id);
 
+                if agent_id == "topolograph" && user_path.is_dir() {
+                    Self::refresh_legacy_topolograph_agent(&bundled_path, &user_path)?;
+                }
+
                 // Only copy if doesn't exist (don't overwrite user customizations)
                 if !user_path.exists() {
                     fs::create_dir_all(&user_path)?;
@@ -268,6 +275,26 @@ impl AgentsLoader {
                     tracing::info!("Initialized bundled agent: {}", agent_id);
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    fn refresh_legacy_topolograph_agent(bundled_path: &Path, user_path: &Path) -> Result<()> {
+        let bundled_agent_path = bundled_path.join("AGENT.md");
+        let installed_agent_path = user_path.join("AGENT.md");
+        let bundled = fs::read_to_string(&bundled_agent_path)
+            .context("Failed to read bundled Topolograph AGENT.md")?;
+
+        if !bundled.contains(Self::TOPOLOGRAPH_ROUTING_METADATA) {
+            return Ok(());
+        }
+
+        let legacy = bundled.replacen(Self::TOPOLOGRAPH_ROUTING_METADATA, "", 1);
+        if fs::read(&installed_agent_path).ok().as_deref() == Some(legacy.as_bytes()) {
+            fs::write(&installed_agent_path, bundled.as_bytes())
+                .context("Failed to refresh legacy Topolograph AGENT.md")?;
+            tracing::info!("Refreshed legacy bundled agent: topolograph");
         }
 
         Ok(())
@@ -508,6 +535,88 @@ allowed-commands:
         assert_eq!(fm.attached_tools.len(), 1);
         assert_eq!(fm.attached_tools[0].id, "ise");
         assert_eq!(fm.attached_tools[0].default_blast_radius_allowed, "low");
+    }
+
+    #[test]
+    fn test_parse_bundled_topolograph_agent() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../bundled-agents/topolograph/AGENT.md");
+        let content = std::fs::read_to_string(&path).unwrap();
+        let (fm, _body) = parse_agent_content(&content).unwrap();
+        assert_eq!(fm.name, "topolograph");
+        assert_eq!(fm.execution_mode.as_deref(), Some("react-code"));
+        assert_eq!(fm.engine.as_deref(), Some("deepagents"));
+        assert_eq!(fm.attached_tools.len(), 1);
+        assert_eq!(fm.attached_tools[0].id, "topolograph");
+        assert_eq!(
+            fm.attached_tools[0].default_blast_radius_allowed,
+            "destructive"
+        );
+    }
+
+    const TOPOLOGRAPH_ROUTING_METADATA: &str =
+        "execution-mode: react-code\nengine: deepagents\n";
+
+    fn desired_topolograph_template() -> String {
+        let bundled = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../bundled-agents/topolograph/AGENT.md"),
+        )
+        .unwrap();
+
+        if bundled.contains(TOPOLOGRAPH_ROUTING_METADATA) {
+            bundled
+        } else {
+            bundled.replacen(
+                "description: Topolograph network graph, LSDB, BGP, VRF, path, event, and LSP specialist\n",
+                &format!(
+                    "description: Topolograph network graph, LSDB, BGP, VRF, path, event, and LSP specialist\n{}",
+                    TOPOLOGRAPH_ROUTING_METADATA
+                ),
+                1,
+            )
+        }
+    }
+
+    #[test]
+    fn initialize_bundled_agents_refreshes_exact_legacy_topolograph_template() {
+        let tmp = TempDir::new().unwrap();
+        let topolograph_dir = tmp.path().join("topolograph");
+        std::fs::create_dir(&topolograph_dir).unwrap();
+
+        let desired = desired_topolograph_template();
+        let legacy = desired.replacen(TOPOLOGRAPH_ROUTING_METADATA, "", 1);
+        std::fs::write(topolograph_dir.join("AGENT.md"), legacy).unwrap();
+
+        AgentsLoader::new(tmp.path().to_path_buf())
+            .initialize_bundled_agents()
+            .unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(topolograph_dir.join("AGENT.md")).unwrap(),
+            desired
+        );
+    }
+
+    #[test]
+    fn initialize_bundled_agents_preserves_modified_topolograph_template() {
+        let tmp = TempDir::new().unwrap();
+        let topolograph_dir = tmp.path().join("topolograph");
+        std::fs::create_dir(&topolograph_dir).unwrap();
+
+        let desired = desired_topolograph_template();
+        let legacy = desired.replacen(TOPOLOGRAPH_ROUTING_METADATA, "", 1);
+        let customized = format!("{}\n<!-- user customization -->\n", legacy);
+        std::fs::write(topolograph_dir.join("AGENT.md"), &customized).unwrap();
+
+        AgentsLoader::new(tmp.path().to_path_buf())
+            .initialize_bundled_agents()
+            .unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(topolograph_dir.join("AGENT.md")).unwrap(),
+            customized
+        );
     }
 
     #[test]

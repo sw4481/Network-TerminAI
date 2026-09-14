@@ -126,6 +126,7 @@ const PREPACKAGED_AGENT_IDS = new Set<string>([
   "splunk",
   "stealthwatch",
   "thousandeyes",
+  "topolograph",
   "grafana",
   "zabbix",
   "prometheus",
