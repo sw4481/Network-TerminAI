@@ -12,14 +12,22 @@ from ccie_sidecar import topolograph
 
 COMMANDS = {
     "iosxe": {
-        "ospf": "show ip ospf database",
-        "ospfv3": "show ospfv3 database",
-        "isis": "show isis database",
+        "ospf": (
+            "show ip ospf database router",
+            "show ip ospf database network",
+            "show ip ospf database external",
+        ),
+        "ospfv3": ("show ospfv3 database",),
+        "isis": ("show isis database detail",),
     },
     "nxos": {
-        "ospf": "show ip ospf database",
-        "ospfv3": "show ipv6 ospf database",
-        "isis": "show isis database",
+        "ospf": (
+            "show ip ospf database router detail",
+            "show ip ospf database network detail",
+            "show ip ospf database external detail",
+        ),
+        "ospfv3": ("show ipv6 ospf database",),
+        "isis": ("show isis database detail",),
     },
 }
 
@@ -157,21 +165,21 @@ class TopolographPyatsLsdbImporter:
         return device
 
     @staticmethod
-    def _collect(device: Any, command: str) -> str:
+    def _collect(device: Any, commands: tuple[str, ...]) -> str:
         try:
             from terminai_pyats.connect import ensure_connected
 
             ensure_connected(device)
-            output = device.execute(command)
+            outputs = [device.execute(command) for command in commands]
         except Exception:
             raise LsdbImportError(
                 "LSDB_COLLECTION_FAILED", "The LSDB collection was not completed."
             ) from None
-        if not isinstance(output, str) or not output.strip():
+        if any(not isinstance(output, str) or not output.strip() for output in outputs):
             raise LsdbImportError(
                 "LSDB_COLLECTION_FAILED", "The LSDB collection was not completed."
             )
-        return output
+        return "\n\n".join(output.rstrip("\n") for output in outputs)
 
 
 class TopolographPyatsLsdbRequestHandler:

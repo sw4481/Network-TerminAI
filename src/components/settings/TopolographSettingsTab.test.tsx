@@ -8,12 +8,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 import { TopolographSettingsTab } from "./TopolographSettingsTab";
+import type { TopolographConfig } from "../../lib/tauri";
 
-const config = {
+const config: TopolographConfig = {
   singletonId: "topolograph",
   enabled: true,
   baseUrl: "https://topolograph.local:8080",
-  secretId: "vault-topolograph",
+  apiKey: "synthetic-direct-key",
   verifyTls: true,
   updatedAt: 1,
 };
@@ -25,12 +26,6 @@ describe("TopolographSettingsTab", () => {
       if (command === "topolograph_config_get") return Promise.resolve(config);
       if (command === "topolograph_audit_list") return Promise.resolve([{ id: 1, occurredAt: 100, action: "test.connection", outcome: "ok", targetLabel: "topolograph", durationMs: 12 }]);
       if (command === "topolograph_config_save") return Promise.resolve();
-      if (command === "vault_list_envelopes") {
-        return Promise.resolve([{ id: "envelope-1", name: "Infrastructure" }]);
-      }
-      if (command === "vault_list_secrets") {
-        return Promise.resolve([{ id: "vault-topolograph", envelopeId: "envelope-1", kind: "api_token", label: "Topolograph API token" }]);
-      }
       if (command === "topolograph_test_connection") {
         return Promise.resolve({
           ok: true,
@@ -53,6 +48,17 @@ describe("TopolographSettingsTab", () => {
     });
   });
 
+  it("renders direct API-key entry and never loads Topolograph Vault metadata", async () => {
+    render(<TopolographSettingsTab />);
+
+    const apiKey = await screen.findByLabelText("API key");
+    expect(apiKey).toHaveAttribute("type", "password");
+    expect(apiKey).toHaveValue("synthetic-direct-key");
+    expect(screen.getAllByText("Warning: this API key is stored unencrypted in TerminAI's local database.")).toHaveLength(2);
+    expect(invokeMock.mock.calls.some(([command]) => command === "vault_list_envelopes")).toBe(false);
+    expect(invokeMock.mock.calls.some(([command]) => command === "vault_list_secrets")).toBe(false);
+  });
+
   it("normalizes the saved base URL before it crosses the Tauri boundary", async () => {
     render(<TopolographSettingsTab />);
     const baseUrl = await screen.findByLabelText("Base URL");
@@ -60,12 +66,16 @@ describe("TopolographSettingsTab", () => {
     fireEvent.change(baseUrl, {
       target: { value: " https://topolograph.local:8080/// " },
     });
+    fireEvent.change(screen.getByLabelText("API key"), {
+      target: { value: "current-save-key" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("topolograph_config_save", {
         config: expect.objectContaining({
           baseUrl: "https://topolograph.local:8080",
+          apiKey: "current-save-key",
         }),
       });
     });
@@ -75,7 +85,17 @@ describe("TopolographSettingsTab", () => {
     render(<TopolographSettingsTab />);
     await screen.findByLabelText("Base URL");
 
+    fireEvent.change(screen.getByLabelText("API key"), {
+      target: { value: "current-test-key" },
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "Test Connection" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("topolograph_test_connection", {
+        config: expect.objectContaining({ apiKey: "current-test-key" }),
+      });
+    });
 
     expect(await screen.findByText("Topolograph MCP 1.3.1")).toBeInTheDocument();
     expect(screen.getByText("12.5 ms")).toBeInTheDocument();
@@ -92,8 +112,6 @@ describe("TopolographSettingsTab", () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === "topolograph_config_get") return Promise.resolve(config);
       if (command === "topolograph_audit_list") { auditCalls += 1; return Promise.resolve([]); }
-      if (command === "vault_list_envelopes") return Promise.resolve([{ id: "envelope-1", name: "Infrastructure" }]);
-      if (command === "vault_list_secrets") return Promise.resolve([{ id: "vault-topolograph", envelopeId: "envelope-1", kind: "api_token", label: "Topolograph API token" }]);
       if (command === "topolograph_test_connection") return Promise.reject(new Error("failed"));
       return Promise.resolve();
     });
@@ -105,30 +123,11 @@ describe("TopolographSettingsTab", () => {
     expect(auditCalls).toBe(2);
   });
 
-  it("explains that a locked Vault blocks the connection test", async () => {
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve(config);
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "vault_list_envelopes") return Promise.resolve([{ id: "envelope-1", name: "Infrastructure" }]);
-      if (command === "vault_list_secrets") return Promise.resolve([{ id: "vault-topolograph", envelopeId: "envelope-1", kind: "api_token", label: "Topolograph API token" }]);
-      if (command === "topolograph_test_connection") return Promise.reject(new Error("Topolograph Vault secret unavailable: vault is locked"));
-      return Promise.resolve();
-    });
-
-    render(<TopolographSettingsTab />);
-    const button = await screen.findByRole("button", { name: "Test Connection" });
-    fireEvent.click(button);
-
-    expect(await screen.findByText("Unlock the selected Vault secret and try again.")).toBeInTheDocument();
-  });
-
   it("reports testing progress without exposing the connection payload", async () => {
     let resolveTest!: (report: object) => void;
     invokeMock.mockImplementation((command: string) => {
       if (command === "topolograph_config_get") return Promise.resolve(config);
       if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "vault_list_envelopes") return Promise.resolve([{ id: "envelope-1", name: "Infrastructure" }]);
-      if (command === "vault_list_secrets") return Promise.resolve([{ id: "vault-topolograph", envelopeId: "envelope-1", kind: "api_token", label: "Topolograph API token" }]);
       if (command === "topolograph_test_connection") {
         return new Promise((resolve) => { resolveTest = resolve; });
       }
@@ -146,10 +145,10 @@ describe("TopolographSettingsTab", () => {
     });
   });
 
-  it("keeps Test Connection unavailable until the enabled connector is complete", async () => {
+  it("disables Test Connection and gives actionable guidance when the enabled connector has no API key", async () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === "topolograph_config_get") {
-        return Promise.resolve({ ...config, enabled: false, secretId: "" });
+        return Promise.resolve({ ...config, apiKey: "" });
       }
       if (command === "topolograph_audit_list") return Promise.resolve([]);
       return Promise.resolve();
@@ -158,58 +157,6 @@ describe("TopolographSettingsTab", () => {
     render(<TopolographSettingsTab />);
 
     expect(await screen.findByRole("button", { name: "Test Connection" })).toBeDisabled();
-  });
-
-  it("selects Vault secret metadata without revealing a secret value", async () => {
-    render(<TopolographSettingsTab />);
-
-    const secret = await screen.findByLabelText("Vault secret");
-    expect(secret).toHaveValue("vault-topolograph");
-    expect(screen.getByRole("option", { name: "Topolograph API token (api_token)" })).toBeInTheDocument();
-    expect(invokeMock).toHaveBeenCalledWith("vault_list_envelopes");
-    expect(invokeMock).toHaveBeenCalledWith("vault_list_secrets", { envelopeId: "envelope-1" });
-  });
-
-  it("makes an empty Vault metadata list safe to operate", async () => {
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve({ ...config, secretId: "stale-secret" });
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "vault_list_envelopes") return Promise.resolve([]);
-      return Promise.resolve();
-    });
-
-    render(<TopolographSettingsTab />);
-
-    expect(await screen.findByText("No Vault secrets available. Add a secret in Vault before enabling Topolograph.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Test Connection" })).toBeDisabled();
-  });
-
-  it("blocks a stale saved Vault secret until the operator selects available metadata", async () => {
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve({ ...config, secretId: "stale-secret" });
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "vault_list_envelopes") return Promise.resolve([{ id: "envelope-1", name: "Infrastructure" }]);
-      if (command === "vault_list_secrets") return Promise.resolve([{ id: "available-secret", envelopeId: "envelope-1", kind: "api_token", label: "Available token" }]);
-      return Promise.resolve();
-    });
-
-    render(<TopolographSettingsTab />);
-
-    expect(await screen.findByText("The saved Vault secret is unavailable. Select another secret before testing.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Test Connection" })).toBeDisabled();
-  });
-
-  it("reports unavailable Vault metadata without attempting to access secret values", async () => {
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve(config);
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "vault_list_envelopes") return Promise.reject(new Error("locked"));
-      return Promise.resolve();
-    });
-
-    render(<TopolographSettingsTab />);
-
-    expect(await screen.findByText("Vault secret metadata is unavailable. Unlock Vault or try again.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Test Connection" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Enable the connector and enter a base URL and API key before testing.");
   });
 });

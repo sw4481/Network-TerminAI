@@ -25,7 +25,9 @@ pub mod sidecar_status;
 pub mod ssh;
 pub mod ssh_import;
 pub mod structured;
+pub mod stp;
 pub mod topology;
+pub mod topolograph;
 pub mod troubleshoot;
 pub mod vault;
 
@@ -320,6 +322,8 @@ pub struct AppState {
     /// a Tauri AppHandle.
     pub heartbeat_scheduler:
         Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
+    /// Native STP persistence and full-interval scheduler boundary.
+    pub stp: Arc<crate::commands::stp::StpService>,
 }
 
 /// Vault-related state bundle: keyring-backed CRUD store + idle-lock map.
@@ -425,7 +429,7 @@ impl AppState {
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
             terminal_agent: Arc::new(crate::terminal_agent::TerminalAgentManager::default()),
-            db: db_arc,
+            db: db_arc.clone(),
             agent,
             mcp_bridge,
             skills_loader,
@@ -466,6 +470,10 @@ impl AppState {
             git_repository_service,
             github_auth_manager,
             heartbeat_scheduler: Arc::new(parking_lot::Mutex::new(None)),
+            stp: Arc::new(crate::commands::stp::StpService::new(
+                db_arc.clone(),
+                Arc::new(crate::commands::stp::SidecarStpCollector),
+            )),
         }
     }
 

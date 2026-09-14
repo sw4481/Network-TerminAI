@@ -305,18 +305,45 @@
 }
 
 .vault-checkbox-label {
+  appearance: none;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
+  font: inherit;
   font-size: 13px;
+  text-align: left;
   color: var(--text-primary);
 }
 
-.vault-checkbox-label input[type="checkbox"] {
+.vault-checkbox-label:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.vault-checkbox-control {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
-  cursor: pointer;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.vault-checkbox-label[aria-checked="true"] .vault-checkbox-control {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .vault-auto-unlock-hint {

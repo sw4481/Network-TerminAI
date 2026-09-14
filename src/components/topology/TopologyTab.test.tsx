@@ -7,7 +7,7 @@
  * load/refresh actions resolve to no-ops in jsdom).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -134,6 +134,126 @@ describe("TopologyTab", () => {
     expect(screen.queryByTestId("topology-inspector")).not.toBeInTheDocument();
   });
 
+  it("selects topology modes with keyboard-complete tab semantics", async () => {
+    await act(async () => {
+      render(<TopologyTab tabId="tab-test" />);
+    });
+
+    const neighbors = screen.getByRole("tab", { name: "Neighbors" });
+    const topolograph = screen.getByRole("tab", { name: "Topolograph" });
+    expect(neighbors.getAttribute("aria-controls")).toBeTruthy();
+    expect(neighbors).toHaveAttribute("aria-selected", "true");
+    expect(topolograph.getAttribute("aria-controls")).toBeTruthy();
+    for (const tab of screen.getAllByRole("tab")) {
+      const panelId = tab.getAttribute("aria-controls");
+      expect(panelId).toBeTruthy();
+      expect(document.getElementById(panelId!)).toBeInTheDocument();
+    }
+
+    topolograph.focus();
+    fireEvent.keyDown(topolograph, { key: "ArrowRight" });
+
+    expect(screen.getByRole("tab", { name: "Spanning Tree" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Spanning Tree" })).toHaveAttribute("aria-selected", "true");
+    const spanningTree = screen.getByRole("tab", { name: "Spanning Tree" });
+    expect(spanningTree).toHaveAttribute("aria-controls", screen.getByRole("tabpanel").id);
+  });
+
+  it("keeps tab IDs, panels, and arrow-key focus scoped to each mounted instance", async () => {
+    const { container } = render(<><TopologyTab tabId="tab-one" /><TopologyTab tabId="tab-two" /></>);
+    const instances = screen.getAllByTestId("topology-tab");
+    const first = within(instances[0]);
+    const second = within(instances[1]);
+    const ids = Array.from(container.querySelectorAll("[role=tab]")).map((tab) => tab.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+
+    const firstTopolograph = first.getByRole("tab", { name: "Topolograph" });
+    firstTopolograph.focus();
+    fireEvent.keyDown(firstTopolograph, { key: "ArrowRight" });
+
+    expect(first.getByRole("tab", { name: "Spanning Tree" })).toHaveFocus();
+    expect(second.getByRole("tab", { name: "Spanning Tree" })).not.toHaveFocus();
+    const firstPanel = first.getByRole("tabpanel");
+    expect(first.getByRole("tab", { name: "Spanning Tree" })).toHaveAttribute("aria-controls", firstPanel.id);
+  });
+
+  it("renders the Neighbors control-room landmarks and toolbar hierarchy", async () => {
+    await act(async () => {
+      render(<TopologyTab tabId="tab-test" />);
+    });
+
+    const workspace = screen.getByRole("region", {
+      name: "Neighbors topology workspace",
+    });
+    expect(workspace).toHaveClass("topology-tab__workspace");
+    expect(
+      within(workspace).getByRole("heading", {
+        level: 2,
+        name: "Network neighbors",
+      }),
+    ).toBeInTheDocument();
+
+    const toolbar = within(workspace).getByRole("toolbar", {
+      name: "Topology toolbar",
+    });
+    const primaryActions = within(toolbar).getByRole("group", {
+      name: "Discovery and refresh",
+    });
+    const secondaryActions = within(toolbar).getByRole("group", {
+      name: "Graph output and cleanup",
+    });
+    expect(
+      within(primaryActions).getByRole("button", { name: "Discover devices" }),
+    ).toHaveClass("topology-toolbar__primary");
+    expect(
+      within(secondaryActions).getByRole("button", { name: "Clear graph" }),
+    ).toHaveClass("topology-toolbar__danger");
+
+    expect(within(workspace).getByTestId("topology-navigation-rail")).toHaveClass(
+      "topology-tab__rail",
+    );
+    expect(within(workspace).getByRole("region", { name: "Topology canvas" }))
+      .toHaveAttribute("data-state", "empty");
+    expect(within(workspace).getByTestId("topology-workspace-body")).toHaveClass(
+      "topology-tab__body--inspector-closed",
+    );
+  });
+
+  it("exposes populated canvas and inspector layout states without changing node actions", async () => {
+    resetStore({ nodes: makeNodes(), edges: makeEdges() });
+    await act(async () => {
+      render(<TopologyTab tabId="tab-test" />);
+    });
+
+    const workspace = screen.getByRole("region", {
+      name: "Neighbors topology workspace",
+    });
+    const canvas = within(workspace).getByRole("region", {
+      name: "Topology canvas",
+    });
+    const body = within(workspace).getByTestId("topology-workspace-body");
+    expect(canvas).toHaveAttribute("data-state", "populated");
+    expect(body).toHaveClass("topology-tab__body--inspector-closed");
+
+    const r1Inner = within(workspace)
+      .getAllByTestId("topology-node")
+      .find((node) => node.textContent?.includes("R1"));
+    expect(r1Inner).toBeDefined();
+    fireEvent.click(r1Inner!.closest(".react-flow__node") ?? r1Inner!);
+
+    expect(await within(workspace).findByTestId("topology-inspector"))
+      .toBeInTheDocument();
+    expect(body).toHaveClass("topology-tab__body--inspector-open");
+
+    fireEvent.click(
+      within(workspace).getByRole("button", { name: "Close inspector" }),
+    );
+    expect(within(workspace).queryByTestId("topology-inspector"))
+      .not.toBeInTheDocument();
+    expect(body).toHaveClass("topology-tab__body--inspector-closed");
+  });
+
   it("renders ReactFlow nodes when seeded with topology data", async () => {
     resetStore({ nodes: makeNodes(), edges: makeEdges() });
     await act(async () => {
@@ -201,6 +321,27 @@ describe("TopologyTab", () => {
     const inspector = await screen.findByTestId("topology-inspector");
     expect(inspector).toBeInTheDocument();
     expect(inspector.textContent).toMatch(/R1/);
+  });
+
+  it("opens the inspector when a focused node is activated with Enter or Space", async () => {
+    resetStore({ nodes: makeNodes(), edges: makeEdges() });
+    await act(async () => {
+      render(<TopologyTab tabId="tab-test" />);
+    });
+
+    const r1 = screen
+      .getAllByTestId("topology-node")
+      .find((node) => node.textContent?.includes("R1"));
+    expect(r1).toBeDefined();
+
+    r1!.focus();
+    fireEvent.keyDown(r1!, { key: "Enter" });
+    expect(await screen.findByTestId("topology-inspector")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close inspector" }));
+    r1!.focus();
+    fireEvent.keyDown(r1!, { key: " " });
+    expect(await screen.findByTestId("topology-inspector")).toBeInTheDocument();
   });
 
   it("calls clearGraph when the user confirms the destructive dialog", async () => {

@@ -104,9 +104,9 @@ export function TopologyInspector({
 
       <section className="topology-inspector__details">
         <dl>
-          <dt>kind</dt>
+          <dt>Connection</dt>
           <dd data-testid="topology-inspector-kind">{node.device_kind}</dd>
-          <dt>mgmt_ip</dt>
+          <dt>Management IP</dt>
           <dd>
             {node.mgmt_ip ? (
               <button
@@ -125,7 +125,7 @@ export function TopologyInspector({
               <span className="topology-inspector__placeholder">—</span>
             )}
           </dd>
-          <dt>platform</dt>
+          <dt>Platform</dt>
           <dd>
             {node.platform ?? (
               <span className="topology-inspector__placeholder">—</span>

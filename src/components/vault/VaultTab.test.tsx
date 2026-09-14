@@ -52,6 +52,18 @@ describe("VaultTab auto-unlock", () => {
     });
   });
 
+  it("renders the auto-unlock checkbox with a native button boundary", async () => {
+    render(<VaultTab />);
+
+    const checkbox = await screen.findByRole("checkbox", {
+      name: "Auto-unlock on app startup",
+    });
+
+    expect(checkbox.tagName).toBe("BUTTON");
+    expect(checkbox).toHaveAttribute("type", "button");
+    expect(checkbox).toHaveAttribute("aria-checked", "false");
+  });
+
   it("instructs the operator to enter the passphrase without enabling auto-unlock", async () => {
     render(<VaultTab />);
     const checkbox = await screen.findByRole("checkbox", {

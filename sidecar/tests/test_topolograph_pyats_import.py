@@ -15,12 +15,28 @@ from ccie_sidecar.topolograph import TopolographError
 
 
 COMMAND_CASES = (
-    ("iosxe", "ospf", "show ip ospf database"),
-    ("iosxe", "ospfv3", "show ospfv3 database"),
-    ("iosxe", "isis", "show isis database"),
-    ("nxos", "ospf", "show ip ospf database"),
-    ("nxos", "ospfv3", "show ipv6 ospf database"),
-    ("nxos", "isis", "show isis database"),
+    (
+        "iosxe",
+        "ospf",
+        (
+            "show ip ospf database router",
+            "show ip ospf database network",
+            "show ip ospf database external",
+        ),
+    ),
+    ("iosxe", "ospfv3", ("show ospfv3 database",)),
+    ("iosxe", "isis", ("show isis database detail",)),
+    (
+        "nxos",
+        "ospf",
+        (
+            "show ip ospf database router detail",
+            "show ip ospf database network detail",
+            "show ip ospf database external detail",
+        ),
+    ),
+    ("nxos", "ospfv3", ("show ipv6 ospf database",)),
+    ("nxos", "isis", ("show isis database detail",)),
 )
 
 
@@ -35,6 +51,8 @@ class FakeDevice:
         self.executed.append(command)
         if self.execute_error is not None:
             raise self.execute_error
+        if isinstance(self.output, list):
+            return self.output.pop(0)
         return self.output
 
 
@@ -126,12 +144,12 @@ def run_import(params, pyats_client, connected):
         })
 
 
-@pytest.mark.parametrize("platform, protocol, command", COMMAND_CASES)
+@pytest.mark.parametrize("platform, protocol, commands", COMMAND_CASES)
 def test_import_uses_exact_platform_command_and_direct_device_execute(
-    platform, protocol, command
+    platform, protocol, commands
 ):
-    output = f"RAW {platform} {protocol} LSDB\n"
-    device = FakeDevice(platform, output)
+    outputs = [f"RAW {platform} {protocol} {index}\n" for index, _ in enumerate(commands)]
+    device = FakeDevice(platform, outputs.copy())
     connected: list[FakeDevice] = []
 
     response = run_import(
@@ -140,22 +158,22 @@ def test_import_uses_exact_platform_command_and_direct_device_execute(
         connected,
     )
 
-    assert response == {
-        "id": "lsdb-import",
-        "type": "done",
-        "result": {
-            "ok": True,
-            "message": "LSDB collected and uploaded.",
-            "bytes": len(output.encode("utf-8")),
-            "warnings": [],
-        },
-    }
+    assert response["id"] == "lsdb-import"
+    assert response["type"] == "done"
+    assert response["result"]["ok"] is True
+    assert response["result"]["message"] == "LSDB collected and uploaded."
+    assert response["result"]["warnings"] == []
     assert connected == [device]
-    assert device.executed == [command]
+    assert device.executed == list(commands)
     assert len(FakeTopolographClient.instances) == 1
-    assert FakeTopolographClient.instances[0].uploads == [
-        (output, "Cisco", protocol, "nightly import")
-    ]
+    upload = FakeTopolographClient.instances[0].uploads
+    assert len(upload) == 1
+    assert response["result"]["bytes"] == len(upload[0][0].encode("utf-8"))
+    assert upload[0][1:] == ("Cisco", protocol, "nightly import")
+    assert all(output.strip() in upload[0][0] for output in outputs)
+    assert [upload[0][0].index(output.strip()) for output in outputs] == sorted(
+        upload[0][0].index(output.strip()) for output in outputs
+    )
 
 
 @pytest.mark.parametrize(
@@ -223,6 +241,20 @@ def test_import_rejects_unsupported_device_platform_before_connecting():
 @pytest.mark.parametrize("output", ("", "   ", {"parsed": "not raw text"}))
 def test_import_rejects_empty_or_non_text_lsdb_output(output):
     device = FakeDevice("iosxe", output)
+
+    response = run_import(
+        import_params(),
+        FakePyatsClient({"CORE1": device}),
+        [],
+    )
+
+    assert response["type"] == "error"
+    assert response["code"] == "LSDB_COLLECTION_FAILED"
+    assert FakeTopolographClient.instances == []
+
+
+def test_import_rejects_a_missing_required_lsdb_section():
+    device = FakeDevice("iosxe", ["ROUTERS\n", "", "EXTERNALS\n"])
 
     response = run_import(
         import_params(),

@@ -48,27 +48,35 @@ export function TopologyToolbar({
       role="toolbar"
       aria-label="Topology toolbar"
     >
-      <div className="topology-toolbar__group">
+      <div
+        className="topology-toolbar__group topology-toolbar__group--primary"
+        role="group"
+        aria-label="Discovery and refresh"
+      >
         <button
           type="button"
           className="topology-toolbar__button topology-toolbar__primary"
           onClick={onDiscoverDevices}
           title="Automatically discover devices from saved connections"
+          aria-label="Discover devices"
           data-testid="topology-toolbar-discover"
         >
-          🔍 Discover Devices
+          <span aria-hidden="true">⌁</span>
+          Discover devices
         </button>
         <button
           type="button"
           className="topology-toolbar__button"
           onClick={onRefresh}
           title="Refresh topology"
+          aria-label="Refresh topology"
           data-testid="topology-toolbar-refresh"
         >
-          ⟳ Refresh
+          <span aria-hidden="true">↻</span>
+          Refresh
         </button>
-        <label className="topology-toolbar__group">
-          <span className="topology-toolbar__label">Auto-refresh:</span>
+        <label className="topology-toolbar__interval">
+          <span className="topology-toolbar__label">Auto-refresh</span>
           <select
             className="topology-toolbar__select"
             data-testid="topology-toolbar-auto-refresh"
@@ -89,24 +97,32 @@ export function TopologyToolbar({
           </select>
         </label>
       </div>
-      <div className="topology-toolbar__group">
+      <div
+        className="topology-toolbar__group topology-toolbar__group--secondary"
+        role="group"
+        aria-label="Graph output and cleanup"
+      >
         <button
           type="button"
           className="topology-toolbar__button"
           onClick={onExportPng}
           title="Export topology as PNG"
+          aria-label="Export PNG"
           data-testid="topology-toolbar-export"
         >
-          📷 Export PNG
+          <span aria-hidden="true">⇩</span>
+          Export PNG
         </button>
         <button
           type="button"
           className="topology-toolbar__button topology-toolbar__danger"
           onClick={onClearGraph}
           title="Clear all nodes and edges in the current graph"
+          aria-label="Clear graph"
           data-testid="topology-toolbar-clear"
         >
-          🗑 Clear graph
+          <span aria-hidden="true">×</span>
+          Clear graph
         </button>
       </div>
     </div>

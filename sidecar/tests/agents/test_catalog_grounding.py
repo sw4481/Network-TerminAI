@@ -353,6 +353,10 @@ def test_deepagents_tool_keeps_catalog_in_sandbox_not_description():
     assert search_tool is not None
     assert search_tool.name == "search_api_catalog"
     assert "/admin/API/mnt/Version" not in search_tool.description
+    assert set(tool.args_schema.model_json_schema()["properties"]) == {"code"}
+    assert "execute_python_code" in search_tool.description
+    assert "exact returned record inside the code argument" in search_tool.description
+    assert "matches[*].operation" not in search_tool.description
     found = search_tool.invoke({
         "query": "ISE server health",
         "catalog_id": "ise",

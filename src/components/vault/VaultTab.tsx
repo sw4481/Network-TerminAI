@@ -287,38 +287,41 @@ export function VaultTab() {
               </button>
             </div>
             <div className="vault-auto-unlock-section">
-              <label className="vault-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={selectedEnvelope.autoUnlock}
-                  onChange={async (e) => {
-                    const enabled = e.target.checked;
-                    if (enabled) {
-                      if (!unlockPassphrase) {
-                        setAutoUnlockError("Enter the passphrase above and try again.");
-                        return;
-                      }
-                      setAutoUnlockError(null);
-                      try {
-                        await vault.setAutoUnlock(selectedEnvelope.id, true, unlockPassphrase);
-                        await loadEnvelopes(); // Refresh to show updated state
-                      } catch (err) {
-                        alert(`Failed to enable auto-unlock: ${err}`);
-                        e.target.checked = false;
-                      }
-                    } else {
-                      // Disable
-                      try {
-                        await vault.setAutoUnlock(selectedEnvelope.id, false, null);
-                        await loadEnvelopes();
-                      } catch (err) {
-                        alert(`Failed to disable auto-unlock: ${err}`);
-                      }
+              <button
+                type="button"
+                className="vault-checkbox-label"
+                role="checkbox"
+                aria-checked={selectedEnvelope.autoUnlock}
+                onClick={async () => {
+                  const enabled = !selectedEnvelope.autoUnlock;
+                  if (enabled) {
+                    if (!unlockPassphrase) {
+                      setAutoUnlockError("Enter the passphrase above and try again.");
+                      return;
                     }
-                  }}
-                />
+                    setAutoUnlockError(null);
+                    try {
+                      await vault.setAutoUnlock(selectedEnvelope.id, true, unlockPassphrase);
+                      await loadEnvelopes(); // Refresh to show updated state
+                    } catch (err) {
+                      alert(`Failed to enable auto-unlock: ${err}`);
+                    }
+                  } else {
+                    // Disable
+                    try {
+                      await vault.setAutoUnlock(selectedEnvelope.id, false, null);
+                      await loadEnvelopes();
+                    } catch (err) {
+                      alert(`Failed to disable auto-unlock: ${err}`);
+                    }
+                  }
+                }}
+              >
+                <span className="vault-checkbox-control" aria-hidden="true">
+                  {selectedEnvelope.autoUnlock ? "✓" : ""}
+                </span>
                 <span>Auto-unlock on app startup</span>
-              </label>
+              </button>
               {autoUnlockError && (
                 <div className="vault-error" role="alert">
                   {autoUnlockError}

@@ -5,12 +5,33 @@ Mirrors the Meraki bridge pattern.
 """
 
 import os
+import sys
 from typing import Any, Dict, Optional
 
 
 def default_testbed_path() -> str:
     """Return the default testbed path (~/.ccie-terminal/pyats/testbed.yaml)."""
     return os.path.expanduser(os.path.join("~", ".ccie-terminal", "pyats", "testbed.yaml"))
+
+
+def _load_pyats_client():
+    """Load the installed wrapper, or the tracked development wrapper."""
+    try:
+        from terminai_pyats import PyatsClient
+    except ModuleNotFoundError as exc:
+        if exc.name != "terminai_pyats":
+            raise
+        repo_root = os.environ.get("CCIE_REPO_ROOT")
+        if not repo_root:
+            raise
+        pyats_cli_root = os.path.join(repo_root, "pyats_cli")
+        if not os.path.isdir(pyats_cli_root):
+            raise
+        if pyats_cli_root not in sys.path:
+            sys.path.insert(0, pyats_cli_root)
+        from terminai_pyats import PyatsClient
+
+    return PyatsClient
 
 
 def build_pyats_client(path: Optional[str] = None):
@@ -33,7 +54,7 @@ def build_pyats_client(path: Optional[str] = None):
         return None
 
     try:
-        from terminai_pyats import PyatsClient
+        PyatsClient = _load_pyats_client()
         client = PyatsClient.from_testbed(testbed_path)
 
         # Point config snapshots at the GUI-managed dir

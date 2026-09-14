@@ -1,0 +1,27 @@
+{
+  "device_id": "XE-A",
+  "platform": "iosxe",
+  "parsed": {
+    "mode": "rapid-pvst",
+    "pvst": {
+      "Vlan0010": {
+        "bridge_id": "32768.0011.2233.4455",
+        "root_id": "24576.00aa.bbcc.ddee",
+        "bridge_priority": 32778,
+        "root_priority": 24586,
+        "root_cost": 4,
+        "root_port": "GigabitEthernet1/0/1",
+        "timers": {"hello": 2, "max_age": 20, "forward_delay": 15},
+        "topology_changes": 3,
+        "interfaces": {
+          "GigabitEthernet1/0/1": {"role": "Root", "state": "FWD", "cost": 4},
+          "GigabitEthernet1/0/2": {"role": "Alternate", "state": "BLK", "cost": 4}
+        }
+      }
+    }
+  },
+  "adjacency_evidence": [
+    {"local_interface": "GigabitEthernet1/0/1", "remote_device": "NX-B", "remote_interface": "Ethernet1/1", "local_bundle": "Port-channel1", "remote_bundle": "Port-channel10"},
+    {"local_interface": "GigabitEthernet1/0/2", "remote_device": "NX-B", "remote_interface": "Ethernet1/2", "local_bundle": "Port-channel1", "remote_bundle": "Port-channel10"}
+  ]
+}

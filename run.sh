@@ -39,6 +39,11 @@ fi
 echo -e "${GREEN}✅ All prerequisites found!${NC}"
 echo ""
 
+# Keep development-sidecar imports tied to this checkout. The pyATS wrapper is
+# source-owned under pyats_cli/ and does not need a second package install.
+CCIE_REPO_ROOT="$(pwd)"
+export CCIE_REPO_ROOT
+
 # Setup Python virtual environment
 echo "🐍 Setting up Python sidecar..."
 cd sidecar
@@ -52,6 +57,8 @@ echo "   Activating virtual environment..."
 # The environment is created immediately above.
 # shellcheck disable=SC1091
 source .venv/bin/activate
+
+export PYTHONPATH="$(pwd)/../pyats_cli${PYTHONPATH:+:$PYTHONPATH}"
 
 if ! python -c "import ccie_sidecar, debugpy" 2>/dev/null; then
     echo "   Installing Python dependencies..."
@@ -93,8 +100,6 @@ echo "Press Ctrl+C to stop the development server"
 echo "======================================="
 echo ""
 
-CCIE_REPO_ROOT="$(pwd)"
-export CCIE_REPO_ROOT
 # Force the dev sidecar to use sidecar/.venv, never a stale bundled python.
 # A leftover target/{debug,release}/python/ tree (from a past build_sidecar.sh
 # run) otherwise shadows live sidecar/src edits and surfaces as "unknown method"

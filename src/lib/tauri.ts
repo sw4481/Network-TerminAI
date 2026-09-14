@@ -10,7 +10,7 @@ import type { PtyEvent, Tab } from "./types";
 import type { AppearanceSettingsV1 } from "../theme/types";
 import type { CiscoPlatform } from "./ciscoLint";
 
-export type TopolographConfig = { singletonId: string; enabled: boolean; baseUrl: string; secretId: string; verifyTls: boolean; updatedAt: number };
+export type TopolographConfig = { singletonId: string; enabled: boolean; baseUrl: string; apiKey: string; verifyTls: boolean; updatedAt: number };
 export type TopolographConnectionStage = { name: string; status: "passed" | "failed" | "skipped" };
 export type TopolographConnectionReport = { ok: boolean; message: string; warnings: string[]; serverName: string; serverVersion: string; latencyMs: number | null; tools: string[]; missingTools: string[]; unexpectedTools: string[]; stages: TopolographConnectionStage[] };
 export type TopolographUploadResult = { ok: boolean; message: string; bytes: number; warnings: string[] };

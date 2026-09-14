@@ -496,6 +496,7 @@ async def deepagents_react_loop(
 
         # Convert catalog to LangChain tools with actual execution
         tools = convert_meraki_catalog_to_langchain_tools(catalog, vault_entry, vault_secrets)
+        agent_id = agent_def.get("agent_id") or agent_def.get("id") or ""
 
         # 4. Create DeepAgents graph with SubAgents
         # Phase 3: Add discovery and rendering subagents for isolated context
@@ -526,6 +527,37 @@ async def deepagents_react_loop(
             # Inherits parent tools (including execute_python_code for drawio)
         )
 
+        subagents = [discovery_subagent, rendering_subagent]
+        if agent_id == "topolograph":
+            from ccie_sidecar.agents.architect_subagents import (
+                build_topolograph_specialist,
+                coerce_topolograph_binding,
+            )
+            from ccie_sidecar.agents.catalog_grounding import resolve_agent_catalogs
+
+            binding = coerce_topolograph_binding(agent_def.get("topolograph_binding"))
+            specialist = build_topolograph_specialist(
+                binding, catalogs=resolve_agent_catalogs(agent_def)
+            )
+            if specialist is None:
+                raise ValueError("Topolograph connector is unavailable")
+            tools = list(specialist["tools"])
+            subagents = []
+        elif agent_id == "network-architect":
+            from ccie_sidecar.agents.architect_subagents import (
+                build_vendor_subagents,
+                coerce_topolograph_binding,
+            )
+            from ccie_sidecar.agents.catalog_grounding import resolve_agent_catalogs
+
+            topolograph_binding = coerce_topolograph_binding(agent_def.get("topolograph_binding"))
+            subagents.extend(
+                build_vendor_subagents(
+                    catalogs=resolve_agent_catalogs(agent_def),
+                    topolograph_binding=topolograph_binding,
+                )
+            )
+
         # Sanitizer repairs malformed tool-call args (NVIDIA/Nemotron 400);
         # RubricMiddleware provides the self-evaluated "are you done?" check
         # (planning/write_todos is on by default). The rubric is passed in
@@ -537,7 +569,7 @@ async def deepagents_react_loop(
             tools=tools,
             system_prompt=agent_def.get("system_prompt", ""),
             store=InMemoryStore(),
-            subagents=[discovery_subagent, rendering_subagent],  # Phase 3: SubAgent middleware
+            subagents=subagents,  # Phase 3: SubAgent middleware
             middleware=middleware,
         )
 
@@ -658,22 +690,44 @@ async def deepagents_react_code_loop(
         extra_middleware: list = []
         arch_configured_ids: list = []
         arch_routing_hint = ""
+        topolograph_tools: list[Any] | None = None
 
         # Network Architect orchestrator. FLATTENED single-vendor path: the
         # orchestrator's OWN execute_python_code sandbox binds every configured
         # vendor helper directly, so a single-platform question is answered inline
         # (~2 LLM calls) instead of delegating to a subagent (~5-6 calls — measured).
         # Subagents stay available for genuine multi-vendor parallel correlation.
-        if is_architect:
+        if agent_id == "topolograph":
+            from ccie_sidecar.agents.architect_subagents import (
+                build_topolograph_specialist,
+                coerce_topolograph_binding,
+            )
+
+            binding = coerce_topolograph_binding(agent_def.get("topolograph_binding"))
+            specialist = build_topolograph_specialist(binding, catalogs=catalogs)
+            if specialist is None:
+                raise ValueError("Topolograph connector is unavailable")
+            topolograph_tools = list(specialist["tools"])
+            execute_code_tool = topolograph_tools[-1]
+        elif is_architect:
             from ccie_sidecar.agents.architect_subagents import (
                 build_architect_direct_tool,
                 build_vendor_subagents,
                 architect_routing_hint,
+                coerce_topolograph_binding,
+            )
+            topolograph_binding = coerce_topolograph_binding(
+                agent_def.get("topolograph_binding")
             )
             execute_code_tool, _arch_ids = build_architect_direct_tool(
                 emit=emit_custom,
                 user_msg=user_msg,
                 catalogs=catalogs,
+                delegate_only_configured_ids=(
+                    {"topolograph"}
+                    if topolograph_binding is not None and topolograph_binding.usable
+                    else set()
+                ),
             )
             # Declarative DeepAgents subagents have their own middleware stacks;
             # explicitly add the same provider-neutral recovery policy so both
@@ -682,6 +736,7 @@ async def deepagents_react_code_loop(
             for subagent in build_vendor_subagents(
                 emit=emit_custom,
                 catalogs=catalogs,
+                topolograph_binding=topolograph_binding,
             ):
                 vendor_subagents.append(
                     SubAgent(
@@ -695,10 +750,12 @@ async def deepagents_react_code_loop(
                     )
                 )
             graph_kwargs["subagents"] = vendor_subagents
-            arch_configured_ids = _arch_ids
+            arch_configured_ids = list(_arch_ids)
+            if topolograph_binding is not None and topolograph_binding.usable:
+                arch_configured_ids.append("topolograph")
             # Fix #2: deterministic vendor hint — nudge the model toward the
             # platform the question names, before it anchors on the prior turn.
-            arch_routing_hint = architect_routing_hint(user_msg, _arch_ids)
+            arch_routing_hint = architect_routing_hint(user_msg, arch_configured_ids)
         else:
             execute_code_tool = create_execute_python_code_tool(
                 cli_package=cli_package,
@@ -712,8 +769,10 @@ async def deepagents_react_code_loop(
         # see it. interrupt_on pauses the graph before any apply runs, so the frontend
         # can show an approval modal (the tool is also self-tagged destructive). A
         # checkpointer is required for interrupt/resume.
-        tools = [execute_code_tool]
-        catalog_search_tool = create_catalog_search_tool(execute_code_tool)
+        tools = topolograph_tools or [execute_code_tool]
+        catalog_search_tool = (
+            None if topolograph_tools is not None else create_catalog_search_tool(execute_code_tool)
+        )
         if catalog_search_tool is not None:
             # Put deterministic discovery first in the model's tool list. Raw
             # catalogs remain in memory; only bounded matches enter context.

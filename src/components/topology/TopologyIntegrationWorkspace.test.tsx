@@ -21,7 +21,7 @@ const config = {
   singletonId: "topolograph",
   enabled: true,
   baseUrl: "https://topolograph.local:8080",
-  secretId: "vault-topolograph",
+  apiKey: "synthetic-direct-key",
   verifyTls: true,
   updatedAt: 1,
 };
@@ -320,7 +320,23 @@ describe("TopolographWorkspace", () => {
     expect(screen.getByRole("combobox", { name: "LSDB protocol" })).toBeDisabled();
   });
 
-  it("renders a locked connector state from its stable safe error code", async () => {
+  it("maps an empty API key to the incomplete state without Vault instructions", async () => {
+    invokeMock.mockImplementation((command: string) => {
+      if (command === "topolograph_config_get") return Promise.resolve({ ...config, apiKey: "" });
+      if (command === "topolograph_audit_list") return Promise.resolve([]);
+      return Promise.resolve();
+    });
+
+    render(<TopolographWorkspace />);
+
+    expect(await screen.findByTestId("topolograph-state-incomplete")).toHaveTextContent(
+      "Topolograph setup is incomplete. Enter a base URL and API key in Settings.",
+    );
+    expect(screen.queryByTestId("topolograph-state-locked")).not.toBeInTheDocument();
+    expect(screen.queryByText(/unlock.*vault/i)).not.toBeInTheDocument();
+  });
+
+  it("maps connector configuration failures to the generic failed state without Vault instructions", async () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === "topolograph_config_get") return Promise.reject(new Error("CONNECTOR_LOCKED"));
       if (command === "topolograph_audit_list") return Promise.resolve([]);
@@ -329,42 +345,10 @@ describe("TopolographWorkspace", () => {
 
     render(<TopolographWorkspace />);
 
-    expect(await screen.findByTestId("topolograph-state-locked")).toHaveTextContent(
-      "Topolograph access is locked",
+    expect(await screen.findByTestId("topolograph-state-failed")).toHaveTextContent(
+      "Topolograph status could not be loaded. Check Settings and recent activity.",
     );
-  });
-
-  it("maps a Vault-lock Test Connection failure to the explicit locked state", async () => {
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve(config);
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "topolograph_test_connection") return Promise.reject(new Error("CONNECTOR_LOCKED"));
-      return Promise.resolve();
-    });
-
-    render(<TopolographWorkspace />);
-    fireEvent.click(await screen.findByRole("button", { name: "Test connection" }));
-
-    expect(await screen.findByTestId("topolograph-state-locked")).toHaveTextContent(
-      "Topolograph access is locked",
-    );
-  });
-
-  it("maps a Vault-lock upload failure to the explicit locked state", async () => {
-    openDialogMock.mockResolvedValue("/private/tmp/core.log");
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "topolograph_config_get") return Promise.resolve(config);
-      if (command === "topolograph_audit_list") return Promise.resolve([]);
-      if (command === "topolograph_upload_lsdb_file") return Promise.reject(new Error("CONNECTOR_LOCKED"));
-      return Promise.resolve();
-    });
-
-    render(<TopolographWorkspace />);
-    await screen.findByRole("button", { name: "Choose LSDB file" });
-    fireEvent.click(screen.getByRole("button", { name: "Choose LSDB file" }));
-
-    expect(await screen.findByTestId("topolograph-state-locked")).toHaveTextContent(
-      "Topolograph access is locked",
-    );
+    expect(screen.queryByTestId("topolograph-state-locked")).not.toBeInTheDocument();
+    expect(screen.queryByText(/unlock.*vault/i)).not.toBeInTheDocument();
   });
 });

@@ -57,6 +57,11 @@ def load_testbed_with_env(testbed_path: str):
             hint="Testbed requires a sibling .env file with device credentials"
         )
 
+    # The GUI-managed environment file is intentionally plaintext for the
+    # existing standalone pyATS contract, but must remain owner-only.
+    if os.name != "nt":
+        os.chmod(env_path, 0o600)
+
     # Parse .env file into dict
     env_vars = _parse_env_file(env_path)
 
@@ -75,9 +80,13 @@ def load_testbed_with_env(testbed_path: str):
             yaml.dump(testbed_dict, tmp)
             tmp_path = tmp.name
 
-        testbed = genie_load(tmp_path)
-        os.unlink(tmp_path)
-        return testbed
+        try:
+            return genie_load(tmp_path)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except FileNotFoundError:
+                pass
     except Exception as exc:
         raise PyatsError(
             f"Failed to load testbed: {exc}",

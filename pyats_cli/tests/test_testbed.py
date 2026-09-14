@@ -2,6 +2,7 @@
 
 import os
 import pytest
+import stat
 from pathlib import Path
 from terminai_pyats.testbed import load_testbed_with_env
 from terminai_pyats.errors import PyatsError
@@ -95,6 +96,20 @@ CORE1_ENABLE=enable123
     assert "CORE1_USERNAME" in exc_info.value.message
 
 
+def test_load_testbed_removes_rendered_yaml_when_genie_load_fails(tmp_testbed_dir, monkeypatch):
+    import terminai_pyats.testbed as module
+    rendered = []
+
+    def failing_load(path):
+        rendered.append(path)
+        raise ValueError("invalid testbed")
+
+    monkeypatch.setattr(module, "genie_load", failing_load)
+    with pytest.raises(PyatsError):
+        load_testbed_with_env(str(tmp_testbed_dir / "testbed.yaml"))
+    assert rendered and not Path(rendered[0]).exists()
+
+
 def test_load_testbed_handles_multiple_devices(tmp_path):
     testbed_yaml = tmp_path / "testbed.yaml"
     env_file = tmp_path / ".env"
@@ -134,3 +149,12 @@ CORE2_PASS=pass2
     assert len(testbed.devices) == 2
     assert str(testbed.devices["CORE1"].connections.cli.ip) == "10.0.0.1"
     assert str(testbed.devices["CORE2"].connections.cli.ip) == "10.0.0.2"
+
+
+def test_load_testbed_repairs_sibling_env_permissions(tmp_testbed_dir):
+    env_file = tmp_testbed_dir / ".env"
+    env_file.chmod(0o644)
+
+    load_testbed_with_env(str(tmp_testbed_dir / "testbed.yaml"))
+
+    assert stat.S_IMODE(env_file.stat().st_mode) == 0o600

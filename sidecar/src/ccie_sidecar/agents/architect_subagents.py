@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sqlite3
+from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
 from langchain_core.tools import StructuredTool
@@ -29,6 +30,30 @@ from ccie_sidecar.agents.tool_output import (
     TOOL_OUTPUT_GUIDANCE,
     install_tool_output_policy,
 )
+
+
+@dataclass(frozen=True)
+class TopolographAgentBinding:
+    """Token-private runtime binding for the delegate-only Topolograph agent."""
+
+    base_url: str
+    verify_tls: bool
+    token: str
+
+    @property
+    def usable(self) -> bool:
+        return bool(
+            isinstance(self.base_url, str)
+            and self.base_url.strip()
+            and isinstance(self.verify_tls, bool)
+            and isinstance(self.token, str)
+            and self.token
+        )
+
+
+def coerce_topolograph_binding(value: Any) -> TopolographAgentBinding | None:
+    """Accept only an explicitly typed binding; missing plumbing stays disabled."""
+    return value if isinstance(value, TopolographAgentBinding) else None
 
 
 def _cfg(getter_module: str, getter_name: str) -> bool:
@@ -258,6 +283,15 @@ VENDOR_SPECS: List[dict] = [
                 "or a normalized rule list, no device connection.",
         "configured": lambda: True,  # offline, no credentials
     },
+    {
+        "id": "topolograph",
+        "display": "Topolograph network graph analysis",
+        "when": "Topolograph network graphs, LSDB-derived topology, BGP route analysis, "
+                "VRF inventory, LSPs, shortest paths, graph events, or route resolution.",
+        # Settings/Vault unlock state is not available to this module yet. The
+        # explicit typed binding below is the only path that can enable it.
+        "configured": lambda: False,
+    },
 ]
 
 
@@ -296,6 +330,8 @@ VENDOR_KEYWORDS: dict[str, List[str]] = {
     "devnet": ["devnet", "developer.cisco", "operation id", "operation ids"],
     "fwrule": ["fwrule", "acl analysis", "rule shadow", "shadowing",
                "rule conflict", "firewall rule analysis"],
+    "topolograph": ["topolograph", "network graph", "lsdb", "lsp", "cspf",
+                    "shortest path", "bgp route analysis", "vrf inventory"],
 }
 
 
@@ -455,6 +491,12 @@ def architect_routing_hint(user_msg: str, configured_ids: List[str]) -> str:
         return ""
     if len(hits) == 1:
         vid = hits[0]
+        if vid in DELEGATE_ONLY_VENDOR_IDS:
+            return (
+                f"ROUTING HINT: this question names {_display_for(vid)}. Delegate "
+                f"to the `{vid}-specialist`; do NOT call it from the shared inline "
+                "sandbox or use another vendor."
+            )
         return (
             f"ROUTING HINT: this question names {_display_for(vid)}. Call its "
             f"pre-bound `{vid}` helper (or delegate to the `{vid}-specialist`), "
@@ -522,7 +564,7 @@ def scope_history_for_question(
 # every other vendor, giving the user visible code+results instead of a single
 # task() wrapper.) Empty for now; keep the mechanism for any future vendor whose
 # surface genuinely can't share one sandbox.
-DELEGATE_ONLY_VENDOR_IDS: set[str] = set()
+DELEGATE_ONLY_VENDOR_IDS: set[str] = {"topolograph"}
 
 
 def configured_vendor_ids() -> List[str]:
@@ -572,6 +614,7 @@ def build_vendor_subagents(
     emit: Optional[Callable[[dict], None]] = None,
     include_unconfigured: bool = False,
     catalogs: Optional[List[dict[str, Any]]] = None,
+    topolograph_binding: TopolographAgentBinding | None = None,
 ) -> List[Any]:
     """Build one DeepAgents SubAgent per configured vendor.
 
@@ -591,6 +634,8 @@ def build_vendor_subagents(
         catalogs = load_catalogs_for_agent("network-architect")
     subagents: List[Any] = []
     for spec in VENDOR_SPECS:
+        if spec["id"] == "topolograph":
+            continue
         if not include_unconfigured and not _safe(spec["configured"]):
             continue
         tool = create_execute_python_code_tool(
@@ -611,7 +656,98 @@ def build_vendor_subagents(
                 tools=tools,
             )
         )
+    topolograph_specialist = build_topolograph_specialist(
+        topolograph_binding,
+        catalogs=[c for c in catalogs if c.get("id") == "topolograph"],
+    )
+    if topolograph_specialist is not None:
+        subagents.append(topolograph_specialist)
     return subagents
+
+
+def build_topolograph_specialist(
+    binding: TopolographAgentBinding | None,
+    *,
+    catalogs: Optional[List[dict[str, Any]]] = None,
+) -> Any | None:
+    """Build a delegate-only specialist with an in-process token closure."""
+    if binding is None or not binding.usable:
+        return None
+    from deepagents import SubAgent
+    from ccie_sidecar.agents.catalog_grounding import CatalogIndex
+    from ccie_sidecar.topolograph import TopolographClient, TopolographRuntimeConfig
+
+    client = TopolographClient(
+        TopolographRuntimeConfig(binding.base_url, binding.verify_tls),
+        binding.token,
+    )
+
+    def bounded_result(value: Any) -> str:
+        safe: dict[str, Any] = {
+            "ok": True,
+            "summary": "Topolograph operation completed.",
+        }
+        if isinstance(value, dict):
+            for key in (
+                "server_name",
+                "server_version",
+                "vendor",
+                "protocol",
+            ):
+                item = value.get(key)
+                if isinstance(item, str):
+                    safe[key] = item[:160]
+            for key in ("latency_ms", "bytes", "accepted"):
+                item = value.get(key)
+                if isinstance(item, (int, float, bool)):
+                    safe[key] = item
+            unexpected = value.get("unexpected_tools")
+            if isinstance(unexpected, list) and all(isinstance(item, str) for item in unexpected):
+                safe["unexpected_tools"] = [item[:80] for item in unexpected[:50]]
+            warnings = value.get("warnings")
+            if isinstance(warnings, list):
+                safe["warning_count"] = len(warnings)
+        return json.dumps(safe, ensure_ascii=False)
+
+    def topolograph_mcp_call(
+        operation: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> str:
+        """Call one exact certified Topolograph MCP tool."""
+        if operation == "delete_lsp" and not ((arguments or {}).get("lsp_name") or (arguments or {}).get("delete_all") is True):
+            raise ValueError("delete_lsp requires lsp_name or delete_all=true")
+        return bounded_result(client.call_tool(operation, arguments or {}))
+
+    tool = StructuredTool.from_function(
+        func=topolograph_mcp_call,
+        name="topolograph_mcp_call",
+        description=(
+            "Call one exact certified Topolograph MCP tool after searching the "
+            "topolograph catalog. Pass matches[*].operation, never the catalog "
+            "record name, plus a JSON object of arguments. The helper is "
+            "authenticated in-process."
+        ),
+    )
+    object.__setattr__(tool, "_ccie_catalog_index", CatalogIndex(catalogs or []))
+    search_tool = create_catalog_search_tool(tool)
+    tools = [tool] if search_tool is None else [search_tool, tool]
+    return SubAgent(
+        name="topolograph-specialist",
+        description=(
+            "Delegate here for: Topolograph network graphs, LSDB-derived topology, "
+            "BGP route analysis, VRF inventory, LSPs, shortest paths, graph events, "
+            "or route resolution."
+        ),
+        system_prompt=(
+            "You are the Topolograph specialist. First search the topolograph "
+            "catalog for the exact user intent, then call topolograph_mcp_call "
+            "with matches[*].operation and its arguments; never pass the catalog "
+            "record name. Report only data returned by the live helper. Do not "
+            "import clients, inspect config, read environment variables, or use "
+            "generic MCP."
+        ),
+        tools=tools,
+    )
 
 
 def build_architect_direct_tool(
@@ -619,6 +755,7 @@ def build_architect_direct_tool(
     include_unconfigured: bool = False,
     user_msg: str = "",
     catalogs: Optional[List[dict[str, Any]]] = None,
+    delegate_only_configured_ids: Optional[set[str]] = None,
 ) -> tuple[StructuredTool, List[str]]:
     """Build ONE execute_python_code tool whose sandbox binds EVERY configured
     vendor helper at once, so the orchestrator can query any platform directly —
@@ -724,7 +861,11 @@ def build_architect_direct_tool(
     delegate_only_configured = [
         s for s in VENDOR_SPECS
         if s["id"] in DELEGATE_ONLY_VENDOR_IDS
-        and (include_unconfigured or _safe(s["configured"]))
+        and (
+            include_unconfigured
+            or _safe(s["configured"])
+            or s["id"] in (delegate_only_configured_ids or set())
+        )
     ]
     delegate_doc = ""
     if delegate_only_configured:

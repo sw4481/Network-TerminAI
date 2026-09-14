@@ -12,7 +12,7 @@
  *    attach a path), but they're hidden via opacity since this graph
  *    is read-only.
  */
-import type { CSSProperties } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { vendorColor } from "./topologyTheme";
 
@@ -26,6 +26,8 @@ export type NeighborNodeT = Node<
     neighborPort?: string;
     /** Marks the device the show command was run on. */
     isSource?: boolean;
+    /** Activates the parent inspector without relying on pointer events. */
+    onActivate?: () => void;
   },
   "neighbor"
 >;
@@ -53,6 +55,11 @@ export function NeighborNode({ data }: NodeProps<NeighborNodeT>) {
   const tooltip = tooltipParts.join(" · ");
   const vendorKey = (data.vendor ?? "unknown").toLowerCase();
   const ariaLabel = `${vendorKey}: ${data.label}`;
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    data.onActivate?.();
+  };
 
   return (
     <div
@@ -63,6 +70,8 @@ export function NeighborNode({ data }: NodeProps<NeighborNodeT>) {
       tabIndex={0}
       aria-label={ariaLabel}
       title={tooltip || undefined}
+      onClick={() => data.onActivate?.()}
+      onKeyDown={handleKeyDown}
       style={{ "--neighbor-vendor-color": color } as CSSProperties}
     >
       <Handle type="target" position={Position.Top} style={HIDDEN_HANDLE} />

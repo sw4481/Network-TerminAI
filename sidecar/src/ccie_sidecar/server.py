@@ -7,6 +7,7 @@ import re
 import sys
 import threading
 import time
+from dataclasses import asdict, is_dataclass
 from typing import Any, TextIO
 
 from ccie_sidecar.agent import chat_stream, chat_stream_with_agent, explain_error_stream
@@ -20,6 +21,238 @@ HEARTBEAT_INTERVAL_S = int(os.environ.get("CCIE_SIDECAR_HEARTBEAT_S", "30"))
 # Serialize stdout writes so the background heartbeat thread doesn't interleave
 # bytes with response lines from the request handler.
 _STDOUT_LOCK = threading.Lock()
+
+
+def build_deepagents_agent_definition(
+    *,
+    agent_id: str,
+    system_prompt: str,
+    tools: Any,
+    vault_entry: str | None = None,
+    vault_secrets: dict[str, str] | None = None,
+    tool_id: str | None = None,
+    topolograph_runtime: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the sidecar definition while keeping connector data out of prompts."""
+    definition: dict[str, Any] = {
+        "id": agent_id,
+        "agent_id": agent_id,
+        "system_prompt": system_prompt,
+        "attached_tools": [{
+            "catalog": tools,
+            "id": tool_id,
+            "vault_entry": vault_entry,
+            "vault_secrets": vault_secrets or {},
+        }],
+    }
+    if topolograph_runtime is not None:
+        from ccie_sidecar.agents.architect_subagents import TopolographAgentBinding
+        definition["topolograph_binding"] = TopolographAgentBinding(**topolograph_runtime)
+    return definition
+
+
+def _safe_topolograph_json(value: Any) -> Any:
+    """Return JSON-compatible adapter data without stringifying unknown data."""
+    if is_dataclass(value):
+        return _safe_topolograph_json(asdict(value))
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_safe_topolograph_json(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            str(key): _safe_topolograph_json(item)
+            for key, item in value.items()
+            if isinstance(key, (str, int, float, bool))
+        }
+    return {"type": type(value).__name__}
+
+
+def _bounded_topolograph_result(value: Any) -> dict[str, Any]:
+    """Expose operation metadata, never raw graph/MCP payloads."""
+    if not isinstance(value, dict):
+        return {"ok": True, "summary": "Topolograph operation completed."}
+    result: dict[str, Any] = {"ok": bool(value.get("ok", True))}
+    for key in ("server_name", "server_version", "latency_ms", "bytes", "accepted", "vendor", "protocol", "unexpected_tools"):
+        item = value.get(key)
+        if isinstance(item, (int, float, bool)):
+            result[key] = item
+        elif isinstance(item, str):
+            result[key] = item[:160]
+        elif isinstance(item, list) and all(isinstance(x, str) for x in item):
+            result[key] = [item[:80] for item in item[:50]]
+    warnings = value.get("warnings")
+    if isinstance(warnings, list):
+        result["warning_count"] = len(warnings)
+    stages = value.get("stages")
+    if isinstance(stages, list):
+        allowed_stage_names = {"initialize", "tool_inventory", "bounded_probe", "connection"}
+        result["stages"] = [
+            {"name": stage["name"], "status": stage["status"]}
+            for stage in stages
+            if isinstance(stage, dict)
+            and stage.get("name") in allowed_stage_names
+            and stage.get("status") in {"passed", "failed", "skipped"}
+        ]
+    result.setdefault("summary", "Topolograph operation completed.")
+    return result
+
+
+def _topolograph_error_response(req_id: str, code: str, message: str) -> dict[str, Any]:
+    """Build a fixed-shape, non-sensitive sidecar error envelope."""
+    return {
+        "id": req_id,
+        "type": "error",
+        "code": code,
+        "message": f"Topolograph operation failed: {code}: {message}",
+    }
+
+
+def _topolograph_client(params: Any):
+    """Construct the client inside the request scope so its token stays private."""
+    if not isinstance(params, dict):
+        raise ValueError("Topolograph params must be an object.")
+    base_url = params.get("base_url")
+    verify_tls = params.get("verify_tls")
+    token = params.get("token", "")
+    if not isinstance(base_url, str) or not base_url.strip():
+        raise ValueError("Topolograph base_url must be a non-empty string.")
+    if not isinstance(verify_tls, bool):
+        raise ValueError("Topolograph verify_tls must be a boolean.")
+    if not isinstance(token, str):
+        raise ValueError("Topolograph token must be a string.")
+    if not params.get("enabled", False):
+        raise ValueError("CONNECTOR_DISABLED")
+    if not params.get("configured", False):
+        raise ValueError("CONNECTOR_UNCONFIGURED")
+    if not params.get("unlocked", False):
+        raise ValueError("CONNECTOR_LOCKED")
+    if not token:
+        raise ValueError("TOKEN_REQUIRED")
+
+    from ccie_sidecar.topolograph import TopolographClient, TopolographRuntimeConfig
+
+    return TopolographClient(
+        TopolographRuntimeConfig(base_url=base_url, verify_tls=verify_tls),
+        token,
+    )
+
+
+def _handle_topolograph_request(req_id: str, method: str, params: Any) -> dict[str, Any]:
+    """Dispatch direct Topolograph calls without routing through generic MCP."""
+    try:
+        if not isinstance(params, dict):
+            raise ValueError("Topolograph params must be an object.")
+        if method == "topolograph.call_tool":
+            name = params.get("name")
+            arguments = params.get("arguments", {})
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("Topolograph call_tool name must be a non-empty string.")
+            if not isinstance(arguments, dict):
+                raise ValueError("Topolograph call_tool arguments must be an object.")
+            if name == "delete_lsp" and not (arguments.get("lsp_name") or arguments.get("delete_all") is True):
+                raise ValueError("delete_lsp requires lsp_name or delete_all=true")
+        elif method == "topolograph.upload_lsdb":
+            content = params.get("content")
+            vendor = params.get("vendor")
+            protocol = params.get("protocol")
+            description = params.get("description")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("Topolograph upload_lsdb content must be non-empty text.")
+            if not isinstance(vendor, str) or not vendor.strip():
+                raise ValueError("Topolograph upload_lsdb vendor must be a non-empty string.")
+            if not isinstance(protocol, str) or not protocol.strip():
+                raise ValueError("Topolograph upload_lsdb protocol must be a non-empty string.")
+            if description is not None and not isinstance(description, str):
+                raise ValueError("Topolograph upload_lsdb description must be a string.")
+        elif method == "topolograph.upload_yaml":
+            content = params.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("Topolograph upload_yaml content must be non-empty text.")
+
+        client = _topolograph_client(params)
+        if method == "topolograph.test_connection":
+            result = client.test_connection()
+        elif method == "topolograph.call_tool":
+            arguments = params.get("arguments", {})
+            result = client.call_tool(name, arguments)
+        elif method == "topolograph.upload_lsdb":
+            content = params.get("content")
+            vendor = params.get("vendor")
+            protocol = params.get("protocol")
+            description = params.get("description")
+            result = client.upload_lsdb(content, vendor, protocol, description)
+        else:
+            content = params.get("content")
+            result = client.upload_yaml(content)
+        return {"id": req_id, "type": "done", "result": _bounded_topolograph_result(_safe_topolograph_json(result))}
+    except ValueError as error:
+        code = str(error) if str(error) in {"CONNECTOR_DISABLED", "CONNECTOR_UNCONFIGURED", "CONNECTOR_LOCKED", "TOKEN_REQUIRED"} else "INVALID_PARAMETERS"
+        return _topolograph_error_response(req_id, code, "The adapter parameters were rejected.")
+    except Exception as error:
+        from ccie_sidecar.topolograph import TopolographError
+
+        if isinstance(error, TopolographError):
+            return _topolograph_error_response(
+                req_id, error.code, "The adapter request was not completed."
+            )
+        return _topolograph_error_response(
+            req_id, "ADAPTER_FAILURE", "The adapter request was not completed."
+        )
+
+
+_STP_SAFE_FIELDS = {
+    "devices", "device", "platform", "status", "stp", "neighbors", "bundle", "gaps",
+    "mode", "instances", "ports", "interfaces", "cdp", "lldp", "source", "code",
+    "id", "bridge_address", "bridge_id", "bridge_priority", "cost", "device_id",
+    "interface", "local_interface", "members", "mst_id", "path_cost", "port_id",
+    "port_state", "priority", "protocol", "role", "root_bridge", "root_id", "root_port",
+    "state", "vlan", "vlan_id", "instance", "bundle_id", "name", "bidirectional",
+    "topology_changes", "topology_change_count", "mst_region", "region",
+    "inconsistent", "broken", "channel_group", "port_channel",
+    "adjacencies", "findings", "local_device_id", "remote_device_id", "confidence",
+    "remote_device", "remote_interface", "member_interfaces", "message", "severity",
+    "scope_type", "scope_id", "vlan_ids", "root_priority", "root_cost", "timers",
+    "hello_time", "max_age", "forward_delay",
+}
+
+_STP_SENSITIVE_TEXT = re.compile(
+    r"(?i)\b(?:(?:authorization|token|password|secret|api[_ -]?key|access[_ -]?key)"
+    r"\s*[:=]\s*(?:(?:bearer|basic)\s+)?[^\s,;]+|bearer\s+[^\s,;]+)"
+)
+
+
+def _safe_stp_result(value: Any) -> dict[str, Any]:
+    """Keep the STP RPC constrained to the normalized evidence schema."""
+    def sanitize(item: Any) -> Any:
+        if isinstance(item, str):
+            return _STP_SENSITIVE_TEXT.sub("[REDACTED]", item)
+        if item is None or isinstance(item, (int, float, bool)):
+            return item
+        if isinstance(item, list):
+            return [sanitize(entry) for entry in item]
+        if isinstance(item, dict):
+            return {
+                key: sanitize(entry)
+                for key, entry in item.items()
+                if key in _STP_SAFE_FIELDS
+            }
+        return None
+
+    result = sanitize(value)
+    if not isinstance(result, dict):
+        return {"status": "failed", "devices": []}
+    devices = result.get("devices")
+    response = {
+        "status": result.get("status") if isinstance(result.get("status"), str) else "failed",
+        "devices": devices if isinstance(devices, list) else [],
+    }
+    if isinstance(result.get("code"), str):
+        response["code"] = result["code"]
+    for field in ("adjacencies", "findings"):
+        if isinstance(result.get(field), list):
+            response[field] = sanitize(result[field])
+    return response
 
 
 def _package_version() -> str:
@@ -84,6 +317,22 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         )
 
         return TopolographPyatsLsdbRequestHandler().handle(req_id, params)
+
+    if method in {
+        "topolograph.test_connection",
+        "topolograph.call_tool",
+        "topolograph.upload_lsdb",
+        "topolograph.upload_yaml",
+    }:
+        return _handle_topolograph_request(req_id, method, params)
+
+    if method == "stp.collect":
+        try:
+            from ccie_sidecar.stp_worker import collect_stp
+
+            return {"id": req_id, "type": "done", "result": _safe_stp_result(collect_stp())}
+        except Exception:
+            return {"id": req_id, "type": "error", "message": "STP collection was not completed."}
 
     if method == "ping":
         return {"id": req_id, "type": "done", "result": "pong"}
@@ -1727,6 +1976,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
                 history = params.get("history") or []
                 stream_output = bool(params.get("stream_output", False))
+                topolograph_runtime = params.get("topolograph_runtime")
 
                 try:
                     # Load agent definition
@@ -1748,15 +1998,14 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         from ccie_sidecar.agents.deepagents_runtime import deepagents_react_loop
 
                         # DeepAgents expects catalog as list
-                        agent_def = {
-                            "id": agent_id,
-                            "system_prompt": system_prompt or agent_cfg.get("system_prompt", ""),
-                            "attached_tools": [{
-                                "catalog": tools_raw,  # List for DeepAgents
-                                "vault_entry": vault_entry,
-                                "vault_secrets": vault_secrets,
-                            }],
-                        }
+                        agent_def = build_deepagents_agent_definition(
+                            agent_id=agent_id,
+                            system_prompt=system_prompt or agent_cfg.get("system_prompt", ""),
+                            tools=tools_raw,
+                            vault_entry=vault_entry,
+                            vault_secrets=vault_secrets,
+                            topolograph_runtime=topolograph_runtime,
+                        )
 
                         asyncio.run(deepagents_react_loop(
                             agent_def=agent_def,
@@ -1888,6 +2137,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
                 history = params.get("history") or []
                 stream_output = bool(params.get("stream_output", False))
+                topolograph_runtime = params.get("topolograph_runtime")
 
                 try:
                     # Event callback that streams to stdout
@@ -1900,15 +2150,14 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                     if engine == "deepagents":
                         from ccie_sidecar.agents.deepagents_runtime import deepagents_react_code_loop
 
-                        # DeepAgents: uses attached_tools structure
-                        agent_def = {
-                            "agent_id": agent_id,
-                            "system_prompt": system_prompt or "",
-                            "attached_tools": [{
-                                "id": tool_id,
-                                "vault_secrets": vault_secrets,
-                            }],
-                        }
+                        agent_def = build_deepagents_agent_definition(
+                            agent_id=agent_id,
+                            system_prompt=system_prompt or "",
+                            tools=[],
+                            vault_secrets=vault_secrets,
+                            tool_id=tool_id,
+                            topolograph_runtime=topolograph_runtime,
+                        )
 
                         asyncio.run(deepagents_react_code_loop(
                             agent_def=agent_def,

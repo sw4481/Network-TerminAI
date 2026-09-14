@@ -18,7 +18,7 @@ import {
   type Edge,
   type Node,
 } from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 
 import { useTopologyStore } from "../../state/topologyStore";
@@ -38,6 +38,7 @@ import { TopologyInspector } from "./TopologyInspector";
 import { SaveNeighborModal } from "./SaveNeighborModal";
 import { DeviceDiscoveryModal } from "./DeviceDiscoveryModal";
 import "./TopologyTab.css";
+import { StpWorkspace, TopolographWorkspace } from "./TopologyIntegrationWorkspace";
 
 const NODE_TYPES = { neighbor: NeighborNode };
 const EDGE_TYPES = { default: NeighborEdge };
@@ -111,6 +112,22 @@ function layoutPositions(
 }
 
 export function TopologyTab({ tabId }: TopologyTabProps) {
+  const [mode, setMode] = useState<"neighbors" | "topolograph" | "stp">("neighbors");
+  const modes = ["neighbors", "topolograph", "stp"] as const;
+  type Mode = typeof modes[number];
+  const instanceId = useId();
+  const tabRefs = useRef<Record<Mode, HTMLButtonElement | null>>({ neighbors: null, topolograph: null, stp: null });
+  const tabDomId = (item: Mode) => `topology-tab-${instanceId}-${item}`;
+  const panelDomId = (item: Mode) => `topology-panel-${instanceId}-${item}`;
+  const selectModeFromKey = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const index = modes.indexOf(event.currentTarget.dataset.mode as Mode);
+    const next = event.key === "ArrowRight" ? (index + 1) % modes.length : event.key === "ArrowLeft" ? (index + modes.length - 1) % modes.length : -1;
+    if (next < 0) return;
+    event.preventDefault();
+    const nextMode = modes[next];
+    setMode(nextMode);
+    tabRefs.current[nextMode]?.focus();
+  };
   const nodes = useTopologyStore((s) => s.nodes);
   const edges = useTopologyStore((s) => s.edges);
   const refresh = useTopologyStore((s) => s.refresh);
@@ -214,6 +231,8 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
 
   const positions = useMemo(() => layoutPositions(visibleNodes), [visibleNodes]);
 
+  const activateNode = (nodeId: string) => setSelectedNodeId(nodeId);
+
   const rfNodes: Node[] = useMemo(() => {
     return visibleNodes.map((n) => {
       const data: NeighborNodeT["data"] = {
@@ -221,6 +240,7 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
         vendor: (n.vendor ?? "unknown").toLowerCase(),
         mgmtIp: n.mgmt_ip,
         isSource: false,
+        onActivate: () => activateNode(n.device_ref),
       };
       return {
         id: n.device_ref,
@@ -302,47 +322,106 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
       data-testid="topology-tab"
       data-tab-id={tabId}
     >
-      <TopologyToolbar
-        onRefresh={() => refresh()}
-        onDiscoverDevices={() => setShowDiscoveryModal(true)}
-        onExportPng={handleExportPng}
-        onClearGraph={handleClearGraph}
-      />
-      <div className="topology-tab__body">
-        <TopologyFilterTree
-          options={filterOptions}
-          state={filterState}
-          onChange={setFilterState}
-        />
-        <div className="topology-tab__canvas">
-          {visibleNodes.length === 0 ? (
-            <div
-              className="topology-tab__empty"
-              data-testid="topology-empty"
-            >
-              No neighbors discovered yet — run{" "}
-              <code>show cdp neighbors</code> on a device to populate the
-              graph.
-            </div>
-          ) : (
-            <ReactFlow
-              nodes={rfNodes}
-              edges={rfEdges}
-              nodeTypes={NODE_TYPES}
-              edgeTypes={EDGE_TYPES}
-              nodesDraggable
-              nodesConnectable={false}
-              fitView
-              onNodeClick={handleNodeClick}
-              proOptions={{ hideAttribution: true }}
-              aria-label="Global topology graph"
-            >
-              <MiniMap pannable zoomable />
-              <Controls showInteractive={false} />
-              <Background />
-            </ReactFlow>
-          )}
+      <div
+        className="topology-tab__view-tabs"
+        role="tablist"
+        aria-label="Topology views"
+      >
+        <button className="topology-tab__view-tab" ref={(element) => { tabRefs.current.neighbors = element; }} data-mode="neighbors" id={tabDomId("neighbors")} role="tab" aria-controls={panelDomId("neighbors")} aria-selected={mode === "neighbors"} tabIndex={mode === "neighbors" ? 0 : -1} onKeyDown={selectModeFromKey} onClick={() => setMode("neighbors")}>Neighbors</button>
+        <button className="topology-tab__view-tab" ref={(element) => { tabRefs.current.topolograph = element; }} data-mode="topolograph" id={tabDomId("topolograph")} role="tab" aria-controls={panelDomId("topolograph")} aria-selected={mode === "topolograph"} tabIndex={mode === "topolograph" ? 0 : -1} onKeyDown={selectModeFromKey} onClick={() => setMode("topolograph")}>Topolograph</button>
+        <button className="topology-tab__view-tab" ref={(element) => { tabRefs.current.stp = element; }} data-mode="stp" id={tabDomId("stp")} role="tab" aria-controls={panelDomId("stp")} aria-selected={mode === "stp"} tabIndex={mode === "stp" ? 0 : -1} onKeyDown={selectModeFromKey} onClick={() => setMode("stp")}>Spanning Tree</button>
+      </div>
+      <section id={panelDomId("topolograph")} role="tabpanel" aria-labelledby={tabDomId("topolograph")} hidden={mode !== "topolograph"}>
+        {mode === "topolograph" ? <TopolographWorkspace /> : null}
+      </section>
+      <section id={panelDomId("stp")} role="tabpanel" aria-labelledby={tabDomId("stp")} hidden={mode !== "stp"}>
+        {mode === "stp" ? <StpWorkspace /> : null}
+      </section>
+      <section
+        className="topology-tab__panel"
+        id={panelDomId("neighbors")}
+        role="tabpanel"
+        aria-labelledby={tabDomId("neighbors")}
+        hidden={mode !== "neighbors"}
+      >
+      {mode === "neighbors" ? (
+      <div
+        className="topology-tab__workspace"
+        role="region"
+        aria-label="Neighbors topology workspace"
+      >
+      <header className="topology-tab__controls">
+        <div className="topology-tab__title">
+          <h2>Network neighbors</h2>
+          <p>Observed CDP and LLDP relationships across saved devices.</p>
         </div>
+        <TopologyToolbar
+          onRefresh={() => refresh()}
+          onDiscoverDevices={() => setShowDiscoveryModal(true)}
+          onExportPng={handleExportPng}
+          onClearGraph={handleClearGraph}
+        />
+      </header>
+      <div
+        className={`topology-tab__body topology-tab__body--inspector-${selectedNode ? "open" : "closed"}`}
+        data-testid="topology-workspace-body"
+      >
+        <div
+          className="topology-tab__rail"
+          data-testid="topology-navigation-rail"
+        >
+          <TopologyFilterTree
+            options={filterOptions}
+            state={filterState}
+            onChange={setFilterState}
+          />
+        </div>
+        <section
+          className="topology-tab__canvas-panel"
+          role="region"
+          aria-label="Topology canvas"
+          data-state={visibleNodes.length === 0 ? "empty" : "populated"}
+        >
+          <header className="topology-tab__graph-heading">
+            <div>
+              <h3>Live topology</h3>
+              <p>{visibleNodes.length} devices · {visibleEdges.length} links</p>
+            </div>
+            <span className="topology-tab__evidence-badge">CDP / LLDP</span>
+          </header>
+          <div className="topology-tab__canvas">
+            {visibleNodes.length === 0 ? (
+              <div
+                className="topology-tab__empty"
+                data-testid="topology-empty"
+                role="status"
+              >
+                <strong>Waiting for neighbor evidence</strong>
+                <span>
+                  Run <code>show cdp neighbors</code> on a device to populate
+                  the graph.
+                </span>
+              </div>
+            ) : (
+              <ReactFlow
+                nodes={rfNodes}
+                edges={rfEdges}
+                nodeTypes={NODE_TYPES}
+                edgeTypes={EDGE_TYPES}
+                nodesDraggable
+                nodesConnectable={false}
+                fitView
+                onNodeClick={handleNodeClick}
+                proOptions={{ hideAttribution: true }}
+                aria-label="Global topology graph"
+              >
+                <MiniMap pannable zoomable />
+                <Controls showInteractive={false} />
+                <Background />
+              </ReactFlow>
+            )}
+          </div>
+        </section>
         {selectedNode && (
           <TopologyInspector
             node={selectedNode}
@@ -424,6 +503,9 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
           <small style={{ opacity: 0.7 }}>{discoveryProgress.deviceName}</small>
         </div>
       )}
+      </div>
+      ) : null}
+      </section>
     </div>
   );
 }

@@ -77,6 +77,107 @@ fn parse_diagram_event(
     (title, format, xml, source, url, image_url)
 }
 
+fn attach_topolograph_runtime_binding(
+    params: &mut serde_json::Value,
+    agent_id: &str,
+    binding: Option<serde_json::Value>,
+) {
+    if matches!(agent_id, "network-architect" | "topolograph") {
+        if let Some(binding) = binding {
+            params["topolograph_runtime"] = binding;
+        }
+    }
+}
+
+fn resolve_topolograph_runtime_binding_with<D, A>(
+    agent_id: &str,
+    dedicated_binding: D,
+    architect_binding: A,
+) -> Result<Option<serde_json::Value>, String>
+where
+    D: FnOnce() -> Result<serde_json::Value, String>,
+    A: FnOnce() -> Option<serde_json::Value>,
+{
+    match agent_id {
+        "topolograph" => dedicated_binding().map(Some),
+        "network-architect" => Ok(architect_binding()),
+        _ => Ok(None),
+    }
+}
+
+fn resolve_topolograph_runtime_binding(
+    state: &AppState,
+    agent_id: &str,
+) -> Result<Option<serde_json::Value>, String> {
+    resolve_topolograph_runtime_binding_with(
+        agent_id,
+        || crate::commands::topolograph::topolograph_dedicated_runtime_binding(state),
+        || crate::commands::topolograph::topolograph_architect_runtime_binding(state),
+    )
+}
+
+fn should_retrieve_attached_tool_vault(
+    _agent_id: &str,
+    tool_id: &str,
+    vault_entry: &str,
+) -> bool {
+    !vault_entry.is_empty() && tool_id != "topolograph"
+}
+
+fn build_agent_react_run_params(
+    agent_id: &str,
+    message: String,
+    history: Vec<ChatTurn>,
+    system_prompt: String,
+    tools: serde_json::Value,
+    vault_entry: String,
+    vault_secrets: Option<std::collections::HashMap<String, String>>,
+    engine: Option<String>,
+    stream_output: bool,
+    topolograph_runtime: Option<serde_json::Value>,
+) -> serde_json::Value {
+    let mut params = serde_json::json!({
+        "agent_id": agent_id,
+        "message": message,
+        "history": history,
+        "system_prompt": system_prompt,
+        "tools": tools,
+        "vault_entry": vault_entry,
+        "vault_secrets": vault_secrets,
+        "engine": engine,
+        "stream_output": stream_output,
+    });
+    attach_topolograph_runtime_binding(&mut params, agent_id, topolograph_runtime);
+    params
+}
+
+fn build_agent_react_code_run_params(
+    agent_id: &str,
+    message: String,
+    history: Vec<ChatTurn>,
+    system_prompt: String,
+    tool_id: String,
+    vault_secrets: Option<std::collections::HashMap<String, String>>,
+    engine: Option<String>,
+    stream_output: bool,
+    run_id: String,
+    topolograph_runtime: Option<serde_json::Value>,
+) -> serde_json::Value {
+    let mut params = serde_json::json!({
+        "agent_id": agent_id,
+        "message": message,
+        "history": history,
+        "system_prompt": system_prompt,
+        "tool_id": tool_id,
+        "vault_secrets": vault_secrets,
+        "engine": engine,
+        "stream_output": stream_output,
+        "run_id": run_id,
+    });
+    attach_topolograph_runtime_binding(&mut params, agent_id, topolograph_runtime);
+    params
+}
+
 /// Events emitted during code execution agent loop
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -478,45 +579,31 @@ pub async fn agent_react_run(
         .get(&agent_id)
         .ok_or_else(|| format!("Agent '{}' not found", agent_id))?;
 
-    if agent.attached_tools.is_empty() {
+    if agent.attached_tools.is_empty() && agent.id != "network-architect" {
         return Err("Agent has no attached tools configured".to_string());
     }
 
     // 2. Load tool catalog from first attached tool
-    let tool_def = &agent.attached_tools[0];
-    let catalog_json = std::fs::read_to_string(&tool_def.catalog)
-        .map_err(|e| format!("Failed to read tool catalog {}: {}", tool_def.catalog, e))?;
-
-    let catalog: serde_json::Value = serde_json::from_str(&catalog_json)
-        .map_err(|e| format!("Failed to parse tool catalog: {}", e))?;
-
-    // 3. Retrieve credentials from vault
-    let vault_secrets = if !tool_def.vault_entry.is_empty() {
-        tracing::info!(
-            "Attempting to retrieve vault secrets for envelope: {}",
-            tool_def.vault_entry
-        );
-        match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
-            Ok(secrets) => {
-                tracing::info!("Successfully retrieved {} vault secrets", secrets.len());
-                for key in secrets.keys() {
-                    tracing::info!("  - Secret: {}", key);
-                }
-                Some(secrets)
+    let (catalog, vault_entry, vault_secrets) = if let Some(tool_def) = agent.attached_tools.first() {
+        let catalog_json = std::fs::read_to_string(&tool_def.catalog)
+            .map_err(|e| format!("Failed to read tool catalog {}: {}", tool_def.catalog, e))?;
+        let catalog: serde_json::Value = serde_json::from_str(&catalog_json)
+            .map_err(|e| format!("Failed to parse tool catalog: {}", e))?;
+        let vault_secrets = if should_retrieve_attached_tool_vault(
+            &agent.id,
+            &tool_def.id,
+            &tool_def.vault_entry,
+        ) {
+            match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
+                Ok(secrets) => Some(secrets),
+                Err(e) => return Err(format!("Vault error: {}", e)),
             }
-            Err(e) => {
-                tracing::error!(
-                    "Failed to retrieve vault secrets for {}: {}",
-                    tool_def.vault_entry,
-                    e
-                );
-                // Return the error to the user so they know what went wrong
-                return Err(format!("Vault error: {}", e));
-            }
-        }
+        } else {
+            None
+        };
+        (catalog, tool_def.vault_entry.clone(), vault_secrets)
     } else {
-        tracing::info!("No vault entry configured for this agent");
-        None
+        (serde_json::json!([]), String::new(), None)
     };
 
     // 4. Build pane context if tab_id provided
@@ -527,17 +614,19 @@ pub async fn agent_react_run(
     };
 
     // 5. Call Python sidecar method "agent.react_loop"
-    let mut params = serde_json::json!({
-        "agent_id": agent_id,
-        "message": message,
-        "history": history,
-        "system_prompt": agent.system_prompt,
-        "tools": catalog,
-        "vault_entry": tool_def.vault_entry,
-        "vault_secrets": vault_secrets,
-        "engine": agent.engine,
-        "stream_output": stream_output.unwrap_or(false),
-    });
+    let topolograph_runtime = resolve_topolograph_runtime_binding(&state, &agent.id)?;
+    let mut params = build_agent_react_run_params(
+        &agent_id,
+        message,
+        history,
+        agent.system_prompt.clone(),
+        catalog,
+        vault_entry,
+        vault_secrets,
+        agent.engine.clone(),
+        stream_output.unwrap_or(false),
+        topolograph_runtime,
+    );
     if !pane_context.is_empty() {
         params["pane_context"] = serde_json::json!(pane_context);
     }
@@ -858,7 +947,11 @@ pub async fn agent_react_code_run(
     // 2. Get vault secrets (for code execution sandbox)
     let vault_secrets = if !agent.attached_tools.is_empty() {
         let tool_def = &agent.attached_tools[0];
-        if !tool_def.vault_entry.is_empty() {
+        if should_retrieve_attached_tool_vault(
+            &agent.id,
+            &tool_def.id,
+            &tool_def.vault_entry,
+        ) {
             tracing::info!("Retrieving vault secrets for: {}", tool_def.vault_entry);
             match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
                 Ok(secrets) => {
@@ -894,17 +987,19 @@ pub async fn agent_react_code_run(
         .first()
         .map(|t| t.id.clone())
         .unwrap_or_default();
-    let mut params = serde_json::json!({
-        "agent_id": agent_id,
-        "message": message,
-        "history": history,
-        "system_prompt": agent.system_prompt,
-        "tool_id": tool_id,
-        "vault_secrets": vault_secrets,
-        "engine": agent.engine,
-        "stream_output": stream_output.unwrap_or(false),
-        "run_id": uuid::Uuid::new_v4().to_string(),
-    });
+    let topolograph_runtime = resolve_topolograph_runtime_binding(&state, &agent.id)?;
+    let mut params = build_agent_react_code_run_params(
+        &agent_id,
+        message,
+        history,
+        agent.system_prompt.clone(),
+        tool_id,
+        vault_secrets,
+        agent.engine.clone(),
+        stream_output.unwrap_or(false),
+        uuid::Uuid::new_v4().to_string(),
+        topolograph_runtime,
+    );
     let mut issued_terminal_lease_id: Option<String> = None;
 
     if !pane_context.is_empty() {
@@ -1540,6 +1635,7 @@ pub(crate) async fn _retrieve_vault_secrets(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     #[test]
     fn test_code_exec_event_serialization() {
@@ -1667,5 +1763,176 @@ mod tests {
         assert_eq!(source, None);
         assert_eq!(url, "");
         assert_eq!(image_url, None);
+    }
+
+    #[test]
+    fn production_react_param_builders_attach_private_topolograph_runtime_for_both_entry_points() {
+        let binding = serde_json::json!({
+            "base_url": "https://topolograph.example",
+            "verify_tls": true,
+            "token": "synthetic-direct-key",
+        });
+        let mut cases = Vec::new();
+        for agent_id in ["topolograph", "network-architect"] {
+            cases.push((
+                "agent.react_loop",
+                agent_id,
+                build_agent_react_run_params(
+                    agent_id,
+                    "inspect topology".to_string(),
+                    Vec::new(),
+                    "agent prompt".to_string(),
+                    serde_json::json!([]),
+                    String::new(),
+                    None,
+                    Some("deepagents".to_string()),
+                    false,
+                    Some(binding.clone()),
+                ),
+            ));
+            cases.push((
+                "agent.react_code_loop",
+                agent_id,
+                build_agent_react_code_run_params(
+                    agent_id,
+                    "inspect topology".to_string(),
+                    Vec::new(),
+                    "agent prompt".to_string(),
+                    "topolograph".to_string(),
+                    None,
+                    Some("deepagents".to_string()),
+                    false,
+                    "test-run".to_string(),
+                    Some(binding.clone()),
+                ),
+            ));
+        }
+
+        assert_eq!(binding["token"], "synthetic-direct-key");
+        for (entry_point, agent_id, params) in cases {
+            assert_eq!(params["topolograph_runtime"], binding, "{entry_point}");
+            assert!(
+                params.get("vault_secrets").is_none_or(Value::is_null),
+                "{entry_point} unexpectedly included Vault secrets for {agent_id}"
+            );
+        }
+    }
+
+    #[test]
+    fn command_runtime_selection_is_strict_for_topolograph_and_optional_for_architect() {
+        let binding = serde_json::json!({
+            "base_url": "https://topolograph.example",
+            "verify_tls": true,
+            "token": "synthetic-direct-key",
+        });
+
+        let dedicated = resolve_topolograph_runtime_binding_with(
+            "topolograph",
+            || Err("dedicated binding unavailable".to_string()),
+            || Some(binding.clone()),
+        );
+        assert_eq!(dedicated.unwrap_err(), "dedicated binding unavailable");
+
+        let architect = resolve_topolograph_runtime_binding_with(
+            "network-architect",
+            || Err("dedicated binding must not be used".to_string()),
+            || Some(binding.clone()),
+        )
+        .unwrap();
+        assert_eq!(architect, Some(binding));
+
+        let unrelated = resolve_topolograph_runtime_binding_with(
+            "meraki",
+            || panic!("unrelated agents must not load the dedicated binding"),
+            || panic!("unrelated agents must not load the Architect binding"),
+        )
+        .unwrap();
+        assert_eq!(unrelated, None);
+    }
+
+    #[test]
+    fn topolograph_tool_vault_policy_skips_connector_entry_but_keeps_unrelated_tool_entry() {
+        assert!(!should_retrieve_attached_tool_vault(
+            "topolograph",
+            "topolograph",
+            "legacy-topolograph-envelope",
+        ));
+        assert!(!should_retrieve_attached_tool_vault(
+            "network-architect",
+            "topolograph",
+            "legacy-topolograph-envelope",
+        ));
+        assert!(should_retrieve_attached_tool_vault(
+            "topolograph",
+            "meraki",
+            "meraki_default",
+        ));
+        assert!(should_retrieve_attached_tool_vault(
+            "network-architect",
+            "meraki",
+            "meraki_default",
+        ));
+        assert!(!should_retrieve_attached_tool_vault(
+            "meraki", "meraki", "",
+        ));
+    }
+
+    #[test]
+    fn production_react_param_builders_omit_unusable_or_non_architect_topolograph_runtime() {
+        let react_params = build_agent_react_run_params(
+            "network-architect",
+            "inspect topology".to_string(),
+            Vec::new(),
+            "architect prompt".to_string(),
+            serde_json::json!([]),
+            String::new(),
+            None,
+            Some("deepagents".to_string()),
+            false,
+            None,
+        );
+        let react_code_params = build_agent_react_code_run_params(
+            "network-architect",
+            "inspect topology".to_string(),
+            Vec::new(),
+            "architect prompt".to_string(),
+            String::new(),
+            None,
+            Some("deepagents".to_string()),
+            false,
+            "test-run".to_string(),
+            None,
+        );
+        let non_architect_params = build_agent_react_run_params(
+            "meraki",
+            "inspect topology".to_string(),
+            Vec::new(),
+            "meraki prompt".to_string(),
+            serde_json::json!([]),
+            String::new(),
+            None,
+            Some("deepagents".to_string()),
+            false,
+            Some(serde_json::json!({"token": "synthetic-direct-key"})),
+        );
+        let non_architect_code_params = build_agent_react_code_run_params(
+            "meraki",
+            "inspect topology".to_string(),
+            Vec::new(),
+            "meraki prompt".to_string(),
+            String::new(),
+            None,
+            Some("deepagents".to_string()),
+            false,
+            "test-run".to_string(),
+            Some(serde_json::json!({"token": "synthetic-direct-key"})),
+        );
+
+        assert!(react_params.get("topolograph_runtime").is_none());
+        assert!(react_code_params.get("topolograph_runtime").is_none());
+        assert!(non_architect_params.get("topolograph_runtime").is_none());
+        assert!(non_architect_code_params
+            .get("topolograph_runtime")
+            .is_none());
     }
 }

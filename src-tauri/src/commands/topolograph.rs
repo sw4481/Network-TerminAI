@@ -6,13 +6,13 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::net::IpAddr;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
-use zeroize::Zeroizing;
 
 use crate::commands::AppState;
 
@@ -26,6 +26,7 @@ pub const MAX_UPLOAD_BYTES: u64 = 32 * 1024 * 1024;
 const AUDIT_RETENTION_SECONDS: i64 = 7 * 24 * 60 * 60;
 const MAX_AUDIT_ROWS: i64 = 500;
 const MAX_AUDIT_LIST_LIMIT: u32 = 50;
+const REDACTED_API_KEY: &str = "[REDACTED]";
 
 fn default_singleton_id() -> String {
     TOPOLOGRAPH_SINGLETON_ID.to_string()
@@ -35,15 +36,29 @@ fn default_verify_tls() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct TopolographConfig {
     pub singleton_id: String,
     pub enabled: bool,
     pub base_url: String,
-    pub secret_id: String,
+    pub api_key: String,
     pub verify_tls: bool,
     pub updated_at: i64,
+}
+
+impl fmt::Debug for TopolographConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("TopolographConfig")
+            .field("singleton_id", &self.singleton_id)
+            .field("enabled", &self.enabled)
+            .field("base_url", &self.base_url)
+            .field("api_key", &REDACTED_API_KEY)
+            .field("verify_tls", &self.verify_tls)
+            .field("updated_at", &self.updated_at)
+            .finish()
+    }
 }
 
 impl Default for TopolographConfig {
@@ -52,10 +67,34 @@ impl Default for TopolographConfig {
             singleton_id: default_singleton_id(),
             enabled: false,
             base_url: String::new(),
-            secret_id: String::new(),
+            api_key: String::new(),
             verify_tls: default_verify_tls(),
             updated_at: 0,
         }
+    }
+}
+
+impl TopolographConfig {
+    pub(crate) fn direct_params(&self) -> Result<Value, String> {
+        require_enabled_config(self)?;
+        let base_url = normalize_base_url(&self.base_url)?;
+        Ok(json!({
+            "base_url": base_url,
+            "verify_tls": self.verify_tls,
+            "token": self.api_key.trim(),
+            "enabled": true,
+            "configured": true,
+            "unlocked": true,
+        }))
+    }
+
+    fn runtime_binding(&self) -> Result<Value, String> {
+        let params = self.direct_params()?;
+        Ok(json!({
+            "base_url": params["base_url"],
+            "verify_tls": params["verify_tls"],
+            "token": params["token"],
+        }))
     }
 }
 
@@ -280,7 +319,7 @@ fn normalize_config(mut config: TopolographConfig) -> Result<TopolographConfig, 
     } else {
         normalize_base_url(&config.base_url)?
     };
-    config.secret_id = config.secret_id.trim().to_string();
+    config.api_key = config.api_key.trim().to_string();
     config.updated_at = now_secs();
     Ok(config)
 }
@@ -308,7 +347,7 @@ fn normalized_persisted_config(config: TopolographConfig) -> Result<TopolographC
 fn read_config(connection: &Connection) -> Result<Option<TopolographConfig>, String> {
     connection
         .query_row(
-            "SELECT singleton_id, enabled, base_url, secret_id, verify_tls, updated_at
+            "SELECT singleton_id, enabled, base_url, api_key, verify_tls, updated_at
              FROM topolograph_config WHERE singleton_id = ?1",
             params![TOPOLOGRAPH_SINGLETON_ID],
             |row| {
@@ -316,7 +355,7 @@ fn read_config(connection: &Connection) -> Result<Option<TopolographConfig>, Str
                     singleton_id: row.get(0)?,
                     enabled: row.get::<_, i64>(1)? != 0,
                     base_url: row.get(2)?,
-                    secret_id: row.get(3)?,
+                    api_key: row.get(3)?,
                     verify_tls: row.get::<_, i64>(4)? != 0,
                     updated_at: row.get(5)?,
                 })
@@ -326,110 +365,24 @@ fn read_config(connection: &Connection) -> Result<Option<TopolographConfig>, Str
         .map_err(|e| e.to_string())
 }
 
-fn read_selected_token(state: &AppState, secret_id: &str) -> Result<Zeroizing<Vec<u8>>, String> {
-    if secret_id.is_empty() {
-        return Ok(Zeroizing::new(Vec::new()));
-    }
-    let connection = state.db.lock();
-    state
-        .vault
-        .store
-        .read_secret(&connection, &state.vault.lock, secret_id)
-        .map_err(|error| format!("Topolograph Vault secret unavailable: {error}"))
-}
-
-fn selected_secret_is_unlocked(state: &AppState, secret_id: &str) -> Result<bool, String> {
-    let connection = state.db.lock();
-    let envelope_id: Option<String> = connection
-        .query_row(
-            "SELECT envelope_id FROM vault_secrets WHERE id = ?1",
-            params![secret_id],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|error| format!("Topolograph Vault secret unavailable: {error}"))?;
-    let envelope_id = envelope_id.ok_or_else(|| {
-        "Topolograph Vault secret unavailable: selected secret not found".to_string()
-    })?;
-    Ok(state.vault.lock.is_unlocked(&envelope_id))
-}
-
-fn read_verified_selected_token(
-    state: &AppState,
-    secret_id: &str,
-) -> Result<Zeroizing<Vec<u8>>, String> {
-    if !selected_secret_is_unlocked(state, secret_id)? {
-        return Err("Topolograph Vault secret unavailable: vault is locked".into());
-    }
-    read_selected_token(state, secret_id)
-}
-
-fn selected_token_text(token: &Zeroizing<Vec<u8>>) -> Result<String, String> {
-    String::from_utf8(token.to_vec())
-        .map_err(|_| "Topolograph Vault token is not valid UTF-8".to_string())
-}
-
-fn build_architect_runtime_binding(
-    config: &TopolographConfig,
-    token: Zeroizing<Vec<u8>>,
-) -> Option<Value> {
-    let config = normalized_complete_config(config.clone()).ok()?;
-    let token = selected_token_text(&token).ok()?;
-    if token.trim().is_empty() {
-        return None;
-    }
-    Some(json!({
-        "base_url": config.base_url,
-        "verify_tls": config.verify_tls,
-        "token": token,
-    }))
-}
-
-fn topolograph_architect_runtime_binding_with<F, G>(
+fn topolograph_architect_runtime_binding_with(
     config: Result<TopolographConfig, String>,
-    selected_secret_is_unlocked: F,
-    read_token: G,
-) -> Option<Value>
-where
-    F: FnOnce(&str) -> Result<bool, String>,
-    G: FnOnce(&str) -> Result<Zeroizing<Vec<u8>>, String>,
-{
-    let config = normalized_complete_config(config.ok()?).ok()?;
-    if !selected_secret_is_unlocked(&config.secret_id).ok()? {
-        return None;
-    }
-    let token = read_token(&config.secret_id).ok()?;
-    build_architect_runtime_binding(&config, token)
+) -> Option<Value> {
+    config.ok()?.runtime_binding().ok()
+}
+
+fn topolograph_dedicated_runtime_binding_with(
+    config: Result<TopolographConfig, String>,
+) -> Result<Value, String> {
+    config?.runtime_binding()
 }
 
 pub(crate) fn topolograph_architect_runtime_binding(state: &AppState) -> Option<Value> {
-    topolograph_architect_runtime_binding_with(
-        persisted_config(state),
-        |secret_id| selected_secret_is_unlocked(state, secret_id),
-        |secret_id| read_selected_token(state, secret_id),
-    )
+    topolograph_architect_runtime_binding_with(persisted_config(state))
 }
 
-fn topolograph_direct_params(
-    config: &TopolographConfig,
-    token: Zeroizing<Vec<u8>>,
-) -> Result<Value, String> {
-    require_enabled_config(config)?;
-    if config.base_url.trim().is_empty() {
-        return Err("Topolograph base URL is required".into());
-    }
-    let token = selected_token_text(&token)?;
-    if token.trim().is_empty() {
-        return Err("Topolograph Vault token is required".into());
-    }
-    Ok(json!({
-        "base_url": config.base_url,
-        "verify_tls": config.verify_tls,
-        "token": token,
-        "enabled": true,
-        "configured": true,
-        "unlocked": true,
-    }))
+pub(crate) fn topolograph_dedicated_runtime_binding(state: &AppState) -> Result<Value, String> {
+    topolograph_dedicated_runtime_binding_with(persisted_config(state))
 }
 
 async fn call_topolograph(
@@ -448,13 +401,52 @@ fn require_enabled_config(config: &TopolographConfig) -> Result<(), String> {
     if !config.enabled {
         return Err("Topolograph connector is disabled".into());
     }
-    if config.secret_id.trim().is_empty() {
-        return Err("Topolograph Vault secret is required".into());
+    if config.api_key.trim().is_empty() {
+        return Err("Topolograph API key is required".into());
     }
     Ok(())
 }
 
-fn sidecar_error_code(message: &str) -> String {
+fn sanitize_api_key(value: &str, api_key: &str) -> String {
+    let api_key = api_key.trim();
+    if api_key.is_empty() {
+        value.to_string()
+    } else {
+        value.replace(api_key, REDACTED_API_KEY)
+    }
+}
+
+fn sanitize_sidecar_value(value: Value, api_key: &str) -> Value {
+    match value {
+        Value::String(value) => Value::String(sanitize_api_key(&value, api_key)),
+        Value::Array(values) => Value::Array(
+            values
+                .into_iter()
+                .map(|value| sanitize_sidecar_value(value, api_key))
+                .collect(),
+        ),
+        Value::Object(values) => Value::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| (key, sanitize_sidecar_value(value, api_key)))
+                .collect(),
+        ),
+        value => value,
+    }
+}
+
+fn sanitize_warnings(warnings: Vec<String>, api_key: &str) -> Vec<String> {
+    warnings
+        .into_iter()
+        .map(|warning| sanitize_api_key(&warning, api_key))
+        .collect()
+}
+
+fn sidecar_error_code(message: &str, api_key: &str) -> String {
+    let api_key = api_key.trim();
+    if !api_key.is_empty() && message.contains(api_key) {
+        return "SIDECAR_ERROR".to_string();
+    }
     message
         .split(':')
         .map(str::trim)
@@ -470,10 +462,13 @@ fn sidecar_error_code(message: &str) -> String {
 
 fn connection_report_from_agent_response(
     response: crate::agent_bridge::AgentResponse,
-    mut warnings: Vec<String>,
+    warnings: Vec<String>,
+    api_key: &str,
 ) -> Result<ConnectionReport, String> {
+    let mut warnings = sanitize_warnings(warnings, api_key);
     match response {
         crate::agent_bridge::AgentResponse::Done { result } => {
+            let result = sanitize_sidecar_value(result, api_key);
             let object = result
                 .as_object()
                 .ok_or_else(|| "Topolograph sidecar returned an invalid report".to_string())?;
@@ -540,7 +535,7 @@ fn connection_report_from_agent_response(
         }
         crate::agent_bridge::AgentResponse::Error { message } => Ok(ConnectionReport {
             ok: false,
-            message,
+            message: sanitize_api_key(&message, api_key),
             warnings,
             server_name: String::new(),
             server_version: String::new(),
@@ -560,9 +555,12 @@ fn upload_result_from_agent_response(
     response: crate::agent_bridge::AgentResponse,
     bytes: u64,
     warnings: Vec<String>,
+    api_key: &str,
 ) -> Result<UploadResult, String> {
+    let warnings = sanitize_warnings(warnings, api_key);
     match response {
         crate::agent_bridge::AgentResponse::Done { result } => {
+            let result = sanitize_sidecar_value(result, api_key);
             let object = result.as_object().ok_or_else(|| {
                 "Topolograph sidecar returned an invalid upload result".to_string()
             })?;
@@ -581,7 +579,7 @@ fn upload_result_from_agent_response(
         }
         crate::agent_bridge::AgentResponse::Error { message } => Ok(UploadResult {
             ok: false,
-            message,
+            message: sanitize_api_key(&message, api_key),
             bytes,
             warnings,
         }),
@@ -599,29 +597,43 @@ pub fn topolograph_config_get(
     read_config(&connection)
 }
 
-#[tauri::command]
-pub fn topolograph_config_save(
-    state: State<'_, AppState>,
+fn save_config(
+    connection: &Connection,
     config: TopolographConfig,
-) -> Result<(), String> {
+) -> Result<TopolographConfig, String> {
     let config = normalized_persisted_config(config)?;
-    let warnings = security_warnings(&config.base_url, config.verify_tls);
-    let connection = state.db.lock();
     connection
         .execute(
-            "INSERT OR REPLACE INTO topolograph_config
-                (singleton_id, enabled, base_url, secret_id, verify_tls, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO topolograph_config
+                (singleton_id, enabled, base_url, api_key, verify_tls, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(singleton_id) DO UPDATE SET
+                enabled = excluded.enabled,
+                base_url = excluded.base_url,
+                api_key = excluded.api_key,
+                verify_tls = excluded.verify_tls,
+                updated_at = excluded.updated_at",
             params![
                 config.singleton_id,
                 if config.enabled { 1 } else { 0 },
                 config.base_url,
-                config.secret_id,
+                config.api_key,
                 if config.verify_tls { 1 } else { 0 },
                 config.updated_at,
             ],
         )
         .map_err(|e| e.to_string())?;
+    Ok(config)
+}
+
+#[tauri::command]
+pub fn topolograph_config_save(
+    state: State<'_, AppState>,
+    config: TopolographConfig,
+) -> Result<(), String> {
+    let connection = state.db.lock();
+    let config = save_config(&connection, config)?;
+    let warnings = security_warnings(&config.base_url, config.verify_tls);
     insert_audit(
         &connection,
         "config.save",
@@ -643,15 +655,14 @@ pub async fn topolograph_test_connection(
 ) -> Result<ConnectionReport, String> {
     let config = normalized_complete_config(config)?;
     let warnings = security_warnings(&config.base_url, config.verify_tls);
-    let token = read_verified_selected_token(&state, &config.secret_id)?;
-    let params = topolograph_direct_params(&config, token)?;
+    let params = config.direct_params()?;
     let started = std::time::Instant::now();
     let response = call_topolograph(&state, "topolograph.test_connection", params).await?;
-    let report = connection_report_from_agent_response(response, warnings)?;
+    let report = connection_report_from_agent_response(response, warnings, &config.api_key)?;
     let error_code = if report.ok {
         String::new()
     } else {
-        sidecar_error_code(&report.message)
+        sidecar_error_code(&report.message, &config.api_key)
     };
     let connection = state.db.lock();
     insert_audit(
@@ -670,13 +681,9 @@ fn persisted_config(state: &AppState) -> Result<TopolographConfig, String> {
     read_config(&connection)?.ok_or_else(|| "Topolograph configuration is not saved".into())
 }
 
-fn upload_config_and_token(
-    state: &AppState,
-) -> Result<(TopolographConfig, Zeroizing<Vec<u8>>), String> {
+fn upload_config(state: &AppState) -> Result<TopolographConfig, String> {
     let config = persisted_config(state)?;
-    let config = normalized_complete_config(config)?;
-    let token = read_verified_selected_token(state, &config.secret_id)?;
-    Ok((config, token))
+    normalized_complete_config(config)
 }
 
 #[tauri::command]
@@ -691,8 +698,8 @@ pub async fn topolograph_upload_lsdb_file(
     let mut request = request;
     request.protocol = protocol;
     let content = validate_native_upload(Path::new(&request.path), TopolographUploadKind::Lsdb)?;
-    let (config, token) = upload_config_and_token(&state)?;
-    let mut params = topolograph_direct_params(&config, token)?;
+    let config = upload_config(&state)?;
+    let mut params = config.direct_params()?;
     params["content"] = json!(String::from_utf8(content.clone())
         .map_err(|_| "Topolograph LSDB upload file must be UTF-8 text".to_string())?);
     params["vendor"] = json!("Cisco");
@@ -700,11 +707,16 @@ pub async fn topolograph_upload_lsdb_file(
     let warnings = security_warnings(&config.base_url, config.verify_tls);
     let started = std::time::Instant::now();
     let response = call_topolograph(&state, "topolograph.upload_lsdb", params).await?;
-    let result = upload_result_from_agent_response(response, content.len() as u64, warnings)?;
+    let result = upload_result_from_agent_response(
+        response,
+        content.len() as u64,
+        warnings,
+        &config.api_key,
+    )?;
     let error_code = if result.ok {
         String::new()
     } else {
-        sidecar_error_code(&result.message)
+        sidecar_error_code(&result.message, &config.api_key)
     };
     let connection = state.db.lock();
     insert_audit(
@@ -727,18 +739,23 @@ pub async fn topolograph_upload_yaml_file(
     path: String,
 ) -> Result<UploadResult, String> {
     let content = validate_native_upload(Path::new(&path), TopolographUploadKind::Yaml)?;
-    let (config, token) = upload_config_and_token(&state)?;
-    let mut params = topolograph_direct_params(&config, token)?;
+    let config = upload_config(&state)?;
+    let mut params = config.direct_params()?;
     params["content"] = json!(String::from_utf8(content.clone())
         .map_err(|_| "Topolograph YAML upload file must be UTF-8 text".to_string())?);
     let warnings = security_warnings(&config.base_url, config.verify_tls);
     let started = std::time::Instant::now();
     let response = call_topolograph(&state, "topolograph.upload_yaml", params).await?;
-    let result = upload_result_from_agent_response(response, content.len() as u64, warnings)?;
+    let result = upload_result_from_agent_response(
+        response,
+        content.len() as u64,
+        warnings,
+        &config.api_key,
+    )?;
     let error_code = if result.ok {
         String::new()
     } else {
-        sidecar_error_code(&result.message)
+        sidecar_error_code(&result.message, &config.api_key)
     };
     let connection = state.db.lock();
     insert_audit(
@@ -794,7 +811,6 @@ pub fn topolograph_audit_list(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::Cell;
     use std::path::Path;
 
     #[test]
@@ -878,7 +894,12 @@ mod tests {
                 ]
             }),
         };
-        let report = connection_report_from_agent_response(done, Vec::new()).unwrap();
+        let report = connection_report_from_agent_response(
+            done,
+            Vec::new(),
+            "synthetic-direct-key",
+        )
+        .unwrap();
         assert!(report.ok);
         assert!(report.message.contains("Topolograph MCP"));
         assert_eq!(
@@ -904,11 +925,111 @@ mod tests {
         let error = crate::agent_bridge::AgentResponse::Error {
             message: "UPSTREAM_RPC_ERROR: Topolograph rejected the MCP request.".into(),
         };
-        let failed = connection_report_from_agent_response(error, Vec::new()).unwrap();
+        let failed = connection_report_from_agent_response(
+            error,
+            Vec::new(),
+            "synthetic-direct-key",
+        )
+        .unwrap();
         assert!(!failed.ok);
         assert!(failed.message.contains("UPSTREAM_RPC_ERROR"));
         assert!(!failed.message.contains("selected-token"));
         assert!(!failed.message.contains("raw-body"));
+    }
+
+    #[test]
+    fn connection_reports_redact_a_reflected_api_key_from_all_sidecar_strings() {
+        let response = crate::agent_bridge::AgentResponse::Done {
+            result: json!({
+                "ok": false,
+                "message": "connection rejected synthetic-direct-key",
+                "warnings": ["warning synthetic-direct-key"],
+                "server_name": "server synthetic-direct-key",
+                "server_version": "version synthetic-direct-key",
+                "tools": ["tool synthetic-direct-key"],
+                "missing_tools": ["missing synthetic-direct-key"],
+                "unexpected_tools": ["unexpected synthetic-direct-key"],
+                "stages": [{"name": "stage synthetic-direct-key", "status": "failed"}],
+            }),
+        };
+
+        let report = connection_report_from_agent_response(
+            response,
+            Vec::new(),
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        let serialized = serde_json::to_string(&report).unwrap();
+        assert!(!serialized.contains("synthetic-direct-key"));
+        assert!(serialized.contains("[REDACTED]"));
+
+        let failed = connection_report_from_agent_response(
+            crate::agent_bridge::AgentResponse::Error {
+                message: "UPSTREAM_ERROR: synthetic-direct-key".into(),
+            },
+            vec!["warning synthetic-direct-key".into()],
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        assert!(!serde_json::to_string(&failed)
+            .unwrap()
+            .contains("synthetic-direct-key"));
+    }
+
+    #[test]
+    fn upload_results_redact_a_reflected_api_key_from_messages_warnings_and_errors() {
+        let result = upload_result_from_agent_response(
+            crate::agent_bridge::AgentResponse::Done {
+                result: json!({
+                    "ok": true,
+                    "message": "uploaded with synthetic-direct-key",
+                }),
+            },
+            12,
+            vec!["warning synthetic-direct-key".into()],
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        let serialized = serde_json::to_string(&result).unwrap();
+        assert!(!serialized.contains("synthetic-direct-key"));
+        assert!(serialized.contains("[REDACTED]"));
+
+        let failed = upload_result_from_agent_response(
+            crate::agent_bridge::AgentResponse::Error {
+                message: "UPLOAD_ERROR: synthetic-direct-key".into(),
+            },
+            0,
+            Vec::new(),
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        assert!(!failed.message.contains("synthetic-direct-key"));
+    }
+
+    #[test]
+    fn audit_error_codes_reject_a_configured_key_shaped_like_a_sidecar_code() {
+        let audit_shaped_key = "synthetic-direct-key"
+            .to_ascii_uppercase()
+            .replace('-', "_");
+        assert_eq!(
+            sidecar_error_code(&format!("{audit_shaped_key}: rejected"), &audit_shaped_key),
+            "SIDECAR_ERROR"
+        );
+    }
+
+    #[test]
+    fn topolograph_config_debug_redacts_the_api_key() {
+        let config = TopolographConfig {
+            enabled: true,
+            base_url: "https://topolograph.example".into(),
+            api_key: "synthetic-direct-key".into(),
+            ..TopolographConfig::default()
+        };
+
+        let debug = format!("{config:?}");
+        assert!(!debug.contains("synthetic-direct-key"));
+        assert!(debug.contains("https://topolograph.example"));
+        assert!(debug.contains("[REDACTED]"));
     }
 
     #[test]
@@ -921,72 +1042,138 @@ mod tests {
 
         assert!(!saved.enabled);
         assert!(saved.base_url.is_empty());
-        assert!(saved.secret_id.is_empty());
+        assert!(saved.api_key.is_empty());
     }
 
     #[test]
-    fn architect_runtime_binding_reads_the_selected_secret_only_after_complete_unlocked_preflight()
-    {
-        let config = TopolographConfig {
-            singleton_id: TOPOLOGRAPH_SINGLETON_ID.to_string(),
-            enabled: true,
-            base_url: "https://topolograph.example".to_string(),
-            secret_id: "selected-secret".to_string(),
-            verify_tls: false,
-            updated_at: 0,
-        };
-        let secret_reads = Cell::new(0);
+    fn migration_and_config_save_preserve_legacy_secret_while_round_tripping_direct_key() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("../../migrations/V0089__topolograph.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!("../../migrations/V0090__stp.sql"))
+            .unwrap();
+        connection
+            .execute_batch(include_str!(
+                "../../migrations/V0091__topolograph_direct_api_key.sql"
+            ))
+            .unwrap();
 
-        let binding = topolograph_architect_runtime_binding_with(
-            Ok(config),
-            |secret_id| {
-                assert_eq!(secret_id, "selected-secret");
-                Ok(true)
-            },
-            |secret_id| {
-                assert_eq!(secret_id, "selected-secret");
-                secret_reads.set(secret_reads.get() + 1);
-                Ok(Zeroizing::new(b"selected-token".to_vec()))
+        let columns = connection
+            .prepare("PRAGMA table_info(topolograph_config)")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            columns,
+            vec![
+                "singleton_id",
+                "enabled",
+                "base_url",
+                "secret_id",
+                "verify_tls",
+                "updated_at",
+                "api_key",
+            ]
+        );
+
+        connection
+            .execute(
+                "INSERT INTO topolograph_config
+                    (singleton_id, enabled, base_url, secret_id, verify_tls, updated_at)
+                 VALUES (?1, 1, 'https://legacy.example', 'legacy-vault-reference', 1, 1)",
+                params![TOPOLOGRAPH_SINGLETON_ID],
+            )
+            .unwrap();
+        save_config(
+            &connection,
+            TopolographConfig {
+                enabled: true,
+                base_url: "https://topolograph.example/".into(),
+                api_key: "  synthetic-direct-key  ".into(),
+                verify_tls: false,
+                ..TopolographConfig::default()
             },
         )
         .unwrap();
 
+        let stored: (String, String) = connection
+            .query_row(
+                "SELECT secret_id, api_key FROM topolograph_config WHERE singleton_id = ?1",
+                params![TOPOLOGRAPH_SINGLETON_ID],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
         assert_eq!(
-            binding,
-            json!({
-                "base_url": "https://topolograph.example",
-                "verify_tls": false,
-                "token": "selected-token",
-            })
+            stored,
+            ("legacy-vault-reference".into(), "synthetic-direct-key".into())
         );
-        assert_eq!(secret_reads.get(), 1);
+
+        let loaded = read_config(&connection).unwrap().unwrap();
+        assert_eq!(loaded.api_key, "synthetic-direct-key");
+        let serialized = serde_json::to_value(loaded).unwrap();
+        assert_eq!(serialized["apiKey"], "synthetic-direct-key");
+        assert!(serialized.get("secretId").is_none());
     }
 
     #[test]
-    fn architect_runtime_binding_omits_unusable_states_without_reading_a_secret() {
+    fn direct_params_and_runtime_bindings_use_only_the_config_api_key() {
+        let config = TopolographConfig {
+            singleton_id: TOPOLOGRAPH_SINGLETON_ID.to_string(),
+            enabled: true,
+            base_url: "https://topolograph.example".to_string(),
+            api_key: "synthetic-direct-key".to_string(),
+            verify_tls: false,
+            updated_at: 0,
+        };
+
+        assert_eq!(
+            config.direct_params().unwrap(),
+            json!({
+                "base_url": "https://topolograph.example",
+                "verify_tls": false,
+                "token": "synthetic-direct-key",
+                "enabled": true,
+                "configured": true,
+                "unlocked": true,
+            })
+        );
+        let expected_binding = json!({
+            "base_url": "https://topolograph.example",
+            "verify_tls": false,
+            "token": "synthetic-direct-key",
+        });
+        assert_eq!(
+            topolograph_dedicated_runtime_binding_with(Ok(config.clone())).unwrap(),
+            expected_binding
+        );
+        assert_eq!(
+            topolograph_architect_runtime_binding_with(Ok(config)),
+            Some(expected_binding)
+        );
+    }
+
+    #[test]
+    fn direct_operations_reject_an_empty_api_key_before_sidecar_params_exist() {
         let usable = TopolographConfig {
             singleton_id: TOPOLOGRAPH_SINGLETON_ID.to_string(),
             enabled: true,
             base_url: "https://topolograph.example".to_string(),
-            secret_id: "selected-secret".to_string(),
+            api_key: "synthetic-direct-key".to_string(),
             verify_tls: true,
             updated_at: 0,
         };
         let cases = [
-            (
-                "missing persisted configuration",
-                Err("not saved".to_string()),
-                Ok(true),
-                0,
-            ),
+            ("missing persisted configuration", Err("not saved".to_string())),
             (
                 "disabled connector",
                 Ok(TopolographConfig {
                     enabled: false,
                     ..usable.clone()
                 }),
-                Ok(true),
-                0,
             ),
             (
                 "empty base URL",
@@ -994,113 +1181,77 @@ mod tests {
                     base_url: String::new(),
                     ..usable.clone()
                 }),
-                Ok(true),
-                0,
             ),
             (
-                "empty selected secret ID",
+                "empty API key",
                 Ok(TopolographConfig {
-                    secret_id: String::new(),
+                    api_key: String::new(),
                     ..usable.clone()
                 }),
-                Ok(true),
-                0,
             ),
-            (
-                "missing selected secret",
-                Ok(usable.clone()),
-                Err("secret not found".to_string()),
-                1,
-            ),
-            ("locked vault", Ok(usable), Ok(false), 1),
         ];
 
-        for (state, config, vault_ready, expected_preflights) in cases {
-            let preflight_calls = Cell::new(0);
-            let secret_reads = Cell::new(0);
-            let binding = topolograph_architect_runtime_binding_with(
-                config,
-                |_| {
-                    preflight_calls.set(preflight_calls.get() + 1);
-                    vault_ready
-                },
-                |_| {
-                    secret_reads.set(secret_reads.get() + 1);
-                    Ok(Zeroizing::new(b"selected-token".to_vec()))
-                },
+        for (case, config) in cases {
+            assert!(
+                topolograph_architect_runtime_binding_with(config).is_none(),
+                "{case}"
             );
-
-            assert!(binding.is_none(), "{state}");
-            assert_eq!(preflight_calls.get(), expected_preflights, "{state}");
-            assert_eq!(secret_reads.get(), 0, "{state}");
         }
-    }
-
-    #[test]
-    fn direct_tauri_params_mark_a_verified_connector_complete_and_unlocked() {
-        let config = TopolographConfig {
-            singleton_id: TOPOLOGRAPH_SINGLETON_ID.to_string(),
-            enabled: true,
-            base_url: "https://topolograph.example".to_string(),
-            secret_id: "selected-secret".to_string(),
-            verify_tls: false,
-            updated_at: 0,
-        };
 
         assert_eq!(
-            topolograph_direct_params(&config, Zeroizing::new(b"selected-token".to_vec())).unwrap(),
-            json!({
-                "base_url": "https://topolograph.example",
-                "verify_tls": false,
-                "token": "selected-token",
-                "enabled": true,
-                "configured": true,
-                "unlocked": true,
-            })
+            TopolographConfig {
+                enabled: true,
+                base_url: "https://topolograph.example".into(),
+                api_key: "   ".into(),
+                ..TopolographConfig::default()
+            }
+            .direct_params()
+            .unwrap_err(),
+            "Topolograph API key is required"
         );
     }
 
     #[test]
-    fn migration_defines_only_the_requested_topolograph_boundary_columns() {
+    fn response_and_audit_serialization_do_not_disclose_the_direct_key() {
+        let response = crate::agent_bridge::AgentResponse::Done {
+            result: json!({
+                "server_name": "Topolograph MCP",
+                "server_version": "1.3.1",
+                "token": "synthetic-direct-key",
+            }),
+        };
+        let report = connection_report_from_agent_response(
+            response,
+            Vec::new(),
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        assert!(!serde_json::to_string(&report)
+            .unwrap()
+            .contains("synthetic-direct-key"));
+
         let connection = rusqlite::Connection::open_in_memory().unwrap();
         connection
             .execute_batch(include_str!("../../migrations/V0089__topolograph.sql"))
             .unwrap();
-
-        let columns = |table: &str| {
-            connection
-                .prepare(&format!("PRAGMA table_info({table})"))
-                .unwrap()
-                .query_map([], |row| row.get::<_, String>(1))
-                .unwrap()
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap()
-        };
-        assert_eq!(
-            columns("topolograph_config"),
-            vec![
-                "singleton_id",
-                "enabled",
-                "base_url",
-                "secret_id",
-                "verify_tls",
-                "updated_at"
-            ]
-        );
-        assert_eq!(
-            columns("topolograph_audit"),
-            vec![
-                "id",
-                "occurred_at",
-                "caller_kind",
-                "caller_id",
-                "action",
-                "target_label",
-                "outcome",
-                "duration_ms",
-                "error_code"
-            ]
-        );
+        insert_audit(
+            &connection,
+            "connection.test",
+            "topolograph",
+            "ok",
+            1,
+            "",
+        )
+        .unwrap();
+        let audit_text: String = connection
+            .query_row(
+                "SELECT caller_kind || caller_id || action || target_label || outcome || error_code
+                 FROM topolograph_audit",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!audit_text.contains("synthetic-direct-key"));
     }
 
     #[test]

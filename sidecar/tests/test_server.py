@@ -396,7 +396,7 @@ def test_architect_keyword_defaults_lists_all_vendors():
         "aci", "gnmi", "fmc", "thousandeyes", "cml", "ise", "secure_endpoint",
         "cisco_xdr", "stealthwatch", "catalyst_center", "splunk", "meraki",
         "mist", "pyats", "grafana", "zabbix", "prometheus", "netbox", "sketchfab",
-        "devnet", "fwrule",
+        "devnet", "fwrule", "topolograph",
     ]
     ise = next(v for v in vendors if v["id"] == "ise")
     assert ise["display"] == "Cisco ISE (identity)"

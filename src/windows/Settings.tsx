@@ -38,6 +38,7 @@ import TerminalSettingsTab from "../components/TerminalSettingsTab";
 import SettingsBrowserTab from "../components/SettingsBrowserTab";
 import EditorSettingsTab from "../components/settings/EditorSettingsTab";
 import { AppearanceSettingsTab } from "../components/settings/AppearanceSettingsTab";
+import { TopolographSettingsTab } from "../components/settings/TopolographSettingsTab";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
 // import { useSessionsStore } from "../state/sessionsStore";
 
@@ -99,7 +100,7 @@ const PROVIDER_MODELS: Record<AIProvider, string[]> = {
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "zabbix" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates"
+    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "zabbix" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates" | "topolograph"
   >("general");
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -584,6 +585,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             >
               pyATS
             </button>
+            <button className={activeTab === "topolograph" ? "active" : ""} onClick={() => setActiveTab("topolograph")}>Topolograph</button>
             <button
               className={activeTab === "proxmox" ? "active" : ""}
               onClick={() => setActiveTab("proxmox")}
@@ -1244,6 +1246,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         {activeTab === "updates" && <UpdatesSettingsTab />}
 
         {activeTab === "pyats" && <PyatsSettingsTab />}
+
+        {activeTab === "topolograph" && <TopolographSettingsTab />}
 
         {activeTab === "proxmox" && <ProxmoxSettingsTab />}
 

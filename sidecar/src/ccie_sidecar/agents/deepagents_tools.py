@@ -250,6 +250,25 @@ def create_catalog_search_tool(
                 ),
             }
 
+    tool_properties = execute_code_tool.args_schema.model_json_schema().get(
+        "properties", {}
+    )
+    if "code" in tool_properties:
+        call_instruction = (
+            f"immediately call {execute_code_tool.name} and use the exact returned "
+            "record inside the code argument"
+        )
+    elif "operation" in tool_properties:
+        call_instruction = (
+            f"immediately call {execute_code_tool.name} with its exact "
+            "matches[*].operation and arguments"
+        )
+    else:
+        call_instruction = (
+            f"immediately call {execute_code_tool.name} using the exact returned "
+            "record fields accepted by its schema"
+        )
+
     return StructuredTool.from_function(
         func=search_api_catalog,
         name="search_api_catalog",
@@ -257,8 +276,8 @@ def create_catalog_search_tool(
             "MANDATORY first tool for a live platform API operation. Search one "
             "configured vendor's in-memory catalog using the user's specific intent. "
             "Returns {'matches': [...]} with exact authorized methods/paths or operations. "
-            "When any match fits, STOP searching and immediately call execute_python_code "
-            "with that exact record; do not enumerate, import, inspect, or guess."
+            f"When any match fits, STOP searching and {call_instruction}; do not "
+            "enumerate, import, inspect, or guess."
         ),
     )
 

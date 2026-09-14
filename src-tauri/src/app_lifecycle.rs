@@ -337,18 +337,69 @@ pub async fn app_shutdown_acknowledge(
     Ok(())
 }
 
+trait ProcessExitServices {
+    fn shutdown_stp(&self) -> Result<(), String>;
+    fn stop_sidecar(&self);
+}
+
+impl ProcessExitServices for crate::commands::AppState {
+    fn shutdown_stp(&self) -> Result<(), String> {
+        self.stp.shutdown()
+    }
+
+    fn stop_sidecar(&self) {
+        self.agent.stop();
+    }
+}
+
+fn cleanup_process_services(services: &impl ProcessExitServices) {
+    if let Err(error) = services.shutdown_stp() {
+        tracing::warn!(error = %error, "application exit cleanup could not stop STP cleanly");
+    }
+    services.stop_sidecar();
+}
+
 pub(super) fn cleanup_before_process_exit(app: &AppHandle) {
     let state = app.state::<crate::commands::AppState>();
-    state.agent.stop();
-    tracing::info!("application exit cleanup stopped the sidecar");
+    cleanup_process_services(&*state);
+    tracing::info!("application exit cleanup stopped STP and the sidecar");
 }
 
 #[cfg(test)]
 mod tests {
+    use parking_lot::Mutex;
+
     use super::{
-        close_disposition, exit_request_disposition, AckShutdown, BeginShutdown,
-        ShutdownCoordinator, TimeoutShutdown, WindowCloseDisposition,
+        cleanup_process_services, close_disposition, exit_request_disposition, AckShutdown,
+        BeginShutdown, ProcessExitServices, ShutdownCoordinator, TimeoutShutdown,
+        WindowCloseDisposition,
     };
+
+    struct RecordingExitServices {
+        calls: Mutex<Vec<&'static str>>,
+    }
+
+    impl ProcessExitServices for RecordingExitServices {
+        fn shutdown_stp(&self) -> Result<(), String> {
+            self.calls.lock().push("stp");
+            Err("shutdown failed".into())
+        }
+
+        fn stop_sidecar(&self) {
+            self.calls.lock().push("sidecar");
+        }
+    }
+
+    #[test]
+    fn process_exit_stops_sidecar_after_stp_even_when_stp_shutdown_fails() {
+        let services = RecordingExitServices {
+            calls: Mutex::new(Vec::new()),
+        };
+
+        cleanup_process_services(&services);
+
+        assert_eq!(*services.calls.lock(), vec!["stp", "sidecar"]);
+    }
 
     #[test]
     fn main_window_close_requests_application_exit() {

@@ -1,7 +1,6 @@
 use super::{
-    call_topolograph, insert_audit, security_warnings, sidecar_error_code,
-    topolograph_direct_params, upload_config_and_token, upload_result_from_agent_response,
-    AppState, TopolographConfig, UploadResult,
+    call_topolograph, insert_audit, sanitize_warnings, security_warnings, sidecar_error_code,
+    upload_config, upload_result_from_agent_response, AppState, TopolographConfig, UploadResult,
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,6 @@ use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tauri::State;
-use zeroize::Zeroizing;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -90,11 +88,10 @@ impl TopolographPyatsLsdbImportRequest {
 
 fn pyats_lsdb_import_params(
     config: &TopolographConfig,
-    token: Zeroizing<Vec<u8>>,
     testbed_path: &Path,
     request: &TopolographPyatsLsdbImportRequest,
 ) -> Result<Value, String> {
-    let mut params = topolograph_direct_params(config, token)?;
+    let mut params = config.direct_params()?;
     params["testbed_path"] = json!(testbed_path.to_string_lossy());
     params["device"] = json!(request.device);
     params["protocol"] = json!(request.protocol);
@@ -105,6 +102,7 @@ fn pyats_lsdb_import_params(
 fn pyats_lsdb_import_result_from_agent_response(
     response: crate::agent_bridge::AgentResponse,
     warnings: Vec<String>,
+    api_key: &str,
 ) -> Result<UploadResult, String> {
     match response {
         crate::agent_bridge::AgentResponse::Done { result } => {
@@ -115,15 +113,16 @@ fn pyats_lsdb_import_result_from_agent_response(
                 crate::agent_bridge::AgentResponse::Done { result },
                 bytes,
                 warnings,
+                api_key,
             )
         }
         crate::agent_bridge::AgentResponse::Error { message } => {
-            let code = sidecar_error_code(&message);
+            let code = sidecar_error_code(&message, api_key);
             Ok(UploadResult {
                 ok: false,
                 message: format!("Topolograph LSDB import failed: {code}"),
                 bytes: 0,
-                warnings,
+                warnings: sanitize_warnings(warnings, api_key),
             })
         }
         crate::agent_bridge::AgentResponse::Token { .. } => {
@@ -137,11 +136,12 @@ fn insert_pyats_lsdb_import_audit(
     device: &str,
     result: &UploadResult,
     duration_ms: i64,
+    api_key: &str,
 ) -> Result<(), String> {
     let error_code = if result.ok {
         String::new()
     } else {
-        sidecar_error_code(&result.message)
+        sidecar_error_code(&result.message, api_key)
     };
     insert_audit(
         connection,
@@ -159,19 +159,21 @@ pub async fn topolograph_import_lsdb_from_pyats(
     request: TopolographPyatsLsdbImportRequest,
 ) -> Result<UploadResult, String> {
     let request = request.validated()?;
-    let (config, token) = upload_config_and_token(&state)?;
+    let config = upload_config(&state)?;
     let testbed_path = crate::pyats::pyats_dir().join("testbed.yaml");
-    let params = pyats_lsdb_import_params(&config, token, &testbed_path, &request)?;
+    let params = pyats_lsdb_import_params(&config, &testbed_path, &request)?;
     let warnings = security_warnings(&config.base_url, config.verify_tls);
     let started = std::time::Instant::now();
     let response = call_topolograph(&state, "topolograph.import_lsdb_from_pyats", params).await?;
-    let result = pyats_lsdb_import_result_from_agent_response(response, warnings)?;
+    let result =
+        pyats_lsdb_import_result_from_agent_response(response, warnings, &config.api_key)?;
     let connection = state.db.lock();
     insert_pyats_lsdb_import_audit(
         &connection,
         &request.device,
         &result,
         started.elapsed().as_millis() as i64,
+        &config.api_key,
     )?;
     Ok(result)
 }
@@ -235,7 +237,7 @@ mod tests {
             singleton_id: super::super::TOPOLOGRAPH_SINGLETON_ID.to_string(),
             enabled: true,
             base_url: "https://topolograph.example".to_string(),
-            secret_id: "selected-secret".to_string(),
+            api_key: "synthetic-direct-key".to_string(),
             verify_tls: false,
             updated_at: 0,
         };
@@ -245,20 +247,15 @@ mod tests {
             description: None,
         };
 
-        let params = pyats_lsdb_import_params(
-            &config,
-            Zeroizing::new(b"selected-token".to_vec()),
-            Path::new("/tmp/testbed.yaml"),
-            &request,
-        )
-        .unwrap();
+        let params =
+            pyats_lsdb_import_params(&config, Path::new("/tmp/testbed.yaml"), &request).unwrap();
 
         assert_eq!(
             params,
             json!({
                 "base_url": "https://topolograph.example",
                 "verify_tls": false,
-                "token": "selected-token",
+                "token": "synthetic-direct-key",
                 "enabled": true,
                 "configured": true,
                 "unlocked": true,
@@ -289,6 +286,7 @@ mod tests {
         let result = pyats_lsdb_import_result_from_agent_response(
             response,
             vec!["TLS certificate verification is disabled".into()],
+            "synthetic-direct-key",
         )
         .unwrap();
         assert_eq!(
@@ -309,6 +307,7 @@ mod tests {
                 message: "UPSTREAM_TIMEOUT: unsafe raw selected-token body".into(),
             },
             Vec::new(),
+            "synthetic-direct-key",
         )
         .unwrap();
         assert_eq!(
@@ -317,6 +316,68 @@ mod tests {
         );
         assert!(!failed.message.contains("selected-token"));
         assert_eq!(failed.bytes, 0);
+    }
+
+    #[test]
+    fn pyats_results_redact_reflected_api_keys_from_messages_warnings_and_errors() {
+        let result = pyats_lsdb_import_result_from_agent_response(
+            crate::agent_bridge::AgentResponse::Done {
+                result: json!({
+                    "ok": true,
+                    "message": "imported with synthetic-direct-key",
+                    "bytes": 128,
+                }),
+            },
+            vec!["warning synthetic-direct-key".into()],
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        let serialized = serde_json::to_string(&result).unwrap();
+        assert!(!serialized.contains("synthetic-direct-key"));
+        assert!(serialized.contains("[REDACTED]"));
+
+        let failed = pyats_lsdb_import_result_from_agent_response(
+            crate::agent_bridge::AgentResponse::Error {
+                message: "UPSTREAM_ERROR: synthetic-direct-key".into(),
+            },
+            vec!["warning synthetic-direct-key".into()],
+            "synthetic-direct-key",
+        )
+        .unwrap();
+        assert!(!serde_json::to_string(&failed)
+            .unwrap()
+            .contains("synthetic-direct-key"));
+    }
+
+    #[test]
+    fn pyats_audit_uses_a_fixed_fallback_when_the_error_code_is_the_api_key() {
+        let connection = rusqlite::Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("../../../migrations/V0089__topolograph.sql"))
+            .unwrap();
+        let audit_shaped_key = "synthetic-direct-key"
+            .to_ascii_uppercase()
+            .replace('-', "_");
+        let result = UploadResult {
+            ok: false,
+            message: format!("Topolograph LSDB import failed: {audit_shaped_key}"),
+            bytes: 0,
+            warnings: Vec::new(),
+        };
+
+        insert_pyats_lsdb_import_audit(
+            &connection,
+            "CORE1",
+            &result,
+            37,
+            &audit_shaped_key,
+        )
+        .unwrap();
+
+        let error_code: String = connection
+            .query_row("SELECT error_code FROM topolograph_audit", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(error_code, "SIDECAR_ERROR");
     }
 
     #[test]
@@ -332,7 +393,14 @@ mod tests {
             warnings: Vec::new(),
         };
 
-        insert_pyats_lsdb_import_audit(&connection, "CORE1", &result, 37).unwrap();
+        insert_pyats_lsdb_import_audit(
+            &connection,
+            "CORE1",
+            &result,
+            37,
+            "synthetic-direct-key",
+        )
+        .unwrap();
 
         let event: (String, String, String, i64, String) = connection
             .query_row(
