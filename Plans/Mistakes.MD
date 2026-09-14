@@ -56,3 +56,9 @@
   changing the test command to use the `src-tauri` manifest.
 - How addressed: No source files were changed; the next run uses
   `--manifest-path src-tauri/Cargo.toml`.
+
+# Mistake: relied on a browser prompt for Vault auto-unlock passphrase entry
+
+- What the issue/mistake was: The native Tauri Vault auto-unlock checkbox used the synchronous browser `prompt()` API when the existing passphrase field was empty, leaving the checkbox unusable without an accessible instruction.
+- RCA of the Issue: The browser-only interaction was retained in a native webview flow even though the required passphrase field is already rendered in the Vault form.
+- How you fixed it: Replaced the prompt fallback with an inline `role="alert"` instruction, kept auto-unlock off without a passphrase, and reused the existing controlled passphrase field for the unchanged Vault API call.

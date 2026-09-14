@@ -44,6 +44,7 @@ export function VaultTab() {
 
   const [unlockPassphrase, setUnlockPassphrase] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [autoUnlockError, setAutoUnlockError] = useState<string | null>(null);
   const [showNewEnvelope, setShowNewEnvelope] = useState(false);
   const [newEnvName, setNewEnvName] = useState("");
   const [newEnvDesc, setNewEnvDesc] = useState("");
@@ -293,14 +294,13 @@ export function VaultTab() {
                   onChange={async (e) => {
                     const enabled = e.target.checked;
                     if (enabled) {
-                      // Need passphrase to enable
-                      const pp = unlockPassphrase || prompt("Enter passphrase to enable auto-unlock:");
-                      if (!pp) {
-                        e.target.checked = false;
+                      if (!unlockPassphrase) {
+                        setAutoUnlockError("Enter the passphrase above and try again.");
                         return;
                       }
+                      setAutoUnlockError(null);
                       try {
-                        await vault.setAutoUnlock(selectedEnvelope.id, true, pp);
+                        await vault.setAutoUnlock(selectedEnvelope.id, true, unlockPassphrase);
                         await loadEnvelopes(); // Refresh to show updated state
                       } catch (err) {
                         alert(`Failed to enable auto-unlock: ${err}`);
@@ -319,6 +319,11 @@ export function VaultTab() {
                 />
                 <span>Auto-unlock on app startup</span>
               </label>
+              {autoUnlockError && (
+                <div className="vault-error" role="alert">
+                  {autoUnlockError}
+                </div>
+              )}
               <p className="vault-auto-unlock-hint">
                 Stores passphrase securely in keychain. Vault will unlock automatically when app starts.
               </p>
