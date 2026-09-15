@@ -280,18 +280,21 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   useEffect(() => {
     if (streaming) {
       userStopRequestedRef.current = false;
+      setDictationStatus("");
       dictationRef.current?.cancel();
     }
   }, [streaming]);
 
   useEffect(() => {
     userStopRequestedRef.current = false;
+    setDictationStatus("");
     dictationRef.current?.cancel();
   }, [tabId]);
 
   useEffect(() => {
     if (!isOpen) {
       userStopRequestedRef.current = false;
+      setDictationStatus("");
       dictationRef.current?.stop();
     }
   }, [isOpen]);
@@ -759,6 +762,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   const handleSend = async (e?: FormEvent | string) => {
     userStopRequestedRef.current = false;
+    setDictationStatus("");
     dictationRef.current?.cancel();
     // If called with a string, treat as an override message (bypasses the input state race)
     let userMessage: string;

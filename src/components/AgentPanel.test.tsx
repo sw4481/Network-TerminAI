@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Agent } from "../lib/tauri";
@@ -162,6 +162,31 @@ describe("AgentPanel", () => {
     expect(
       invokeMock.mock.calls.some(([command]) => command === "agent_chat_stream"),
     ).toBe(false);
+  });
+
+  it("clears the stopped dictation status when sending", async () => {
+    installFakeSpeechRecognition();
+    const user = userEvent.setup();
+    render(<AgentPanel tabId="tab-voice" isOpen onToggle={() => {}} />);
+
+    await user.type(screen.getByRole("textbox"), "check");
+    await user.click(screen.getByRole("button", { name: "Start voice dictation" }));
+    act(() => {
+      FakeSpeechRecognition.latest?.emitResults([
+        { text: "interface status", isFinal: false },
+      ]);
+    });
+    await user.click(screen.getByRole("button", { name: "Stop voice dictation" }));
+
+    expect(screen.getByText("Dictation stopped. Review the message before sending."))
+      .toHaveAttribute("role", "status");
+
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Dictation stopped. Review the message before sending."))
+        .not.toBeInTheDocument();
+    });
   });
 
   it("does not submit with Enter while dictation is listening", async () => {
