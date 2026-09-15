@@ -157,6 +157,8 @@ describe("AgentPanel", () => {
     await user.click(screen.getByRole("button", { name: "Stop voice dictation" }));
     expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
     expect(screen.getByRole("textbox")).toHaveValue("check interface status");
+    expect(screen.getByText("Dictation stopped. Review the message before sending."))
+      .toHaveAttribute("role", "status");
     expect(
       invokeMock.mock.calls.some(([command]) => command === "agent_chat_stream"),
     ).toBe(false);

@@ -149,6 +149,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState("");
   const dictationRef = useRef<SpeechRecognitionController | null>(null);
+  const userStopRequestedRef = useRef(false);
   const [terminalAttachRequested, setTerminalAttachRequested] = useState(false);
   const [terminalLeaseId, setTerminalLeaseId] = useState<string | null>(null);
   const [terminalPlan, setTerminalPlan] = useState<TerminalInvestigationPlan | null>(null);
@@ -261,7 +262,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       onDraft: setInput,
       onListeningChange: (listening) => {
         setIsListening(listening);
-        if (!listening) setDictationStatus("");
+        if (listening) return;
+        setDictationStatus(userStopRequestedRef.current
+          ? "Dictation stopped. Review the message before sending."
+          : "");
+        userStopRequestedRef.current = false;
       },
       onError: setDictationStatus,
     });
@@ -273,15 +278,22 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   }, []);
 
   useEffect(() => {
-    if (streaming) dictationRef.current?.cancel();
+    if (streaming) {
+      userStopRequestedRef.current = false;
+      dictationRef.current?.cancel();
+    }
   }, [streaming]);
 
   useEffect(() => {
+    userStopRequestedRef.current = false;
     dictationRef.current?.cancel();
   }, [tabId]);
 
   useEffect(() => {
-    if (!isOpen) dictationRef.current?.stop();
+    if (!isOpen) {
+      userStopRequestedRef.current = false;
+      dictationRef.current?.stop();
+    }
   }, [isOpen]);
 
   // Load agents list on first mount + hydrate per-tab binding from DB
@@ -737,6 +749,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     const controller = dictationRef.current;
     if (!controller) return;
     if (isListening) {
+      userStopRequestedRef.current = true;
       controller.stop();
       return;
     }
@@ -745,6 +758,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   };
 
   const handleSend = async (e?: FormEvent | string) => {
+    userStopRequestedRef.current = false;
     dictationRef.current?.cancel();
     // If called with a string, treat as an override message (bypasses the input state race)
     let userMessage: string;
