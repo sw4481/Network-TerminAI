@@ -143,7 +143,7 @@ below maps each major capability to its starting point and the task it solves.
 | NETCONF workspace | Create a NETCONF tab | Device profiles, YANG/RPC editing, saved RPCs, response history, response explanation, and read/approved device operations |
 | Editor | Create an Editor tab | Workspace files, split and detached panes, search/replace, bookmarks, Git status/diff/history, Python debug controls, YAML/HCL support, and Cisco IOS-XE/NX-OS offline diagnostics |
 | AI providers | **Settings → General** | Select provider/model, save or test connectivity, choose streaming behavior, and optionally enable the experimental Context Graph |
-| Agents | **Settings → Agents** | Manage agent definitions and their tool/source configuration; use the Agent panel for natural-language operations |
+| Agents | **Settings → Agents** | Manage agent definitions and tool/source configuration; use the Agent panel for typed requests or editable live microphone dictation |
 | Skills | **Settings → Skills** | Discover, reload, create, and invoke reusable AI workflows with prompts and helper scripts |
 | MCP servers | **Settings → MCP Servers** | Add, import, enable, disable, and remove external Model Context Protocol servers and review tool access |
 | Workflows | `Cmd+Shift+W` or **Operate → Tools → Workflows** | Run parameterized multi-step command templates; create, edit, import, export, and pin workflows |

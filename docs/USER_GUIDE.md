@@ -324,6 +324,23 @@ The AI chat panel provides conversational assistance for network engineering tas
 3. AI response streams in real-time
 4. Chat history is preserved per tab
 
+#### Voice dictation
+
+On supported macOS builds, the Agent panel microphone can turn speech into an
+editable message:
+
+1. Open the Agent panel on an active tab.
+2. Click the microphone button to start listening.
+3. Speak normally; interim words appear live in the message box.
+4. Click the microphone again to stop.
+5. Review or edit the transcript, then press Enter or click **Send**.
+
+Voice dictation does not send automatically. Existing text is preserved when
+dictation starts. The first use may trigger separate macOS prompts for
+microphone and speech-recognition access. If access is denied or speech input
+is unavailable in the current WebView, the normal typed composer remains
+available.
+
 **Example prompts:**
 - "Explain BGP route reflection"
 - "How do I configure OSPF on Cisco IOS?"

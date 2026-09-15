@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { HelpModal, type HelpSection } from "./HelpModal";
 import { SHORTCUTS_MD } from "./content/shortcuts";
+import { USER_GUIDE_MD } from "./content/userGuide";
 
 describe("HelpModal", () => {
   beforeEach(() => {
@@ -41,6 +42,23 @@ describe("HelpModal", () => {
     ).toBeInTheDocument();
     expect(
       content.getByText("Column Selection", { selector: "code" }),
+    ).toBeInTheDocument();
+  });
+
+  it("documents and surfaces Agent panel voice dictation", () => {
+    expect(USER_GUIDE_MD).toContain("#### Voice dictation");
+    expect(USER_GUIDE_MD).toContain("does not send automatically");
+
+    render(<HelpModal section="user-guide" onClose={() => {}} />);
+    fireEvent.change(screen.getByTestId("help-modal-search"), {
+      target: { value: "dictation" },
+    });
+
+    expect(screen.getByTestId("help-nav-user-guide")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("help-content-user-guide")).getByRole("heading", {
+        name: "Voice dictation",
+      }),
     ).toBeInTheDocument();
   });
 
