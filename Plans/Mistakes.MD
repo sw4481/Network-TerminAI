@@ -260,3 +260,9 @@
 - What the issue/mistake was: The first pre-push Python verification invoked `sidecar/tests` and `pyats_cli/tests` together, causing pytest to import both directories as the same top-level `tests` package and abort collection with module-name collisions.
 - RCA of the Issue: I combined independent project suites for speed without checking that both directories use an identically named import package.
 - How you fixed it: The failed command made no source or runtime changes. I reran the sidecar and pyATS CLI suites in separate pytest processes and used those independent exit codes as the release gates.
+
+# Mistake: combined incompatible Git show options during self-review
+
+- What the issue/mistake was: I combined `--check` with `--name-only` in one `git show` command, which Git rejects.
+- RCA of the Issue: I optimized two independent self-review checks into one command without validating that its output modes are compatible.
+- How you fixed it: The command was read-only. I reran the whitespace and committed-file checks separately: `git show --check --format=fuller HEAD` and `git show --format='' --name-only HEAD` both succeeded.
