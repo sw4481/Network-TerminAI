@@ -162,6 +162,32 @@ describe("AgentPanel", () => {
     ).toBe(false);
   });
 
+  it("does not submit with Enter while dictation is listening", async () => {
+    installFakeSpeechRecognition();
+    const user = userEvent.setup();
+    render(<AgentPanel tabId="tab-voice" isOpen onToggle={() => {}} />);
+
+    await user.type(screen.getByRole("textbox"), "check");
+    await user.click(screen.getByRole("button", { name: "Start voice dictation" }));
+    act(() => {
+      FakeSpeechRecognition.latest?.emitResults([
+        { text: "interface status", isFinal: false },
+      ]);
+    });
+
+    expect(screen.getByRole("button", { name: "Stop voice dictation" }))
+      .toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("textbox"));
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("textbox")).toHaveValue("check interface status");
+    expect(screen.getByRole("button", { name: "Stop voice dictation" }))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(
+      invokeMock.mock.calls.some(([command]) => command === "agent_chat_stream"),
+    ).toBe(false);
+  });
+
   it("disables the microphone while streaming and without a tab", async () => {
     installFakeSpeechRecognition();
     const { rerender } = render(<AgentPanel tabId={null} isOpen onToggle={() => {}} />);

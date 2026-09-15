@@ -1108,7 +1108,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      if (!isListening) handleSend();
     }
   };
 
