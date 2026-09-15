@@ -44,6 +44,7 @@ import { ChatHistoryBrowser } from "./ChatHistoryBrowser";
 import { AgentSourcesBadge } from "./AgentSourcesBadge";
 import { AgentSourcesDrawer } from "./AgentSourcesDrawer";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
+import { SpeechRecognitionController } from "../lib/SpeechRecognitionController";
 import {
   AgentWorkingIndicator,
   shouldRenderAgentMessage,
@@ -144,6 +145,10 @@ type AgentPanelProps = {
 
 export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [input, setInput] = useState("");
+  const [speechSupported] = useState(() => SpeechRecognitionController.isSupported());
+  const [isListening, setIsListening] = useState(false);
+  const [dictationStatus, setDictationStatus] = useState("");
+  const dictationRef = useRef<SpeechRecognitionController | null>(null);
   const [terminalAttachRequested, setTerminalAttachRequested] = useState(false);
   const [terminalLeaseId, setTerminalLeaseId] = useState<string | null>(null);
   const [terminalPlan, setTerminalPlan] = useState<TerminalInvestigationPlan | null>(null);
@@ -250,6 +255,34 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   // Ref to the badge button that opened the drawer, so we can restore
   // focus when the drawer closes (design spec §6 #1).
   const openingBadgeRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const controller = new SpeechRecognitionController({
+      onDraft: setInput,
+      onListeningChange: (listening) => {
+        setIsListening(listening);
+        if (!listening) setDictationStatus("");
+      },
+      onError: setDictationStatus,
+    });
+    dictationRef.current = controller;
+    return () => {
+      controller.dispose();
+      if (dictationRef.current === controller) dictationRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (streaming) dictationRef.current?.cancel();
+  }, [streaming]);
+
+  useEffect(() => {
+    dictationRef.current?.cancel();
+  }, [tabId]);
+
+  useEffect(() => {
+    if (!isOpen) dictationRef.current?.stop();
+  }, [isOpen]);
 
   // Load agents list on first mount + hydrate per-tab binding from DB
   useEffect(() => {
@@ -700,7 +733,19 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     catch(e){setError(pending.bucketKey,e instanceof Error?e.message:String(e));} finally {setStreaming(pending.bucketKey,false);}
   };
 
+  const handleDictationToggle = () => {
+    const controller = dictationRef.current;
+    if (!controller) return;
+    if (isListening) {
+      controller.stop();
+      return;
+    }
+    setDictationStatus("");
+    controller.start(input);
+  };
+
   const handleSend = async (e?: FormEvent | string) => {
+    dictationRef.current?.cancel();
     // If called with a string, treat as an override message (bypasses the input state race)
     let userMessage: string;
     if (typeof e === "string") {
@@ -1384,6 +1429,9 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             <div ref={messagesEndRef} />
           </div>
 
+          <div className="agent-dictation-status" role="status" aria-live="polite">
+            {dictationStatus || (speechSupported ? "" : "Speech input is unavailable in this WebView; typing still works.")}
+          </div>
           <form className="agent-input" onSubmit={handleSend}>
             {activeAgentForTab === "network-architect" && (
               <button
@@ -1397,6 +1445,17 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 {terminalAttachRequested ? "Terminal attached" : "Attach terminal"}
               </button>
             )}
+            <button
+              type="button"
+              className={`mic-btn ${isListening ? "listening" : ""}`}
+              aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"}
+              aria-pressed={isListening}
+              onClick={handleDictationToggle}
+              disabled={!speechSupported || streaming || !tabId}
+              title={speechSupported ? "Dictate into the agent message" : "Speech input is unavailable"}
+            >
+              🎙
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -1404,6 +1463,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               onKeyDown={handleKeyDown}
               placeholder="Ask about your terminal..."
               disabled={streaming || !tabId}
+              readOnly={isListening}
               rows={2}
             />
             {streaming ? (
@@ -1416,7 +1476,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 ■ Stop
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim() || !tabId}>
+              <button type="submit" disabled={!input.trim() || !tabId || isListening}>
                 Send
               </button>
             )}

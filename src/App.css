@@ -898,6 +898,25 @@ html, body, #root {
   outline: none;
 }
 
+.agent-dictation-status {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.agent-input .mic-btn {
+  align-self: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+}
+
+.agent-input .mic-btn.listening {
+  color: var(--status-danger);
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+}
+
 .agent-input textarea:focus {
   border-color: var(--focus-ring);
 }
