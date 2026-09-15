@@ -314,6 +314,41 @@ class TestGenerateCatalog:
         assert tool.blast_radius == "low"
         assert tool.destructive is False
 
+    @pytest.mark.parametrize(
+        ("sdk_method", "expected_path"),
+        [
+            (
+                "getNetworkSwitchAccessPolicies",
+                "/networks/{networkId}/switch/accessPolicies",
+            ),
+            (
+                "getNetworkSwitchAccessPolicy",
+                "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+            ),
+            (
+                "createNetworkSwitchAccessPolicy",
+                "/networks/{networkId}/switch/accessPolicies",
+            ),
+            (
+                "updateNetworkSwitchAccessPolicy",
+                "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+            ),
+            (
+                "deleteNetworkSwitchAccessPolicy",
+                "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+            ),
+        ],
+    )
+    def test_switch_access_policy_uses_official_sdk_path(
+        self,
+        catalog,
+        sdk_method,
+        expected_path,
+    ):
+        tool = next(tool for tool in catalog if tool.sdk_method == sdk_method)
+
+        assert tool.endpoint["path"] == expected_path
+
     def test_json_schema_for_params(self, catalog):
         """Tools should have JSON schema for parameters."""
         # Find a tool with parameters

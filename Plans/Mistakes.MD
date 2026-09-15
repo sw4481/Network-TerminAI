@@ -1,3 +1,27 @@
+# Mistake: batch staging returned an ignored-path error for the tracked mistakes log
+
+- What the issue/mistake was: The first commit command stopped after `git add` reported that `Plans` was ignored, even though the tracked `Plans/Mistakes.MD` and the other requested files had been staged.
+- RCA of the Issue: I included an ignore-matched path in a batch add without first accounting for this repository's tracked-file exception behavior, then relied only on the command exit code rather than the resulting index state.
+- How you fixed it: I inspected the index, confirmed all five requested files were staged, recorded this attempt, and restaged the tracked log with `git add -u` before committing.
+
+# Mistake: assumed the uv project environment exposed a pytest executable
+
+- What the issue/mistake was: Two baseline-comparison commands tried to execute `meraki_cli/.venv/bin/pytest`, but the uv-managed project environment contains Python without a standalone pytest script.
+- RCA of the Issue: I inferred the environment layout from `uv run pytest` instead of checking whether pytest was installed inside that venv.
+- How you fixed it: The failed commands were read-only. I reran the baseline through `uv run --project ... pytest` with the clean worktree source on `PYTHONPATH`.
+
+# Mistake: the first Meraki CLI test rerun used a stale installed package
+
+- What the issue/mistake was: After editing the Meraki catalog generator, the first `uv run` test still imported the package copy installed before the edit and repeated the RED result.
+- RCA of the Issue: The project-local environment contained a non-editable build, and the test command did not put the worktree's `meraki_cli/src` first on `PYTHONPATH`.
+- How you fixed it: Reran the same regression test with `PYTHONPATH=meraki_cli/src`, which exercised the current source and passed all five cases.
+
+# Mistake: used an unmatched zsh glob while checking dependencies
+
+- What the issue/mistake was: A read-only dependency search included `sidecar/requirements*.txt`, and zsh rejected the unmatched glob before ripgrep could run.
+- RCA of the Issue: I passed a filesystem glob directly to zsh instead of querying the known dependency manifest or using a quoted ripgrep glob.
+- How you fixed it: The failed command changed no repository state. I read `sidecar/pyproject.toml` directly and used exact paths for subsequent checks.
+
 # Mistake: assumed repository guidance was copied into the linked worktree root
 
 - What the issue/mistake was: I tried to read `AGENTS.md` and `claude.md` from the linked worktree root, where neither file exists.

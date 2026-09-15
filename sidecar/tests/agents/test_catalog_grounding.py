@@ -208,6 +208,50 @@ def test_meraki_heartbeat_catalog_authorizes_current_scoped_routes():
 
 
 @pytest.mark.parametrize(
+    ("sdk_method", "method", "expected_path"),
+    [
+        (
+            "getNetworkSwitchAccessPolicies",
+            "GET",
+            "/networks/{networkId}/switch/accessPolicies",
+        ),
+        (
+            "getNetworkSwitchAccessPolicy",
+            "GET",
+            "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+        ),
+        (
+            "createNetworkSwitchAccessPolicy",
+            "POST",
+            "/networks/{networkId}/switch/accessPolicies",
+        ),
+        (
+            "updateNetworkSwitchAccessPolicy",
+            "PUT",
+            "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+        ),
+        (
+            "deleteNetworkSwitchAccessPolicy",
+            "DELETE",
+            "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}",
+        ),
+    ],
+)
+def test_meraki_access_policy_catalog_authorizes_current_routes(
+    sdk_method,
+    method,
+    expected_path,
+):
+    index = CatalogIndex([_catalog("meraki")])
+
+    result = index.search(sdk_method, catalog_id="meraki", limit=1)
+
+    assert result["matches"][0]["method"] == method
+    assert result["matches"][0]["path"] == expected_path
+    index.require_authorized("meraki", method, expected_path)
+
+
+@pytest.mark.parametrize(
     ("sdk_method", "expected_path"),
     [
         ("getOrganizations", "/organizations"),

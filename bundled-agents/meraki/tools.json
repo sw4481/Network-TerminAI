@@ -23448,7 +23448,7 @@
     "action": "create-network-switch-access-policy",
     "endpoint": {
       "method": "POST",
-      "path": "/networks/{networkId}/switchs"
+      "path": "/networks/{networkId}/switch/accessPolicies"
     },
     "args": {
       "networkId": {
@@ -23980,7 +23980,7 @@
     "action": "delete-network-switch-access-policy",
     "endpoint": {
       "method": "DELETE",
-      "path": "/networks/{networkId}/switchs"
+      "path": "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
     },
     "args": {
       "networkId": {
@@ -24519,7 +24519,7 @@
     "action": "list-network-switch-access-policies",
     "endpoint": {
       "method": "GET",
-      "path": "/networks/{networkId}/switchs"
+      "path": "/networks/{networkId}/switch/accessPolicies"
     },
     "args": {
       "networkId": {
@@ -24541,7 +24541,7 @@
     "action": "get-network-switch-access-policy",
     "endpoint": {
       "method": "GET",
-      "path": "/networks/{networkId}/switchs"
+      "path": "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
     },
     "args": {
       "networkId": {
@@ -26275,7 +26275,7 @@
     "action": "update-network-switch-access-policy",
     "endpoint": {
       "method": "PUT",
-      "path": "/networks/{networkId}/switchs"
+      "path": "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
     },
     "args": {
       "networkId": {

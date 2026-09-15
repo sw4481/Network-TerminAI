@@ -250,6 +250,17 @@ def infer_api_path(resource: str, method_name: str, params: List[str]) -> str:
     return '/' + '/'.join(path_parts)
 
 
+def _sdk_api_path(method: Any) -> Optional[str]:
+    """Read the authoritative resource template from a generated SDK method."""
+    try:
+        source = inspect.getsource(method)
+    except (OSError, TypeError):
+        return None
+
+    match = re.search(r"\bresource\s*=\s*f?([\"'])(.*?)\1", source, re.DOTALL)
+    return match.group(2) if match else None
+
+
 def parse_docstring_params(docstring: str, sig: inspect.Signature) -> Dict[str, Any]:
     """
     Parse parameter descriptions from SDK docstring.
@@ -576,8 +587,12 @@ def generate_catalog() -> List[ToolSpec]:
                 # Infer HTTP method
                 http_method = infer_http_method(method_name)
 
-                # Infer API path
-                api_path = infer_api_path(resource_name, method_name, list(param_schemas.keys()))
+                # Prefer the authoritative template embedded in the generated SDK.
+                api_path = _sdk_api_path(method) or infer_api_path(
+                    resource_name,
+                    method_name,
+                    list(param_schemas.keys()),
+                )
 
                 # Classify blast radius
                 blast_radius, destructive = classify_blast_radius_stub(
