@@ -295,7 +295,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     if (!isOpen) {
       userStopRequestedRef.current = false;
       setDictationStatus("");
-      dictationRef.current?.stop();
+      dictationRef.current?.cancel();
     }
   }, [isOpen]);
 

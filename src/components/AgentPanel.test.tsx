@@ -263,6 +263,25 @@ describe("AgentPanel", () => {
       .toHaveAttribute("aria-pressed", "false");
   });
 
+  it("cancels recognition and ignores late results when the panel closes", async () => {
+    installFakeSpeechRecognition();
+    const user = userEvent.setup();
+    const { rerender } = render(<AgentPanel tabId="tab-voice" isOpen onToggle={() => {}} />);
+
+    await user.type(screen.getByRole("textbox"), "check");
+    await user.click(screen.getByRole("button", { name: "Start voice dictation" }));
+    const fake = FakeSpeechRecognition.latest;
+
+    rerender(<AgentPanel tabId="tab-voice" isOpen={false} onToggle={() => {}} />);
+    act(() => {
+      fake?.emitResults([{ text: "late words", isFinal: false }]);
+    });
+    rerender(<AgentPanel tabId="tab-voice" isOpen onToggle={() => {}} />);
+
+    expect(fake?.abort).toHaveBeenCalledOnce();
+    expect(screen.getByRole("textbox")).toHaveValue("check");
+  });
+
   it("aborts recognition when the panel unmounts", async () => {
     installFakeSpeechRecognition();
     const user = userEvent.setup();
