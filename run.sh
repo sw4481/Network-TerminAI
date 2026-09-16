@@ -107,6 +107,15 @@ echo ""
 # stale bundle so nothing can intercept the spawn.
 export CCIE_FORCE_VENV=1
 rm -rf src-tauri/target/debug/python src-tauri/target/release/python 2>/dev/null || true
+
+# Tauri dev embeds src-tauri/Info.plist into target/debug/TerminAI during crate
+# codegen. Force that crate to rebuild when native permission text changes;
+# otherwise macOS TCC can crash the stale dev binary on first mic/speech access.
+if [ src-tauri/Info.plist -nt src-tauri/target/debug/TerminAI ]; then
+    echo "   Refreshing native permission metadata..."
+    cargo clean --manifest-path src-tauri/Cargo.toml -p ccie-terminal >/dev/null
+fi
+
 export RUST_LOG=info
 mkdir -p /tmp/ccie-logs
 echo "Logging to /tmp/ccie-logs/app.log"
