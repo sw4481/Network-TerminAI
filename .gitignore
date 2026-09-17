@@ -22,6 +22,8 @@ lerna-debug.log*
 src-tauri/target/
 src-tauri/gen/
 src-tauri/binaries/
+src-tauri/resources/models/*.bin
+!src-tauri/resources/models/.gitkeep
 
 # Python
 sidecar/dist/

@@ -34,6 +34,7 @@ pub mod vault;
 use crate::validation;
 use rusqlite::OptionalExtension;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::path::BaseDirectory;
 
 pub fn ping() -> String {
     let ts = SystemTime::now()
@@ -46,6 +47,31 @@ pub fn ping() -> String {
 #[tauri::command]
 pub fn ping_cmd() -> String {
     ping()
+}
+
+#[tauri::command]
+pub fn dictation_start(state: State<AppState>) -> Result<(), String> {
+    state.dictation.start()
+}
+
+#[tauri::command]
+pub async fn dictation_stop(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let dictation = state.dictation.clone();
+    let bundled_model = app
+        .path()
+        .resolve("models/ggml-base.en.bin", BaseDirectory::Resource)
+        .ok();
+    tauri::async_runtime::spawn_blocking(move || dictation.stop(bundled_model))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub fn dictation_cancel(state: State<AppState>) {
+    state.dictation.cancel();
 }
 
 /// Register the browser-control MCP shim in `mcp_servers` so built-in agents
@@ -324,6 +350,7 @@ pub struct AppState {
         Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
     /// Native STP persistence and full-interval scheduler boundary.
     pub stp: Arc<crate::commands::stp::StpService>,
+    pub dictation: Arc<crate::dictation::DictationService>,
 }
 
 /// Vault-related state bundle: keyring-backed CRUD store + idle-lock map.
@@ -474,6 +501,7 @@ impl AppState {
                 db_arc.clone(),
                 Arc::new(crate::commands::stp::SidecarStpCollector),
             )),
+            dictation: Arc::new(crate::dictation::DictationService::new()),
         }
     }
 

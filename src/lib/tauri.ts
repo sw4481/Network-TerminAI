@@ -59,6 +59,10 @@ export async function pingSidecar(): Promise<string> {
   return invoke<string>("ping_sidecar");
 }
 
+export const dictationStart = () => invoke<void>("dictation_start");
+export const dictationStop = () => invoke<string>("dictation_stop");
+export const dictationCancel = () => invoke<void>("dictation_cancel");
+
 /**
  * Snapshot of the sidecar heartbeat row (Plan 00 / Task 3.3). Polled by the
  * status-footer chip so the user can see whether the AI backend is alive.

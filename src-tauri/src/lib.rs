@@ -30,6 +30,7 @@ pub mod config;
 pub mod dap;
 pub mod database;
 pub mod db;
+pub mod dictation;
 pub mod drift;
 pub mod editor;
 pub mod fanout;
@@ -306,6 +307,9 @@ pub fn run() {
         .manage(shutdown)
         .invoke_handler(tauri::generate_handler![
             commands::ping_cmd,
+            commands::dictation_start,
+            commands::dictation_stop,
+            commands::dictation_cancel,
             commands::ping_sidecar,
             commands::parsers::parse_show,
             commands::sidecar_status::get_sidecar_status,

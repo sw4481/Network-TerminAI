@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "bun run build:relaxed",
+    "beforeBuildCommand": "bun scripts/fetch-whisper-model.mjs && bun run build:relaxed",
     "frontendDist": "../dist"
   },
   "app": {
@@ -62,7 +62,8 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": {
-      "../sidecar/dist/python": "python"
+      "../sidecar/dist/python": "python",
+      "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin"
     },
     "icon": [
       "icons/32x32.png",

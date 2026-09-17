@@ -128,6 +128,8 @@ jmespath = "0.5"
 # Phase 3C — Browser Control MCP Bridge. The in-process HTTP server that
 # lets external agents (via the browser_mcp.py shim) drive browser windows.
 axum = "0.7"
+cpal = "0.18.2"
+whisper-rs = { version = "0.16.0", default-features = false }
 
 # macOS-only: set the Dock icon at runtime so the networking-themed TerminAI
 # icon shows even in `tauri dev` (the bundle.icon config only applies to a

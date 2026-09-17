@@ -205,15 +205,15 @@ itself proof that a device change completed; verify the actual device result.
 
 #### Voice dictation
 
-On supported macOS builds, click the microphone in the Agent panel to start
-listening. Speak normally while interim words appear live in the message box,
-then click the microphone again to stop. Review or edit the transcript and
-press Enter or click **Send** when it is ready.
+Click the microphone in the Agent panel to start recording. Speak normally,
+then click the microphone again to stop and insert the local Whisper transcript.
+Review or edit the transcript and press Enter or click **Send** when it is ready.
 
 Voice dictation does not send automatically, and text already in the composer
-is preserved. The first use may trigger separate macOS microphone and
-speech-recognition permission prompts. If speech input is unsupported or
-permission is denied, continue using the normal typed composer.
+is preserved. The first use may trigger a microphone permission prompt. If
+speech input is unsupported or permission is denied, continue using the normal
+typed composer. TerminAI includes a local Whisper model; advanced users can set
+TERMINAI_WHISPER_MODEL to test another ggml model file.
 
 ### Skills
 

@@ -326,20 +326,20 @@ The AI chat panel provides conversational assistance for network engineering tas
 
 #### Voice dictation
 
-On supported macOS builds, the Agent panel microphone can turn speech into an
-editable message:
+The Agent panel microphone can turn speech into an editable message using local
+Whisper transcription:
 
 1. Open the Agent panel on an active tab.
-2. Click the microphone button to start listening.
-3. Speak normally; interim words appear live in the message box.
-4. Click the microphone again to stop.
+2. Click the microphone button to start recording.
+3. Speak normally.
+4. Click the microphone again to stop and insert the transcript.
 5. Review or edit the transcript, then press Enter or click **Send**.
 
 Voice dictation does not send automatically. Existing text is preserved when
-dictation starts. The first use may trigger separate macOS prompts for
-microphone and speech-recognition access. If access is denied or speech input
-is unavailable in the current WebView, the normal typed composer remains
-available.
+dictation starts. The first use may trigger a microphone permission prompt. If
+access is denied or speech input is unavailable, the normal typed composer
+remains available. TerminAI includes a local Whisper model; advanced users can
+set `TERMINAI_WHISPER_MODEL` to test another ggml model file.
 
 **Example prompts:**
 - "Explain BGP route reflection"

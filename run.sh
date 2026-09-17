@@ -90,6 +90,9 @@ else
 fi
 echo ""
 
+# Ensure the local dictation model is available before Tauri validates resources.
+bun scripts/fetch-whisper-model.mjs
+
 # Run the app
 echo "🎯 Launching TerminAI..."
 echo ""

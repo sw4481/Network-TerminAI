@@ -6,7 +6,5 @@
   <string>com.ccie.terminal</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>TerminAI uses the microphone while you dictate an agent message.</string>
-  <key>NSSpeechRecognitionUsageDescription</key>
-  <string>TerminAI converts your speech into editable text in the Agent Panel.</string>
 </dict>
 </plist>

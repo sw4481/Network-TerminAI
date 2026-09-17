@@ -29,6 +29,9 @@ import {
   agentTerminalPreviewFixEdit,
   agentTerminalApproveFix,
   agentTerminalCancel,
+  dictationStart,
+  dictationStop,
+  dictationCancel,
   type CodeExecEvent,
   type ReactEvent,
   type TerminalFixBatch,
@@ -44,7 +47,6 @@ import { ChatHistoryBrowser } from "./ChatHistoryBrowser";
 import { AgentSourcesBadge } from "./AgentSourcesBadge";
 import { AgentSourcesDrawer } from "./AgentSourcesDrawer";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
-import { SpeechRecognitionController } from "../lib/SpeechRecognitionController";
 import {
   AgentWorkingIndicator,
   shouldRenderAgentMessage,
@@ -145,11 +147,9 @@ type AgentPanelProps = {
 
 export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [input, setInput] = useState("");
-  const [speechSupported] = useState(() => SpeechRecognitionController.isSupported());
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState("");
-  const dictationRef = useRef<SpeechRecognitionController | null>(null);
-  const userStopRequestedRef = useRef(false);
+  const dictationTabRef = useRef(tabId);
   const [terminalAttachRequested, setTerminalAttachRequested] = useState(false);
   const [terminalLeaseId, setTerminalLeaseId] = useState<string | null>(null);
   const [terminalPlan, setTerminalPlan] = useState<TerminalInvestigationPlan | null>(null);
@@ -258,46 +258,14 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const openingBadgeRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    const controller = new SpeechRecognitionController({
-      onDraft: setInput,
-      onListeningChange: (listening) => {
-        setIsListening(listening);
-        if (listening) return;
-        setDictationStatus(userStopRequestedRef.current
-          ? "Dictation stopped. Review the message before sending."
-          : "");
-        userStopRequestedRef.current = false;
-      },
-      onError: setDictationStatus,
-    });
-    dictationRef.current = controller;
-    return () => {
-      controller.dispose();
-      if (dictationRef.current === controller) dictationRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (streaming) {
-      userStopRequestedRef.current = false;
+    const tabChanged = dictationTabRef.current !== tabId;
+    dictationTabRef.current = tabId;
+    if (streaming || !tabId || !isOpen || tabChanged) {
+      if (isListening) dictationCancel().catch(() => {});
+      setIsListening(false);
       setDictationStatus("");
-      dictationRef.current?.cancel();
     }
-  }, [streaming]);
-
-  useEffect(() => {
-    userStopRequestedRef.current = false;
-    setDictationStatus("");
-    dictationRef.current?.cancel();
-  }, [tabId]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      userStopRequestedRef.current = false;
-      setDictationStatus("");
-      dictationRef.current?.cancel();
-    }
-  }, [isOpen]);
+  }, [streaming, tabId, isOpen, isListening]);
 
   // Load agents list on first mount + hydrate per-tab binding from DB
   useEffect(() => {
@@ -748,22 +716,33 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     catch(e){setError(pending.bucketKey,e instanceof Error?e.message:String(e));} finally {setStreaming(pending.bucketKey,false);}
   };
 
-  const handleDictationToggle = () => {
-    const controller = dictationRef.current;
-    if (!controller) return;
+  const handleDictationToggle = async () => {
+    setDictationStatus("");
     if (isListening) {
-      userStopRequestedRef.current = true;
-      controller.stop();
+      setIsListening(false);
+      try {
+        const transcript = (await dictationStop()).trim();
+        if (transcript) {
+          setInput((current) => `${current}${current && !/\s$/.test(current) ? " " : ""}${transcript}`);
+        }
+        setDictationStatus("Dictation stopped. Review the message before sending.");
+      } catch (error) {
+        setDictationStatus(error instanceof Error ? error.message : String(error));
+      }
       return;
     }
-    setDictationStatus("");
-    controller.start(input);
+
+    try {
+      await dictationStart();
+      setIsListening(true);
+      setDictationStatus("Listening… click the microphone to stop.");
+    } catch (error) {
+      setDictationStatus(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const handleSend = async (e?: FormEvent | string) => {
-    userStopRequestedRef.current = false;
     setDictationStatus("");
-    dictationRef.current?.cancel();
     // If called with a string, treat as an override message (bypasses the input state race)
     let userMessage: string;
     if (typeof e === "string") {
@@ -1448,7 +1427,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           </div>
 
           <div className="agent-dictation-status" role="status" aria-live="polite">
-            {dictationStatus || (speechSupported ? "" : "Speech input is unavailable in this WebView; typing still works.")}
+            {dictationStatus}
           </div>
           <form className="agent-input" onSubmit={handleSend}>
             {activeAgentForTab === "network-architect" && (
@@ -1469,8 +1448,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"}
               aria-pressed={isListening}
               onClick={handleDictationToggle}
-              disabled={!speechSupported || streaming || !tabId}
-              title={speechSupported ? "Dictate into the agent message" : "Speech input is unavailable"}
+              disabled={streaming || !tabId}
+              title="Dictate into the agent message"
             >
               🎙
             </button>
