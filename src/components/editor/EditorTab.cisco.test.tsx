@@ -329,4 +329,19 @@ describe("EditorTab Cisco mode", () => {
     await waitFor(() => expect(screen.getByTestId("problem-0")).toBeInTheDocument());
     expect(screen.getByTestId("editor-save-button")).toBeEnabled();
   });
+
+  it("renders the shared dense editor action toolbar", () => {
+    const editor = {
+      revealLineInCenter: vi.fn(),
+      setPosition: vi.fn(),
+      focus: vi.fn(),
+      trigger: vi.fn(),
+      getAction: vi.fn(() => ({ run: vi.fn() })),
+    };
+    renderEditorTab({ focusedEditor: editor });
+
+    expect(screen.getByRole("toolbar", { name: "Editor actions" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Format document" }));
+    expect(editor.getAction).toHaveBeenCalledWith("editor.action.formatDocument");
+  });
 });

@@ -266,3 +266,15 @@
 - What the issue/mistake was: I combined `--check` with `--name-only` in one `git show` command, which Git rejects.
 - RCA of the Issue: I optimized two independent self-review checks into one command without validating that its output modes are compatible.
 - How you fixed it: The command was read-only. I reran the whitespace and committed-file checks separately: `git show --check --format=fuller HEAD` and `git show --format='' --name-only HEAD` both succeeded.
+
+# Mistake: scoped the editor toolbar design to IaC Studio only
+
+- What the issue/mistake was: I treated the requested code-editor toolbar as an IaC Studio-only change, even though the standalone code editor window uses the same Monaco editor surface and also needs the toolbar.
+- RCA of the Issue: I followed the first graph/code hit into `IacStudioTab` and did not immediately trace the parallel `EditorTab` path before presenting the first design.
+- How you fixed it: I re-queried Graphify and read `EditorTab`, `EditorPane`, and detached editor flow before revising the design to cover both editor surfaces with shared toolbar behavior.
+
+# Mistake: patched IaC test using a helper from another file
+
+- What the issue/mistake was: I attempted to edit `IacStudioTab.test.tsx` as if it already had the `mocks.monacoProps` helper from `EditorPane.test.tsx`, so the exact edit failed.
+- RCA of the Issue: I carried over a nearby test pattern from memory instead of using the just-read IaC test shape.
+- How you fixed it: The failed edit made no file changes. I patched the actual IaC test structure by adding a local hoisted editor stub and updating the existing MonacoEditor mock.

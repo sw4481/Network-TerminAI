@@ -3,6 +3,7 @@ import type * as Monaco from "monaco-editor";
 import type { Tab } from "../../lib/types";
 import { iacStudioReadFile, iacStudioWriteFile, editorListDirectory } from "../../lib/tauri";
 import { useIacStudioStore, freshIacStudioState, type AiProposal } from "../../state/iacStudioStore";
+import { EditorActionToolbar } from "../editor/EditorActionToolbar";
 import { MonacoEditor } from "../editor/MonacoEditor";
 import { FileExplorer } from "../editor/FileExplorer";
 import { useEditorSettings } from "../../hooks/useEditorSettings";
@@ -316,7 +317,58 @@ export function IacStudioTab({ tab }: { tab: Tab }) {
         />
         <div className="iac-studio-content">
           {state.file_path ? (
-            <MonacoEditor
+            <>
+              <EditorActionToolbar
+                editor={editorRef.current}
+                canSave={Boolean(state.is_dirty && state.file_path && !state.loading)}
+                onSave={() => void onSave()}
+                onOpenWorkspace={() => void onBrowse()}
+                onFind={undefined}
+                onWorkspaceFind={undefined}
+                onSettings={undefined}
+                onProblems={() => {}}
+                extraRunActions={(
+                  <>
+                    {canRunPlaybook && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => runPlaybookNow(true)}
+                          title="Dry-run this playbook over SSH"
+                        >
+                          ▷ Dry-run
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runPlaybookNow(false)}
+                          title="Run this playbook over SSH"
+                        >
+                          ▶ Run
+                        </button>
+                      </>
+                    )}
+                    {canRunTerraform && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => runInTerminal("terraform plan", state.root_path)}
+                          title="Terraform plan"
+                        >
+                          ▷ Plan
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runInTerminal("terraform apply", state.root_path)}
+                          title="Terraform apply"
+                        >
+                          ▶ Apply
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              />
+              <MonacoEditor
               value={state.content}
               language={state.language}
               onChange={(c) => setContent(tab.id, c)}
@@ -332,6 +384,7 @@ export function IacStudioTab({ tab }: { tab: Tab }) {
                 setEditorReady(true);
               }}
             />
+            </>
           ) : (
             <div className="iac-studio-empty">
               <p>Select a <code>.tf</code> or <code>.yml</code> file from the tree to begin editing.</p>

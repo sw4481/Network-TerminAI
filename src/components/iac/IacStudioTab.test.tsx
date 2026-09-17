@@ -14,6 +14,19 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { Tab } from "../../lib/types";
 import { useIacStudioStore } from "../../state/iacStudioStore";
 
+const mocks = vi.hoisted(() => ({
+  editor: {
+    focus: vi.fn(),
+    trigger: vi.fn(),
+    getAction: vi.fn(() => ({ run: vi.fn() })),
+    getModel: vi.fn(() => ({})),
+  },
+  monaco: {
+    MarkerSeverity: { Error: 8, Warning: 4, Info: 2 },
+    editor: { setModelMarkers: vi.fn() },
+  },
+}));
+
 // Tauri command bindings — never invoked in these render tests, but the
 // module imports them, so stub to keep jsdom happy.
 vi.mock("../../lib/tauri", () => ({
@@ -33,7 +46,10 @@ vi.mock("../editor/FileExplorer", () => ({
 // useEditorSettings imports DEFAULT_EDITOR_SETTINGS from this module, so the
 // mock must re-export it.
 vi.mock("../editor/MonacoEditor", () => ({
-  MonacoEditor: () => <div data-testid="monaco" />,
+  MonacoEditor: (props: { onEditorReady?: (editor: unknown, monaco: unknown) => void }) => {
+    props.onEditorReady?.(mocks.editor, mocks.monaco);
+    return <div data-testid="monaco" />;
+  },
   DEFAULT_EDITOR_SETTINGS: {
     fontSize: 14,
     tabSize: 2,
@@ -235,5 +251,18 @@ describe("IacStudioTab", () => {
     } finally {
       window.removeEventListener("ccie:run-in-terminal", handler);
     }
+  });
+
+  it("renders the shared editor action toolbar for open IaC files", async () => {
+    const { IacStudioTab } = await import("./IacStudioTab");
+    const tab = makeTab({ id: "iac-toolbar-tab", cwd: "/root" });
+    useIacStudioStore.getState().ensure(tab.id, "/root");
+    useIacStudioStore.getState().openFile(tab.id, "/root/main.tf", "resource x", "hcl");
+
+    render(<IacStudioTab tab={tab} />);
+
+    expect(screen.getByRole("toolbar", { name: "Editor actions" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Format document" }));
+    expect(mocks.editor.getAction).toHaveBeenCalledWith("editor.action.formatDocument");
   });
 });

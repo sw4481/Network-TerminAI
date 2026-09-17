@@ -27,6 +27,7 @@ import {
   type EditorPaneLeaf,
 } from "./editorPaneLayout";
 import { confirmEditorBufferClose, EditorBufferTabs } from "./EditorBufferTabs";
+import { EditorActionToolbar } from "./EditorActionToolbar";
 import { EditorPane } from "./EditorPane";
 import { EditorSplitTree } from "./EditorSplitTree";
 import { FileExplorer } from "./FileExplorer";
@@ -123,6 +124,7 @@ export function EditorTab({ tab }: { tab: Tab }) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [, setEditorReadyTick] = useState(0);
   const [fileExplorerRefreshKey, setFileExplorerRefreshKey] = useState(0);
   const [terminalMode, setTerminalMode] =
     useState<EditorTerminalMode>("opencode");
@@ -1055,7 +1057,10 @@ export function EditorTab({ tab }: { tab: Tab }) {
       paneId: string,
       editor: Monaco.editor.IStandaloneCodeEditor,
     ) => {
-      editorRefs.current.set(paneId, editor);
+      if (editorRefs.current.get(paneId) !== editor) {
+        editorRefs.current.set(paneId, editor);
+        setEditorReadyTick((value) => value + 1);
+      }
     },
     onOpenResource: (
       paneId: string,
@@ -1310,6 +1315,57 @@ export function EditorTab({ tab }: { tab: Tab }) {
         onClose={(bufferId) => void closeOpenBuffer(bufferId)}
       />
 
+      <EditorActionToolbar
+        editor={focusedEditor}
+        canSave={Boolean(
+          focusedBuffer?.is_dirty && focusedBuffer.file_path && !workspace.loading,
+        )}
+        onSave={() => {
+          if (focusedBuffer) void saveBuffer(focusedBuffer.id);
+        }}
+        onOpenWorkspace={() => void selectWorkspaceFolder()}
+        onToggleExplorer={() => toggleExplorer(tab.id)}
+        onFind={() => setShowFind((value) => !value)}
+        onWorkspaceFind={() => setShowWorkspaceFind((value) => !value)}
+        onGoToSymbol={
+          mode === "zed" &&
+          workspace.root_path &&
+          focusedBuffer &&
+          normalizeLspLanguage(focusedBuffer.language)
+            ? () => setShowSymbolSearch((value) => !value)
+            : undefined
+        }
+        onSettings={() => setShowSettings((value) => !value)}
+        onSplitRight={
+          mode === "zed" && focusedPane?.detachedWindowId === null
+            ? () => splitPane(tab.id, focusedPane.id, "horizontal")
+            : undefined
+        }
+        onSplitDown={
+          mode === "zed" && focusedPane?.detachedWindowId === null
+            ? () => splitPane(tab.id, focusedPane.id, "vertical")
+            : undefined
+        }
+        onDetach={
+          mode === "zed" && focusedPane?.detachedWindowId === null
+            ? () => void detachPane(focusedPane.id)
+            : undefined
+        }
+        onProblems={focusedBuffer?.cisco_platform ? () => {} : undefined}
+        onTerminal={() => {
+          setShowDebug(false);
+          setTerminalMode("shell");
+          setShowTerminal((value) => (terminalMode === "shell" ? !value : true));
+        }}
+        onAssistant={() => {
+          setShowDebug(false);
+          setTerminalMode("opencode");
+          setShowTerminal((value) =>
+            terminalMode === "opencode" ? !value : true,
+          );
+        }}
+      />
+
       <div className="editor-main">
         {workspace.explorer_open && (
           <FileExplorer
@@ -1383,7 +1439,10 @@ export function EditorTab({ tab }: { tab: Tab }) {
                   }
                   onSave={() => void saveBuffer(classicPane.bufferId)}
                   onEditorReady={(editor) => {
-                    editorRefs.current.set(classicPane.id, editor);
+                    if (editorRefs.current.get(classicPane.id) !== editor) {
+                      editorRefs.current.set(classicPane.id, editor);
+                      setEditorReadyTick((value) => value + 1);
+                    }
                   }}
                   onOpenResource={(uri, position) =>
                     paneCallbacks.onOpenResource(classicPane.id, uri, position)
