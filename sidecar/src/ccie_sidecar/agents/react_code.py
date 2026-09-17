@@ -909,6 +909,7 @@ Use print() to output results — only printed output is visible to you."""
         # Sandbox agents get the tiny Proxmox discovery hint (the `proxmox` module
         # is injected into every sandbox). Mirrors the deepagents loops.
         from ccie_sidecar.agents.code_exec import (
+            BLENDER_SANDBOX_BLURB,
             PROXMOX_SANDBOX_BLURB,
             UTILITY_SANDBOX_BLURB,
             SANDBOX_SHAPE_DISCIPLINE_BLURB,
@@ -918,6 +919,7 @@ Use print() to output results — only printed output is visible to you."""
         system_prompt = (
             (system_prompt or "")
             + "\n\n" + PROXMOX_SANDBOX_BLURB
+            + "\n\n" + BLENDER_SANDBOX_BLURB
             + "\n\n" + UTILITY_SANDBOX_BLURB
             + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
             + graph_sandbox_blurb_suffix(user_msg)

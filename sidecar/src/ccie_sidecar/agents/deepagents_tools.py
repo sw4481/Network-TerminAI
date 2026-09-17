@@ -99,6 +99,9 @@ def create_execute_python_code_tool(
         "drawio.from_mermaid(mermaid=..., title=...); drawio.from_csv(csv=..., title=...). "
         "Each call renders the diagram for the user and returns {url, xml}. "
         "Call it from your code; do NOT print the raw XML.",
+        "- blender: control a local Blender scene via the BlenderMCP addon. "
+        "Use blender.status(), scene_info(), object_info(name), screenshot(), "
+        "execute_code(code), or blender.help().",
     ]
 
     if cli_package == "meraki":
@@ -255,8 +258,9 @@ def create_catalog_search_tool(
     )
     if "code" in tool_properties:
         call_instruction = (
-            f"immediately call {execute_code_tool.name} and use the exact returned "
-            "record inside the code argument"
+            f"immediately call {execute_code_tool.name}; for an HTTP match, its code "
+            "must call matches[*].helper with matches[*].method and the concrete "
+            "matches[*].path, never an SDK-shaped catalog label"
         )
     elif "operation" in tool_properties:
         call_instruction = (

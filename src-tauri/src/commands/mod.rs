@@ -104,6 +104,35 @@ pub fn enable_browser_mcp_server(
     Ok(())
 }
 
+/// Register the packaged Blender MCP server. It connects to the BlenderMCP
+/// addon on localhost:9876 by default; the sandbox `blender` helper uses the
+/// same addon socket directly so agents can work even before the MCP bridge is
+/// fully wired for tool execution.
+pub fn enable_blender_mcp_server(
+    db: &std::sync::Arc<parking_lot::Mutex<rusqlite::Connection>>,
+) -> Result<(), String> {
+    let (python, _) = sidecar_spawn_target();
+    let command_json = serde_json::json!({
+        "cmd": python,
+        "args": ["-m", "blender_mcp.server"]
+    });
+    let env_json = serde_json::json!({
+        "BLENDER_HOST": "localhost",
+        "BLENDER_PORT": "9876"
+    });
+
+    let conn = db.lock();
+    conn.execute(
+        "INSERT OR REPLACE INTO mcp_servers (id, name, transport, command_json, url, env_json, enabled)
+         VALUES ('blender-mcp', 'Blender MCP', 'stdio', ?1, NULL, ?2, 1)",
+        rusqlite::params![
+            serde_json::to_string(&command_json).unwrap(),
+            serde_json::to_string(&env_json).unwrap(),
+        ],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[derive(serde::Serialize)]
 pub struct BrowserMcpConfig {
     pub command: String,
@@ -8004,6 +8033,53 @@ mod tests {
             .await
             .expect("live Anthropic model list");
         assert_eq!(models, vec!["claude-live-new", "claude-live-other"]);
+    }
+
+    #[test]
+    fn blender_mcp_registration_uses_packaged_python_module() {
+        let conn = Arc::new(Mutex::new(rusqlite::Connection::open_in_memory().unwrap()));
+        conn.lock()
+            .execute(
+                "CREATE TABLE mcp_servers (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    transport TEXT NOT NULL,
+                    command_json TEXT,
+                    url TEXT,
+                    env_json TEXT,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                )",
+                [],
+            )
+            .unwrap();
+
+        enable_blender_mcp_server(&conn).unwrap();
+
+        let row = conn
+            .lock()
+            .query_row(
+                "SELECT name, transport, command_json, env_json, enabled FROM mcp_servers WHERE id = 'blender-mcp'",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, i64>(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+        let command: serde_json::Value = serde_json::from_str(&row.2).unwrap();
+        let env: serde_json::Value = serde_json::from_str(&row.3).unwrap();
+        assert_eq!(row.0, "Blender MCP");
+        assert_eq!(row.1, "stdio");
+        assert_eq!(command["args"], serde_json::json!(["-m", "blender_mcp.server"]));
+        assert_eq!(env["BLENDER_HOST"], "localhost");
+        assert_eq!(env["BLENDER_PORT"], "9876");
+        assert_eq!(row.4, 1);
     }
 
     #[test]

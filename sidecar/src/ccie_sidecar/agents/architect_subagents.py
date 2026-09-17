@@ -479,6 +479,30 @@ def detect_vendor_ids(text: str, restrict_to: Optional[List[str]] = None) -> Lis
     return found
 
 
+def is_blender_request(text: str) -> bool:
+    """True when the user is asking about the local Blender scene/tooling."""
+    low = (text or "").lower()
+    return any(
+        token in low
+        for token in ("blender", "blendermcp", "bpy", "viewport", "3d scene")
+    )
+
+
+def is_blender_only_request(text: str, configured_ids: List[str]) -> bool:
+    """Blender request with no configured network vendor explicitly named."""
+    return is_blender_request(text) and not detect_vendor_ids(text, restrict_to=configured_ids)
+
+
+def blender_routing_hint() -> str:
+    return (
+        "ROUTING HINT: this question is about local Blender control. Your FIRST "
+        "action MUST be execute_python_code using the pre-bound `blender` helper "
+        "(for example blender.status(), blender.scene_info(), or "
+        "blender.execute_code(...)). Do NOT call search_api_catalog, Meraki, any "
+        "vendor API, or task() unless the user explicitly names a network platform."
+    )
+
+
 def architect_routing_hint(user_msg: str, configured_ids: List[str]) -> str:
     """A short system-message nudge naming the platform(s) the question is about.
 
@@ -486,6 +510,8 @@ def architect_routing_hint(user_msg: str, configured_ids: List[str]) -> str:
     pressure and let the model decide, as before). This is a THUMB ON THE SCALE,
     not hard routing — the model can still choose otherwise if the words mislead.
     """
+    if is_blender_only_request(user_msg, configured_ids):
+        return blender_routing_hint()
     hits = detect_vendor_ids(user_msg, restrict_to=configured_ids)
     if not hits:
         return ""
@@ -897,15 +923,18 @@ def build_architect_direct_tool(
     # Include the full call-signature blurb so it doesn't hallucinate an API and
     # thrash (markmap-cli/write_file/subprocess) until the step limit.
     from ccie_sidecar.agents.code_exec import (
+        BLENDER_SANDBOX_BLURB,
         UTILITY_SANDBOX_BLURB,
         SANDBOX_SHAPE_DISCIPLINE_BLURB,
     )
 
     description = (
-        "Execute Python to query ANY configured network platform directly. "
+        "Execute Python to query ANY configured network platform directly, plus "
+        "the local Blender scene via the pre-bound `blender` helper. "
         "Every configured vendor's client is PRE-BOUND in this one sandbox — "
         "call it and print() the result; do NOT re-instantiate clients or use "
         "requests directly.\n\n"
+        f"{BLENDER_SANDBOX_BLURB}\n\n"
         f"{UTILITY_SANDBOX_BLURB}\n\n"
         f"{SANDBOX_SHAPE_DISCIPLINE_BLURB}\n\n"
         f"{TOOL_OUTPUT_GUIDANCE}\n\n"

@@ -16,6 +16,7 @@ dependencies = [
     "cryptography==48.0.0",
     "pyopenssl==26.2.0",
     "proxmoxer>=2.0",
+    "mcp-for-blender>=2.0.0",
     # pyATS/Genie ship no Windows wheels (Cisco supports Linux/macOS only), so
     # this is a conditional dependency. On Windows the app builds+runs without
     # it: genie_adapter falls through to the TextFSM/ntc-templates parser and

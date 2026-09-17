@@ -13,6 +13,8 @@ from ccie_sidecar.agents.architect_subagents import (
     detect_vendor_ids,
     architect_routing_hint,
     scope_history_for_question,
+    is_blender_only_request,
+    build_architect_direct_tool,
 )
 
 CONFIGURED = ["mist", "ise", "meraki", "catalyst_center", "aci"]
@@ -61,6 +63,27 @@ def test_routing_hint_empty_when_ambiguous():
 def test_routing_hint_multi_vendor():
     hint = architect_routing_hint("correlate ISE with meraki", CONFIGURED)
     assert "ise" in hint and "meraki" in hint
+
+
+def test_routing_hint_blender_skips_vendor_catalog():
+    hint = architect_routing_hint("check the Blender scene", CONFIGURED)
+    assert "blender" in hint.lower()
+    assert "execute_python_code" in hint
+    assert "Do NOT call search_api_catalog" in hint
+
+
+def test_blender_with_vendor_name_is_not_blender_only():
+    assert is_blender_only_request("render Meraki topology in Blender", CONFIGURED) is False
+
+
+def test_architect_tool_description_names_blender_helper():
+    tool, _ = build_architect_direct_tool(
+        include_unconfigured=False,
+        catalogs=[],
+        user_msg="check the Blender scene",
+    )
+    assert "blender.status()" in tool.description
+    assert "pre-bound `blender` helper" in tool.description
 
 
 # --- scope_history_for_question --------------------------------------------

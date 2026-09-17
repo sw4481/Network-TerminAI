@@ -1398,13 +1398,16 @@ pub fn run() {
                 let state = app_handle.state::<commands::AppState>();
                 let mgr = state.browser_manager.clone();
                 let db = state.db.clone();
+                if let Err(e) = commands::enable_blender_mcp_server(&db) {
+                    tracing::error!(error = %e, "failed to register Blender MCP server");
+                }
                 tauri::async_runtime::spawn(async move {
                     match crate::browser::start_control_server(app_handle.clone(), mgr).await {
                         Ok(info) => {
                             if let Err(e) = crate::browser::write_control_discovery(&info) {
                                 tracing::error!(error = %e, "failed to write browser-control.json");
                             }
-                            // Register the MCP shim using the shared DB handle.
+                            // Register the browser MCP shim using the shared DB handle.
                             if let Err(e) = commands::enable_browser_mcp_server(&db) {
                                 tracing::error!(error = %e, "failed to register browser MCP server");
                             }

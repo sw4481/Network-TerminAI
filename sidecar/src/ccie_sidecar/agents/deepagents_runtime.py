@@ -64,6 +64,7 @@ from ccie_sidecar.agents.deepagents_tools import (
     create_catalog_search_tool,
     create_execute_python_code_tool,
 )
+from ccie_sidecar.agents.architect_subagents import is_blender_only_request
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
 from ccie_sidecar.agents.deepagents_hitl import tier_for_tool, should_interrupt
 from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddleware
@@ -396,6 +397,7 @@ async def deepagents_code_exec_loop(
         # malformed tool-call args; RubricMiddleware adds the self-evaluated
         # "are you done?" check (replaces the runaway-prone ContinuationGuard).
         from ccie_sidecar.agents.code_exec import (
+            BLENDER_SANDBOX_BLURB,
             PROXMOX_SANDBOX_BLURB,
             UTILITY_SANDBOX_BLURB,
             SANDBOX_SHAPE_DISCIPLINE_BLURB,
@@ -406,6 +408,7 @@ async def deepagents_code_exec_loop(
             tools=agent_tools,
             system_prompt=(agent_def.get("system_prompt", "") or "")
             + "\n\n" + PROXMOX_SANDBOX_BLURB
+            + "\n\n" + BLENDER_SANDBOX_BLURB
             + "\n\n" + UTILITY_SANDBOX_BLURB
             + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
             + graph_sandbox_blurb_suffix(user_msg),
@@ -770,8 +773,11 @@ async def deepagents_react_code_loop(
         # can show an approval modal (the tool is also self-tagged destructive). A
         # checkpointer is required for interrupt/resume.
         tools = topolograph_tools or [execute_code_tool]
+        skip_catalog_search = topolograph_tools is not None or (
+            is_architect and is_blender_only_request(user_msg, arch_configured_ids)
+        )
         catalog_search_tool = (
-            None if topolograph_tools is not None else create_catalog_search_tool(execute_code_tool)
+            None if skip_catalog_search else create_catalog_search_tool(execute_code_tool)
         )
         if catalog_search_tool is not None:
             # Put deterministic discovery first in the model's tool list. Raw
@@ -823,6 +829,7 @@ async def deepagents_react_code_loop(
             else base_prompt
         )
         from ccie_sidecar.agents.code_exec import (
+            BLENDER_SANDBOX_BLURB,
             PROXMOX_SANDBOX_BLURB,
             UTILITY_SANDBOX_BLURB,
             SANDBOX_SHAPE_DISCIPLINE_BLURB,
@@ -845,6 +852,7 @@ async def deepagents_react_code_loop(
             system_prompt = (
                 (system_prompt or "")
                 + "\n\n" + PROXMOX_SANDBOX_BLURB
+                + "\n\n" + BLENDER_SANDBOX_BLURB
                 + graph_sandbox_blurb_suffix(user_msg)
                 + lessons_blurb(
                     lessons_scope,
@@ -856,6 +864,7 @@ async def deepagents_react_code_loop(
             system_prompt = (
                 (system_prompt or "")
                 + "\n\n" + PROXMOX_SANDBOX_BLURB
+                + "\n\n" + BLENDER_SANDBOX_BLURB
                 + "\n\n" + UTILITY_SANDBOX_BLURB
                 + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
                 + graph_sandbox_blurb_suffix(user_msg)

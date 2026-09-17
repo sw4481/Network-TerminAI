@@ -1,3 +1,15 @@
+# Mistake: manually linked a second macOS Info.plist into the dev binary
+
+- What the issue/mistake was: I added manual `-sectcreate __TEXT __info_plist src-tauri/Info.plist` linker arguments to `src-tauri/build.rs`, which appended a second plist to Tauri's already generated embedded plist and caused macOS TCC to crash the app on speech recognition access.
+- RCA of the Issue: I treated plain string presence in the binary as proof that TCC would parse the embedded plist, but did not validate the `__TEXT,__info_plist` section with `plutil` before asking the user to retry.
+- How you fixed it: I reset the bad local commit, restored the normal `tauri_build::build()` script, rebuilt `target/debug/TerminAI`, extracted the embedded plist from `otool -s __TEXT __info_plist`, and verified it parses with both microphone and speech-recognition usage strings.
+
+# Mistake: committed unrelated restored local edits with the dev-permission fix
+
+- What the issue/mistake was: My first `fix(macos): embed dictation permissions in dev binary` commit included unrelated restored local edits because they were still staged after reapplying the saved main-checkout stash.
+- RCA of the Issue: I checked `git status` but did not distinguish staged (`M  `) from unstaged (` M`) entries before committing the targeted build-script fix.
+- How you fixed it: I soft-reset the mistaken commit, unstaged the unrelated files, recorded this mistake, and recommitted only `src-tauri/build.rs` plus this required mistakes-log entry.
+
 # Mistake: batch staging returned an ignored-path error for the tracked mistakes log
 
 - What the issue/mistake was: The first commit command stopped after `git add` reported that `Plans` was ignored, even though the tracked `Plans/Mistakes.MD` and the other requested files had been staged.
@@ -260,12 +272,182 @@
 - What the issue/mistake was: The first pre-push Python verification invoked `sidecar/tests` and `pyats_cli/tests` together, causing pytest to import both directories as the same top-level `tests` package and abort collection with module-name collisions.
 - RCA of the Issue: I combined independent project suites for speed without checking that both directories use an identically named import package.
 - How you fixed it: The failed command made no source or runtime changes. I reran the sidecar and pyATS CLI suites in separate pytest processes and used those independent exit codes as the release gates.
-
 # Mistake: combined incompatible Git show options during self-review
 
 - What the issue/mistake was: I combined `--check` with `--name-only` in one `git show` command, which Git rejects.
 - RCA of the Issue: I optimized two independent self-review checks into one command without validating that its output modes are compatible.
 - How you fixed it: The command was read-only. I reran the whitespace and committed-file checks separately: `git show --check --format=fuller HEAD` and `git show --format='' --name-only HEAD` both succeeded.
+
+# Local Mistakes Log
+
+## 2026-09-10: Instruction-read command used an invalid path
+
+- Issue: The initial read command targeted a directory expression instead of a specific instruction file.
+- Root cause analysis: I constructed the path from the skill root incorrectly while beginning the required skill inspection.
+- How fixed: Re-read each required skill from its exact `SKILL.md` path; no repository state was changed by the failed command.
+
+## 2026-09-10: Parallel inspection output destructuring omitted results
+
+- Issue: The first parallel inspection collected five results but destructured and printed only the first two vault reads.
+- Root cause analysis: I used a two-element destructuring assignment for a five-promise batch and failed to iterate the complete result array.
+- How fixed: Reran the read-only inspection with explicit result iteration; no repository state was changed by the output mistake.
+
+## 2026-09-11: Patch tool rejected same-file delete and add
+
+- Issue: A single patch attempted to delete and recreate `commands/stp.rs`, and the patch tool rejected the duplicate file target.
+- Root cause analysis: I used a multi-operation patch form unsupported for one path.
+- How fixed: Split the replacement into separate delete and add operations; no source change occurred from the rejected patch.
+
+## 2026-09-11: Inspection tool call had malformed JavaScript
+
+- Issue: A read-only inspection call omitted the closing JavaScript delimiters and did not execute.
+- Root cause analysis: I shortened the call while switching from shell output to the patch context and left the object invocation incomplete.
+- How fixed: Reissued the read with a complete tool call; no repository state was changed.
+
+## 2026-09-11: Source search included generated build output
+
+- Issue: A broad hidden-file search traversed `src-tauri/target`, producing a large, unhelpful result.
+- Root cause analysis: I used an unrestricted source scope while looking for the Task 6 frontend seams instead of limiting the search to tracked source and task files.
+- How fixed: I will restrict subsequent searches to explicit source, test, and task-plan paths; no source files were changed by the search.
+
+## 2026-09-10: WhatsApp bridge reported linked after its socket died
+
+- Issue: Heartbeat executions completed, but their WhatsApp alerts were not
+  arriving.
+- Root cause analysis: The neonize client returned after a stream replacement
+  or EOF, while the bridge kept the stale client and `linked` state. The live
+  sidecar had only `CLOSE_WAIT` sockets even though DNS and WhatsApp HTTPS
+  reachability were healthy. Failed native group sends also wrote a
+  `SendMessage` error to the sidecar's stdout NDJSON channel, producing
+  `bad json from sidecar`. The native heartbeat sender discarded the sidecar's
+  `ok: false` result and consumed its cooldown, hiding the failure.
+- How addressed: Recovered the live sidecar without restarting TerminAI,
+  added bounded reconnect with explicit non-linked state during recovery,
+  isolated native stdout, required an explicit successful send result before
+  retaining cooldown, and added warning logs plus regression coverage.
+
+## 2026-09-10: Release branch regressed both heartbeat integrations
+
+- Issue: The PyATS and Meraki heartbeats stopped working even though the live
+  device and Dashboard APIs were healthy.
+- Root cause analysis: The public-release branch retained the stale Meraki
+  catalog snapshot (`/assurances`, `/healths`, and mangled `/devicess` routes)
+  after the real-path correction was left out. The launcher also checked only
+  `ccie_sidecar` and `debugpy`, so it reported a ready sidecar without
+  installing the tracked `pyats_cli` wrapper; the saved PyATS heartbeat also
+  called the removed `show-command` verb instead of `run-show-command`.
+- How addressed: Restored the current Meraki REST paths, made `run.sh` install
+  `pyats_cli` when absent, corrected the saved heartbeat verb, and added
+  focused regression tests for the launcher and catalog contracts.
+
+## 2026-09-08: Sanitized Bitwarden fixture dropped TOTP coverage
+
+- Issue: The first sanitized Bitwarden CSV sample left the TOTP column empty,
+  causing the importer test to fail because `totp` metadata was absent.
+- Root cause analysis: The fixture rewrite focused on replacing credential-like
+  values and accidentally removed a required non-secret test field.
+- How addressed: Restored the TOTP column with an explicit example-only value;
+  the focused importer tests are being rerun.
+
+## 2026-09-08: Staging wrapper used the wrong working directory
+
+- Issue: A command attempted to stage the repository-root `.gitignore` while
+  running from `src-tauri`, so Git reported that the path did not exist.
+- Root cause analysis: The command combined a root-relative Git path with a
+  subdirectory working directory.
+- How addressed: No files were changed by the failed command; the retry runs
+  from the repository root with explicit paths.
+
+## 2026-09-08: Test wrapper ran Cargo from the repository root
+
+- Issue: The retry staged correctly but invoked Cargo from the repository root,
+  which has no `Cargo.toml`.
+- Root cause analysis: The staging path correction was applied without also
+  changing the test command to use the `src-tauri` manifest.
+- How addressed: No source files were changed; the next run uses
+  `--manifest-path src-tauri/Cargo.toml`.
+
+## 2026-09-12: zsh diagnostic variable collided with readonly name
+
+- Issue: The first canary credential check failed before running because the
+  shell variable was named `status`, which zsh treats as readonly.
+- Root cause analysis: I used a generic variable name without accounting for
+  zsh's reserved readonly shell parameters.
+- How fixed: Reran the diagnostic with the name `http_status`; no canary or
+  application state was changed by the failed command.
+
+## 2026-09-12: Temporary login probe used blocked recursive cleanup
+
+- Issue: The first form-login probe was rejected before execution because its
+  temporary-directory cleanup used `rm -rf`.
+- Root cause analysis: I used a broad recursive cleanup pattern where the
+  diagnostic did not need cleanup at all.
+- How fixed: Removed the cleanup operation and used an isolated temporary path;
+  no canary or application state was changed by the rejected command.
+
+## 2026-09-12: Form-login probe did not preserve CSRF session cookie
+
+- Issue: The first automated form-login probe fetched the CSRF token without
+  saving the GET response cookie, so the POST could not carry the matching
+  session.
+- Root cause analysis: I used the cookie jar only on the POST and dashboard
+  requests instead of on both the login-page GET and POST.
+- How fixed: Reran the probe with one cookie jar saved on GET and reused on
+  POST; no canary source or credentials were changed by the invalid probe.
+
+## 2026-09-12: In-container search assumed ripgrep was installed
+
+- Issue: Read-only searches inside the Topolograph Flask image failed because
+  the image does not contain `rg`.
+- Root cause analysis: I applied the host search-tool assumption inside a
+  minimal production container without checking tool availability.
+- How fixed: Switched the container inspection to the available `grep` tool;
+  no canary or application state was changed.
+
+## 2026-09-12: Canary username used an email-validator-incompatible local TLD
+
+- Issue: The canary username `canary@topolograph.local` was rejected by the
+  login form as `Invalid email` before authentication ran.
+- Root cause analysis: I chose a `.local` address assuming the form accepted
+  private-only domains, but the upstream email validator rejects that value.
+- How fixed: Replaced it with the reserved, validator-compatible
+  `canary@example.com`; no production or external account was affected.
+
+## 2026-09-12: MCP probe used the system Python instead of the managed environment
+
+- Issue: The first authenticated MCP probe stopped before making a request because the system Python did not have `requests` installed.
+- Root cause analysis: I selected `python3` instead of the repository's `sidecar/.venv/bin/python`, even though the project pins its runtime dependencies in that environment.
+- How fixed: Reran the probe with the managed sidecar interpreter; no token or request payload was emitted by the failed attempt.
+
+## 2026-09-12: Tauri dev launch collided with an existing Vite server
+
+- Issue: `bun run tauri dev` stopped because port 1420 was already occupied by the project's existing Vite process.
+- Root cause analysis: I did not check the dev-server listener before invoking the wrapper command.
+- How fixed: Confirmed the existing Vite listener, started the Rust process directly against it, and terminated only the duplicate process started for this check.
+
+## 2026-09-12: Initial skill-file lookup used an invalid directory expression
+
+- Issue: The first skill inspection command targeted a directory expression instead of a specific `SKILL.md` file and returned no useful content.
+- Root cause analysis: I did not use the explicitly provided skill-root mapping when constructing the initial read command.
+- How fixed: Read the required skills from their exact paths; no worktree source or test files were changed by the failed command.
+
+## 2026-09-14: Assumed Black was installed in the sidecar environment
+
+- Issue: A formatting check failed because the managed sidecar environment does not include the `black` module.
+- Root cause analysis: I invoked an optional formatter without first verifying that the repository config or environment provided it.
+- How fixed: The failed command was read-only. I retained the passing test and `git diff --check` validation paths and did not install a new dependency.
+
+## 2026-09-14: Used obsolete Graphify update syntax
+
+- Issue: I invoked `graphify <path> --update`, which this installed CLI parsed as a full semantic extraction and then failed because its configured Bedrock model is retired.
+- Root cause analysis: I followed the installed skill's older usage form without checking the current CLI command syntax first.
+- How fixed: I checked `graphify --help` and reran the supported code-only incremental command, `graphify update <path>`, which refreshed the main graph successfully without an LLM.
+
+## 2026-09-16: Markdown backticks broke in-app help TypeScript
+
+- Issue: I inserted Markdown backticks around `TERMINAI_WHISPER_MODEL` and `ggml-base.en.bin` inside the `USER_GUIDE_MD` template literal, causing the HelpModal test transform to fail before collection.
+- Root cause analysis: I copied Markdown-safe guide wording into a JavaScript template literal without escaping embedded backticks or checking the file's string context.
+- How fixed: I removed the inline-code backticks from the in-app help copy, reran the focused AgentPanel and HelpModal tests, and kept the Markdown backticks only in the external `.md` guide.
 
 # Mistake: scoped the editor toolbar design to IaC Studio only
 
@@ -278,3 +460,15 @@
 - What the issue/mistake was: I attempted to edit `IacStudioTab.test.tsx` as if it already had the `mocks.monacoProps` helper from `EditorPane.test.tsx`, so the exact edit failed.
 - RCA of the Issue: I carried over a nearby test pattern from memory instead of using the just-read IaC test shape.
 - How you fixed it: The failed edit made no file changes. I patched the actual IaC test structure by adding a local hoisted editor stub and updating the existing MonacoEditor mock.
+
+# Mistake: used fd even though the shell did not provide it
+
+- What the issue/mistake was: I used `fd` to search for sidecar lock files, but the active shell environment does not have `fd` installed.
+- RCA of the Issue: I assumed a developer convenience tool was available instead of using the repository's already-available ripgrep inventory command.
+- How you fixed it: The failed command was read-only. I reran the discovery with `rg --files` scoped to sidecar dependency files and found `sidecar/uv.lock`.
+
+# Mistake: assumed `python` was on PATH in zsh
+
+- What the issue/mistake was: I ran a small cleanup script with `python`, but this shell has no `python` executable on PATH.
+- RCA of the Issue: I ignored the repository's existing `uv run --project sidecar python ...` pattern and assumed a generic interpreter alias existed.
+- How you fixed it: The failed command made no changes. I kept the working code as-is and will use the managed sidecar interpreter or direct Edit calls for follow-up Python snippets.

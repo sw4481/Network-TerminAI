@@ -123,6 +123,13 @@ PROXMOX_SANDBOX_BLURB = (
     "Destructive operations require an explicit confirm=True after you confirm intent with the user."
 )
 
+BLENDER_SANDBOX_BLURB = (
+    "A `blender` module is available in your Python sandbox for controlling a local Blender scene. "
+    "Use blender.status(), blender.scene_info(), blender.object_info(name), "
+    "blender.screenshot(), or blender.execute_code(code). Requires Blender running with the "
+    "BlenderMCP addon enabled and its server started; call blender.help() for setup and signatures."
+)
+
 # Always-available, no-credential utility helpers injected into every sandbox.
 # Tells the model these exist and WHEN to reach for each, so it doesn't try to
 # pip-install or hand-roll equivalents.
@@ -393,6 +400,14 @@ def _build_sandbox_globals(
     try:
         from ccie_sidecar.proxmox_api.helper import install_proxmox
         install_proxmox(globals_dict, emit=emit)
+    except ImportError:
+        pass
+
+    # BlenderMCP addon socket helper — available to every sandbox agent. Registers
+    # `blender` as a global and importable module, mirroring drawio/proxmox.
+    try:
+        from ccie_sidecar.agents.blender_helper import install_blender
+        install_blender(globals_dict, emit=emit)
     except ImportError:
         pass
 
@@ -1271,6 +1286,9 @@ async def code_exec_loop(
             "drawio.from_mermaid(mermaid=..., title=...); drawio.from_csv(csv=..., title=...). "
             "Each call renders the diagram for the user and returns {url, xml}. "
             "Call it from your code; do NOT print the raw XML.",
+            "- blender: control a local Blender scene via the BlenderMCP addon. "
+            "Use blender.status(), scene_info(), object_info(name), screenshot(), "
+            "execute_code(code), or blender.help().",
         ]
         if cli_package == "meraki":
             preloaded_lines.append(
