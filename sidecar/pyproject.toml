@@ -45,10 +45,10 @@ dependencies = [
     # WhatsApp linked-device bridge (personal transport, unofficial API).
     # neonize ships a prebuilt whatsmeow (Go) shared lib; segno renders the
     # pairing QR to a PNG for the Settings UI.
-    # PINNED: 0.4.0/0.4.1 (Jul 2026) are broken — every protobuf return decodes
-    # as "Wire format was corrupt" (get_me/get_joined_groups/send_message all
-    # fail). 0.3.18.post0 is the last known-good build. Verified live 2026-07-10.
-    "neonize==0.3.18.post0",
+    # PINNED: 0.3.18.post0 is now rejected by WhatsApp as an outdated web
+    # client (405). 0.4.0/0.4.1 were broken in Jul 2026 with protobuf decode
+    # failures; 0.4.3.post0 is the first tested replacement candidate.
+    "neonize==0.4.3.post0",
     "segno>=1.6",
 ]
 

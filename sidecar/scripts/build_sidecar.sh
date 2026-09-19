@@ -42,7 +42,7 @@ DIST_DIR="$STAGING_DIST_DIR"
 # portable environment. Every invocation installs into the fresh staging tree.
 export UV_CACHE_DIR="${UV_CACHE_DIR:-$DOWNLOAD_CACHE/uv/${TARGET}}"
 if [[ "$TARGET" == *apple-darwin ]]; then
-    # neonize 0.3.18.post0's native bridge sets the bundle's real macOS floor.
+    # neonize's native bridge sets the bundle's real macOS floor.
     export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-15.0}"
 fi
 
