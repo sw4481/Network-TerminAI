@@ -1,0 +1,244 @@
+.subnet-tab {
+  display: flex;
+  height: 100%;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.subnet-tab * {
+  color: inherit;
+}
+
+/* Feature Sidebar */
+.feature-sidebar {
+  width: 180px;
+  padding: 16px;
+  border-right: 1px solid var(--border-default);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feature-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 150ms;
+  font-size: 14px;
+}
+
+.feature-button:hover {
+  background: var(--surface-hover);
+}
+
+.feature-button.active {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.feature-icon {
+  font-size: 20px;
+}
+
+.feature-label {
+  font-weight: 500;
+}
+
+/* Main Workspace */
+.subnet-workspace {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.tool-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--text-primary) !important;
+}
+
+/* Quick Reference */
+.subnet-reference-container {
+  width: 240px;
+  border-left: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.reference-toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.quick-reference {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.reference-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.reference-close {
+  border: none;
+  background: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.reference-table {
+  width: 100%;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.reference-table td {
+  padding: 4px 0;
+}
+
+/* Shared Styles */
+.btn-primary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background: var(--surface-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--surface-light-control);
+  color: var(--text-on-strong-accent);
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+}
+
+.btn-copy {
+  background: transparent;
+  border: 1px solid var(--border-color, var(--border-default));
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.monospace {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.result-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 1px 3px var(--surface-2);
+  color: var(--text-primary);
+}
+
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.result-label {
+  font-weight: 500;
+  min-width: 150px;
+}
+
+.result-value {
+  font-family: 'SF Mono', monospace;
+  flex: 1;
+}
+
+.result-row.network .result-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.result-row.broadcast .result-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.result-row.usable .result-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ip-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-family: 'SF Mono', monospace;
+  background: var(--surface-input);
+  color: var(--text-primary);
+}
+
+.ip-input-error {
+  border-color: var(--status-danger);
+}
+
+.ip-input-error-text {
+  color: var(--status-danger);
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-primary);
+}
+
+.empty-state-example {
+  font-family: 'SF Mono', monospace;
+  font-size: 14px;
+  margin-top: 8px;
+}

@@ -1,0 +1,180 @@
+/* Settings → Proxmox tab. Hex literals match the rest of the app
+ * (App.css / RagSettingsTab.css) — warm parchment text, gold accent. */
+
+.pve-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: var(--text-primary);
+  font-family: -apple-system, system-ui, sans-serif;
+  max-width: 640px;
+}
+
+.pve-header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.pve-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---------------- Form ---------------- */
+
+.pve-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pve-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 6px;
+}
+
+.pve-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.pve-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pve-field--full {
+  grid-column: 1 / -1;
+}
+
+.pve-field label {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.pve-field .pve-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.pve-field input[type="text"],
+.pve-field input[type="number"],
+.pve-field input[type="password"] {
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.pve-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.pve-field input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  background: var(--surface-input);
+}
+
+/* Checkbox row */
+.pve-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pve-check input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* ---------------- Actions ---------------- */
+
+.pve-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pve-btn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 7px 16px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.pve-btn:hover:not(:disabled) {
+  background: var(--surface-input);
+}
+.pve-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.pve-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pve-btn--primary {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.pve-btn--primary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.pve-btn[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* ---------------- Status ---------------- */
+
+.pve-status {
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+  line-height: 1.4;
+  min-height: 16px;
+  word-break: break-word;
+}
+.pve-status--ok {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.pve-status--err {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+.pve-status--info {
+  color: var(--text-secondary);
+}

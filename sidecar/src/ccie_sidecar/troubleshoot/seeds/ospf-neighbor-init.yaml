@@ -1,0 +1,62 @@
+id: ospf-neighbor-init
+name: OSPF neighbor stuck in Init or ExStart
+symptom_keywords:
+  - ospf
+  - neighbor
+  - init
+  - exstart
+  - 2-way
+  - stuck
+  - adjacency
+vendor: cisco
+platform: iosxe
+description: >-
+  Diagnoses an OSPF adjacency that never reaches Full. Branches on the
+  observed neighbor state to walk through the classic culprits: hello/dead
+  timer mismatch, area mismatch (Init), MTU mismatch (ExStart), and
+  network-type / DR election (2-Way on broadcast segments).
+steps:
+  - id: check_neighbor
+    type: command
+    command: show ip ospf neighbor {{neighbor}}
+  - id: route_on_state
+    type: branch
+    expression: "neighbors[0].state"
+    cases:
+      - when: "INIT"
+        next: check_hellos
+      - when: "EXSTART"
+        next: check_mtu
+      - when: "EXCHANGE"
+        next: check_mtu
+      - when: "2WAY"
+        next: narrate_2way
+      - when: "FULL"
+        next: narrate_ok
+  - id: check_hellos
+    type: command
+    command: show ip ospf interface {{intf}}
+  - id: narrate_init
+    type: narration
+    text: >-
+      Stuck in INIT means our hellos arrive but theirs do not (or area / hello
+      / dead timer mismatch). Compare 'show ip ospf interface {{intf}}' on both
+      ends — Hello/Dead timers, Area ID, and authentication must match.
+  - id: check_mtu
+    type: command
+    command: show interface {{intf}} | include MTU
+  - id: narrate_mtu
+    type: narration
+    text: >-
+      Stuck in EXSTART/EXCHANGE almost always means an IP MTU mismatch on the
+      OSPF interface. Set 'ip ospf mtu-ignore' on one side as a workaround, but
+      the real fix is matching MTU at L3 on both peers.
+  - id: narrate_2way
+    type: narration
+    text: >-
+      2-Way on a broadcast segment is normal for non-DR/BDR routers. If you
+      expected Full, change OSPF network type to point-to-point on both ends
+      ('ip ospf network point-to-point').
+  - id: narrate_ok
+    type: narration
+    text: "Adjacency is Full. No fault detected."

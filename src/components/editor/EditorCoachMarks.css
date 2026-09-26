@@ -1,0 +1,98 @@
+/* Full-viewport layer for coach-marks. Pointer events pass through the scrim
+   except on the bubble, so the highlighted code stays visible/clickable. */
+.coach-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* The spotlight: a bright bordered box over the target lines. The huge
+   box-shadow dims everything OUTSIDE the box (a cutout without SVG masks). */
+.coach-spotlight {
+  position: fixed;
+  border: 2px solid var(--border-default);
+  border-radius: 4px;
+  box-shadow: 0 0 0 9999px var(--surface-2);
+  pointer-events: none;
+  transition: top 0.12s ease, height 0.12s ease;
+}
+
+.coach-bubble {
+  position: fixed;
+  width: 340px;
+  max-width: 90vw;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px var(--surface-2);
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.coach-bubble-step {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.coach-bubble-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.coach-bubble-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.coach-bubble-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.coach-bubble-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.coach-btn {
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.coach-btn-next {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: none;
+}
+
+.coach-btn-back {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.coach-btn-dismiss {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  padding-left: 0;
+}
+
+.coach-btn-dismiss:hover {
+  color: var(--text-primary);
+}

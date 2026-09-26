@@ -1,0 +1,118 @@
+/* Compact menu popover anchored under the share (↗) action button.
+ * Idiom matches PinnedRow / TagChipStrip / shared-import-banner:
+ *   bg var(--surface-2), border var(--border-default), accent var(--accent),
+ *   SF Mono / Menlo monospace, small radii, ~12px copy.
+ *
+ * Positioning: caller (BlockActions) wraps the popover in a
+ * `.share-popover-anchor` (position: relative) sibling to the share
+ * button. This file only handles the absolute placement under the
+ * anchor. */
+.share-popover-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.share-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgb(var(--backdrop-rgb) / 0.55);
+  font: 500 12px/1.3 'SF Mono', 'Menlo', 'Monaco', monospace;
+  color: var(--text-primary);
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: share-popover-fade 0.12s ease-out;
+}
+
+@keyframes share-popover-fade {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.share-popover-title {
+  font: 500 10px/1 'SF Mono', 'Menlo', 'Monaco', monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 4px 8px 6px;
+}
+
+.share-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+.share-popover-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+.share-popover-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+.share-popover-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.share-popover-item-danger { color: var(--status-danger); }
+.share-popover-item-danger:hover:not(:disabled) {
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+}
+
+.share-popover-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.share-popover-item:hover:not(:disabled) .share-popover-glyph { color: inherit; }
+
+.share-popover-label { flex: 1; }
+
+.share-popover-divider {
+  height: 1px;
+  background: var(--surface-3);
+  margin: 4px 0;
+}
+
+.share-popover-feedback {
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+.share-popover-feedback-ok {
+  color: var(--accent);
+  background: var(--surface-overlay);
+}
+.share-popover-feedback-err {
+  color: var(--status-danger);
+  background: var(--surface-overlay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .share-popover { animation: none; }
+  .share-popover-item { transition: none; }
+}

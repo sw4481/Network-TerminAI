@@ -1,0 +1,127 @@
+.push-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.push-modal {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgb(var(--backdrop-rgb) / 0.4);
+  color: var(--text-primary);
+}
+
+.push-modal-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.push-modal-sub {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0 0 16px 0;
+}
+
+.push-modal-field {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.push-modal-field label {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.push-modal-field input {
+  padding: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.push-modal-field input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.push-modal-field input:disabled {
+  opacity: 0.6;
+}
+
+.push-modal-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.push-modal-ok,
+.push-modal-err {
+  padding: 0.6rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.push-modal-ok {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.push-modal-err {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.push-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.push-modal-cancel,
+.push-modal-confirm {
+  padding: 0.5rem 1.1rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.push-modal-cancel {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.push-modal-cancel:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.push-modal-confirm {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.push-modal-confirm:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.push-modal-cancel:disabled,
+.push-modal-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

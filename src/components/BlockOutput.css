@@ -1,0 +1,110 @@
+.block-output {
+  background: var(--surface-terminal);
+  min-height: 100px;
+}
+
+.block-output.collapsed {
+  min-height: 0;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
+}
+
+
+.block-output.active {
+  min-height: 200px;
+  height: auto;
+}
+
+.output-text {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}
+
+.output-text::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.output-text::-webkit-scrollbar-track {
+  background: var(--surface-terminal);
+}
+
+.output-text::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.output-text::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-hover);
+}
+
+/* Truncation styles */
+.block-output.truncated {
+  position: relative;
+}
+
+.truncate-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  margin: 8px 0;
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.show-more-btn {
+  padding: 8px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.show-more-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}
+
+.truncate-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.collapse-hint {
+  display: inline-block;
+  padding: 12px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.collapse-hint:hover {
+  color: var(--text-primary);
+}
+
+/* Search match highlighting */
+.search-match {
+  background: var(--surface-2);
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 2px;
+}
+
+.search-match.current {
+  background: var(--surface-selected);
+  outline: 2px solid var(--border-default);
+}

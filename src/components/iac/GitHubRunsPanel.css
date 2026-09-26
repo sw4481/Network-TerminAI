@@ -1,0 +1,141 @@
+.ghruns-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 340px;
+  background: var(--surface-2);
+  border-left: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.ghruns-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ghruns-title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.ghruns-refresh,
+.ghruns-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ghruns-refresh:hover,
+.ghruns-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.ghruns-empty {
+  padding: 16px 12px;
+  color: var(--text-secondary);
+}
+
+.ghruns-error {
+  margin: 10px 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  color: var(--status-danger);
+  font-size: 12px;
+}
+
+.ghruns-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ghruns-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.ghruns-row:hover {
+  background: var(--surface-hover);
+}
+
+.ghruns-icon {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ghruns-icon--ok {
+  color: var(--text-primary);
+}
+
+.ghruns-icon--fail {
+  color: var(--status-danger);
+}
+
+.ghruns-icon--running {
+  color: var(--status-success);
+  animation: ghruns-pulse 1.2s ease-in-out infinite;
+}
+
+.ghruns-icon--cancelled,
+.ghruns-icon--other {
+  color: var(--text-secondary);
+}
+
+@keyframes ghruns-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.ghruns-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ghruns-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ghruns-sub {
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ghruns-time {
+  color: var(--text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}

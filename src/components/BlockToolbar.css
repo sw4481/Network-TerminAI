@@ -1,0 +1,79 @@
+.block-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--surface-2);
+  backdrop-filter: blur(10px);
+  border-radius: 6px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.block-toolbar.hidden {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toolbar-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.toolbar-btn:active {
+  transform: translateY(0);
+}
+
+.toolbar-btn.bookmarked {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--surface-2);
+}
+
+.toolbar-btn.bookmarked:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover);
+}
+
+.toolbar-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.toolbar-label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Responsive: hide labels on mobile */
+@media (max-width: 768px) {
+  .toolbar-label {
+    display: none;
+  }
+
+  .toolbar-btn {
+    padding: 4px 6px;
+  }
+
+  .block-toolbar {
+    gap: 2px;
+  }
+}

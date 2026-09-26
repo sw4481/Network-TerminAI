@@ -1,0 +1,14 @@
+{
+  "vrf": {
+    "default": {
+      "address_family": {
+        "ipv4": {
+          "routes": {
+            "10.0.0.0/24": { "route": "10.0.0.0/24", "active": true, "metric": 0, "source_protocol": "connected", "next_hop": { "outgoing_interface": { "GigabitEthernet1": { "outgoing_interface": "GigabitEthernet1" } } } },
+            "192.168.1.0/24": { "route": "192.168.1.0/24", "active": true, "metric": 0, "source_protocol": "connected", "next_hop": { "outgoing_interface": { "GigabitEthernet3": { "outgoing_interface": "GigabitEthernet3" } } } }
+          }
+        }
+      }
+    }
+  }
+}

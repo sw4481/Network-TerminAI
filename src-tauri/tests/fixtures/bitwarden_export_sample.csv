@@ -1,0 +1,5 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+example,1,login,gateway-admin,Example-only gateway,,,https://example.invalid,admin,EXAMPLE_ONLY_GATEWAY_PASSWORD,
+example,0,login,nms-svc,Example-only service,,,https://example.invalid,example-service,EXAMPLE_ONLY_NMS_PASSWORD,EXAMPLE_ONLY_TOTP
+ssh,0,login,bastion-key,EXAMPLE_ONLY_SSH_KEY_MARKER,,,,example-user,EXAMPLE_ONLY_UNUSED_PASSWORD,
+empty,0,login,nopassword,,,,,example-user,,

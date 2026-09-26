@@ -1,0 +1,29 @@
+{
+  "device_id": "NX-B",
+  "platform": "nxos",
+  "parsed": {
+    "mode": "mst",
+    "mst_region": {"name": "LAB", "revision": 7, "digest": "aabbccdd"},
+    "mst": {
+      "instance": {
+        "0": {
+          "vlans": "1-9,11-4094",
+          "bridge_id": "32768.00aa.bbcc.ddee",
+          "root_id": "32768.00aa.bbcc.ddee",
+          "bridge_priority": 32768,
+          "root_priority": 32768,
+          "root_cost": 0,
+          "timers": {"hello_time": 2, "max_age": 20, "forward_delay": 15},
+          "topology_changes": 2,
+          "interfaces": {
+            "Ethernet1/1": {"role": "designated", "state": "forwarding", "cost": 4, "bundle_id": "port-channel10"}
+          }
+        }
+      }
+    }
+  },
+  "adjacency_evidence": [
+    {"local_interface": "Ethernet1/1", "remote_device": "XE-A", "remote_interface": "GigabitEthernet1/0/1", "local_bundle": "Port-channel10", "remote_bundle": "Port-channel1"},
+    {"local_interface": "Ethernet1/2", "remote_device": "XE-A", "remote_interface": "GigabitEthernet1/0/2", "local_bundle": "Port-channel10", "remote_bundle": "Port-channel1"}
+  ]
+}

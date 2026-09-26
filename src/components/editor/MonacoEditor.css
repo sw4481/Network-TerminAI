@@ -1,0 +1,31 @@
+.monaco-editor-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.zed-vim-status--overlay {
+  display: none;
+}
+
+.zed-mode .zed-vim-status--overlay:not(:empty) {
+  position: absolute;
+  z-index: 5;
+  bottom: 3px;
+  left: 8px;
+  display: block;
+  padding: 1px 5px;
+  color: var(--text-primary);
+  background: var(--surface-overlay);
+  border-radius: 3px;
+  font: 600 11px/18px "SFMono-Regular", Menlo, monospace;
+  pointer-events: none;
+}
+
+.ccie-editor-bookmark-glyph {
+  background: var(--status-info);
+  width: 8px;
+  height: 8px;
+  margin: 5px 2px 0;
+  border-radius: 50%;
+}

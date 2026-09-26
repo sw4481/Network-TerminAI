@@ -1,0 +1,105 @@
+.post-check-runner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.post-check-prompt {
+  padding: 20px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.post-check-prompt p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.post-check-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+}
+
+.post-check-running span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.post-check-notes-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.post-check-notes-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.post-check-notes-field textarea {
+  padding: 8px 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.post-check-notes-field textarea:focus {
+  border-color: var(--border-strong);
+}
+
+.post-check-notes-field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.post-check-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.post-check-confirm input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.post-check-confirm span {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.run-post-check-btn {
+  padding: 12px;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.run-post-check-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.run-post-check-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

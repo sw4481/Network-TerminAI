@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CCIE Terminal Troubleshooting Playbook",
+  "type": "object",
+  "required": ["id", "name", "symptom_keywords", "vendor", "platform", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "minLength": 1
+    },
+    "name": {"type": "string", "minLength": 1},
+    "symptom_keywords": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 1
+    },
+    "vendor": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "type": {
+            "enum": [
+              "command",
+              "assertion",
+              "branch",
+              "narration",
+              "user_prompt"
+            ]
+          },
+          "command": {"type": "string"},
+          "expression": {"type": "string"},
+          "expects": {},
+          "cases": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["when", "next"],
+              "additionalProperties": false,
+              "properties": {
+                "when": {
+                  "type": ["string", "boolean", "number", "null"]
+                },
+                "next": {"type": "string", "minLength": 1}
+              }
+            }
+          },
+          "text": {"type": "string"},
+          "prompt": {"type": "string"},
+          "on_pass": {"type": "string", "minLength": 1},
+          "on_fail": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

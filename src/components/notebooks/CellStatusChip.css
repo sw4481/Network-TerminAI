@@ -1,0 +1,56 @@
+.cell-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  border: 1px solid transparent;
+  font-family: Menlo, monospace;
+}
+
+.cell-status-chip.status-pending {
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+  border-color: var(--status-warning);
+}
+
+.cell-status-chip.status-running {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+  border-color: var(--status-success);
+  animation: cell-chip-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cell-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.cell-status-chip.status-passed {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+  border-color: var(--status-success);
+}
+
+.cell-status-chip.status-failed {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-color: var(--status-danger);
+}
+
+.cell-status-chip.status-skipped {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  text-decoration: line-through;
+}
+
+.cell-status-chip.status-awaiting_approval {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}

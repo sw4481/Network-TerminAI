@@ -1,0 +1,27 @@
+.appearance-settings { max-width: 860px; }
+.appearance-settings__header { margin-bottom: 20px; }
+.appearance-settings__header h2 { margin-bottom: 6px; }
+.appearance-settings__error { color: var(--status-danger); border: 1px solid var(--status-danger); background: color-mix(in srgb, var(--status-danger) 12%, transparent); border-radius: 6px; padding: 9px 12px; }
+.appearance-settings fieldset { min-width: 0; margin: 0 0 24px; padding: 0; border: 0; }
+.appearance-settings legend { color: var(--text-primary); font-weight: 600; margin-bottom: 10px; }
+.appearance-settings__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.appearance-card { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; padding: 12px; border: 1px solid var(--border-default); background: var(--surface-2); border-radius: 8px; color: var(--text-primary); cursor: pointer; }
+.appearance-card:has(input:checked) { border-color: var(--focus-ring); box-shadow: 0 0 0 1px var(--focus-ring); }
+.appearance-card:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.appearance-card input { margin: 3px 0 0; accent-color: var(--accent); }
+.appearance-card__swatch { grid-column: 2; height: 28px; border-radius: 4px; border: 1px solid var(--border-default); background: var(--app-canvas); }
+.appearance-card[data-theme-preview="slate-grey"] .appearance-card__swatch { background: var(--surface-2); }
+.appearance-card[data-theme-preview="matrix"] .appearance-card__swatch { background: var(--surface-2); box-shadow: inset 0 0 12px var(--surface-2); }
+.appearance-card__title, .appearance-card__description { grid-column: 2; }
+.appearance-card__title { font-weight: 600; }
+.appearance-card__description { color: var(--text-secondary); font-size: 12px; line-height: 1.35; }
+.appearance-settings__effects { display: grid; gap: 10px; }
+.appearance-settings__effects > label { display: flex; align-items: center; gap: 8px; color: var(--text-primary); }
+.appearance-settings__effects > label:has(input:disabled) { color: var(--text-muted); cursor: not-allowed; }
+.appearance-settings__effects select { margin-left: auto; background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--focus-control); border-radius: 4px; padding: 5px 8px; }
+.appearance-settings__actions { display: flex; gap: 10px; }
+.appearance-settings__actions button:not(.primary) { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--focus-control); border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+.appearance-settings__actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+.appearance-settings__save-status { margin: 10px 0 0; color: var(--text-secondary); }
+.appearance-settings__save-status--failed { color: var(--status-danger); }
+@media (max-width: 720px) { .appearance-settings__cards { grid-template-columns: 1fr; } }

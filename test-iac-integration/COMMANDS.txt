@@ -1,0 +1,30 @@
+=================================================================
+  SIMPLE ANSIBLE COMMANDS (No Scripts, No Exports)
+=================================================================
+
+Add VLAN 78:
+-----------
+cd "$HOME/Network-TerminAI/test-iac-integration"
+./generate-inventory.sh production-switches > inventory.ini
+ansible-playbook -i inventory.ini push-vlan.yml --ask-pass
+
+
+Remove VLAN 78:
+---------------
+cd "$HOME/Network-TerminAI/test-iac-integration"
+ansible-playbook -i inventory.ini remove-vlan.yml --ask-pass
+
+
+That's it!
+----------
+- generate-inventory.sh reads your fanout group from CCIE Terminal DB
+- Ansible prompts for SSH password once (--ask-pass)
+- IaC features automatically detect ansible-playbook and show enriched UI
+- No environment variables, no exports, just standard Ansible
+
+
+Alternative (if you have credentials in ansible.cfg or ~/.ssh/config):
+-----------------------------------------------------------------------
+ansible-playbook -i inventory.ini push-vlan.yml
+
+(No --ask-pass needed if SSH keys or vault configured)

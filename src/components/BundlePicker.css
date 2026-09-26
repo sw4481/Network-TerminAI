@@ -1,0 +1,121 @@
+.bundle-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.bundle-picker-loading {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.bundle-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bundle-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.bundle-item {
+  position: relative;
+  padding: 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bundle-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.bundle-item.selected {
+  background: var(--surface-selected);
+  border-color: var(--border-default);
+}
+
+.bundle-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.bundle-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bundle-command-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.bundle-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.bundle-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.bundle-item:hover .bundle-actions {
+  opacity: 1;
+}
+
+.bundle-action-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.bundle-action-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.bundle-action-btn.delete:hover {
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+
+.bundle-create-btn {
+  padding: 10px;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.bundle-create-btn:hover {
+  background: var(--surface-hover);
+}

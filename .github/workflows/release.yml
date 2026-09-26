@@ -1,0 +1,650 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.3.6"
+  RUST_VERSION: "1.97.0"
+  UV_VERSION: "0.8.19"
+
+jobs:
+  preflight:
+    name: release-preflight
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Validate tag, manifests, Cargo.lock, and changelog
+        run: python3 scripts/release_preflight.py check --tag "$GITHUB_REF_NAME"
+
+      - name: Require frozen Bun and Python locks
+        run: |
+          bun install --frozen-lockfile
+          cd sidecar
+          uv lock --check
+
+      - name: Validate workflows and release scripts
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          python3 -m unittest discover -s scripts/tests -v
+          shellcheck \
+            run.sh \
+            ci/sign-sidecar-macos.sh \
+            scripts/bump-version.sh \
+            scripts/check-release-environment.sh \
+            scripts/check-rustfmt-changed.sh \
+            scripts/verify-bundled-sidecar.sh \
+            scripts/verify-updater-key.sh \
+            sidecar/scripts/build_sidecar.sh
+
+      - name: Install Rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+
+      - name: Check formatting for release-commit Rust changes
+        run: scripts/check-rustfmt-changed.sh HEAD^ HEAD
+
+      - name: Run frontend tests and production build
+        run: |
+          bun run test
+          bun run build:relaxed
+
+      - name: Require a public repository for anonymous updater clients
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            if (data.private) {
+              core.setFailed('TerminAI must be public before publishing updater assets.');
+            }
+
+      - name: Check required release configuration without printing values
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
+        run: scripts/check-release-environment.sh
+
+      - name: Verify updater private key matches the committed public key
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: scripts/verify-updater-key.sh
+
+  create-release:
+    name: create-draft-release
+    needs: preflight
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_notes: ${{ steps.notes.outputs.body }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read versioned release notes
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/release_preflight.py notes "$version" > "$RUNNER_TEMP/release-notes.md"
+          delimiter="terminai-notes-$(python3 -c 'import uuid; print(uuid.uuid4())')"
+          {
+            echo "body<<$delimiter"
+            cat "$RUNNER_TEMP/release-notes.md"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or refresh the draft release
+        id: release
+        uses: actions/github-script@v7
+        env:
+          NOTES_PATH: ${{ runner.temp }}/release-notes.md
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync(process.env.NOTES_PATH, 'utf8').trim();
+            const tag = context.ref.replace('refs/tags/', '');
+            let release;
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag
+              });
+              if (!existing.data.draft) {
+                throw new Error(`Release ${tag} is already published; refusing to replace it.`);
+              }
+              release = await github.rest.repos.updateRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: existing.data.id,
+                name: `TerminAI ${tag}`,
+                body,
+                draft: true,
+                prerelease: false
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              release = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                name: `TerminAI ${tag}`,
+                body,
+                draft: true,
+                prerelease: false
+              });
+            }
+            core.setOutput('release_id', String(release.data.id));
+
+  build-tauri:
+    name: package-${{ matrix.name }}
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      # tauri-action merges each target into latest.json. Serial uploads avoid
+      # concurrent read/delete/write races while keeping one native matrix.
+      max-parallel: 1
+      matrix:
+        include:
+          - name: macos-aarch64
+            runner: macos-15
+            sidecar_triple: aarch64-apple-darwin
+            rust_target: aarch64-apple-darwin
+            macos_deployment_target: "15.0"
+            tauri_args: --target aarch64-apple-darwin --bundles app,dmg -- --locked
+          - name: windows-x86_64
+            runner: windows-2025
+            sidecar_triple: x86_64-pc-windows-msvc
+            rust_target: x86_64-pc-windows-msvc
+            tauri_args: --bundles nsis -- --locked
+          - name: linux-x86_64
+            runner: ubuntu-22.04
+            sidecar_triple: x86_64-unknown-linux-gnu
+            rust_target: x86_64-unknown-linux-gnu
+            tauri_args: --bundles deb -- --locked
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: ${{ matrix.rust_target }}
+          components: clippy
+
+      - name: Free Linux runner disk space
+        if: runner.os == 'Linux'
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          docker system prune -af || true
+          df -h
+
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            curl \
+            file \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            libclang-dev \
+            libfuse2 \
+            libgtk-3-dev \
+            libssl-dev \
+            libudev-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            patchelf \
+            pkg-config \
+            wget
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Cache immutable sidecar build downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/terminai-downloads
+            ${{ runner.temp }}/terminai-huggingface
+          key: sidecar-downloads-${{ matrix.sidecar_triple }}-pbs-20260510-3.12.13-${{ hashFiles('sidecar/uv.lock', 'sidecar/scripts/fetch_onnx.py') }}
+
+      - name: Sync sidecar from the frozen lock
+        working-directory: sidecar
+        shell: bash
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv
+        run: |
+          uv sync --frozen --extra dev
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            .venv/Scripts/python.exe -c "import ccie_sidecar"
+          else
+            .venv/bin/python -c "import ccie_sidecar"
+          fi
+
+      - name: Build portable sidecar from the frozen lock
+        working-directory: sidecar
+        shell: bash
+        env:
+          CCIE_TARGET_TRIPLE: ${{ matrix.sidecar_triple }}
+          TERMINAI_DOWNLOAD_CACHE: ${{ runner.temp }}/terminai-downloads
+          HF_HOME: ${{ runner.temp }}/terminai-huggingface
+        run: ./scripts/build_sidecar.sh
+
+      - name: Enforce the advertised macOS deployment target
+        if: runner.os == 'macOS'
+        run: >-
+          python3 scripts/verify_macos_deployment_target.py
+          sidecar/dist/python
+          --maximum 15.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.sidecar_triple }}
+
+      - name: Install frontend dependencies from the frozen lock
+        run: bun install --frozen-lockfile
+
+      - name: Create placeholder resources for Rust-only checks
+        shell: bash
+        run: |
+          mkdir -p sidecar/dist/python src-tauri/resources/models
+          touch src-tauri/resources/models/ggml-base.en.bin
+
+      - name: Run Rust checks from Cargo.lock
+        working-directory: src-tauri
+        env:
+          CCIE_REPO_ROOT: ${{ github.workspace }}
+        run: |
+          cargo test --locked --no-run
+          cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Diagnose Linux native bundle build
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
+        run: |
+          set +e
+          bun tauri build --bundles deb -- --locked > "$RUNNER_TEMP/linux-tauri-build.log" 2>&1
+          status=$?
+          if [[ $status -ne 0 ]]; then
+            tail -n 80 "$RUNNER_TEMP/linux-tauri-build.log"
+            message="$(tail -n 20 "$RUNNER_TEMP/linux-tauri-build.log" | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+            echo "::error title=Linux native bundle build failed::exit=$status $message"
+            exit "$status"
+          fi
+          echo "Linux native bundle build diagnostic passed."
+
+      - name: Build and upload native bundles
+        id: tauri
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tagName: ${{ github.ref_name }}
+          releaseBody: ${{ needs.create-release.outputs.release_notes }}
+          releaseDraft: true
+          updaterJsonPreferNsis: true
+          retryAttempts: 2
+          args: ${{ matrix.tauri_args }}
+
+      - name: Sign and upload the Debian updater package
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          [[ -n "$deb" ]]
+          bun tauri signer sign "$deb" >/dev/null
+          test -s "$deb.sig"
+          gh release upload "$GITHUB_REF_NAME" "$deb.sig" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+      - name: Validate zero-cost macOS bundle and updater signature
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bundle_root="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          echo "::group::macOS bundle inventory"
+          find "$bundle_root" -maxdepth 3 -print
+          echo "::endgroup::"
+          dmg="$(find "$bundle_root" -type f -name '*.dmg' -print -quit)"
+          updater="$(find "$bundle_root" -type f -name '*.app.tar.gz' -print -quit)"
+          if [[ -z "$dmg" ]]; then
+            echo "::error title=macOS bundle validation failed::stage=locate dmg"
+            exit 1
+          fi
+          if [[ -z "$updater" ]]; then
+            echo "::error title=macOS bundle validation failed::stage=locate updater archive"
+            exit 1
+          fi
+          if [[ ! -f "$updater.sig" ]]; then
+            echo "::error title=macOS bundle validation failed::stage=locate updater signature::updater=$updater"
+            exit 1
+          fi
+          echo "macOS distribution is intentionally not Developer ID signed or notarized."
+          scripts/verify-bundled-sidecar.sh macos "$dmg"
+
+      - name: Validate zero-cost Windows installer and updater signature
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          $app = Get-Item "src-tauri/target/release/TerminAI.exe"
+          if (-not $installer) { throw "NSIS installer missing" }
+          $updaterSignature = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.sig" | Select-Object -First 1
+          if (-not $updaterSignature) { throw "Windows updater signature missing" }
+          foreach ($file in @($installer, $app)) {
+            $status = (Get-AuthenticodeSignature $file.FullName).Status
+            Write-Host "Zero-cost Authenticode status for $($file.Name): $status"
+          }
+
+      - name: Inspect sidecar inside Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          installer="$(find src-tauri/target/release/bundle/nsis -type f -iname '*-setup.exe' -print -quit)"
+          scripts/verify-bundled-sidecar.sh windows "$installer"
+
+      - name: Validate Linux installers and updater signatures
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)"
+          [[ -n "$deb" ]]
+          test -s "$deb.sig"
+          scripts/verify-bundled-sidecar.sh linux "$deb"
+
+  publish-release:
+    name: validate-and-publish
+    needs: [create-release, build-tauri]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download draft release metadata and latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          curl --fail --silent --show-error \
+            -H "$auth" \
+            -H "Accept: application/vnd.github+json" \
+            "$api/releases/$RELEASE_ID" \
+            --output "$RUNNER_TEMP/release.json"
+          latest_id="$(python3 - "$RUNNER_TEMP/release.json" <<'PY'
+          import json
+          import sys
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          matches = [asset["id"] for asset in release.get("assets", []) if asset.get("name") == "latest.json"]
+          if len(matches) != 1:
+              raise SystemExit("latest.json release asset is missing or ambiguous")
+          print(matches[0])
+          PY
+          )"
+          curl --fail --silent --show-error --location \
+            -H "$auth" \
+            -H "Accept: application/octet-stream" \
+            "$api/releases/assets/$latest_id" \
+            --output "$RUNNER_TEMP/latest.json"
+
+      - name: Add the signed Debian updater record
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          read -r latest_id deb_signature_id < <(
+            python3 - "$RUNNER_TEMP/release.json" <<'PY'
+          import json
+          import sys
+
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          assets = release.get("assets", [])
+          latest = [asset for asset in assets if asset.get("name") == "latest.json"]
+          debs = [asset for asset in assets if str(asset.get("name", "")).endswith(".deb")]
+          if len(latest) != 1 or len(debs) != 1:
+              raise SystemExit("latest.json or Debian installer asset is missing or ambiguous")
+          signature_name = f"{debs[0]['name']}.sig"
+          signatures = [asset for asset in assets if asset.get("name") == signature_name]
+          if len(signatures) != 1:
+              raise SystemExit(f"{signature_name} is missing or ambiguous")
+          print(latest[0]["id"], signatures[0]["id"])
+          PY
+          )
+          curl --fail --silent --show-error --location \
+            -H "$auth" \
+            -H "Accept: application/octet-stream" \
+            "$api/releases/assets/$deb_signature_id" \
+            --output "$RUNNER_TEMP/debian-updater.sig"
+          python3 scripts/add_deb_updater_metadata.py \
+            --latest-json "$RUNNER_TEMP/latest.json" \
+            --release-json "$RUNNER_TEMP/release.json" \
+            --signature "$RUNNER_TEMP/debian-updater.sig"
+          curl --fail --silent --show-error \
+            -X DELETE \
+            -H "$auth" \
+            -H "Accept: application/vnd.github+json" \
+            "$api/releases/assets/$latest_id"
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "$auth" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/octet-stream" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=latest.json" \
+            --data-binary "@$RUNNER_TEMP/latest.json" \
+            --output "$RUNNER_TEMP/latest-asset.json"
+
+      - name: Confirm updater version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 scripts/release_preflight.py notes "$version" > "$RUNNER_TEMP/expected-notes.md"
+          python3 scripts/release_preflight.py check \
+            --tag "$GITHUB_REF_NAME" \
+            --latest-json "$RUNNER_TEMP/latest.json"
+
+      - name: Download installers and generate SHA-256 checksums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          install_dir="$RUNNER_TEMP/release-installers"
+          mkdir -p "$install_dir"
+          python3 - "$RUNNER_TEMP/release.json" <<'PY' > "$RUNNER_TEMP/installer-assets.tsv"
+          import json
+          import sys
+
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          suffixes = (".dmg", "-setup.exe", "_setup.exe", ".AppImage", ".deb")
+          for asset in release.get("assets", []):
+              name = asset.get("name", "")
+              asset_id = asset.get("id")
+              if isinstance(name, str) and name.endswith(suffixes):
+                  if not isinstance(asset_id, int) or "/" in name or "\\" in name:
+                      raise SystemExit(f"unsafe release asset: {name!r}")
+                  print(f"{asset_id}\t{name}")
+          PY
+          while IFS=$'\t' read -r asset_id asset_name; do
+            [[ -n "$asset_id" && -n "$asset_name" ]]
+            curl --fail --silent --show-error --location \
+              -H "$auth" \
+              -H "Accept: application/octet-stream" \
+              "$api/releases/assets/$asset_id" \
+              --output "$install_dir/$asset_name"
+          done < "$RUNNER_TEMP/installer-assets.tsv"
+          if ! find "$install_dir" -maxdepth 1 -type f -print -quit | grep -q .; then
+            echo "error: no public installers were downloaded" >&2
+            exit 1
+          fi
+          (
+            cd "$install_dir"
+            find . -maxdepth 1 -type f -print \
+              | sed 's|^./||' \
+              | LC_ALL=C sort \
+              | while IFS= read -r name; do sha256sum -- "$name"; done
+          ) > "$RUNNER_TEMP/SHA256SUMS.txt"
+          (cd "$install_dir" && sha256sum --check "$RUNNER_TEMP/SHA256SUMS.txt")
+
+      - name: Upload the checksum manifest to the draft
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          existing_id="$(python3 - "$RUNNER_TEMP/release.json" <<'PY'
+          import json
+          import sys
+
+          release = json.load(open(sys.argv[1], encoding="utf-8"))
+          matches = [asset["id"] for asset in release.get("assets", []) if asset.get("name") == "SHA256SUMS.txt"]
+          if len(matches) > 1:
+              raise SystemExit("multiple SHA256SUMS.txt assets found")
+          print(matches[0] if matches else "")
+          PY
+          )"
+          if [[ -n "$existing_id" ]]; then
+            curl --fail --silent --show-error \
+              -X DELETE \
+              -H "$auth" \
+              -H "Accept: application/vnd.github+json" \
+              "$api/releases/assets/$existing_id"
+          fi
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "$auth" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/octet-stream" \
+            "https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets?name=SHA256SUMS.txt" \
+            --data-binary "@$RUNNER_TEMP/SHA256SUMS.txt" \
+            --output "$RUNNER_TEMP/checksum-asset.json"
+
+      - name: Confirm the complete release asset matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          curl --fail --silent --show-error \
+            -H "$auth" \
+            -H "Accept: application/vnd.github+json" \
+            "$api/releases/$RELEASE_ID" \
+            --output "$RUNNER_TEMP/release.json"
+          python3 scripts/validate_release_assets.py \
+            --tag "$GITHUB_REF_NAME" \
+            --latest-json "$RUNNER_TEMP/latest.json" \
+            --release-json "$RUNNER_TEMP/release.json" \
+            --expected-notes "$RUNNER_TEMP/expected-notes.md"
+
+      - name: Publish only after every gate succeeds
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: Number('${{ needs.create-release.outputs.release_id }}'),
+              draft: false,
+              prerelease: false
+            });

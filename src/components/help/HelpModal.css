@@ -1,0 +1,287 @@
+/* HelpModal — pattern-matched on SavedSSHConnectionsModal but with a
+   sidebar + content split for the four sections. Dark-theme tokens reused. */
+
+.help-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: help-fade-in 0.18s ease-out;
+}
+
+.help-modal {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  width: 1100px;
+  max-width: 94vw;
+  height: 760px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgb(var(--backdrop-rgb) / 0.55);
+  animation: help-slide-up 0.2s ease-out;
+}
+
+@keyframes help-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes help-slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.help-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.help-modal-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.help-modal-search {
+  flex: 1;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.help-modal-search::placeholder {
+  color: var(--text-muted);
+}
+
+.help-modal-search:focus {
+  border-color: var(--focus-ring);
+}
+
+.help-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.help-modal-close:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.help-modal-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.help-modal-sidebar {
+  width: 240px;
+  border-right: 1px solid var(--border-default);
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.help-modal-nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.help-modal-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.help-modal-nav-item--active {
+  background: var(--surface-selected);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.help-modal-nav-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.help-modal-nav-blurb {
+  font-size: 11.5px;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.help-modal-empty {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.help-modal-content {
+  flex: 1;
+  padding: 22px 28px;
+  overflow-y: auto;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Markdown styling — tuned for readability on the dark background. */
+.help-modal-content h1 {
+  font-size: 22px;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 8px;
+}
+
+.help-modal-content h2 {
+  font-size: 17px;
+  color: var(--text-primary);
+  margin: 26px 0 10px;
+}
+
+.help-modal-content h3 {
+  font-size: 14.5px;
+  color: var(--text-primary);
+  margin: 20px 0 8px;
+}
+
+.help-modal-content p {
+  margin: 8px 0;
+}
+
+.help-modal-content ul,
+.help-modal-content ol {
+  margin: 6px 0 10px;
+  padding-left: 22px;
+}
+
+.help-modal-content li {
+  margin: 3px 0;
+}
+
+.help-modal-content code {
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+.help-modal-content pre {
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.help-modal-content pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.help-modal-content blockquote {
+  border-left: 3px solid var(--border-default);
+  background: var(--surface-overlay);
+  margin: 12px 0;
+  padding: 8px 14px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+
+.help-modal-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0 16px;
+  font-size: 13px;
+}
+
+.help-modal-content th,
+.help-modal-content td {
+  border: 1px solid var(--border-default);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.help-modal-content th {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.help-modal-content hr {
+  border: none;
+  border-top: 1px solid var(--border-default);
+  margin: 22px 0;
+}
+
+.help-modal-content a {
+  color: var(--accent);
+}
+
+.help-modal-content a:hover {
+  text-decoration: underline;
+}
+
+/* Scrollbars match the SSH modal styling. */
+.help-modal-sidebar::-webkit-scrollbar,
+.help-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.help-modal-sidebar::-webkit-scrollbar-track,
+.help-modal-content::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+
+.help-modal-sidebar::-webkit-scrollbar-thumb,
+.help-modal-content::-webkit-scrollbar-thumb {
+  background: var(--surface-overlay);
+  border-radius: 4px;
+}
+
+.help-modal-sidebar::-webkit-scrollbar-thumb:hover,
+.help-modal-content::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-hover);
+}

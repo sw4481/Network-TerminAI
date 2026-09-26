@@ -1,0 +1,281 @@
+.parameter-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgb(var(--backdrop-rgb) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.parameter-form {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 500px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px var(--surface-2);
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.parameter-form-header {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 16px;
+}
+
+.parameter-form-header h3 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 600;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+}
+
+.parameter-form-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.parameter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.parameter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.parameter-field label {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.parameter-field .required {
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.parameter-description {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: -4px;
+}
+
+.parameter-field input,
+.parameter-field select {
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.parameter-field input:focus,
+.parameter-field select:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  background: var(--surface-input);
+}
+
+.parameter-field input:required:invalid,
+.parameter-field select:required:invalid {
+  border-color: var(--status-danger);
+}
+
+.parameter-field input:required:valid,
+.parameter-field select:required:valid {
+  border-color: var(--status-success);
+}
+
+.parameter-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.parameter-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+
+.parameter-form-actions button {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  border: none;
+}
+
+.parameter-form-actions button:active {
+  transform: scale(0.98);
+}
+
+.btn-cancel {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.btn-cancel:hover {
+  background: var(--surface-hover);
+}
+
+.btn-submit {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.btn-submit:hover {
+  background: var(--surface-hover);
+}
+
+.btn-submit:disabled {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* Scrollbar styling for form */
+.parameter-form::-webkit-scrollbar {
+  width: 8px;
+}
+
+.parameter-form::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+
+.parameter-form::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.parameter-form::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-hover);
+}
+
+.btn-save {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.btn-save:hover {
+  background: var(--surface-hover);
+}
+
+.save-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.7);
+  z-index: 10;
+}
+
+.save-dialog h4 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.save-dialog input {
+  width: 100%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.save-dialog input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.save-error {
+  color: var(--status-danger);
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.save-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.save-dialog-actions button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.save-dialog-actions button:first-child {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.save-dialog-actions button:first-child:hover {
+  background: var(--surface-hover);
+}
+
+.save-dialog-actions button:last-child {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+}
+
+.save-dialog-actions button:last-child:hover {
+  background: var(--surface-hover);
+}

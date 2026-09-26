@@ -1,0 +1,323 @@
+# CCIE Terminal — Built-in workflow seed pack (Plan 02 Phase 3)
+# Format: list of workflow dicts with name, description, vendor, platform, tags, params, steps.
+# Source column references the authoritative vendor doc family (verified at authoring time);
+# all commands here are standard show-only operational commands that have been stable
+# across the relevant platform for many years.
+version: 1
+workflows:
+  # ---- Cisco IOS-XE (15) ----
+  - id: cisco-iosxe-show-version
+    name: "Show version"
+    description: "Device software, uptime, image, serial"
+    vendor: cisco
+    platform: iosxe
+    tags: [diagnostics, inventory]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show version" }
+    source: "https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/fundamentals/command/cf_command_ref/S_commands.html"
+
+  - id: cisco-iosxe-show-ip-int-br
+    name: "Show IP interface brief"
+    description: "All interfaces with IPs + status"
+    vendor: cisco
+    platform: iosxe
+    tags: [interfaces]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ip interface brief" }
+
+  - id: cisco-iosxe-show-interface-counters
+    name: "Show interface counters"
+    description: "Per-interface TX/RX counters"
+    vendor: cisco
+    platform: iosxe
+    tags: [interfaces, counters]
+    params:
+      - { name: intf, type: interface, default_value: null, required: true, description: "Interface (e.g. Gi0/0/0)" }
+    steps:
+      - { idx: 0, command_template: "show interface {{ intf }} counters" }
+
+  - id: cisco-iosxe-show-interface-errors
+    name: "Show interface errors"
+    description: "Input/output errors + drops for an interface"
+    vendor: cisco
+    platform: iosxe
+    tags: [interfaces, troubleshoot]
+    params:
+      - { name: intf, type: interface, default_value: null, required: true, description: "Interface" }
+    steps:
+      - { idx: 0, command_template: "show interfaces {{ intf }}" }
+      - { idx: 1, command_template: "show interfaces {{ intf }} counters errors" }
+
+  - id: cisco-iosxe-show-bgp-summary
+    name: "Show BGP summary"
+    description: "All BGP neighbors and state"
+    vendor: cisco
+    platform: iosxe
+    tags: [bgp, routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show bgp summary" }
+
+  - id: cisco-iosxe-show-bgp-neighbor
+    name: "Show BGP neighbor"
+    description: "Full BGP session details for one neighbor"
+    vendor: cisco
+    platform: iosxe
+    tags: [bgp, routing]
+    params:
+      - { name: neighbor, type: ip, default_value: null, required: true, description: "Neighbor IP" }
+    steps:
+      - { idx: 0, command_template: "show bgp neighbors {{ neighbor }}" }
+
+  - id: cisco-iosxe-show-bgp-received-routes
+    name: "Show BGP received routes (per-neighbor)"
+    description: "Routes received from a BGP peer"
+    vendor: cisco
+    platform: iosxe
+    tags: [bgp, routing]
+    params:
+      - { name: neighbor, type: ip, default_value: null, required: true, description: "Neighbor IP" }
+    steps:
+      - { idx: 0, command_template: "show bgp neighbors {{ neighbor }} received-routes" }
+
+  - id: cisco-iosxe-show-ospf-neighbor
+    name: "Show OSPF neighbor"
+    description: "OSPF adjacency state"
+    vendor: cisco
+    platform: iosxe
+    tags: [ospf, routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ip ospf neighbor" }
+
+  - id: cisco-iosxe-show-ospf-interface
+    name: "Show OSPF interface"
+    description: "OSPF state per interface"
+    vendor: cisco
+    platform: iosxe
+    tags: [ospf, routing]
+    params:
+      - { name: intf, type: interface, default_value: null, required: true, description: "Interface" }
+    steps:
+      - { idx: 0, command_template: "show ip ospf interface {{ intf }}" }
+
+  - id: cisco-iosxe-show-ip-route
+    name: "Show IP route"
+    description: "Global routing table"
+    vendor: cisco
+    platform: iosxe
+    tags: [routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ip route" }
+
+  - id: cisco-iosxe-show-acl-hits
+    name: "Show ACL hit counts"
+    description: "ACL hit counters for diagnosing policy matches"
+    vendor: cisco
+    platform: iosxe
+    tags: [acl, security]
+    params:
+      - { name: acl, type: string, default_value: null, required: true, description: "ACL name/number" }
+    steps:
+      - { idx: 0, command_template: "show access-lists {{ acl }}" }
+
+  - id: cisco-iosxe-show-cdp-neighbors
+    name: "Show CDP neighbors detail"
+    description: "Neighbor discovery (platform + IP)"
+    vendor: cisco
+    platform: iosxe
+    tags: [discovery, topology]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show cdp neighbors detail" }
+
+  - id: cisco-iosxe-show-lldp-neighbors
+    name: "Show LLDP neighbors"
+    description: "LLDP-based neighbor discovery"
+    vendor: cisco
+    platform: iosxe
+    tags: [discovery, topology]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show lldp neighbors detail" }
+
+  - id: cisco-iosxe-show-vlan
+    name: "Show VLAN brief"
+    description: "VLAN-to-port mapping"
+    vendor: cisco
+    platform: iosxe
+    tags: [vlan, l2]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show vlan brief" }
+
+  - id: cisco-iosxe-show-mac-address-table
+    name: "Show MAC address table"
+    description: "L2 MAC table"
+    vendor: cisco
+    platform: iosxe
+    tags: [l2]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show mac address-table" }
+
+  # ---- Cisco NX-OS (3) ----
+  - id: cisco-nxos-show-interface
+    name: "NX-OS: show interface"
+    description: "Interface detail"
+    vendor: cisco
+    platform: nxos
+    tags: [interfaces]
+    params:
+      - { name: intf, type: interface, default_value: null, required: true, description: "Interface" }
+    steps:
+      - { idx: 0, command_template: "show interface {{ intf }}" }
+
+  - id: cisco-nxos-show-vpc
+    name: "NX-OS: show vpc"
+    description: "vPC peer + consistency state"
+    vendor: cisco
+    platform: nxos
+    tags: [vpc, l2]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show vpc" }
+
+  - id: cisco-nxos-show-vrf
+    name: "NX-OS: show vrf all"
+    description: "All VRFs + interfaces"
+    vendor: cisco
+    platform: nxos
+    tags: [routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show vrf all" }
+
+  # ---- Juniper Junos (3) ----
+  - id: juniper-junos-show-interfaces
+    name: "Junos: show interfaces terse"
+    description: "All interfaces quick status"
+    vendor: juniper
+    platform: junos
+    tags: [interfaces]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show interfaces terse" }
+
+  - id: juniper-junos-show-bgp-summary
+    name: "Junos: show BGP summary"
+    description: "BGP peers + state"
+    vendor: juniper
+    platform: junos
+    tags: [bgp, routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show bgp summary" }
+
+  - id: juniper-junos-show-ospf-neighbor
+    name: "Junos: show OSPF neighbor"
+    description: "OSPF adjacency table"
+    vendor: juniper
+    platform: junos
+    tags: [ospf, routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ospf neighbor" }
+
+  # ---- Arista EOS (3) ----
+  - id: arista-eos-show-ip-int-br
+    name: "EOS: show ip interface brief"
+    description: "Interface IP + status"
+    vendor: arista
+    platform: eos
+    tags: [interfaces]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ip interface brief" }
+
+  - id: arista-eos-show-mlag
+    name: "EOS: show mlag"
+    description: "MLAG peer + interface state"
+    vendor: arista
+    platform: eos
+    tags: [mlag, l2]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show mlag" }
+
+  - id: arista-eos-show-bgp-summary
+    name: "EOS: show ip bgp summary"
+    description: "BGP peers + state"
+    vendor: arista
+    platform: eos
+    tags: [bgp, routing]
+    params: []
+    steps:
+      - { idx: 0, command_template: "show ip bgp summary" }
+
+  # ---- Generic terminal workflows (6) ----
+  - id: generic-list-directory
+    name: "List current directory"
+    description: "Show files in the current shell directory"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params: []
+    steps:
+      - { idx: 0, command_template: "ls" }
+
+  - id: generic-show-working-directory
+    name: "Show working directory"
+    description: "Print the current shell directory"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params: []
+    steps:
+      - { idx: 0, command_template: "pwd" }
+
+  # ---- Generic (4) ----
+  - id: generic-ping
+    name: "Ping"
+    description: "4 ICMP echos"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params:
+      - { name: host, type: string, default_value: null, required: true, description: "Host or IP" }
+    steps:
+      - { idx: 0, command_template: "ping -c 4 {{ host }}" }
+
+  - id: generic-traceroute
+    name: "Traceroute"
+    description: "Hop-by-hop path"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params:
+      - { name: host, type: string, default_value: null, required: true, description: "Host or IP" }
+    steps:
+      - { idx: 0, command_template: "traceroute {{ host }}" }
+
+  - id: generic-show-date
+    name: "Date"
+    description: "Device time"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params: []
+    steps:
+      - { idx: 0, command_template: "date" }
+
+  - id: generic-uptime
+    name: "Uptime"
+    description: "System uptime"
+    vendor: generic
+    platform: generic
+    tags: [diagnostics]
+    params: []
+    steps:
+      - { idx: 0, command_template: "uptime" }

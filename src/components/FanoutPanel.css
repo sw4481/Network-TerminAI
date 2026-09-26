@@ -1,0 +1,211 @@
+.fanout-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  font-family: Menlo, monospace;
+  font-size: 12px;
+}
+
+.fanout-command-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+  align-items: center;
+}
+.fanout-command-bar select,
+.fanout-command-bar input {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.fanout-command-bar input.command-input { flex: 1; min-width: 0; }
+.fanout-command-bar input.timeout-input { width: 80px; }
+.fanout-command-bar button {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.fanout-command-bar button:disabled {
+  background: var(--surface-3);
+  cursor: not-allowed;
+}
+.fanout-command-bar button.danger {
+  background: var(--status-danger-surface);
+}
+
+.fanout-progress-lane {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border-default);
+  padding: 6px 0;
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+}
+
+.fanout-progress-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 100px 80px 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+}
+.fanout-progress-row:hover { background: var(--surface-overlay); }
+
+.fanout-status-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-align: center;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.fanout-status-chip.pending   { background: var(--status-warning-surface); color: var(--status-warning); }
+.fanout-status-chip.running   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: var(--status-success); }
+.fanout-status-chip.success   { background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1)); color: var(--status-success); }
+.fanout-status-chip.failed    { background: var(--status-danger-surface); color: var(--status-danger); }
+.fanout-status-chip.timeout   { background: var(--surface-2); color: var(--status-warning); }
+.fanout-status-chip.cancelled { background: var(--surface-2); color: var(--status-neutral); }
+
+.fanout-progress-bar {
+  height: 6px;
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  border-radius: 3px;
+  overflow: hidden;
+}
+.fanout-progress-bar > div {
+  height: 100%;
+  background: var(--status-info);
+  width: 0%;
+  transition: width 0.2s ease;
+}
+.fanout-progress-bar.running > div { width: 100%; opacity: 0.55; }
+.fanout-progress-bar.success > div { background: var(--status-success); width: 100% !important; }
+.fanout-progress-bar.failed  > div { background: var(--status-danger); width: 100% !important; }
+.fanout-progress-bar.timeout > div { background: var(--status-warning); width: 100% !important; }
+.fanout-progress-bar.cancelled > div { background: var(--status-neutral); width: 100% !important; }
+
+.fanout-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.fanout-row-actions button {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.fanout-row-actions button:hover { background: var(--surface-fanout-action-hover); color: var(--text-primary); }
+
+.fanout-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+.fanout-tab {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-right: 1px solid var(--border-default);
+  white-space: nowrap;
+  font-size: 11px;
+}
+.fanout-tab.active {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-default);
+}
+
+.fanout-main {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  background: var(--app-canvas);
+}
+
+.fanout-merged-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.fanout-merged-table th,
+.fanout-merged-table td {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  text-align: left;
+}
+.fanout-merged-table th { background: var(--surface-overlay); }
+.fanout-merged-table td.outlier {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.fanout-outlier-banner {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-default);
+}
+.fanout-outlier-banner button {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  margin-right: 6px;
+  font-size: 10px;
+}
+
+.fanout-raw {
+  font-family: Menlo, monospace;
+  white-space: pre;
+  font-size: 11px;
+  color: var(--text-primary);
+  padding: 8px;
+  overflow: auto;
+}
+
+.fanout-history {
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-2);
+  max-height: 160px;
+  overflow: auto;
+}
+.fanout-history-header {
+  padding: 6px 12px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.fanout-history-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 60px;
+  gap: 8px;
+  padding: 4px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  border-top: 1px solid var(--border-default);
+}
+.fanout-history-row:hover { background: var(--surface-overlay); }

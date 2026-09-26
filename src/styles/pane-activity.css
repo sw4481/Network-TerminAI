@@ -1,0 +1,96 @@
+/* Animated border overlays */
+.pane-border {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pane-border-running::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    var(--color-primary, var(--status-success)) 50%,
+    transparent 100%
+  );
+  mask: linear-gradient(var(--text-primary) 0 0) content-box, linear-gradient(var(--text-primary) 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(var(--text-primary) 0 0) content-box, linear-gradient(var(--text-primary) 0 0);
+  -webkit-mask-composite: xor;
+  padding: 1px;
+  animation: rotating-gradient 2s linear infinite;
+  will-change: transform;
+}
+
+.pane-border-needs-attention {
+  border: 2px solid var(--color-warning, var(--status-warning));
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes rotating-gradient {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    border-color: var(--color-warning, var(--border-default));
+    opacity: 1;
+  }
+  50% {
+    border-color: var(--color-warning, var(--border-default));
+    opacity: 0.5;
+  }
+}
+
+/* Badge in top-right corner */
+.pane-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  backdrop-filter: blur(4px);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+  z-index: 2;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pane-badge-cmd {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pane-badge-duration {
+  color: var(--text-primary);
+}
+
+.pane-badge-exit.success {
+  color: var(--status-success);
+}
+
+.pane-badge-exit.error {
+  color: var(--status-danger);
+}

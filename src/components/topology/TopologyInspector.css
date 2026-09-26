@@ -1,0 +1,184 @@
+.topology-inspector {
+  box-sizing: border-box;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.topology-inspector__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.topology-inspector__vendor-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: capitalize;
+  color: var(--text-inverse);
+  border-radius: 3px;
+  text-shadow: 0 0 1px var(--surface-2);
+}
+
+.topology-inspector__title {
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topology-inspector__close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.topology-inspector__close:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.topology-inspector__details {
+  padding: 4px 8px;
+  border-left: 2px solid var(--status-info);
+  background: var(--surface-overlay);
+}
+
+.topology-inspector__details dl {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px 8px;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.topology-inspector__details dt {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.topology-inspector__details dd {
+  margin: 0;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.topology-inspector__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.topology-inspector__copy:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover);
+}
+
+.topology-inspector__copy-state {
+  font-family: inherit;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.topology-inspector__placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.topology-inspector__section-title {
+  margin: 0 0 7px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.topology-inspector__protocol-group {
+  margin-bottom: 6px;
+}
+
+.topology-inspector__protocol-title {
+  margin: 0 0 2px;
+  color: var(--status-info);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.topology-inspector__edges {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.topology-inspector__edge {
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  padding: 6px 7px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-overlay);
+}
+
+.topology-inspector__edge:last-child {
+  border-bottom: none;
+}
+
+.topology-inspector__actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-default);
+}
+
+.topology-inspector__action {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--status-info);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.topology-inspector__action:hover {
+  background: var(--surface-hover);
+}
+
+.topology-inspector__hint {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid var(--status-warning);
+  color: var(--status-warning);
+  background: var(--status-warning-surface);
+  font-size: 11px;
+  line-height: 1.45;
+}

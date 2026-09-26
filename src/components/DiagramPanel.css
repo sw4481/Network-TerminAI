@@ -1,0 +1,145 @@
+.diagram-panel {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.diagram-panel-list {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.diagram-panel-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.diagram-clear-btn,
+.diagram-open-btn {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.diagram-clear-btn:hover,
+.diagram-open-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.diagram-open-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diagram-panel-empty,
+.diagram-panel-placeholder {
+  padding: 16px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.diagram-panel-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.diagram-panel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.diagram-panel-item:hover {
+  background: var(--surface-hover);
+}
+
+.diagram-panel-item.is-selected {
+  background: var(--surface-selected);
+}
+
+.diagram-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagram-item-format,
+.diagram-view-format {
+  font-size: 11px;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.diagram-panel-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.diagram-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.diagram-view-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.diagram-view-title {
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagram-view-header .diagram-open-btn {
+  margin-left: auto;
+}
+
+.diagram-view-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--app-canvas);
+}
+
+.diagram-view-fallback {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-primary);
+}

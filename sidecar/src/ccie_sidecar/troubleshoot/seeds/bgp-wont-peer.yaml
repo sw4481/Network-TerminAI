@@ -1,0 +1,53 @@
+id: bgp-wont-peer
+name: BGP session will not peer
+symptom_keywords:
+  - bgp
+  - neighbor
+  - peer
+  - idle
+  - active
+  - opensent
+  - won't come up
+vendor: cisco
+platform: iosxe
+description: >-
+  Walks a BGP session from state inspection to root cause. Uses Tier-0 show
+  commands only; remediation steps are emitted as narration so the operator
+  performs the change under their own authority.
+steps:
+  - id: check_state
+    type: command
+    command: show bgp neighbor {{neighbor}}
+  - id: route_on_state
+    type: branch
+    expression: "vrf.default.neighbor[0].session_state"
+    cases:
+      - when: "Idle (Admin)"
+        next: narrate_admin
+      - when: "Idle"
+        next: check_reachability
+      - when: "Active"
+        next: check_tcp
+      - when: "OpenSent"
+        next: check_as
+      - when: "OpenConfirm"
+        next: check_as
+      - when: "Established"
+        next: narrate_ok
+  - id: narrate_admin
+    type: narration
+    text: >-
+      Neighbor {{neighbor}} is administratively shut. Suggested fix:
+      router bgp <asn> / neighbor {{neighbor}} no shutdown.
+  - id: check_reachability
+    type: command
+    command: show ip route {{neighbor}}
+  - id: check_tcp
+    type: command
+    command: show tcp brief | include {{neighbor}}.179
+  - id: check_as
+    type: command
+    command: show bgp neighbor {{neighbor}} | include remote AS
+  - id: narrate_ok
+    type: narration
+    text: "Session to {{neighbor}} is Established. No fault detected."

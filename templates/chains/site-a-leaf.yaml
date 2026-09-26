@@ -1,0 +1,26 @@
+apiVersion: ccie-terminal/v1
+kind: SessionChain
+metadata:
+  name: site-a-leaf
+  description: Site A — laptop → jump → core → leaf
+hops:
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-site-a-jump
+    postConnect:
+      - terminal length 0
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-site-a-core-01
+    postConnect:
+      - terminal length 0
+  - kind: ssh
+    target:
+      kind: ssh_connection
+      name: REPLACE_ME-site-a-leaf-01
+    postConnect:
+      - terminal length 0
+      - terminal width 0
+    timeoutMs: 20000

@@ -1,0 +1,594 @@
+.pcap-block {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.pcap-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
+  align-items: center;
+}
+
+.pcap-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.pcap-chip-device {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.pcap-chip.status-ready {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.pcap-chip.status-failed {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+.pcap-chip.status-pulling,
+.pcap-chip.status-capturing {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.pcap-error-banner {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.pcap-size-warning {
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.pcap-tabs {
+  display: flex;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
+}
+.pcap-tabs button {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 2px solid transparent;
+}
+.pcap-tabs button.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-default);
+}
+
+.pcap-tab-body {
+  min-height: 0;
+  /* flex:1 (basis 0, not auto): the basis must be 0 so this child sizes to the
+     AVAILABLE space, not to its tall virtualized content (a 4200px tbody). With
+     basis:auto the child wanted full content height and the rows spilled out. */
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pcap-loading {
+  padding: 20px;
+  color: var(--status-info);
+  text-align: center;
+}
+
+/* Packet list */
+.pcap-packet-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.pcap-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
+  position: sticky;
+  top: 0;
+}
+.pcap-filter-input {
+  flex: 1;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.pcap-filter-input.invalid {
+  border-color: var(--status-danger);
+  outline: 1px solid var(--status-danger);
+}
+.pcap-filter-summary {
+  color: var(--text-primary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pcap-filter-loading {
+  color: var(--status-info);
+}
+
+.pcap-table-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.pcap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.pcap-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.pcap-table tbody tr {
+  cursor: pointer;
+  height: 28px;
+}
+.pcap-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+.pcap-table tbody tr.selected {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+.pcap-table td {
+  padding: 4px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Protocol hierarchy */
+.pcap-hierarchy {
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-hierarchy.empty {
+  color: var(--text-primary);
+}
+.pcap-hierarchy table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.pcap-hierarchy th,
+.pcap-hierarchy td {
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+.pcap-hierarchy-note {
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+/* Hex view */
+.pcap-hex {
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-hex.empty {
+  color: var(--text-primary);
+}
+.pcap-hex.error {
+  color: var(--status-danger);
+}
+.pcap-hex-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.pcap-hex-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+.pcap-hex-col {
+  margin: 0;
+  background: var(--surface-2);
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 11px;
+}
+.pcap-hex-col.ascii {
+  color: var(--text-primary);
+}
+
+/* Follow stream modal */
+.pcap-follow-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.pcap-follow-modal {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  width: min(900px, 90vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.pcap-follow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.pcap-follow-close {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+}
+.pcap-follow-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  overflow: auto;
+}
+.pcap-follow-pane pre {
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 60vh;
+  overflow: auto;
+  font-size: 11px;
+}
+.pcap-follow-label {
+  color: var(--text-primary);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+.pcap-follow-error {
+  color: var(--status-danger);
+  padding: 12px;
+}
+.pcap-follow-loading {
+  color: var(--status-info);
+  padding: 12px;
+}
+
+/* Export button */
+.pcap-export-btn {
+  margin-left: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Deterministic findings suite */
+.pcap-findings { display: grid; min-height: 0; height: 100%; grid-template-columns: clamp(220px, 28%, 320px) minmax(0, 1fr); }
+.pcap-findings-rules { display: flex; min-height: 0; flex-direction: column; overflow: auto; border-right: 1px solid var(--border-default); }
+.pcap-findings-rules-header { display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; border-bottom: 1px solid var(--border-default); color: var(--text-secondary); text-transform: uppercase; }
+.pcap-findings-rules label { display: grid; align-items: center; grid-template-columns: auto 54px minmax(0, 1fr); gap: 5px; padding: 5px 8px; border-bottom: 1px solid var(--border-subtle, var(--border-default)); cursor: pointer; }
+.pcap-findings button { border: 1px solid var(--border-default); border-radius: 4px; background: var(--surface-3); color: var(--text-primary); padding: 4px 7px; font: inherit; }
+.pcap-findings button:disabled { opacity: 0.5; }
+.pcap-findings-run { margin: 9px; }
+.pcap-finding-severity { border-radius: 3px; padding: 2px 4px; font-size: 9px; text-align: center; text-transform: uppercase; }
+.pcap-finding-severity.severity-critical { color: var(--status-danger); background: var(--status-danger-surface); }
+.pcap-finding-severity.severity-high { color: var(--status-danger); }
+.pcap-finding-severity.severity-medium { color: var(--status-warning, var(--text-primary)); }
+.pcap-finding-severity.severity-low,
+.pcap-finding-severity.severity-info { color: var(--text-secondary); }
+.pcap-findings-results { min-width: 0; min-height: 0; overflow: auto; padding: 9px; }
+.pcap-findings-empty { padding: 22px; color: var(--text-secondary); text-align: center; }
+.pcap-finding-card { margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border-default); border-radius: 5px; background: var(--surface-2); }
+.pcap-finding-card > header { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--border-default); }
+.pcap-finding-card > header strong { flex: 1; }
+.pcap-finding-card > code { display: block; overflow: auto; padding: 6px 9px; color: var(--text-secondary); background: var(--surface-3); white-space: nowrap; }
+.pcap-finding-evidence { max-width: 100%; overflow-x: auto; }
+.pcap-finding-card table { width: 100%; min-width: 600px; border-collapse: collapse; }
+.pcap-finding-card th,
+.pcap-finding-card td { padding: 4px 7px; border-top: 1px solid var(--border-subtle, var(--border-default)); text-align: left; }
+.pcap-finding-card footer { padding: 5px 9px; color: var(--text-secondary); }
+
+@media (max-width: 760px) {
+  .pcap-findings { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .pcap-findings-rules { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--border-default); }
+}
+.pcap-export-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* Template library */
+.pcap-template-library {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-right: 1px solid var(--border-default);
+  width: 320px;
+  min-width: 240px;
+}
+.pcap-template-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-default);
+}
+.pcap-template-toolbar input[type='search'] {
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pcap-template-chips {
+  display: flex;
+  gap: 4px;
+}
+.pcap-template-chips .chip {
+  background: var(--surface-2);
+  border: 0;
+  color: var(--text-primary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.pcap-template-chips .chip.active {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+.pcap-template-searchrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.pcap-template-searchrow input[type='search'] {
+  flex: 1;
+}
+.pcap-template-new {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pcap-template-new:hover {
+  background: var(--surface-hover);
+}
+
+.pcap-template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+.pcap-template-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+.pcap-template-form input,
+.pcap-template-form select {
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.pcap-template-form input[type='range'] {
+  padding: 0;
+}
+.pcap-template-save {
+  background: var(--surface-2);
+  border: 0;
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pcap-template-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pcap-template-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+}
+.pcap-template-list li {
+  position: relative;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+  color: var(--text-primary);
+}
+.pcap-template-list li:hover {
+  background: var(--surface-hover);
+}
+.pcap-template-list li.selected {
+  background: var(--surface-selected);
+}
+.pcap-template-name {
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.pcap-template-builtin {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+.pcap-template-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.pcap-template-empty {
+  padding: 14px;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: center;
+}
+.pcap-template-error {
+  color: var(--status-danger);
+  padding: 8px 10px;
+  font-size: 11px;
+}
+.pcap-template-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  color: var(--status-danger);
+  border: 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pcap-template-delete:hover {
+  color: var(--status-danger);
+}
+
+/* Quick capture wizard */
+.pcap-quick-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.pcap-quick-wizard label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.pcap-quick-wizard input[type='text'],
+.pcap-quick-wizard input:not([type]),
+.pcap-quick-wizard input[type='number'] {
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.pcap-wizard-warn {
+  color: var(--status-warning);
+  font-size: 11px;
+}
+.pcap-wizard-error {
+  color: var(--status-danger);
+  font-size: 11px;
+}
+.pcap-wizard-run {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.pcap-wizard-run:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Advanced raw form */
+.pcap-advanced-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.pcap-advanced-form textarea {
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+.pcap-advanced-form button {
+  align-self: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}

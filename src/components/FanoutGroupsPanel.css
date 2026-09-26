@@ -1,0 +1,191 @@
+.fanout-groups-panel {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 12px;
+  height: 100%;
+  min-height: 480px;
+  font-family: Menlo, monospace;
+  color: var(--text-primary);
+  background: var(--app-canvas);
+}
+
+.fanout-groups-list {
+  border-right: 1px solid var(--border-default);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.fanout-groups-list-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fanout-groups-list-header button {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.fanout-groups-list-header button:hover { background: var(--accent-subtle); }
+
+.fanout-new-group-form {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+.fanout-new-group-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.fanout-new-group-form input:focus { border-color: var(--accent-subtle); }
+.fanout-new-group-form button {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.fanout-new-group-form button[type="button"] {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+.fanout-new-group-form button:hover { background: var(--accent-subtle); }
+.fanout-new-group-form button[type="button"]:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.fanout-group-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fanout-group-item:hover { background: var(--surface-overlay); }
+.fanout-group-item.selected { background: var(--surface-2); border-left: 3px solid var(--surface-2); padding-left: 9px; }
+
+.fanout-group-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.fanout-group-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 10px;
+}
+
+.fanout-groups-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.fanout-group-detail {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fanout-detail-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fanout-detail-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fanout-detail-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+}
+.fanout-detail-actions button {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+.fanout-detail-actions button:hover { background: var(--accent-subtle); }
+.fanout-detail-actions button.danger { color: var(--status-danger); border-color: var(--status-danger); }
+
+.fanout-members-list {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+}
+
+.fanout-member-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr 24px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+}
+
+.fanout-kind-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  text-align: center;
+  font-weight: 500;
+}
+.fanout-kind-badge.ssh    { background: var(--surface-2); color: var(--text-primary); }
+.fanout-kind-badge.netconf { background: var(--surface-2); color: var(--text-primary); }
+
+.fanout-member-remove {
+  background: transparent;
+  border: none;
+  color: var(--status-danger);
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+}
+
+.fanout-cap-banner {
+  margin: 8px 12px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-radius: 4px;
+  font-size: 11px;
+}

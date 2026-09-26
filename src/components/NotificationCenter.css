@@ -1,0 +1,136 @@
+.notification-center {
+  position: relative;
+}
+
+.notification-bell {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: var(--text-primary, var(--text-inverse));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-bell:hover {
+  background-color: var(--surface-hover);
+  border-radius: 4px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: var(--notification-badge-surface);
+  color: var(--notification-badge-text);
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background-color: var(--bg-secondary, var(--surface-terminal));
+  border: 1px solid var(--border-color, var(--border-default));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--notification-shadow);
+  width: 320px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, var(--border-default));
+}
+
+.notification-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, var(--text-inverse));
+}
+
+.clear-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent-color, var(--text-primary));
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.clear-all-btn:hover {
+  text-decoration: underline;
+}
+
+.notification-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.no-notifications {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary, var(--text-primary));
+  font-size: 13px;
+}
+
+.notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color, var(--border-default));
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background-color: var(--surface-hover);
+}
+
+.notification-content {
+  flex: 1;
+}
+
+.notification-command {
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 13px;
+  color: var(--text-primary, var(--text-inverse));
+  margin-bottom: 4px;
+}
+
+.notification-reason {
+  font-size: 12px;
+  color: var(--text-secondary, var(--text-primary));
+}
+
+.dismiss-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary, var(--text-primary));
+  cursor: pointer;
+  font-size: 20px;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.dismiss-btn:hover {
+  color: var(--text-primary, var(--text-inverse));
+}

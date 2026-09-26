@@ -1,0 +1,58 @@
+.tb-control-bar {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--surface-chrome);
+  border-bottom: 1px solid var(--border-default);
+  align-items: center;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  flex-wrap: wrap;
+}
+
+.tb-control-spacer { flex: 1 1 auto; }
+
+.tb-control-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tb-control-btn {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tb-control-btn:hover:not(:disabled) {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.tb-control-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tb-control-btn[data-variant="danger"] {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+.tb-control-btn[data-variant="danger"]:hover:not(:disabled) {
+  background: var(--status-danger-surface);
+}
+
+.tb-control-btn[data-variant="primary"] {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.tb-control-btn[data-variant="primary"]:hover:not(:disabled) {
+  background: var(--surface-hover);
+}

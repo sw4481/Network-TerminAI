@@ -1,0 +1,166 @@
+/* src/components/CommandSuggestions.css */
+.command-suggestions {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90vw;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px var(--surface-2);
+  z-index: 100;
+  animation: slideUp 0.15s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+.suggestions-drag-handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: grab;
+  user-select: none;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+  border-radius: 6px 6px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.suggestions-drag-handle:active {
+  cursor: grabbing;
+}
+
+.drag-dots {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.drag-label {
+  color: var(--text-primary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.suggestions-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  margin-left: auto;
+}
+
+.suggestions-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.suggestions-close-btn:active {
+  transform: scale(0.95);
+}
+
+.suggestion-loading {
+  padding: 16px;
+  text-align: center;
+  color: var(--status-info);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.suggestions-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+
+.suggestion-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.1s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.suggestion-item:hover {
+  background: var(--surface-hover);
+}
+
+.suggestion-item.selected {
+  background: var(--surface-selected);
+}
+
+.suggestion-command {
+  color: var(--text-primary);
+  font-family: 'Menlo', 'SF Mono', Monaco, monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.suggestion-description {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.suggestion-category {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.suggestion-category.history {
+  color: var(--text-primary);
+}
+
+.suggestion-category.history::before {
+  content: '⏱';
+  font-size: 12px;
+}
+
+.suggestion-category.ai::before {
+  content: '✨';
+  font-size: 12px;
+}

@@ -1,0 +1,163 @@
+[package]
+name = "ccie-terminal"
+version = "1.1.0"
+description = "Warp-like AI-powered terminal for network engineers"
+authors = ["TerminAI Team"]
+edition = "2021"
+
+# These established interfaces are intentionally wider/more nested than
+# Clippy's defaults (primarily Tauri IPC and persistence boundaries). Keep
+# actionable warnings denied in CI without forcing release-only API churn.
+[lints.clippy]
+doc_lazy_continuation = "allow"
+doc_overindented_list_items = "allow"
+field_reassign_with_default = "allow"
+large_enum_variant = "allow"
+module_inception = "allow"
+new_ret_no_self = "allow"
+should_implement_trait = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+wrong_self_convention = "allow"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "ccie_terminal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Explicit binary so the executable (and the macOS Dock/menu name in dev mode) is
+# "TerminAI" rather than the historical package name. NOTE: the package `name`,
+# the bundle identifier (com.ccie.terminal), and the `ccie-terminal` app-data
+# directory are deliberately left unchanged — they key the on-disk DB/credentials.
+[[bin]]
+name = "TerminAI"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "=2.10.1"
+tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+serde_bytes = "0.11"
+serialport = "4"
+sha2 = "0.10"
+rusqlite = { version = "0.32", features = ["bundled"] }
+refinery = { version = "0.8", features = ["rusqlite"] }
+anyhow = "1"
+dirs = "5"
+portable-pty = "0.9"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "io-util", "time", "process"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+parking_lot = "0.12"
+libc = "0.2"
+toml = "0.8"
+notify = "6"
+reqwest = { version = "0.11", features = ["json", "stream", "cookies", "multipart", "gzip", "brotli", "rustls-tls"] }
+base64 = "0.22"
+openapiv3 = "2"
+futures = "0.3"
+async-trait = "0.1"
+log = "0.4"
+tracing = "0.1"
+regex = "1"
+once_cell = "1"
+libunftp = "0.20"
+unftp-sbe-fs = "0.2"
+async-tftp = "0.4"
+async-fs = "2"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-appender = "0.2"
+thiserror = "1"
+russh = "0.60"
+russh-sftp = "2.0"
+quick-xml = "0.39"
+keyring = "3"
+tauri-plugin-fs = "2.5.1"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-deep-link = "2"
+git2 = { version = "0.18", default-features = false }
+pulldown-cmark = "0.11"
+jsonpath_lib = "0.3"
+minijinja = "2"
+similar = "2"
+tokio-cron-scheduler = "0.13"
+dashmap = "6"
+tokio-util = { version = "0.7", features = ["rt"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+url = "2"
+# Plan 12 — RAG. Decision B per docs/rag/sqlite-vec-research.md: use the
+# safe-wrapper crate that vendors sqlite-vec's C sources and registers
+# `sqlite3_vec_init` via `rusqlite::ffi::sqlite3_auto_extension`. No loose
+# `vec0.dylib` is shipped.
+sqlite-vec = "0.1.9"
+# Plan 14 — Credential Vault + Session Recording.
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand_core = { version = "0.6", features = ["std"] }
+zeroize = { version = "1.7", features = ["zeroize_derive"] }
+csv = "1.3"
+hex = "0.4"
+# Phase 3D (Task 6) — Chrome cookie reader (macOS).
+aes = "0.8"
+cbc = "0.1"
+pbkdf2 = "0.12"
+hmac = "0.12"
+sha1 = "0.10"
+# Plan 15 — AI-Driven Troubleshooting Tree. Used by the engine (Phase 2)
+# to evaluate `expression:` JMESPath against parsed show output for branch
+# and assertion steps. Pulled in during Phase 1 so the dependency graph
+# is settled before the engine code lands.
+#
+# Plan called for "0.3" but that release predates Send/Sync bounds on
+# `Function` and fails to compile against current rustc; 0.5 is the
+# minimum that builds. API surface used (`Expression::compile`,
+# `expression.search(value)`) is identical between 0.3 and 0.5.
+jmespath = "0.5"
+# Phase 3C — Browser Control MCP Bridge. The in-process HTTP server that
+# lets external agents (via the browser_mcp.py shim) drive browser windows.
+axum = "0.7"
+cpal = "0.18.2"
+whisper-rs = { version = "0.16.0", default-features = false }
+
+# macOS-only: set the Dock icon at runtime so the networking-themed TerminAI
+# icon shows even in `tauri dev` (the bundle.icon config only applies to a
+# built .app, not the dev binary). Versions match the transitive deps Tauri
+# already pulls in (objc2 0.6, objc2-app-kit/foundation 0.3).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSImage", "NSResponder"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSString"] }
+
+[dev-dependencies]
+tempfile = "3"
+warp = "0.3"
+futures-lite = "2"
+criterion = { version = "0.5", features = ["html_reports"] }
+wiremock = "0.6"
+rcgen = "0.13"
+axum = "0.7"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+
+[[bench]]
+name = "pty_benchmarks"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

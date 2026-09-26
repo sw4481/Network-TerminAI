@@ -1,0 +1,380 @@
+/*
+ * Stable semantic appearance contract. Keep names semantic so feature-area
+ * migration can happen without coupling components to a particular preset.
+ */
+html[data-theme="terminai-dark"], :root:not([data-theme]) {
+  --app-canvas: #0f1114;
+  --surface-1: #0b0d10;
+  --surface-chrome: #0a0c0f;
+  --surface-2: #1a1d23;
+  --surface-3: #262a33;
+  --surface-overlay: #14171c;
+  --surface-terminal: #1e1e1e;
+  /* Recording keeps its established Git-style Dark values exactly. */
+  --surface-recording: #0e1116;
+  --surface-recording-inset: #161b22;
+  --surface-recording-control: #21262d;
+  --surface-recording-hover: #30363d;
+  --surface-input: #161a20;
+  --surface-input-focus: #1a1d23;
+  --surface-hover: #1f232b;
+  --surface-selected: #262a33;
+  --surface-editor-tab: #252526;
+  --surface-modal-backdrop-60: rgb(0 0 0 / 60%);
+  --surface-light-control: #ffffff;
+  --control-knob: #ffffff;
+  --backdrop-rgb: 0 0 0;
+  --overlay-light-rgb: 255 255 255;
+  --text-primary: #e6e1cf;
+  /* Accessibility exception to strict legacy parity: small secondary/muted
+     copy must remain readable on the lightest Dark surfaces. */
+  --text-secondary: #9299a4;
+  --text-body: #d0d3da;
+  --text-muted: #8b929e;
+  --text-recording: #c9d1d9;
+  --text-recording-muted: #99a0a9;
+  --text-inverse: #ffffff;
+  --text-on-strong-accent: #1e1e1e;
+  --text-on-accent-hover: #ffffff;
+  --integration-primary: #d4a857;
+  --integration-primary-hover: #e0b865;
+  --agent-active-surface: rgb(59 130 246 / 90%);
+  --agent-waiting-surface: rgb(249 115 22 / 90%);
+  --notification-badge-surface: #b91c1c;
+  --notification-badge-text: #ffffff;
+  --notification-shadow: rgb(0 0 0 / 30%);
+  --border-subtle: #1f232b;
+  --border-default: #262a33;
+  --border-terminal-control: #333333;
+  --border-strong: #3e4451;
+  --accent: #5ccfe6;
+  --accent-hover: #3d6a9c;
+  --accent-subtle: #2d5a8c;
+  --focus-ring: #5ccfe6;
+  --focus-control: #626a77;
+  --selection: #264f78;
+  --status-info: #5ccfe6;
+  --status-success: #6bd968;
+  --status-warning: #ffb454;
+  --status-danger: #f28779;
+  --status-recording-live: #f85149;
+  --risk-auto: #b3e8c0;
+  --risk-tier-1: #e6c75c;
+  --risk-tier-2: #e69f4c;
+  --risk-tier-3: #ff7777;
+  --risk-ambiguous: #b3b3ff;
+  --status-recording-failure-surface: #2a1416;
+  --status-recording-failure-border: #e06c75;
+  --status-recording-failure-text: #f1a1a1;
+  --status-danger-surface: #3d1f1f;
+  --status-warning-surface: #3d2f1f;
+  --status-gnmi-success: #4caf50;
+  --status-gnmi-success-surface: rgb(76 175 80 / 10%);
+  --status-gnmi-danger: #f44336;
+  --status-gnmi-danger-surface: rgb(244 67 54 / 10%);
+  --status-gnmi-info: #2196f3;
+  --status-gnmi-info-surface: rgb(33 150 243 / 10%);
+  --status-neutral: #8a8d94;
+  --git-added: #98c379;
+  --git-modified: #e5c07b;
+  --git-deleted: #e06c75;
+  --git-blame: #6f7682;
+  --debug-breakpoint: #e06c75;
+  --debug-pending: #e5c07b;
+  --debug-current-line: rgb(229 192 123 / 16%);
+  --debug-current-line-border: rgb(229 192 123 / 30%);
+  --iac-created: #50c878;
+  --iac-created-surface: #1e3a1e;
+  --iac-modified: #5298e8;
+  --iac-modified-surface: #1e2a3a;
+  --iac-destroyed: #f05c4e;
+  --iac-destroyed-surface: #3a1e1e;
+  --iac-skipped: #9a9a9a;
+  --iac-skipped-surface: #2a2a2a;
+  --diff-added-surface: rgb(76 175 80 / 18%);
+  --diff-removed-surface: rgb(244 67 54 / 18%);
+  --diff-changed-surface: rgb(255 193 7 / 18%);
+  --diff-old: #ff8888;
+  --diff-new: #66cc66;
+  --topology-success: #0ea770;
+  --topology-success-text: #e3e4e6;
+  --topology-vendor-default: #7f7f7f;
+  --troubleshoot-running: #d4a14a;
+  --troubleshoot-running-surface: rgb(212 161 74 / 20%);
+  --troubleshoot-running-border: rgb(212 161 74 / 40%);
+  --troubleshoot-attention: #5a8fd6;
+  --surface-fanout-action-hover: #1a1d22;
+  --tftp-running: #6bd968;
+  --tftp-running-border: #1b5a34;
+  --tftp-running-surface: #0a2e1a;
+  --tftp-error: #e06c6c;
+  --tftp-error-border: #5a1b1b;
+  --tftp-error-surface: #2e0a0a;
+  --terminal-background: #0f1114;
+  --terminal-foreground: #e6e1cf;
+  --editor-background: #0f1114;
+  --editor-foreground: #e6e1cf;
+}
+
+html[data-theme="slate-grey"] {
+  --app-canvas: #17191c;
+  --surface-1: #1d2024;
+  --surface-chrome: #15181b;
+  --surface-2: #25292e;
+  --surface-3: #31363d;
+  --surface-overlay: #21252a;
+  --surface-terminal: #202326;
+  --surface-recording: #17191c;
+  --surface-recording-inset: #1d2024;
+  --surface-recording-control: #25292e;
+  --surface-recording-hover: #31363d;
+  --surface-input: #20252b;
+  --surface-input-focus: #25292e;
+  --surface-hover: #2d3238;
+  --surface-selected: #3a4048;
+  --surface-editor-tab: #292d32;
+  --surface-modal-backdrop-60: rgb(0 0 0 / 60%);
+  --surface-light-control: #d7d9dd;
+  --control-knob: #f2f3f4;
+  --backdrop-rgb: 0 0 0;
+  --overlay-light-rgb: 255 255 255;
+  --text-primary: #d7d9dd;
+  --text-secondary: #aeb4bc;
+  --text-body: #c7cbd0;
+  --text-muted: #99a0a9;
+  --text-recording: #d7d9dd;
+  --text-recording-muted: #aeb4bc;
+  --text-inverse: #ffffff;
+  --text-on-strong-accent: #17191c;
+  --text-on-accent-hover: #17191c;
+  --integration-primary: #b9a56f;
+  --integration-primary-hover: #c9b77f;
+  --agent-active-surface: rgb(91 132 173 / 90%);
+  --agent-waiting-surface: rgb(190 132 82 / 90%);
+  --notification-badge-surface: #8f3f46;
+  --notification-badge-text: #ffffff;
+  --notification-shadow: rgb(0 0 0 / 30%);
+  --border-subtle: #2c3138;
+  --border-default: #3b424b;
+  --border-terminal-control: #3b424b;
+  --border-strong: #59626e;
+  --accent: #9bb8ce;
+  --accent-hover: #b5ccdc;
+  --accent-subtle: #455c70;
+  --focus-ring: #c4d6e4;
+  --focus-control: #6b7581;
+  --selection: #46505b;
+  --status-info: #9bb8ce;
+  --status-success: #98b98f;
+  --status-warning: #c6b782;
+  --status-danger: #d18f8f;
+  --status-recording-live: #cd8b8b;
+  --risk-auto: var(--status-success);
+  --risk-tier-1: var(--status-info);
+  --risk-tier-2: var(--status-warning);
+  --risk-tier-3: var(--status-danger);
+  --risk-ambiguous: var(--status-neutral);
+  --status-recording-failure-surface: #392426;
+  --status-recording-failure-border: #cd8b8b;
+  --status-recording-failure-text: #e3b1b1;
+  --status-danger-surface: #392426;
+  --status-warning-surface: #39331f;
+  --status-gnmi-success: #98b98f;
+  --status-gnmi-success-surface: rgb(152 185 143 / 12%);
+  --status-gnmi-danger: #cd8b8b;
+  --status-gnmi-danger-surface: rgb(205 139 139 / 12%);
+  --status-gnmi-info: #9bb8ce;
+  --status-gnmi-info-surface: rgb(155 184 206 / 12%);
+  --status-neutral: #aeb4bc;
+  --git-added: #98b98f;
+  --git-modified: #c6b782;
+  --git-deleted: #cd8b8b;
+  --git-blame: #858c96;
+  --debug-breakpoint: #cd8b8b;
+  --debug-pending: #c6b782;
+  --debug-current-line: rgb(198 183 130 / 16%);
+  --debug-current-line-border: rgb(198 183 130 / 30%);
+  --iac-created: #98b98f;
+  --iac-created-surface: #263329;
+  --iac-modified: #9bb8ce;
+  --iac-modified-surface: #25303a;
+  --iac-destroyed: #cd8b8b;
+  --iac-destroyed-surface: #392426;
+  --iac-skipped: #aeb4bc;
+  --iac-skipped-surface: #292d32;
+  --diff-added-surface: rgb(152 185 143 / 18%);
+  --diff-removed-surface: rgb(205 139 139 / 18%);
+  --diff-changed-surface: rgb(198 183 130 / 18%);
+  --diff-old: #d99898;
+  --diff-new: #98b98f;
+  --topology-success: #78b39a;
+  --topology-success-text: #d7d9dd;
+  --topology-vendor-default: #858c96;
+  --troubleshoot-running: #c6b782;
+  --troubleshoot-running-surface: rgb(198 183 130 / 20%);
+  --troubleshoot-running-border: rgb(198 183 130 / 40%);
+  --troubleshoot-attention: #9bb8ce;
+  --surface-fanout-action-hover: #25292e;
+  --tftp-running: #98b98f;
+  --tftp-running-border: #4d6651;
+  --tftp-running-surface: #263329;
+  --tftp-error: #cd8b8b;
+  --tftp-error-border: #704348;
+  --tftp-error-surface: #392426;
+  --terminal-background: #17191c;
+  --terminal-foreground: #d7d9dd;
+  --editor-background: #17191c;
+  --editor-foreground: #d7d9dd;
+}
+
+html[data-theme="matrix"] {
+  --app-canvas: #030703;
+  --surface-1: #071207;
+  --surface-chrome: #020502;
+  --surface-2: #0b1b0c;
+  --surface-3: #123116;
+  --surface-overlay: #091509;
+  --surface-terminal: #030703;
+  --surface-recording: #030703;
+  --surface-recording-inset: #071207;
+  --surface-recording-control: #0b1b0c;
+  --surface-recording-hover: #123116;
+  --surface-input: #08130a;
+  --surface-input-focus: #0b1b0c;
+  --surface-hover: #133a19;
+  --surface-selected: #164b20;
+  --surface-editor-tab: #0b1b0c;
+  --surface-modal-backdrop-60: rgb(0 0 0 / 60%);
+  --surface-light-control: #b8ffb8;
+  --control-knob: #b8ffb8;
+  --backdrop-rgb: 0 0 0;
+  --overlay-light-rgb: 255 255 255;
+  --text-primary: #b8ffb8;
+  --text-secondary: #8dff9a;
+  --text-body: #a5f5ae;
+  --text-muted: #6dbd73;
+  --text-recording: #b8ffb8;
+  --text-recording-muted: #8dff9a;
+  --text-inverse: #030703;
+  --text-on-strong-accent: #030703;
+  --text-on-accent-hover: #030703;
+  --integration-primary: #d9ff6a;
+  --integration-primary-hover: #e6ff99;
+  --agent-active-surface: rgb(114 216 255 / 90%);
+  --agent-waiting-surface: rgb(217 255 106 / 90%);
+  --notification-badge-surface: #9f2633;
+  --notification-badge-text: #ffffff;
+  --notification-shadow: rgb(0 0 0 / 45%);
+  --border-subtle: #123116;
+  --border-default: #256b2d;
+  --border-terminal-control: #256b2d;
+  --border-strong: #39a84a;
+  --accent: #39ff6a;
+  --accent-hover: #8dff9a;
+  --accent-subtle: #176b27;
+  --focus-ring: #d9ff6a;
+  --focus-control: #39a84a;
+  --selection: #1b5e20;
+  --status-info: #72d8ff;
+  --status-success: #39ff6a;
+  --status-warning: #d9ff6a;
+  --status-danger: #ff6b6b;
+  --status-recording-live: #ff6b6b;
+  --risk-auto: var(--status-success);
+  --risk-tier-1: var(--status-info);
+  --risk-tier-2: var(--status-warning);
+  --risk-tier-3: var(--status-danger);
+  --risk-ambiguous: var(--status-neutral);
+  --status-recording-failure-surface: #351414;
+  --status-recording-failure-border: #ff6b6b;
+  --status-recording-failure-text: #ffb3b3;
+  --status-danger-surface: #351414;
+  --status-warning-surface: #353112;
+  --status-gnmi-success: #39ff6a;
+  --status-gnmi-success-surface: rgb(57 255 106 / 12%);
+  --status-gnmi-danger: #ff6b6b;
+  --status-gnmi-danger-surface: rgb(255 107 107 / 12%);
+  --status-gnmi-info: #72d8ff;
+  --status-gnmi-info-surface: rgb(114 216 255 / 12%);
+  --status-neutral: #8dff9a;
+  --git-added: #39ff6a;
+  --git-modified: #d9ff6a;
+  --git-deleted: #ff6b6b;
+  --git-blame: #6dbd73;
+  --debug-breakpoint: #ff6b6b;
+  --debug-pending: #d9ff6a;
+  --debug-current-line: rgb(217 255 106 / 16%);
+  --debug-current-line-border: rgb(217 255 106 / 30%);
+  --iac-created: #39ff6a;
+  --iac-created-surface: #0b2b12;
+  --iac-modified: #72d8ff;
+  --iac-modified-surface: #0a2029;
+  --iac-destroyed: #ff6b6b;
+  --iac-destroyed-surface: #351414;
+  --iac-skipped: #8dff9a;
+  --iac-skipped-surface: #0b1b0c;
+  --diff-added-surface: rgb(57 255 106 / 18%);
+  --diff-removed-surface: rgb(255 107 107 / 18%);
+  --diff-changed-surface: rgb(217 255 106 / 18%);
+  --diff-old: #ff8f8f;
+  --diff-new: #39ff6a;
+  --topology-success: #39ff6a;
+  --topology-success-text: #b8ffb8;
+  --topology-vendor-default: #6dbd73;
+  --troubleshoot-running: #d9ff6a;
+  --troubleshoot-running-surface: rgb(217 255 106 / 20%);
+  --troubleshoot-running-border: rgb(217 255 106 / 40%);
+  --troubleshoot-attention: #72d8ff;
+  --surface-fanout-action-hover: #0b1b0c;
+  --tftp-running: #39ff6a;
+  --tftp-running-border: #176b27;
+  --tftp-running-surface: #071f0d;
+  --tftp-error: #ff6b6b;
+  --tftp-error-border: #8f3030;
+  --tftp-error-surface: #351414;
+  --terminal-background: #030703;
+  --terminal-foreground: #8dff9a;
+  --editor-background: #030703;
+  --editor-foreground: #b8ffb8;
+}
+
+/* Legacy aliases let existing shared controls opt in before their final cleanup. */
+:root {
+  --bg-primary: var(--app-canvas);
+  --bg-secondary: var(--surface-2);
+  --bg-tertiary: var(--surface-3);
+  --border-color: var(--border-default);
+  --accent-color: var(--accent);
+  --success-color: var(--status-success);
+  --warning-color: var(--status-warning);
+  --danger-color: var(--status-danger);
+}
+
+html[data-theme="matrix"][data-matrix-scanlines="true"] body::before,
+html[data-theme="matrix"][data-matrix-glow="true"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+}
+
+html[data-theme="matrix"][data-matrix-scanlines="true"] body::before {
+  background: repeating-linear-gradient(0deg, rgba(57, 255, 106, 0.035) 0 1px, transparent 1px 4px);
+}
+
+html[data-theme="matrix"][data-matrix-glow="true"] body::after {
+  box-shadow: inset 0 0 90px rgba(57, 255, 106, 0.08);
+}
+
+html[data-matrix-motion="reduced"] body::before,
+html[data-matrix-motion="reduced"] body::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-matrix-motion="system"] body::before,
+  html[data-matrix-motion="system"] body::after {
+    display: none;
+  }
+}

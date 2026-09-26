@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TerminAI",
+  "version": "1.1.0",
+  "identifier": "com.ccie.terminal",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun scripts/fetch-whisper-model.mjs && bun run build:relaxed",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "TerminAI",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 500
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self' 'wasm-unsafe-eval' 'unsafe-eval'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: https:",
+        "font-src": "'self' data:",
+        "connect-src": "'self' http://localhost:* ws://localhost:* wss://localhost:*",
+        "worker-src": "'self'",
+        "frame-src": "'self'",
+        "object-src": "'none'",
+        "base-uri": "'self'"
+      },
+      "dangerousDisableAssetCspModification": false,
+      "freezePrototype": false
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": [
+          "ccie-terminal"
+        ]
+      }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/sw4481/Network-TerminAI/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUyQjNFMzkzQUI1MDE4RUEKUldUcUdGQ3JrK096VWtieDdCZDQ3VWxvSEIvYUlqQS9tdEdWTGk1VEdpWEdaV0dGYmNFODZvTG0K",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "createUpdaterArtifacts": true,
+    "targets": "all",
+    "resources": {
+      "../sidecar/dist/python": "python",
+      "resources/models/ggml-base.en.bin": "models/ggml-base.en.bin"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "TerminAI Team",
+    "copyright": "Copyright (c) 2026 TerminAI Team",
+    "category": "DeveloperTool",
+    "shortDescription": "Warp-like AI-powered terminal for network engineers",
+    "longDescription": "TerminAI is a modern, AI-powered terminal application designed for network engineers. Features include command blocks, AI assistance via Claude, session persistence, and shell integration.",
+    "macOS": {
+      "minimumSystemVersion": "15.0"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  }
+}

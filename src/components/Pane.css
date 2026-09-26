@@ -1,0 +1,132 @@
+.pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-terminal);
+  border: 2px solid var(--border-strong);
+  border-radius: 4px;
+  transition: border-color 0.15s ease;
+}
+
+.pane-focused {
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--surface-2);
+}
+
+.pane:hover {
+  border-color: var(--border-default);
+}
+
+.pane-focused:hover {
+  border-color: var(--focus-ring);
+}
+
+.pane[data-accent="blue"] { --device-accent: #58a6ff; }
+.pane[data-accent="cyan"] { --device-accent: #39c5cf; }
+.pane[data-accent="green"] { --device-accent: #56d364; }
+.pane[data-accent="amber"] { --device-accent: #d4a72c; }
+.pane[data-accent="orange"] { --device-accent: #f0883e; }
+.pane[data-accent="red"] { --device-accent: #ff7b72; }
+.pane[data-accent="purple"] { --device-accent: #bc8cff; }
+.pane[data-accent="pink"] { --device-accent: #f778ba; }
+
+.pane-focused[data-accent] {
+  border-color: var(--device-accent);
+}
+
+.pane-focused[data-accent]:hover {
+  border-color: var(--device-accent);
+}
+
+.connected-device-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.connected-device-chip__accent {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--device-accent, var(--text-muted));
+}
+
+.ssh-reconnect-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--device-accent, var(--warning, #f5a623)) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--device-accent, var(--warning, #f5a623)) 55%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 88%, var(--device-accent, #f5a623));
+  color: var(--text-secondary);
+  font-size: 12px;
+  z-index: 5;
+}
+
+.ssh-reconnect-banner__message {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ssh-reconnect-banner button {
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.ssh-reconnect-banner button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.pane-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 10;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.pane:hover .pane-close,
+.pane-focused .pane-close {
+  opacity: 1;
+}
+
+.pane-close:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}

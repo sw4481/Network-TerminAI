@@ -1,0 +1,93 @@
+.tb-aw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.tb-aw-modal {
+  width: min(560px, 92vw);
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  font-family: Menlo, monospace;
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.tb-aw-modal-title {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-chrome);
+}
+
+.tb-aw-modal-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.tb-aw-modal-body code {
+  background: rgb(var(--backdrop-rgb) / 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.tb-aw-modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.tb-aw-modal-body input {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+}
+.tb-aw-modal-body input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.tb-aw-modal-actions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  background: var(--surface-chrome);
+}
+
+.tb-aw-modal-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tb-aw-modal-btn[data-variant="primary"] {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.tb-aw-modal-btn[data-variant="primary"]:hover {
+  background: var(--surface-hover);
+}

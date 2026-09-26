@@ -1,0 +1,618 @@
+/* Plan 12 Phase 3 — Settings → RAG tab styles.
+ *
+ * Implements the design spec at docs/design/rag-settings-tab.md.
+ * Hex literals match the rest of src/App.css (no design tokens yet). */
+
+.rag-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  color: var(--text-primary);
+  background: var(--app-canvas);
+  font-family: -apple-system, system-ui, sans-serif;
+}
+
+.rag-tab .tab-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.rag-subtitle {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* ---------------- Buttons ---------------- */
+
+.rag-btn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+.rag-btn:hover {
+  background: var(--surface-input);
+}
+.rag-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.rag-btn--primary {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.rag-btn--primary:hover {
+  background: var(--surface-hover);
+}
+.rag-btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rag-btn--ghost {
+  color: var(--text-secondary);
+}
+
+/* Plan 12 Phase 6 — secondary action (teal). Smaller and less
+ * prominent than `--primary`; used by the "Download starter pack"
+ * button which is an optional convenience, not the default flow. */
+.rag-btn--secondary {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.rag-btn--secondary:hover {
+  background: var(--surface-hover);
+}
+.rag-btn--secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.rag-btn--secondary[aria-busy="true"] {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+/* ---------------- Drop zone ---------------- */
+
+.rag-dropzone {
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-input);
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, min-height 0.2s;
+}
+.rag-dropzone:hover {
+  background: var(--surface-2);
+}
+.rag-dropzone:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.rag-dropzone--active {
+  border: 2px solid var(--border-default);
+  box-shadow: inset 0 0 0 1px var(--surface-selected);
+  min-height: 128px;
+  background: var(--surface-2);
+}
+.rag-dropzone-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rag-dropzone-title {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.rag-dropzone-sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+.rag-drop-error {
+  margin: 0;
+  color: var(--status-danger);
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+/* ---------------- Empty state ---------------- */
+
+.rag-empty {
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-input);
+  padding: 20px;
+}
+.rag-empty-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.rag-empty-body {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.rag-empty-body code {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  padding: 0 4px;
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+
+/* ---------------- Doc list ---------------- */
+
+.rag-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.rag-day-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.rag-day-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  padding: 4px 0 6px;
+  position: sticky;
+  top: 0;
+  background: var(--app-canvas);
+  z-index: 1;
+}
+
+.rag-doc-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-bottom: none;
+  padding: 8px 12px;
+  min-height: 56px;
+}
+.rag-doc-row:first-child {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.rag-doc-row:last-child {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  border-bottom: 1px solid var(--border-default);
+}
+.rag-doc-row--uploading {
+  background: var(--surface-2);
+}
+.rag-doc-row--error {
+  background: var(--status-danger-surface);
+}
+.rag-doc-row--ghost {
+  border-style: dashed;
+}
+
+.rag-kind {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 2px 4px;
+  width: 44px;
+  text-align: center;
+  display: inline-block;
+}
+
+.rag-doc-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rag-doc-row-title-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.rag-doc-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.rag-doc-meta {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.rag-doc-row-meta-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rag-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rag-doc-timestamp {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* ---------------- Tag chips ---------------- */
+
+.rag-tag {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--text-secondary);
+  background: transparent;
+  white-space: nowrap;
+}
+.rag-tag--row {
+  font-size: 10px;
+}
+.rag-tag--selected {
+  border-color: var(--border-default);
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+.rag-tag-glyph {
+  margin-right: 4px;
+}
+
+.rag-tag.rag-modal-tag {
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.rag-tag.rag-modal-tag:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.rag-tag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* ---------------- Pipeline glyph ---------------- */
+
+.rag-doc-row-pipeline-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rag-pipeline {
+  display: flex;
+  gap: 16px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+}
+.rag-pipeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+.rag-pipeline-step--done {
+  color: var(--text-primary);
+}
+.rag-pipeline-step--active {
+  color: var(--text-primary);
+  animation: rag-pulse 1.4s ease-in-out infinite alternate;
+}
+.rag-pipeline-step--pending {
+  color: var(--text-secondary);
+}
+.rag-pipeline-glyph {
+  font-size: 12px;
+}
+.rag-pipeline-label {
+  font-size: 10px;
+}
+
+@keyframes rag-pulse {
+  from {
+    opacity: 0.4;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rag-pipeline-step--active {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+/* ---------------- Row actions ---------------- */
+
+.rag-doc-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rag-row-action {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.rag-row-action:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.rag-row-action--danger {
+  color: var(--status-danger);
+  border-color: var(--status-danger);
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  padding: 4px 8px;
+}
+
+.rag-row-error {
+  color: var(--status-danger);
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+/* ---------------- Modal ---------------- */
+
+.rag-modal-overlay {
+  /* settings-overlay already handles position:fixed + z-index */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rag-modal {
+  width: 560px;
+  max-width: 90%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+.rag-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+}
+.rag-modal-header h2 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.rag-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.rag-modal-close:hover {
+  color: var(--text-primary);
+}
+
+.rag-modal-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rag-modal-files {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rag-modal-file {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 8px;
+  align-items: center;
+}
+.rag-modal-file-name {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rag-modal-file-size {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.rag-title-input {
+  grid-column: 2 / span 2;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.rag-title-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+  border-color: var(--focus-ring);
+}
+
+.rag-modal-tag-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rag-modal-tag-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.rag-modal-tag-help {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.rag-modal-tag-help code {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  background: var(--surface-input);
+  padding: 0 4px;
+  border-radius: 3px;
+  color: var(--text-primary);
+}
+.rag-modal-tag-error {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--status-danger);
+}
+
+.rag-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-input);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+/* ---------------- Seed pack row (Phase 6) ---------------- */
+
+.rag-seed-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border-default);
+  margin-top: 4px;
+}
+.rag-seed-help {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.rag-seed-help code {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  background: var(--surface-input);
+  padding: 0 4px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+.rag-seed-error {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--status-danger);
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+/* ---------------- A11y helpers ---------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* RAG user-tags follow-up — upload modal additive styles. */
+.rag-modal-tag-sublabel {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+.rag-modal-empty-user-tags {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+.rag-modal-new-tag-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.rag-modal-new-tag-input {
+  flex: 1;
+}

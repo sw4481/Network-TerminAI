@@ -1,0 +1,16 @@
+Router#show running-config
+enable secret 5 EXAMPLE_ENABLE_SECRET
+username example-user password 0 EXAMPLE_USER_PASSWORD
+username example-backup password 7 A0B1C2D3E4F5
+snmp-server community EXAMPLE_PUBLIC_COMMUNITY RO
+snmp-server community EXAMPLE_PRIVATE_COMMUNITY RW
+community EXAMPLE_COMMUNITY RW
+interface GigabitEthernet0/0
+ ip address 192.0.2.1 255.255.255.0
+!
+$ curl -H "Authorization: Bearer EXAMPLE_BEARER_TOKEN" https://example.invalid
+$ export EXAMPLE_TOKEN="redacted-example-value"
+$ aws configure
+AWS Access Key ID: EXAMPLE_AWS_ACCESS_KEY
+<rpc><edit-config><config><users><user><password>EXAMPLE_NETCONF_PASSWORD</password></user></users></config></edit-config></rpc>
+Password: EXAMPLE_SSH_PASSWORD

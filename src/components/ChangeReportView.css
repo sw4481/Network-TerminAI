@@ -1,0 +1,82 @@
+.change-report-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+}
+
+.report-summary {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-chrome);
+  border-radius: 6px;
+}
+
+.report-notes {
+  padding: 12px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.report-notes strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.report-notes p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.report-deltas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.delta-group {
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.delta-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface-input);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.delta-group-header:hover {
+  background: var(--surface-2);
+}
+
+.delta-group-command {
+  font-family: Menlo, monospace;
+  color: var(--accent);
+}
+
+.delta-group-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+
+.delta-group-body {
+  padding: 8px;
+}
+
+.delta-group[open] .delta-group-header {
+  border-bottom: 1px solid var(--border-default);
+}

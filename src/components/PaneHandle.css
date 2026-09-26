@@ -1,0 +1,37 @@
+.pane-handle {
+  background: transparent;
+  transition: background-color 0.15s ease;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.pane-handle-horizontal {
+  width: 6px;
+  cursor: ew-resize;
+  min-height: 100%;
+}
+
+.pane-handle-vertical {
+  height: 6px;
+  cursor: ns-resize;
+  min-width: 100%;
+}
+
+.pane-handle:hover {
+  background: var(--accent);
+}
+
+.pane-handle-dragging {
+  background: var(--surface-2);
+}
+
+/* Ensure handle is visible during drag */
+.pane-handle-dragging::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface-2);
+}

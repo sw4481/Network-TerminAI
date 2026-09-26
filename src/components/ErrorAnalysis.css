@@ -1,0 +1,140 @@
+.error-analysis {
+  margin: 8px 0;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  border-radius: 6px;
+  overflow: hidden;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--status-danger-surface);
+  border-bottom: 1px solid var(--status-danger);
+}
+
+.error-icon {
+  font-size: 18px;
+}
+
+.error-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--status-danger);
+}
+
+.error-analysis-content {
+  padding: 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.error-explanation {
+  margin-bottom: 12px;
+}
+
+.error-explanation strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--status-danger);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.error-explanation p {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.error-suggestions {
+  margin-top: 12px;
+}
+
+.error-suggestions strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--status-danger);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.error-suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.error-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 6px;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.error-suggestion:hover {
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+}
+
+.error-suggestion:last-child {
+  margin-bottom: 0;
+}
+
+.suggestion-icon {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.error-suggestion code {
+  flex: 1;
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: transparent;
+  padding: 0;
+}
+
+.error-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.loading-spinner {
+  animation: rotate 1s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.error-failed {
+  margin: 0;
+  color: var(--status-danger);
+}

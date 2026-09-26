@@ -1,0 +1,21 @@
+[
+  {
+    "name": "splunk_api_call",
+    "description": "Call the Cisco Splunk Enterprise REST API. Rooted at https://<host>:8089. Auth (Bearer token or HTTP Basic) is handled for you; do NOT log in. output_mode=json is added for you on GETs. Returns {status_code, data, error, blast_radius}; config objects (indexes, saved searches, server info) are under data['entry'] (each has 'name' + 'content'), search output is under data['results']. Key endpoints: GET /services/server/info, GET /services/data/indexes, GET /services/saved/searches, POST /services/search/jobs/export (one-shot synchronous search), POST /services/search/jobs (async -> sid), GET /services/search/jobs/{sid} (poll; done when content.dispatchState == 'DONE'), GET /services/search/jobs/{sid}/results. SPL rule: prefix the query with 'search ' unless it starts with '|'. POST bodies are FORM-encoded. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "splunk_api_call",
+      "description": "Call the Cisco Splunk REST API. Auth is handled internally; pass the path from the host root.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"], "description": "HTTP method" },
+          "path": { "type": "string", "description": "API path from host root (e.g., '/services/data/indexes')" },
+          "body": { "type": "object", "description": "Form-encoded request body for POST/PUT (optional)" },
+          "query_params": { "type": "object", "description": "URL query parameters (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

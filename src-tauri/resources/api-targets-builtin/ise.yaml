@@ -1,0 +1,2996 @@
+id: ise
+display_name: "Cisco Identity Services Engine (ISE)"
+schema_version: 1
+base_url: "https://${env:ISE_HOST}:9060"
+openapi_url: "https://developer.cisco.com/docs/identity-services-engine/v1/setting-up/"
+auth:
+  type: basic
+  username: "${env:ISE_USER}"
+  password: "${env:ISE_PASS}"
+tls:
+  verify: false
+defaults:
+  headers:
+    "Accept": "application/json"
+    "Content-Type": "application/json"
+endpoints:
+  - id: "ise__get_get_acibindings_getall"
+    name: "getAllBindingsInfo."
+    method: GET
+    path: "/ers/config/acibindings/getall"
+  - id: "ise__get_get_aci_connections"
+    name: "List all the ACI connections configured."
+    method: GET
+    path: "/api/v1/trustsec/integration/aci-connection"
+  - id: "ise__post_save_aci_connection"
+    name: "Saves ACI connection information with template and selected epg"
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection"
+  - id: "ise__post_action_aci_connector"
+    name: "ACI connection connect, suspend, delete multiple ACI"
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/action"
+  - id: "ise__post_save_and_connect_to_aci"
+    name: "Save the ACI connection and connect to ACI."
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/connect"
+  - id: "ise__post_get_auth_domains"
+    name: "Fetch Authentication Domains from ACI APIC."
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/domain/fetch"
+  - id: "ise__get_get_reserved_sgt_ranges"
+    name: "Get reserved SGT ranges list for given ACI connection."
+    method: GET
+    path: "/api/v1/trustsec/integration/aci-connection/sgt-range"
+  - id: "ise__get_get_aci_connection_status"
+    name: "ACI connection status of all ACI Connections."
+    method: GET
+    path: "/api/v1/trustsec/integration/aci-connection/status"
+  - id: "ise__post_test_aci_connector"
+    name: "ACI connection test the connection."
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/test"
+  - id: "ise__post_get_epgs_prefetch"
+    name: "Get EPG list from ACI."
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/epg/fetch"
+  - id: "ise__post_get_tenants_prefetch"
+    name: "Get tenant list from ACI."
+    method: POST
+    path: "/api/v1/trustsec/integration/aci-connection/tenant/fetch"
+  - id: "ise__get_get_aci_settings"
+    name: "GetAciSettings."
+    method: GET
+    path: "/ers/config/acisettings/"
+  - id: "ise__put_update_acisettings_testaciconnectivity"
+    name: "TestACIConnection."
+    method: PUT
+    path: "/ers/config/acisettings/testACIConnectivity"
+  - id: "ise__put_update_aci_settings_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/acisettings/{id}"
+  - id: "ise__get_get_active_directories"
+    name: "Duo-IdentitySync Get the list of all configured Active"
+    method: GET
+    path: "/api/v1/duo-identitysync/activedirectories"
+  - id: "ise__get_get_active_directory"
+    name: "Get all join points."
+    method: GET
+    path: "/ers/config/activedirectory/"
+  - id: "ise__post_create_active_directory"
+    name: "Create join point."
+    method: POST
+    path: "/ers/config/activedirectory/"
+  - id: "ise__put_update_activedirectory_passiveidsettings_by_id"
+    name: "Updates passive ID settings."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/passiveIdSettings"
+  - id: "ise__put_update_activedirectory_addgroups_by_id"
+    name: "Load groups from domain."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/addGroups"
+  - id: "ise__put_update_activedirectory_getusergroups_by_id"
+    name: "Get user groups."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/getUserGroups"
+  - id: "ise__get_get_activedirectory_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/activedirectory/name/{name}"
+  - id: "ise__put_update_activedirectory_gettrusteddomains_by_id"
+    name: "Get trusted domains."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/getTrustedDomains"
+  - id: "ise__put_update_activedirectory_leaveallnodes_by_id"
+    name: "Leave a domain with all nodes."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/leaveAllNodes"
+  - id: "ise__put_update_activedirectory_join_by_id"
+    name: "Join a domain."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/join"
+  - id: "ise__put_update_activedirectory_joinallnodes_by_id"
+    name: "Join a domain with all nodes."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/joinAllNodes"
+  - id: "ise__put_update_activedirectory_getdomainusers_by_id"
+    name: "Get domain users."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/getDomainUsers"
+  - id: "ise__put_update_activedirectory_isusermemberof_by_id"
+    name: "Is user a member of groups."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/isUserMemberOf"
+  - id: "ise__put_update_activedirectory_getgroupsbydomain_by_id"
+    name: "Get groups by domain."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/getGroupsByDomain"
+  - id: "ise__get_get_active_directory_by_id"
+    name: "Get join point details."
+    method: GET
+    path: "/ers/config/activedirectory/{id}"
+  - id: "ise__delete_delete_active_directory_by_id"
+    name: "Delete join point."
+    method: DELETE
+    path: "/ers/config/activedirectory/{id}"
+  - id: "ise__put_update_activedirectory_leave_by_id"
+    name: "Leave a domain."
+    method: PUT
+    path: "/ers/config/activedirectory/{id}/leave"
+  - id: "ise__get_get_adgroups"
+    name: "Duo-IdentitySync  Get the list of all AD groups for the"
+    method: GET
+    path: "/api/v1/duo-identitysync/adgroups/{activeDirectory}"
+  - id: "ise__get_list_all_admin_groups"
+    name: "Get admin groups API will be used to view Cisco ISE  network"
+    method: GET
+    path: "/api/v1/rbac/admin-group"
+  - id: "ise__post_create_admin_group"
+    name: "Post admin group API will be used to create Cisco ISE network"
+    method: POST
+    path: "/api/v1/rbac/admin-group"
+  - id: "ise__post_reset_admin_groups"
+    name: "Post reset admin groups API will be used to reset external Cisco"
+    method: POST
+    path: "/api/v1/rbac/admin-group/reset/bulk"
+  - id: "ise__get_get_admin_group_by_name"
+    name: "Get admin group by name API will be used to get details of"
+    method: GET
+    path: "/api/v1/rbac/admin-group/{name}"
+  - id: "ise__put_update_admin_group"
+    name: "Put admin group API will be used to update requested Cisco ISE"
+    method: PUT
+    path: "/api/v1/rbac/admin-group/{name}"
+  - id: "ise__delete_delete_admin_group"
+    name: "Delete admin group API will be used to delete requested Cisco"
+    method: DELETE
+    path: "/api/v1/rbac/admin-group/{name}"
+  - id: "ise__get_list_all_external_groups"
+    name: "Get external groups API will be used to view Cisco ISE network"
+    method: GET
+    path: "/api/v1/rbac/external-groups"
+  - id: "ise__get_get_adminuser"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/adminuser/"
+  - id: "ise__get_get_admin_user_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/adminuser/{id}"
+  - id: "ise__get_list_all_admin_users"
+    name: "Get admin users API will be used to view Cisco ISE"
+    method: GET
+    path: "/api/v1/rbac/admin-user"
+  - id: "ise__post_create_admin_user"
+    name: "Post admin users API will be used to create Cisco ISE"
+    method: POST
+    path: "/api/v1/rbac/admin-user"
+  - id: "ise__post_create_bulk_admin_users"
+    name: "Create bulk admin users API will be used to create multiple"
+    method: POST
+    path: "/api/v1/rbac/admin-user/bulk"
+  - id: "ise__get_get_admin_user_by_name"
+    name: "Get admin user API will be used to view requested Cisco ISE"
+    method: GET
+    path: "/api/v1/rbac/admin-user/{name}"
+  - id: "ise__put_update_admin_user"
+    name: "Put admin user API will be used to update details of  Cisco ISE"
+    method: PUT
+    path: "/api/v1/rbac/admin-user/{name}"
+  - id: "ise__delete_delete_admin_user"
+    name: "Delete admin user API will be used to delete available Cisco ISE"
+    method: DELETE
+    path: "/api/v1/rbac/admin-user/{name}"
+  - id: "ise__get_list_all_network_users"
+    name: "Get external users API will be used to view Cisco ISE network"
+    method: GET
+    path: "/api/v1/rbac/network-users"
+  - id: "ise__get_get_adresourcereservation"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/adresourcereservation/"
+  - id: "ise__get_get_adresourcereservation_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/adresourcereservation/name/{name}"
+  - id: "ise__get_get_adresourcereservation_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/adresourcereservation/{id}"
+  - id: "ise__put_update_adresourcereservation_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/adresourcereservation/{id}"
+  - id: "ise__get_get_allowed_protocols"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/allowedprotocols/"
+  - id: "ise__post_create_allowedprotocols"
+    name: "Create."
+    method: POST
+    path: "/ers/config/allowedprotocols/"
+  - id: "ise__get_get_allowedprotocols_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/allowedprotocols/name/{name}"
+  - id: "ise__get_get_allowedprotocols_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/allowedprotocols/{id}"
+  - id: "ise__put_update_allowedprotocols_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/allowedprotocols/{id}"
+  - id: "ise__delete_delete_allowedprotocols_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/allowedprotocols/{id}"
+  - id: "ise__patch_patch_allowedprotocols_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/allowedprotocols/{id}"
+  - id: "ise__get_get_anc_endpoint"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/ancendpoint/"
+  - id: "ise__put_update_ancendpoint_apply"
+    name: "apply."
+    method: PUT
+    path: "/ers/config/ancendpoint/apply"
+  - id: "ise__put_update_ancendpoint_clear"
+    name: "clear."
+    method: PUT
+    path: "/ers/config/ancendpoint/clear"
+  - id: "ise__get_get_anc_endpoint_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/ancendpoint/{id}"
+  - id: "ise__get_get_anc_policy"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/ancpolicy/"
+  - id: "ise__post_create_anc_policy"
+    name: "Create."
+    method: POST
+    path: "/ers/config/ancpolicy/"
+  - id: "ise__get_get_ancpolicy_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/ancpolicy/name/{name}"
+  - id: "ise__get_get_anc_policy_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/ancpolicy/{id}"
+  - id: "ise__put_update_anc_policy_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/ancpolicy/{id}"
+  - id: "ise__delete_delete_anc_policy_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/ancpolicy/{id}"
+  - id: "ise__get_get_authorizationprofile"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/authorizationprofile/"
+  - id: "ise__post_create_authorization_profile"
+    name: "Create."
+    method: POST
+    path: "/ers/config/authorizationprofile/"
+  - id: "ise__get_get_authorizationprofile_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/authorizationprofile/name/{name}"
+  - id: "ise__get_get_authorization_profile_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/authorizationprofile/{id}"
+  - id: "ise__put_update_authorization_profile_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/authorizationprofile/{id}"
+  - id: "ise__delete_delete_authorization_profile_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/authorizationprofile/{id}"
+  - id: "ise__patch_patch_authorizationprofile_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/authorizationprofile/{id}"
+  - id: "ise__post_config_backup"
+    name: "Triggers on demand configuration backup on the ISE node. The API"
+    method: POST
+    path: "/api/v1/backup-restore/config/backup"
+  - id: "ise__post_cancel_backup"
+    name: "Cancels the backup job running on the node."
+    method: POST
+    path: "/api/v1/backup-restore/config/cancel-backup"
+  - id: "ise__get_get_last_config_backup_status"
+    name: "Gives the last backup status."
+    method: GET
+    path: "/api/v1/backup-restore/config/last-backup-status"
+  - id: "ise__post_restore_config_backup"
+    name: "Triggers a configuration DB restore job on the ISE node. The API"
+    method: POST
+    path: "/api/v1/backup-restore/config/restore"
+  - id: "ise__get_get_byod_portal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/byodportal/"
+  - id: "ise__post_create_byod_portal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/byodportal/"
+  - id: "ise__get_get_byod_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/byodportal/{portal-id}"
+  - id: "ise__put_update_byod_portal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/byodportal/{portal-id}"
+  - id: "ise__delete_delete_byod_portal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/byodportal/{portal-id}"
+  - id: "ise__get_get_certificate_profile"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/certificateprofile/"
+  - id: "ise__post_create_certificate_profile"
+    name: "Create."
+    method: POST
+    path: "/ers/config/certificateprofile/"
+  - id: "ise__get_get_certificateprofile_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/certificateprofile/name/{name}"
+  - id: "ise__get_get_certificate_profile_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/certificateprofile/{id}"
+  - id: "ise__put_update_certificate_profile_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/certificateprofile/{id}"
+  - id: "ise__delete_delete_certificateprofile_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/certificateprofile/{id}"
+  - id: "ise__patch_patch_certificateprofile_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/certificateprofile/{id}"
+  - id: "ise__get_get_certificate_template"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/certificatetemplate/"
+  - id: "ise__get_get_certificatetemplate_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/certificatetemplate/name/{name}"
+  - id: "ise__get_get_certificate_template_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/certificatetemplate/{id}"
+  - id: "ise__get_get_csrs"
+    name: "This API supports filtering, sorting and pagination."
+    method: GET
+    path: "/api/v1/certs/certificate-signing-request"
+  - id: "ise__post_generate_csr"
+    name: "Generate a certificate signing request for Multi-Use, Admin,"
+    method: POST
+    path: "/api/v1/certs/certificate-signing-request"
+  - id: "ise__post_regenerate_ise_root_ca"
+    name: "This API initiates regeneration of Cisco ISE root CA certificate"
+    method: POST
+    path: "/api/v1/certs/ise-root-ca/regenerate"
+  - id: "ise__post_renew_certificates"
+    name: "This API initiates regeneration of certificates. The response"
+    method: POST
+    path: "/api/v1/certs/renew-certificate"
+  - id: "ise__post_bind_csr"
+    name: "Bind CA Signed Certificate.   NOTE:  This API requires an"
+    method: POST
+    path: "/api/v1/certs/signed-certificate/bind"
+  - id: "ise__post_export_system_certificate"
+    name: "Export System Certificate.  Following parameters are used in"
+    method: POST
+    path: "/api/v1/certs/system-certificate/export"
+  - id: "ise__post_import_system_certificate"
+    name: "Import an X509 certificate as a system certificate.   NOTE:"
+    method: POST
+    path: "/api/v1/certs/system-certificate/import"
+  - id: "ise__get_get_system_certificates"
+    name: "This API supports filtering, sorting and pagination."
+    method: GET
+    path: "/api/v1/certs/system-certificate/{hostName}"
+  - id: "ise__get_get_system_certificate_by_id"
+    name: "This API provides details of a system certificate of a"
+    method: GET
+    path: "/api/v1/certs/system-certificate/{hostName}/{id}"
+  - id: "ise__put_update_system_certificate"
+    name: "Update a System Certificate.   NOTE:  Renewing a certificate"
+    method: PUT
+    path: "/api/v1/certs/system-certificate/{hostName}/{id}"
+  - id: "ise__delete_delete_system_certificate_by_id"
+    name: "This API deletes a system certificate of a particular node based"
+    method: DELETE
+    path: "/api/v1/certs/system-certificate/{hostName}/{id}"
+  - id: "ise__get_get_trusted_certificates"
+    name: "This API supports Filtering, Sorting and Pagination."
+    method: GET
+    path: "/api/v1/certs/trusted-certificate"
+  - id: "ise__get_export_trusted_certificate"
+    name: "The response of this API carries a trusted certificate file"
+    method: GET
+    path: "/api/v1/certs/trusted-certificate/export/{id}"
+  - id: "ise__post_import_trust_certificate"
+    name: "Import an X509 certificate as a trust certificate   NOTE:"
+    method: POST
+    path: "/api/v1/certs/trusted-certificate/import"
+  - id: "ise__get_get_trusted_certificate_by_id"
+    name: "This API can displays details of a Trust Certificate based on a"
+    method: GET
+    path: "/api/v1/certs/trusted-certificate/{id}"
+  - id: "ise__put_update_trusted_certificate"
+    name: "Update a trusted certificate present in Cisco ISE trust store."
+    method: PUT
+    path: "/api/v1/certs/trusted-certificate/{id}"
+  - id: "ise__delete_delete_trusted_certificate_by_id"
+    name: "This API deletes a Trust Certificate from Trusted Certificate"
+    method: DELETE
+    path: "/api/v1/certs/trusted-certificate/{id}"
+  - id: "ise__get_get_classification_rule_list"
+    name: "Classification rule  ISE uses ACI policy objects as conditions"
+    method: GET
+    path: "/api/v1/trustsec/classification-policy"
+  - id: "ise__post_create_classification_rule_configuration"
+    name: "Classification rule  Create Classification rule :     Filter"
+    method: POST
+    path: "/api/v1/trustsec/classification-policy"
+  - id: "ise__post_get_classification_rule_filter_preview"
+    name: "Classification Policy Preview Classification Policy:     Filter"
+    method: POST
+    path: "/api/v1/trustsec/classification-policy/preview"
+  - id: "ise__post_re_rank_classification_rules"
+    name: "Classification rule  Re-rank Classification rules.     Provide"
+    method: POST
+    path: "/api/v1/trustsec/classification-policy/re-rank"
+  - id: "ise__get_get_classification_rule_by_id"
+    name: "Classification rule  Get Classification rule  attributes."
+    method: GET
+    path: "/api/v1/trustsec/classification-policy/{filterId}"
+  - id: "ise__put_update_classification_rule_by_id"
+    name: "Classification rule  Update Classification rule."
+    method: PUT
+    path: "/api/v1/trustsec/classification-policy/{filterId}"
+  - id: "ise__delete_delete_classification_rule_by_id"
+    name: "Classification rule  Delete Classification rule ."
+    method: DELETE
+    path: "/api/v1/trustsec/classification-policy/{filterId}"
+  - id: "ise__get_get_configuration"
+    name: "Retrieve configuration information for LSD settings page."
+    method: GET
+    path: "/api/v1/lsd/updateLsdSettings"
+  - id: "ise__put_update_configuration"
+    name: "API to enable/disable LSD settings ."
+    method: PUT
+    path: "/api/v1/lsd/updateLsdSettings"
+  - id: "ise__post_create_ctsenvdata"
+    name: "TrustSec-Query."
+    method: POST
+    path: "/ers/config/ctsenvdata/"
+  - id: "ise__post_create_ctsmatrix"
+    name: "TrustSec-Query."
+    method: POST
+    path: "/ers/config/ctsmatrix/"
+  - id: "ise__get_list"
+    name: "Get all custom attributes."
+    method: GET
+    path: "/api/v1/endpoint-custom-attribute"
+  - id: "ise__post_create_custom_attribute"
+    name: "Create Custom Attribute."
+    method: POST
+    path: "/api/v1/endpoint-custom-attribute"
+  - id: "ise__post_rename"
+    name: "rename custom attribute."
+    method: POST
+    path: "/api/v1/endpoint-custom-attribute/rename"
+  - id: "ise__get_get"
+    name: "Get custom attribute by name."
+    method: GET
+    path: "/api/v1/endpoint-custom-attribute/{name}"
+  - id: "ise__delete_delete"
+    name: "Delete custom attribute by name."
+    method: DELETE
+    path: "/api/v1/endpoint-custom-attribute/{name}"
+  - id: "ise__get_list_all_data_access"
+    name: "Get data access API allows to retrieve all the data access"
+    method: GET
+    path: "/api/v1/rbac/data-access"
+  - id: "ise__put_update_data_access"
+    name: "Update data access by name in Cisco ISE."
+    method: PUT
+    path: "/api/v1/rbac/data-access"
+  - id: "ise__post_create_data_access"
+    name: "Create data access API allows to create new data access in Cisco"
+    method: POST
+    path: "/api/v1/rbac/data-access"
+  - id: "ise__get_get_data_access_by_name"
+    name: "Get details of requested data access available in Cisco ISE,"
+    method: GET
+    path: "/api/v1/rbac/data-access/{name}"
+  - id: "ise__delete_delete_data_access"
+    name: "Delete data access API allows to delete data access name"
+    method: DELETE
+    path: "/api/v1/rbac/data-access/{name}"
+  - id: "ise__get_get_odbc_detail"
+    name: "This API retrieves the Dataconnect ODBC details."
+    method: GET
+    path: "/api/v1/mnt/data-connect/details"
+  - id: "ise__get_get_dataconnect_service"
+    name: "This API retrieves the status of the Dataconnect feature."
+    method: GET
+    path: "/api/v1/mnt/data-connect/settings"
+  - id: "ise__put_update_dataconnect_password"
+    name: "This API updates the Dataconnect user password."
+    method: PUT
+    path: "/api/v1/mnt/data-connect/settings/password"
+  - id: "ise__put_update_dataconnect_password_expiry"
+    name: "This API updates the number of days of Dataconnect password"
+    method: PUT
+    path: "/api/v1/mnt/data-connect/settings/password/expiry"
+  - id: "ise__put_set_data_connect_service"
+    name: "This API updates the DataConnect feature status."
+    method: PUT
+    path: "/api/v1/mnt/data-connect/settings/status"
+  - id: "ise__get_get_deploymentinfo_getallinfo"
+    name: "GetAllInfo."
+    method: GET
+    path: "/ers/config/deploymentinfo/getAllInfo"
+  - id: "ise__get_get_device_admin_policy_by_id_mfa_rule_list"
+    name: "Device Admin Get MFA rules."
+    method: GET
+    path: "/api/v1/policy/device-admin/policy-set/{policyId}/mfa"
+  - id: "ise__post_create_device_admin_policy_by_id_mfa_rule"
+    name: "Device Admin Create MFA rule:     Rule must include name and"
+    method: POST
+    path: "/api/v1/policy/device-admin/policy-set/{policyId}/mfa"
+  - id: "ise__get_get_device_admin_policy_set_global_exception_rule_list"
+    name: "Device Admin Get global execption rules."
+    method: GET
+    path: "/api/v1/policy/device-admin/policy-set/global-exception"
+  - id: "ise__post_create_device_admin_policy_set_global_exception"
+    name: "Device Admin Create global exception authorization rule:"
+    method: POST
+    path: "/api/v1/policy/device-admin/policy-set/global-exception"
+  - id: "ise__get_get_device_admin_command_sets"
+    name: "Device Admin Return list of command sets.  (Other CRUD APIs"
+    method: GET
+    path: "/api/v1/policy/device-admin/command-sets"
+  - id: "ise__get_get_device_admin_conditions"
+    name: "Device Admin Returns list of library conditions."
+    method: GET
+    path: "/api/v1/policy/device-admin/condition"
+  - id: "ise__post_post_device_admin_condition"
+    name: "Device Admin Creates a library condition:     Library Condition"
+    method: POST
+    path: "/api/v1/policy/device-admin/condition"
+  - id: "ise__get_get_device_admin_conditions_for_authentication_rule"
+    name: "Device Admin Returns list of library conditions for"
+    method: GET
+    path: "/api/v1/policy/device-admin/condition/authentication"
+  - id: "ise__get_get_device_admin_conditions_for_authorization_rule"
+    name: "Device Admin Returns list of library conditions for"
+    method: GET
+    path: "/api/v1/policy/device-admin/condition/authorization"
+  - id: "ise__get_get_device_admin_conditions_for_policy_set"
+    name: "Device Admin Returns list of library conditions for policy sets."
+    method: GET
+    path: "/api/v1/policy/device-admin/condition/policyset"
+  - id: "ise__get_get_device_admin_condition_by_condition_id"
+    name: "Device Admin Returns a library condition."
+    method: GET
+    path: "/api/v1/policy/device-admin/condition/{conditionId}"
+  - id: "ise__put_put_device_admin_condition_by_condition_id"
+    name: "Device Admin Update library condition."
+    method: PUT
+    path: "/api/v1/policy/device-admin/condition/{conditionId}"
+  - id: "ise__delete_delete_device_admin_condition_by_condition_id"
+    name: "Device Admin Delete a library condition."
+    method: DELETE
+    path: "/api/v1/policy/device-admin/condition/{conditionId}"
+  - id: "ise__get_get_device_admin_dictionaries_authentication"
+    name: "Network Access Returns list of dictionary attributes for"
+    method: GET
+    path: "/api/v1/policy/device-admin/dictionaries/authentication"
+  - id: "ise__get_get_device_admin_dictionaries_authorization"
+    name: "Network Access Returns list of dictionary attributes for"
+    method: GET
+    path: "/api/v1/policy/device-admin/dictionaries/authorization"
+  - id: "ise__get_get_device_admin_dictionaries_policyset"
+    name: "Network Access Returns list of dictionary attributes for"
+    method: GET
+    path: "/api/v1/policy/device-admin/dictionaries/policyset"
+  - id: "ise__get_get_device_admin_identity_stores"
+    name: "Device Admin Return list of identity stores for authentication."
+    method: GET
+    path: "/api/v1/policy/device-admin/identity-stores"
+  - id: "ise__get_get_device_admin_network_conditions"
+    name: "Device Admin Returns a list of network conditions."
+    method: GET
+    path: "/api/v1/policy/device-admin/network-condition"
+  - id: "ise__post_post_device_admin_network_condition"
+    name: "Device AdminCreates network condition."
+    method: POST
+    path: "/api/v1/policy/device-admin/network-condition"
+  - id: "ise__get_get_device_admin_policy_set_list"
+    name: "Device Admin List of policy sets."
+    method: GET
+    path: "/api/v1/policy/device-admin/policy-set"
+  - id: "ise__post_create_device_admin_policy_set"
+    name: "Device Admin Create a new policy set:     Policy must include"
+    method: POST
+    path: "/api/v1/policy/device-admin/policy-set"
+  - id: "ise__post_reset_hit_counts_device_admin_policy_sets"
+    name: "Device Admin Reset HitCount for PolicySets."
+    method: POST
+    path: "/api/v1/policy/device-admin/policy-set/reset-hitcount"
+  - id: "ise__get_get_device_admin_policy_set_by_id"
+    name: "Device Admin Get policy set attributes."
+    method: GET
+    path: "/api/v1/policy/device-admin/policy-set/{policyId}"
+  - id: "ise__put_update_device_admin_policy_set_by_id"
+    name: "Device Admin Update a policy set."
+    method: PUT
+    path: "/api/v1/policy/device-admin/policy-set/{policyId}"
+  - id: "ise__delete_delete_device_admin_policy_set_by_id"
+    name: "Device Admin Delete a policy set."
+    method: DELETE
+    path: "/api/v1/policy/device-admin/policy-set/{policyId}"
+  - id: "ise__get_get_device_admin_service_names"
+    name: "Returns list of Allowed Protocols and Server Sequences for"
+    method: GET
+    path: "/api/v1/policy/device-admin/service-names"
+  - id: "ise__get_get_device_admin_profiles"
+    name: "Device Admin Returns list of shell profiles.  (Other CRUD APIs"
+    method: GET
+    path: "/api/v1/policy/device-admin/shell-profiles"
+  - id: "ise__get_get_device_admin_time_conditions"
+    name: "Device Admin Returns a list of time and date conditions."
+    method: GET
+    path: "/api/v1/policy/device-admin/time-condition"
+  - id: "ise__post_post_device_admin_time_condition"
+    name: "Device Admin Creates time/date condition."
+    method: POST
+    path: "/api/v1/policy/device-admin/time-condition"
+  - id: "ise__get_get_device_admin_time_condition_by_condition_id"
+    name: "Device Admin Returns a network condition."
+    method: GET
+    path: "/api/v1/policy/device-admin/time-condition/{conditionId}"
+  - id: "ise__put_put_device_admin_time_condition_by_condition_id"
+    name: "Device Admin Update network condition."
+    method: PUT
+    path: "/api/v1/policy/device-admin/time-condition/{conditionId}"
+  - id: "ise__delete_delete_device_admin_time_condition_by_condition_id"
+    name: "Device Admin Delete Time/Date condition."
+    method: DELETE
+    path: "/api/v1/policy/device-admin/time-condition/{conditionId}"
+  - id: "ise__get_get_downloadable_acl"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/downloadableacl/"
+  - id: "ise__post_create_downloadable_acl"
+    name: "Create."
+    method: POST
+    path: "/ers/config/downloadableacl/"
+  - id: "ise__get_get_downloadable_acl_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/downloadableacl/{id}"
+  - id: "ise__put_update_downloadable_acl_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/downloadableacl/{id}"
+  - id: "ise__delete_delete_downloadable_acl_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/downloadableacl/{id}"
+  - id: "ise__patch_patch_downloadableacl_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/downloadableacl/{id}"
+  - id: "ise__get_get_identitysync"
+    name: "Duo-IdentitySync Get the list of all Identitysync"
+    method: GET
+    path: "/api/v1/duo-identitysync/identitysync"
+  - id: "ise__post_create_identitysync"
+    name: "Duo-IdentitySync Create a new IdentitySync configuration."
+    method: POST
+    path: "/api/v1/duo-identitysync/identitysync"
+  - id: "ise__put_update_status"
+    name: "duo-identitysync update sync status."
+    method: PUT
+    path: "/api/v1/duo-identitysync/identitysync/status/{syncName}"
+  - id: "ise__get_sync"
+    name: "Initiate the sync between the Active Directory and the"
+    method: GET
+    path: "/api/v1/duo-identitysync/identitysync/sync/{syncName}"
+  - id: "ise__get_get_identitysync_by_sync_name"
+    name: "Duo-IdentitySync Get the Identitysync config specified in the"
+    method: GET
+    path: "/api/v1/duo-identitysync/identitysync/{syncName}"
+  - id: "ise__put_update_identitysync_by_sync_name"
+    name: "Duo-Identitysync Update the Identitysync configuration specified"
+    method: PUT
+    path: "/api/v1/duo-identitysync/identitysync/{syncName}"
+  - id: "ise__delete_delete_identity_sync_by_sync_name"
+    name: "Duo-Identitysync Delete the Identitysync configuration specified"
+    method: DELETE
+    path: "/api/v1/duo-identitysync/identitysync/{syncName}"
+  - id: "ise__get_get_mfa"
+    name: "Duo-MFA List of Duo-MFA configurations."
+    method: GET
+    path: "/api/v1/duo-mfa/mfa"
+  - id: "ise__post_create_mfa"
+    name: "Duo-MFA Create a new Duo-MFA configuration."
+    method: POST
+    path: "/api/v1/duo-mfa/mfa"
+  - id: "ise__post_test_connection"
+    name: "Duo-MFA Verify the Auth and Admin API keys of the Duo Host."
+    method: POST
+    path: "/api/v1/duo-mfa/mfa/testconnection/{connectionName}"
+  - id: "ise__get_get_mfa_byconnection_name"
+    name: "Duo-MFA Get the Duo-MFA configuration specified in the"
+    method: GET
+    path: "/api/v1/duo-mfa/mfa/{connectionName}"
+  - id: "ise__put_update_m_fa_by_connection_name"
+    name: "Duo-MFA Update the Duo-MFA configuration specified in the"
+    method: PUT
+    path: "/api/v1/duo-mfa/mfa/{connectionName}"
+  - id: "ise__delete_delete_mfa_by_connection_name"
+    name: "Duo-MFA Delete the Duo-MFA configuration specified in the"
+    method: DELETE
+    path: "/api/v1/duo-mfa/mfa/{connectionName}"
+  - id: "ise__get_get_egress_matrix_cell"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/egressmatrixcell/"
+  - id: "ise__post_create_egress_matrix_cell"
+    name: "Create."
+    method: POST
+    path: "/ers/config/egressmatrixcell/"
+  - id: "ise__put_update_egressmatrixcell_status"
+    name: "Set All Cells Status."
+    method: PUT
+    path: "/ers/config/egressmatrixcell/status/{status}"
+  - id: "ise__put_update_egressmatrixcell_clearallmatrixcells"
+    name: "Clear All Matrix Cells."
+    method: PUT
+    path: "/ers/config/egressmatrixcell/clearallmatrixcells"
+  - id: "ise__get_get_egress_matrix_cell_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/egressmatrixcell/{id}"
+  - id: "ise__put_update_egress_matrix_cell_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/egressmatrixcell/{id}"
+  - id: "ise__delete_delete_egress_matrix_cell_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/egressmatrixcell/{id}"
+  - id: "ise__put_enable_m_f_a"
+    name: "Enable or Disable MFA feature."
+    method: PUT
+    path: "/api/v1/duo-mfa/enable"
+  - id: "ise__get_get_endpoint"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/endpoint/"
+  - id: "ise__post_create_endpoint"
+    name: "Create."
+    method: POST
+    path: "/ers/config/endpoint/"
+  - id: "ise__put_update_endpoint_deregister_by_id"
+    name: "DeRegister."
+    method: PUT
+    path: "/ers/config/endpoint/{id}/deregister"
+  - id: "ise__put_update_endpoint_releaserejectedendpoint_by_id"
+    name: "ReleaseRejectedEndpoint."
+    method: PUT
+    path: "/ers/config/endpoint/{id}/releaserejectedendpoint"
+  - id: "ise__get_get_endpoint_getrejectedendpoints"
+    name: "GetRejectedEndpoints."
+    method: GET
+    path: "/ers/config/endpoint/getrejectedendpoints"
+  - id: "ise__get_get_endpoint_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/endpoint/name/{name}"
+  - id: "ise__get_get_endpoint_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/endpoint/{id}"
+  - id: "ise__put_update_endpoint_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/endpoint/{id}"
+  - id: "ise__delete_delete_endpoint_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/endpoint/{id}"
+  - id: "ise__patch_patch_endpoint_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/endpoint/{id}"
+  - id: "ise__put_update_endpoint_register"
+    name: "Register."
+    method: PUT
+    path: "/ers/config/endpoint/register"
+  - id: "ise__get_get_stop_replication_status"
+    name: "This API retrieves the status of Endpoint stop replication"
+    method: GET
+    path: "/api/v1/stop-replication"
+  - id: "ise__put_set_stop_replication_service"
+    name: "This API updates the status of Endpoint stop replication"
+    method: PUT
+    path: "/api/v1/stop-replication"
+  - id: "ise__put_create_endpointcert_certrequest"
+    name: "Create Certificate."
+    method: PUT
+    path: "/ers/config/endpointcert/certRequest"
+  - id: "ise__get_get_endpointgroup"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/endpointgroup/"
+  - id: "ise__post_create_endpointgroup"
+    name: "Create."
+    method: POST
+    path: "/ers/config/endpointgroup/"
+  - id: "ise__get_get_endpointgroup_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/endpointgroup/name/{name}"
+  - id: "ise__get_get_endpointgroup_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/endpointgroup/{id}"
+  - id: "ise__put_update_endpointgroup_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/endpointgroup/{id}"
+  - id: "ise__delete_delete_endpointgroup_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/endpointgroup/{id}"
+  - id: "ise__patch_patch_endpointgroup_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/endpointgroup/{id}"
+  - id: "ise__get_list_1"
+    name: "Get all endpoints."
+    method: GET
+    path: "/api/v1/endpoint"
+  - id: "ise__post_create_end_point"
+    name: "Create Endpoint."
+    method: POST
+    path: "/api/v1/endpoint"
+  - id: "ise__put_update_bulk_end_points"
+    name: "Update Endpoint in bulk."
+    method: PUT
+    path: "/api/v1/endpoint/bulk"
+  - id: "ise__post_create_bulk_end_points"
+    name: "Create Endpoint in bulk."
+    method: POST
+    path: "/api/v1/endpoint/bulk"
+  - id: "ise__delete_delete_bulk_end_points"
+    name: "Delete Endpoint in bulk."
+    method: DELETE
+    path: "/api/v1/endpoint/bulk"
+  - id: "ise__get_get_device_type_summary"
+    name: "Get aggregate of device types."
+    method: GET
+    path: "/api/v1/endpoint/deviceType/summary"
+  - id: "ise__get_get_1"
+    name: "Get endpoint by id or MAC."
+    method: GET
+    path: "/api/v1/endpoint/{value}"
+  - id: "ise__put_update_endpoint"
+    name: "Update Endpoint by id or mac."
+    method: PUT
+    path: "/api/v1/endpoint/{value}"
+  - id: "ise__delete_delete_endpoint"
+    name: "Delete endpoint by id or mac."
+    method: DELETE
+    path: "/api/v1/endpoint/{value}"
+  - id: "ise__post_create_end_point_task"
+    name: "Create Endpoint task."
+    method: POST
+    path: "/api/v1/endpointTask"
+  - id: "ise__get_get_external_radius_server"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/externalradiusserver/"
+  - id: "ise__post_create_external_radius_server"
+    name: "Create."
+    method: POST
+    path: "/ers/config/externalradiusserver/"
+  - id: "ise__get_get_externalradiusserver_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/externalradiusserver/name/{name}"
+  - id: "ise__get_get_external_radius_server_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/externalradiusserver/{id}"
+  - id: "ise__put_update_external_radius_server_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/externalradiusserver/{id}"
+  - id: "ise__delete_delete_external_radius_server_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/externalradiusserver/{id}"
+  - id: "ise__patch_patch_externalradiusserver_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/externalradiusserver/{id}"
+  - id: "ise__get_get_filter_policy"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/filterpolicy/"
+  - id: "ise__post_create_filter_policy"
+    name: "Create."
+    method: POST
+    path: "/ers/config/filterpolicy/"
+  - id: "ise__get_get_filter_policy_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/filterpolicy/{id}"
+  - id: "ise__put_update_filter_policy_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/filterpolicy/{id}"
+  - id: "ise__delete_delete_filter_policy_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/filterpolicy/{id}"
+  - id: "ise__patch_patch_filterpolicy_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/filterpolicy/{id}"
+  - id: "ise__get_get_guest_location"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/guestlocation/"
+  - id: "ise__get_get_guest_location_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/guestlocation/{id}"
+  - id: "ise__get_get_guest_ssid"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/guestssid/"
+  - id: "ise__post_create_guest_ssid"
+    name: "Create."
+    method: POST
+    path: "/ers/config/guestssid/"
+  - id: "ise__get_get_guest_ssid_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/guestssid/{id}"
+  - id: "ise__put_update_guest_ssid_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/guestssid/{id}"
+  - id: "ise__delete_delete_guest_ssid_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/guestssid/{id}"
+  - id: "ise__patch_patch_guestssid_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/guestssid/{id}"
+  - id: "ise__get_get_guest_type"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/guesttype/"
+  - id: "ise__post_create_guest_type"
+    name: "Create."
+    method: POST
+    path: "/ers/config/guesttype/"
+  - id: "ise__put_update_guesttype_email_by_id"
+    name: "email."
+    method: PUT
+    path: "/ers/config/guesttype/email/{id}"
+  - id: "ise__put_update_guesttype_sms_by_id"
+    name: "sms."
+    method: PUT
+    path: "/ers/config/guesttype/sms/{id}"
+  - id: "ise__get_get_guest_type_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/guesttype/{id}"
+  - id: "ise__put_update_guest_type_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/guesttype/{id}"
+  - id: "ise__delete_delete_guest_type_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/guesttype/{id}"
+  - id: "ise__get_get_guestuser"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/guestuser/"
+  - id: "ise__post_create_guest_user"
+    name: "Create."
+    method: POST
+    path: "/ers/config/guestuser/"
+  - id: "ise__put_update_guestuser_deny_by_id"
+    name: "deny."
+    method: PUT
+    path: "/ers/config/guestuser/deny/{id}"
+  - id: "ise__put_update_guestuser_suspend_by_id"
+    name: "suspendById."
+    method: PUT
+    path: "/ers/config/guestuser/suspend/{id}"
+  - id: "ise__put_update_guestuser_approve_by_id"
+    name: "approve."
+    method: PUT
+    path: "/ers/config/guestuser/approve/{id}"
+  - id: "ise__get_get_guestuser_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/guestuser/name/{name}"
+  - id: "ise__put_update_guestuser_name_by_name"
+    name: "UpdateByName."
+    method: PUT
+    path: "/ers/config/guestuser/name/{name}"
+  - id: "ise__delete_delete_guestuser_name_by_name"
+    name: "DeleteByName."
+    method: DELETE
+    path: "/ers/config/guestuser/name/{name}"
+  - id: "ise__put_update_guestuser_sms_portalid_by_id"
+    name: "sms."
+    method: PUT
+    path: "/ers/config/guestuser/sms/{id}/portalId/{portalId}"
+  - id: "ise__put_update_guestuser_changesponsorpassword"
+    name: "changeSponsorPassword."
+    method: PUT
+    path: "/ers/config/guestuser/changeSponsorPassword/{portalId}"
+  - id: "ise__put_update_guestuser_resetpassword_by_id"
+    name: "resetpassword."
+    method: PUT
+    path: "/ers/config/guestuser/resetpassword/{id}"
+  - id: "ise__put_update_guestuser_email_portalid_by_id"
+    name: "email."
+    method: PUT
+    path: "/ers/config/guestuser/email/{id}/portalId/{portalId}"
+  - id: "ise__put_update_guestuser_reinstate_by_id"
+    name: "reinstateById."
+    method: PUT
+    path: "/ers/config/guestuser/reinstate/{id}"
+  - id: "ise__put_update_guestuser_reinstate_name_by_name"
+    name: "reinstateByName."
+    method: PUT
+    path: "/ers/config/guestuser/reinstate/name/{name}"
+  - id: "ise__put_update_guestuser_suspend_name_by_name"
+    name: "suspendByName."
+    method: PUT
+    path: "/ers/config/guestuser/suspend/name/{name}"
+  - id: "ise__get_get_guest_user_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/guestuser/{id}"
+  - id: "ise__put_update_guest_user_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/guestuser/{id}"
+  - id: "ise__delete_delete_guest_user_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/guestuser/{id}"
+  - id: "ise__get_get_guestsmtpnotificationsettings"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/guestsmtpnotificationsettings/"
+  - id: "ise__post_create_guestsmtpnotificationsettings"
+    name: "Create."
+    method: POST
+    path: "/ers/config/guestsmtpnotificationsettings/"
+  - id: "ise__get_get_guestsmtpnotificationsettings_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/guestsmtpnotificationsettings/{id}"
+  - id: "ise__put_update_guestsmtpnotificationsettings_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/guestsmtpnotificationsettings/{id}"
+  - id: "ise__patch_patch_guestsmtpnotificationsettings_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/guestsmtpnotificationsettings/{id}"
+  - id: "ise__get_get_hotspot_portal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/hotspotportal/"
+  - id: "ise__post_create_hotspot_portal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/hotspotportal/"
+  - id: "ise__get_get_hotspot_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/hotspotportal/{portal-id}"
+  - id: "ise__put_update_hotspot_portal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/hotspotportal/{portal-id}"
+  - id: "ise__delete_delete_hotspot_portal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/hotspotportal/{portal-id}"
+  - id: "ise__patch_patch_hotspotportal_by_id"
+    name: "This API endpoint has the PATCH method enabled. However, only"
+    method: PATCH
+    path: "/ers/config/hotspotportal/{portal-id}"
+  - id: "ise__get_get_identitygroup"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/identitygroup/"
+  - id: "ise__post_create_identitygroup"
+    name: "Create."
+    method: POST
+    path: "/ers/config/identitygroup/"
+  - id: "ise__get_get_identitygroup_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/identitygroup/name/{name}"
+  - id: "ise__get_get_identitygroup_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/identitygroup/{id}"
+  - id: "ise__put_update_identitygroup_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/identitygroup/{id}"
+  - id: "ise__delete_delete_identitygroup_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/identitygroup/{id}"
+  - id: "ise__patch_patch_identitygroup_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/identitygroup/{id}"
+  - id: "ise__get_get_idstoresequence"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/idstoresequence/"
+  - id: "ise__post_create_idstoresequence"
+    name: "Create."
+    method: POST
+    path: "/ers/config/idstoresequence/"
+  - id: "ise__get_get_idstoresequence_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/idstoresequence/name/{name}"
+  - id: "ise__get_get_idstoresequence_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/idstoresequence/{id}"
+  - id: "ise__put_update_idstoresequence_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/idstoresequence/{id}"
+  - id: "ise__delete_delete_idstoresequence_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/idstoresequence/{id}"
+  - id: "ise__patch_patch_idstoresequence_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/idstoresequence/{id}"
+  - id: "ise__get_get_ingress_filter_list"
+    name: "Inbound Rule ISE uses ACI policy objects as conditions to"
+    method: GET
+    path: "/api/v1/trustsec/inbound-rule"
+  - id: "ise__post_create_ingress_filter_configuration"
+    name: "Inbound Rule Create Inbound Rule:     Filter configuration must"
+    method: POST
+    path: "/api/v1/trustsec/inbound-rule"
+  - id: "ise__post_get_inbound_rule_filter_preview"
+    name: "Inbound Rule Preview Inbound Rule:     Filter configuration must"
+    method: POST
+    path: "/api/v1/trustsec/inbound-rule/preview"
+  - id: "ise__post_get_inbound_rule_filter_preview_by_id"
+    name: "Inbound Rule Preview Inbound Rule:     Filter configuration must"
+    method: POST
+    path: "/api/v1/trustsec/inbound-rule/preview/{filterId}"
+  - id: "ise__post_get_ingress_sxp_domains"
+    name: "Get SXP Domains list for SGTs data."
+    method: POST
+    path: "/api/v1/trustsec/inbound-rule/sxp-domain"
+  - id: "ise__get_get_ingress_filter_by_id"
+    name: "Inbound Rule Get Inbound Ruler attributes."
+    method: GET
+    path: "/api/v1/trustsec/inbound-rule/{filterId}"
+  - id: "ise__put_update_ingress_filter_by_id"
+    name: "Inbound Rule Update Inbound Rule."
+    method: PUT
+    path: "/api/v1/trustsec/inbound-rule/{filterId}"
+  - id: "ise__delete_delete_ingress_filter_by_id"
+    name: "Inbound Rule Delete Inbound Rule."
+    method: DELETE
+    path: "/api/v1/trustsec/inbound-rule/{filterId}"
+  - id: "ise__get_get_internal_user"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/internaluser/"
+  - id: "ise__post_create_internal_user"
+    name: "Create."
+    method: POST
+    path: "/ers/config/internaluser/"
+  - id: "ise__get_get_internaluser_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/internaluser/name/{name}"
+  - id: "ise__put_update_internaluser_name_by_name"
+    name: "Update-By-Name."
+    method: PUT
+    path: "/ers/config/internaluser/name/{name}"
+  - id: "ise__delete_delete_internaluser_name_by_name"
+    name: "Delete-By-Name."
+    method: DELETE
+    path: "/ers/config/internaluser/name/{name}"
+  - id: "ise__patch_patch_internaluser_name_by_name"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/internaluser/name/{name}"
+  - id: "ise__get_get_internal_user_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/internaluser/{id}"
+  - id: "ise__put_update_internal_user_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/internaluser/{id}"
+  - id: "ise__delete_delete_internal_user_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/internaluser/{id}"
+  - id: "ise__patch_patch_internaluser_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/internaluser/{id}"
+  - id: "ise__get_is_mfa_enabled"
+    name: "Is MFA feature enabled?."
+    method: GET
+    path: "/api/v1/duo-mfa/status"
+  - id: "ise__get_get_ldap_rootcacertificates"
+    name: "get-rootca-certificates."
+    method: GET
+    path: "/ers/config/ldap/rootcacertificates"
+  - id: "ise__get_get_ldap"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/ldap/"
+  - id: "ise__post_create_ldap"
+    name: "Create."
+    method: POST
+    path: "/ers/config/ldap/"
+  - id: "ise__get_get_ldap_hosts"
+    name: "get-hosts."
+    method: GET
+    path: "/ers/config/ldap/hosts"
+  - id: "ise__get_get_ldapissuercacertificates"
+    name: "get-issuerca-certificates."
+    method: GET
+    path: "/ers/config/ldap/issuercacertificates"
+  - id: "ise__put_update_ldap_testbindprimary_by_id"
+    name: "test-bind-primary."
+    method: PUT
+    path: "/ers/config/ldap/{id}/testbindprimary"
+  - id: "ise__get_get_ldap_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/ldap/name/{name}"
+  - id: "ise__put_update_ldap_testbindsecondary_by_id"
+    name: "test-bind-secondary."
+    method: PUT
+    path: "/ers/config/ldap/{id}/testbindsecondary"
+  - id: "ise__get_get_ldap_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/ldap/{id}"
+  - id: "ise__put_update_ldap_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/ldap/{id}"
+  - id: "ise__delete_delete_ldap_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/ldap/{id}"
+  - id: "ise__get_get_connection_type"
+    name: "Get connection type."
+    method: GET
+    path: "/api/v1/license/system/connection-type"
+  - id: "ise__get_get_eval_license_info"
+    name: "Get registration information."
+    method: GET
+    path: "/api/v1/license/system/eval-license"
+  - id: "ise__get_get_feature_to_tier_mapping"
+    name: "Get feature to tier mapping."
+    method: GET
+    path: "/api/v1/license/system/feature-to-tier-mapping"
+  - id: "ise__get_get_misc_license_state"
+    name: "Get miscellaneous license information."
+    method: GET
+    path: "/api/v1/license/system/miscellaneous-license"
+  - id: "ise__post_handle_license_operation"
+    name: "Enable/Disable Miscellaneous license."
+    method: POST
+    path: "/api/v1/license/system/miscellaneous-license"
+  - id: "ise__get_get_registration_info"
+    name: "Get registration information."
+    method: GET
+    path: "/api/v1/license/system/register"
+  - id: "ise__post_create_registration_info"
+    name: "License Configure registration information.   **Please note that"
+    method: POST
+    path: "/api/v1/license/system/register"
+  - id: "ise__get_get_smart_state"
+    name: "Get smart license information."
+    method: GET
+    path: "/api/v1/license/system/smart-state"
+  - id: "ise__post_configure_smart_state"
+    name: "License Configure smart state information."
+    method: POST
+    path: "/api/v1/license/system/smart-state"
+  - id: "ise__get_get_tier_state_info"
+    name: "Get tier state information."
+    method: GET
+    path: "/api/v1/license/system/tier-state"
+  - id: "ise__post_update_tier_state_info"
+    name: "Applicable values for  name  &  status  parameters:     name:"
+    method: POST
+    path: "/api/v1/license/system/tier-state"
+  - id: "ise__get_list_all_menu_access"
+    name: "Get all the menu access created in Cisco ISE, example super"
+    method: GET
+    path: "/api/v1/rbac/menu-access"
+  - id: "ise__put_update_menu_access"
+    name: "Update details of menu access present in Cisco ISE based on the"
+    method: PUT
+    path: "/api/v1/rbac/menu-access"
+  - id: "ise__post_create_menu_access"
+    name: "Create  menu access in Cisco ISE based on the access permissions"
+    method: POST
+    path: "/api/v1/rbac/menu-access"
+  - id: "ise__get_get_menu_access_by_name"
+    name: "Get details of requested menu access available in Cisco ISE,"
+    method: GET
+    path: "/api/v1/rbac/menu-access/{name}"
+  - id: "ise__delete_delete_menu_access"
+    name: "Delete menu access API in Cisco ISE is used to delete menu"
+    method: DELETE
+    path: "/api/v1/rbac/menu-access/{name}"
+  - id: "ise__get_get_active_session_count"
+    name: "Returns the count of active sessions."
+    method: GET
+    path: "/admin/API/mnt/Session/ActiveCount"
+  - id: "ise__get_get_posture_count"
+    name: "Returns Posture count."
+    method: GET
+    path: "/admin/API/mnt/Session/PostureCount"
+  - id: "ise__get_get_profiler_count"
+    name: "Returns Profiler count."
+    method: GET
+    path: "/admin/API/mnt/Session/ProfilerCount"
+  - id: "ise__get_get_active_session_list"
+    name: "Returns a list of active sessions."
+    method: GET
+    path: "/admin/API/mnt/Session/ActiveList"
+  - id: "ise__get_get_auth_session_list"
+    name: "Returns a list of authentication sessions between the specified"
+    method: GET
+    path: "/admin/API/mnt/Session/AuthList/{startTime}/{endTime}"
+  - id: "ise__get_get_full_s_d_mac_info"
+    name: "Returns detailed information for a given MAC address."
+    method: GET
+    path: "/admin/API/mnt/Session/MACAddress/{mac}"
+  - id: "ise__get_get_full_s_d_username_info"
+    name: "Returns detailed information for a given username."
+    method: GET
+    path: "/admin/API/mnt/Session/UserName/{username}"
+  - id: "ise__get_get_full_s_d_ip_address_info"
+    name: "Returns detailed information for a given ipaddress."
+    method: GET
+    path: "/admin/API/mnt/Session/IPAddress/{ipaddress}"
+  - id: "ise__get_get_product_version"
+    name: "Returns the version information for the product."
+    method: GET
+    path: "/admin/API/mnt/Version"
+  - id: "ise__get_get_failure_reasons"
+    name: "Returns a list of failure reasons with their details."
+    method: GET
+    path: "/admin/API/mnt/FailureReasons"
+  - id: "ise__get_get_acct_status_t_t"
+    name: "Get account status for a specific MAC address and duration."
+    method: GET
+    path: "/admin/API/mnt/AcctStatusTT/MACAddress/{mac}/{duration}"
+  - id: "ise__get_get_co_a_reauth_status"
+    name: "Get CoA reauthentication status."
+    method: GET
+    path: "/admin/API/mnt/CoA/Reauth/{node}/{mac}/{type}"
+  - id: "ise__get_get_co_a_disconnect_status"
+    name: "Get CoA disconnect status."
+    method: GET
+    path: "/admin/API/mnt/CoA/Disconnect/{node}/{mac}/{option}"
+  - id: "ise__get_get_full_session_details_for_end_point_ip_address"
+    name: "Get full session details for an endpoint IP address."
+    method: GET
+    path: "/admin/API/mnt/Session/EndPointIPAddress/{ip}"
+  - id: "ise__delete_delete_session_record_by_macaddress"
+    name: "Delete session record by MAC address."
+    method: DELETE
+    path: "/admin/API/mnt/Session/Delete/MACAddress/{mac}"
+  - id: "ise__delete_delete_session_record_by_session_id"
+    name: "Delete session record by Session ID."
+    method: DELETE
+    path: "/admin/API/mnt/Session/Delete/SessionID/{sid}"
+  - id: "ise__delete_delete_all_session_records"
+    name: "Delete all session records."
+    method: DELETE
+    path: "/admin/API/mnt/Session/Delete/All"
+  - id: "ise__get_get_acct_status"
+    name: "Retrieve account status by MAC address and duration."
+    method: GET
+    path: "/admin/API/mnt/AcctStatus/MACAddress/{mac}/{duration}"
+  - id: "ise__get_get_my_device_portal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/mydeviceportal/"
+  - id: "ise__post_create_my_device_portal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/mydeviceportal/"
+  - id: "ise__get_get_my_device_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/mydeviceportal/{portal-id}"
+  - id: "ise__put_update_my_device_portal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/mydeviceportal/{portal-id}"
+  - id: "ise__delete_delete_my_device_portal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/mydeviceportal/{portal-id}"
+  - id: "ise__get_get_nbar_apps"
+    name: "Get all NBAR Applications."
+    method: GET
+    path: "/api/v1/trustsec/sgacl/nbarapp"
+  - id: "ise__post_create_nbar_app"
+    name: "Create NBAR application."
+    method: POST
+    path: "/api/v1/trustsec/sgacl/nbarapp"
+  - id: "ise__get_get_nbar_app_by_id"
+    name: "Get NBAR Application by id."
+    method: GET
+    path: "/api/v1/trustsec/sgacl/nbarapp/{id}"
+  - id: "ise__put_update_nbar_app_by_id"
+    name: "Update NBAR Application."
+    method: PUT
+    path: "/api/v1/trustsec/sgacl/nbarapp/{id}"
+  - id: "ise__delete_delete_nbar_app_by_id"
+    name: "Delete NBAR Application."
+    method: DELETE
+    path: "/api/v1/trustsec/sgacl/nbarapp/{id}"
+  - id: "ise__get_get_ipsec_enabled_nodes"
+    name: "Returns all the IPsec enabled nodes with configuration details."
+    method: GET
+    path: "/api/v1/ipsec"
+  - id: "ise__put_update_ipsec_connection_config"
+    name: "Updates the configuration of existing IPsec connection.  The"
+    method: PUT
+    path: "/api/v1/ipsec"
+  - id: "ise__post_create_ipsec_connection"
+    name: "Creates an IPsec connection.  The following parameters are"
+    method: POST
+    path: "/api/v1/ipsec"
+  - id: "ise__post_bulk_ip_sec_operation"
+    name: "Create, update, disable, enable and remove IPsec connections in"
+    method: POST
+    path: "/api/v1/ipsec/bulk"
+  - id: "ise__get_get_ip_sec_certificates"
+    name: "Returns all the certificates for IPsec role.   ."
+    method: GET
+    path: "/api/v1/ipsec/certificates"
+  - id: "ise__put_disable_ipsec_connection"
+    name: "Disables an enabled IPsec node connection."
+    method: PUT
+    path: "/api/v1/ipsec/disable/{hostName}/{nadIp}"
+  - id: "ise__put_enable_ipsec_connection"
+    name: "Enables an disabled IPsec node connection."
+    method: PUT
+    path: "/api/v1/ipsec/enable/{hostName}/{nadIp}"
+  - id: "ise__get_get_ipsec_node"
+    name: "Returns the IPsec configuration details of a given node with the"
+    method: GET
+    path: "/api/v1/ipsec/{hostName}/{nadIp}"
+  - id: "ise__delete_remove_ipsec_connection"
+    name: "Removes an enabled IPsec node connection."
+    method: DELETE
+    path: "/api/v1/ipsec/{hostName}/{nadIp}"
+  - id: "ise__get_get_network_access_profiles"
+    name: "Network Access Returns list of authorization profiles.  (Other"
+    method: GET
+    path: "/api/v1/policy/network-access/authorization-profiles"
+  - id: "ise__get_get_network_access_conditions"
+    name: "Network Access Returns all library conditions."
+    method: GET
+    path: "/api/v1/policy/network-access/condition"
+  - id: "ise__post_post_network_access_condition"
+    name: "Network Access Creates a library condition:     Library"
+    method: POST
+    path: "/api/v1/policy/network-access/condition"
+  - id: "ise__get_get_network_access_conditions_for_authentication_rule"
+    name: "Network Access Returns list of library conditions for"
+    method: GET
+    path: "/api/v1/policy/network-access/condition/authentication"
+  - id: "ise__get_get_network_access_conditions_for_authorization_rule"
+    name: "Network Access Returns list of library conditions for"
+    method: GET
+    path: "/api/v1/policy/network-access/condition/authorization"
+  - id: "ise__get_get_network_access_conditions_for_policy_set"
+    name: "Network Access Returns list of library conditions for PolicySet"
+    method: GET
+    path: "/api/v1/policy/network-access/condition/policyset"
+  - id: "ise__get_get_network_access_condition_by_condition_id"
+    name: "Network Access Returns a library condition."
+    method: GET
+    path: "/api/v1/policy/network-access/condition/{conditionId}"
+  - id: "ise__put_put_network_access_condition_by_condition_id"
+    name: "Network Access Update library condition."
+    method: PUT
+    path: "/api/v1/policy/network-access/condition/{conditionId}"
+  - id: "ise__delete_delete_network_access_condition_by_condition_id"
+    name: "Network Access Delete a library condition."
+    method: DELETE
+    path: "/api/v1/policy/network-access/condition/{conditionId}"
+  - id: "ise__get_get_network_access_dictionaries"
+    name: "Get all Dictionaries."
+    method: GET
+    path: "/api/v1/policy/network-access/dictionaries"
+  - id: "ise__post_post_network_access_dictionaries"
+    name: "Network Access Create a new Dictionary."
+    method: POST
+    path: "/api/v1/policy/network-access/dictionaries"
+  - id: "ise__get_get_network_access_dictionary"
+    name: "GET a dictionary by name."
+    method: GET
+    path: "/api/v1/policy/network-access/dictionaries/{name}"
+  - id: "ise__put_put_network_access_dictionaries_by_name"
+    name: "Network Access Update a Dictionary."
+    method: PUT
+    path: "/api/v1/policy/network-access/dictionaries/{name}"
+  - id: "ise__delete_delete_network_access_dictionaries_by_name"
+    name: "Network Access Delete a Dictionary."
+    method: DELETE
+    path: "/api/v1/policy/network-access/dictionaries/{name}"
+  - id: "ise__get_get_network_access_dictionaries_authorization"
+    name: "Network Access Returns list of dictionary attributes for"
+    method: GET
+    path: "/api/v1/policy/network-access/dictionaries/authorization"
+  - id: "ise__get_get_network_access_dictionaries_policyset"
+    name: "Network Access Returns list of dictionary attributes for"
+    method: GET
+    path: "/api/v1/policy/network-access/dictionaries/policyset"
+  - id: "ise__get_get_network_access_identity_stores"
+    name: "Network Access Return list of identity stores for authentication"
+    method: GET
+    path: "/api/v1/policy/network-access/identity-stores"
+  - id: "ise__get_get_network_access_policy_by_id_mfa_rule_list"
+    name: "Network Access Get MFA rules."
+    method: GET
+    path: "/api/v1/policy/network-access/policy-set/{policyId}/mfa"
+  - id: "ise__post_create_network_access_policy_by_id_mfa_rule"
+    name: "Network Access Create MFA rule:     Rule must include name and"
+    method: POST
+    path: "/api/v1/policy/network-access/policy-set/{policyId}/mfa"
+  - id: "ise__get_get_network_access_network_conditions"
+    name: "Network Access Returns a list of network conditions."
+    method: GET
+    path: "/api/v1/policy/network-access/network-condition"
+  - id: "ise__post_post_network_access_network_condition"
+    name: "Network Access Creates network condition."
+    method: POST
+    path: "/api/v1/policy/network-access/network-condition"
+  - id: "ise__get_get_network_access_policy_set_list"
+    name: "Get all network access policy sets."
+    method: GET
+    path: "/api/v1/policy/network-access/policy-set"
+  - id: "ise__post_create_network_access_policy_set"
+    name: "Network Access Create a new policy set:     Policy must include"
+    method: POST
+    path: "/api/v1/policy/network-access/policy-set"
+  - id: "ise__post_reset_hit_counts_network_access_policy_sets"
+    name: "Network Access Reset HitCount for PolicySets."
+    method: POST
+    path: "/api/v1/policy/network-access/policy-set/reset-hitcount"
+  - id: "ise__get_get_network_access_policy_set_by_id"
+    name: "Network Access Get policy set attributes."
+    method: GET
+    path: "/api/v1/policy/network-access/policy-set/{policyId}"
+  - id: "ise__put_update_network_access_policy_set_by_id"
+    name: "Network Access Update a policy set."
+    method: PUT
+    path: "/api/v1/policy/network-access/policy-set/{policyId}"
+  - id: "ise__delete_delete_network_access_policy_set_by_id"
+    name: "Network Access Delete a policy set."
+    method: DELETE
+    path: "/api/v1/policy/network-access/policy-set/{policyId}"
+  - id: "ise__get_get_network_access_security_groups"
+    name: "Network Access Return list of available security groups for"
+    method: GET
+    path: "/api/v1/policy/network-access/security-groups"
+  - id: "ise__get_get_network_access_service_names"
+    name: "Returns list of Allowed Protocols and Server Sequences for"
+    method: GET
+    path: "/api/v1/policy/network-access/service-names"
+  - id: "ise__get_get_network_access_time_conditions"
+    name: "Network Access Returns a list of time and date conditions."
+    method: GET
+    path: "/api/v1/policy/network-access/time-condition"
+  - id: "ise__post_post_network_access_time_condition"
+    name: "Network Access Creates time/date condition."
+    method: POST
+    path: "/api/v1/policy/network-access/time-condition"
+  - id: "ise__get_get_network_device"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/networkdevice/"
+  - id: "ise__post_create_network_device"
+    name: "Create."
+    method: POST
+    path: "/ers/config/networkdevice/"
+  - id: "ise__get_get_networkdevice_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/networkdevice/name/{name}"
+  - id: "ise__put_update_networkdevice_name_by_name"
+    name: "Update-By-Name."
+    method: PUT
+    path: "/ers/config/networkdevice/name/{name}"
+  - id: "ise__delete_delete_networkdevice_name_by_name"
+    name: "Delete-By-Name."
+    method: DELETE
+    path: "/ers/config/networkdevice/name/{name}"
+  - id: "ise__patch_patch_networkdevice_name_by_name"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/networkdevice/name/{name}"
+  - id: "ise__get_get_network_device_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/networkdevice/{id}"
+  - id: "ise__put_update_network_device_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/networkdevice/{id}"
+  - id: "ise__delete_delete_network_device_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/networkdevice/{id}"
+  - id: "ise__patch_patch_networkdevice_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/networkdevice/{id}"
+  - id: "ise__get_get_network_device_group"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/networkdevicegroup/"
+  - id: "ise__post_create_network_device_group"
+    name: "Create."
+    method: POST
+    path: "/ers/config/networkdevicegroup/"
+  - id: "ise__get_get_networkdevicegroup_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/networkdevicegroup/name/{name}"
+  - id: "ise__get_get_network_device_group_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/networkdevicegroup/{id}"
+  - id: "ise__put_update_network_device_group_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/networkdevicegroup/{id}"
+  - id: "ise__delete_delete_network_device_group_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/networkdevicegroup/{id}"
+  - id: "ise__patch_patch_networkdevicegroup_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/networkdevicegroup/{id}"
+  - id: "ise__get_get_node"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/node/"
+  - id: "ise__get_get_node_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/node/name/{name}"
+  - id: "ise__get_get_node_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/node/{id}"
+  - id: "ise__post_make_primary"
+    name: "This API promotes the standalone node on which the API is"
+    method: POST
+    path: "/api/v1/deployment/primary"
+  - id: "ise__post_make_standalone"
+    name: "This API changes the primary PAN in a single node cluster on"
+    method: POST
+    path: "/api/v1/deployment/standalone"
+  - id: "ise__get_get_deployment_nodes"
+    name: "The API lists all the nodes that are deployed in the cluster."
+    method: GET
+    path: "/api/v1/deployment/node/"
+  - id: "ise__post_register_node"
+    name: "This API registers a Cisco ISE node to form a multi-node"
+    method: POST
+    path: "/api/v1/deployment/node/"
+  - id: "ise__get_get_node_details"
+    name: "This API retrieves detailed information of the deployed node. ."
+    method: GET
+    path: "/api/v1/deployment/node/{hostname}"
+  - id: "ise__put_update_node"
+    name: "This API updates the configuration of the Cisco ISE node with"
+    method: PUT
+    path: "/api/v1/deployment/node/{hostname}"
+  - id: "ise__delete_delete_node"
+    name: "The deregistered node becomes a standalone Cisco ISE node.  It"
+    method: DELETE
+    path: "/api/v1/deployment/node/{hostname}"
+  - id: "ise__post_sync_node"
+    name: "Performing a manual synchronization involves a reload of the"
+    method: POST
+    path: "/api/v1/deployment/sync-node/{hostname}"
+  - id: "ise__post_promote_node"
+    name: "Execute this API in the secondary PAN in the cluster to promote"
+    method: POST
+    path: "/api/v1/deployment/promote"
+  - id: "ise__get_get_node_groups"
+    name: "This API retrieves the details of all the node groups in the"
+    method: GET
+    path: "/api/v1/deployment/node-group"
+  - id: "ise__post_create_node_group"
+    name: "This API creates a node group in the cluster.  A node group"
+    method: POST
+    path: "/api/v1/deployment/node-group"
+  - id: "ise__get_get_node_group"
+    name: "This API retrieves the details of a node group in the cluster"
+    method: GET
+    path: "/api/v1/deployment/node-group/{nodeGroupName}"
+  - id: "ise__put_update_node_group"
+    name: "Update an existing node group."
+    method: PUT
+    path: "/api/v1/deployment/node-group/{nodeGroupName}"
+  - id: "ise__delete_delete_node_group"
+    name: "Delete an existing node group in the cluster. Deleting the node"
+    method: DELETE
+    path: "/api/v1/deployment/node-group/{nodeGroupName}"
+  - id: "ise__post_add_node"
+    name: "This API adds a node to the node group in the cluster. When"
+    method: POST
+    path: "/api/v1/deployment/node-group/{nodeGroupName}/add-node"
+  - id: "ise__get_get_nodes"
+    name: "This API retrieves the list of nodes associated with a node"
+    method: GET
+    path: "/api/v1/deployment/node-group/{nodeGroupName}/node"
+  - id: "ise__get_get_interfaces"
+    name: "This API retrieves the list of interfaces on a node in a"
+    method: GET
+    path: "/api/v1/node/{hostname}/interface"
+  - id: "ise__get_get_sxp_interface"
+    name: "This API retrieves the SXP interface. ."
+    method: GET
+    path: "/api/v1/node/{hostname}/sxp-interface"
+  - id: "ise__put_set_sxp_interface"
+    name: "This API configures the SXP interface. ."
+    method: PUT
+    path: "/api/v1/node/{hostname}/sxp-interface"
+  - id: "ise__get_get_profiler_probe_config"
+    name: "This API retrieves the profiler probe configuration of a PSN. ."
+    method: GET
+    path: "/api/v1/profile/{hostname}"
+  - id: "ise__put_set_profiler_probe_config"
+    name: "This API updates the profiler probe configuration of a PSN.  ."
+    method: PUT
+    path: "/api/v1/profile/{hostname}"
+  - id: "ise__get_get_nspprofile"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/nspprofile/"
+  - id: "ise__get_get_nspprofile_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/nspprofile/{id}"
+  - id: "ise__put_update_nspprofile_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/nspprofile/{id}"
+  - id: "ise__delete_delete_nspprofile_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/nspprofile/{id}"
+  - id: "ise__get_get_egress_filter_list"
+    name: "Outbound Rule list."
+    method: GET
+    path: "/api/v1/trustsec/outbound-rule"
+  - id: "ise__post_create_egress_filter"
+    name: "Outbound Rule Create Outbound Rule:     Filter configuration"
+    method: POST
+    path: "/api/v1/trustsec/outbound-rule"
+  - id: "ise__post_batch_configure_egress_filter"
+    name: "Outbound Rule batch configuration."
+    method: POST
+    path: "/api/v1/trustsec/outbound-rule/batch"
+  - id: "ise__post_get_egress_filter_preview"
+    name: "Get Inbound Rule preview data."
+    method: POST
+    path: "/api/v1/trustsec/outbound-rule/preview"
+  - id: "ise__get_get_egress_filter_by_id"
+    name: "Outbound Rule Get Outbound Rule attributes."
+    method: GET
+    path: "/api/v1/trustsec/outbound-rule/{filterId}"
+  - id: "ise__put_update_egress_filter_by_id"
+    name: "Outbound Rule Update Outbound Rule."
+    method: PUT
+    path: "/api/v1/trustsec/outbound-rule/{filterId}"
+  - id: "ise__delete_delete_egress_filter_by_id"
+    name: "Outbound Rule Delete Outbound Rule."
+    method: DELETE
+    path: "/api/v1/trustsec/outbound-rule/{filterId}"
+  - id: "ise__get_get_pan_ha_status"
+    name: "In a high availability configuration, the primary PAN is in"
+    method: GET
+    path: "/api/v1/deployment/pan-ha"
+  - id: "ise__put_update_pan_ha"
+    name: "To deploy the auto-failover feature, you must have at least"
+    method: PUT
+    path: "/api/v1/deployment/pan-ha"
+  - id: "ise__post_run_patch_pre_checks"
+    name: "Initiates prechecks execution on PPAN for complete deployment."
+    method: POST
+    path: "/v1/upgrade-patch/patch-install/pre-checks"
+  - id: "ise__get_get_patch_precheck_status"
+    name: "Get the latest precheck report. User can get status of an"
+    method: GET
+    path: "/v1/upgrade-patch/patch-install/pre-checks-status"
+  - id: "ise__post_install_patch"
+    name: "Trigger patch installation on the Cisco ISE nodes.    In Full"
+    method: POST
+    path: "/v1/upgrade-patch/patch-install"
+  - id: "ise__get_patch_install_status"
+    name: "Get the status of patch installation for the requested nodes."
+    method: GET
+    path: "/v1/upgrade-patch/patch-install/get-status"
+  - id: "ise__get_get_installed_patches"
+    name: "List all the installed patches in the system with the date of"
+    method: GET
+    path: "/v1/upgrade-patch/patch-install/list-patch"
+  - id: "ise__get_patch_rollback_info"
+    name: "Get current and previous patch installed information."
+    method: GET
+    path: "/v1/rollback/patch-rollback"
+  - id: "ise__post_rollback_patch"
+    name: "Trigger patch rollback on the Cisco ISE nodes. Patch will be"
+    method: POST
+    path: "/v1/rollback/patch-rollback"
+  - id: "ise__post_run_rollback_pre_checks"
+    name: "Initiates prechecks execution on PPAN for complete deployment."
+    method: POST
+    path: "/v1/rollback/patch-rollback/pre-checks"
+  - id: "ise__get_get_rollback_precheck_status"
+    name: "Get the latest precheck report. ."
+    method: GET
+    path: "/v1/rollback/patch-rollback/pre-checks-status"
+  - id: "ise__get_patch_rollback_summary"
+    name: "get the summary of patch rollback ."
+    method: GET
+    path: "/v1/rollback/patch-rollback/summary"
+  - id: "ise__get_patch_rollback_proceed_status"
+    name: "Get the status of patch rollback for the requested nodes."
+    method: GET
+    path: "/v1/rollback/patch-rollback/get-status"
+  - id: "ise__get_patch_summary"
+    name: "get the summary of patch install process ."
+    method: GET
+    path: "/v1/upgrade-patch/patch-install/get-summary"
+  - id: "ise__get_list_installed_hotpatches"
+    name: "List all the installed hot patches in the system. ."
+    method: GET
+    path: "/api/v1/hotpatch"
+  - id: "ise__post_install_hotpatch"
+    name: "Triggers hot patch installation on the Cisco ISE node. A task ID"
+    method: POST
+    path: "/api/v1/hotpatch/install"
+  - id: "ise__post_rollback_hotpatch"
+    name: "Triggers hot patch rollback on the Cisco ISE node. A task ID is"
+    method: POST
+    path: "/api/v1/hotpatch/rollback"
+  - id: "ise__get_list_installed_patches"
+    name: "List all the installed patches in the system, with the patch"
+    method: GET
+    path: "/api/v1/patch"
+  - id: "ise__post_install_patch_2"
+    name: "Triggers patch installation on the Cisco ISE node. A task ID is"
+    method: POST
+    path: "/api/v1/patch/install"
+  - id: "ise__post_rollback_patch_2"
+    name: "Triggers patch rollback on the Cisco ISE node. A task ID is"
+    method: POST
+    path: "/api/v1/patch/rollback"
+  - id: "ise__get_get_portal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/portal/"
+  - id: "ise__get_get_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/portal/{id}"
+  - id: "ise__get_get_portalglobalsetting"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/portalglobalsetting/"
+  - id: "ise__get_get_portal_global_setting_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/portalglobalsetting/{id}"
+  - id: "ise__put_update_portal_global_setting_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/portalglobalsetting/{id}"
+  - id: "ise__get_get_portaltheme"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/portaltheme/"
+  - id: "ise__post_create_portal_theme"
+    name: "Create."
+    method: POST
+    path: "/ers/config/portaltheme/"
+  - id: "ise__get_get_portal_theme_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/portaltheme/{id}"
+  - id: "ise__put_update_portal_theme_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/portaltheme/{id}"
+  - id: "ise__delete_delete_portal_theme_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/portaltheme/{id}"
+  - id: "ise__patch_patch_portaltheme_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/portaltheme/{id}"
+  - id: "ise__get_get_profilerprofile"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/profilerprofile/"
+  - id: "ise__get_get_profiler_profile_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/profilerprofile/{id}"
+  - id: "ise__post_alert_trigger"
+    name: "This is a webhook registered in Prometheus for handling the"
+    method: POST
+    path: "/api/v1/prometheus-alertmanager/alertTrigger"
+  - id: "ise__get_get_receiver_configurations"
+    name: "Lists all the Prometheus Alertmanager receivers."
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/receiver"
+  - id: "ise__post_save_receiver_configuration"
+    name: "Creates a new Prometheus Alertmanager configuration with the"
+    method: POST
+    path: "/api/v1/prometheus-alertmanager/receiver"
+  - id: "ise__get_get_receiver_configuration_by_id"
+    name: "Get a Prometheus Alertmanager receiver configuration based on"
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/receiver/{receiverId}"
+  - id: "ise__put_update_receiver_configuration"
+    name: "Updates an existing Prometheus Alertmanager receiver"
+    method: PUT
+    path: "/api/v1/prometheus-alertmanager/receiver/{receiverId}"
+  - id: "ise__delete_delete_receiver_configuration_by_id"
+    name: "Deletes a Prometheus Alertmanager receiver configuration based"
+    method: DELETE
+    path: "/api/v1/prometheus-alertmanager/receiver/{receiverId}"
+  - id: "ise__get_get_routes"
+    name: "Lists all the Prometheus Alertmanager routes that are"
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/route"
+  - id: "ise__post_save_route_configuration"
+    name: "Creates a new Prometheus Alertmanager route configuration with"
+    method: POST
+    path: "/api/v1/prometheus-alertmanager/route"
+  - id: "ise__get_get_route_configuration_by_id"
+    name: "Get the Prometheus Alertmanager route configuration information"
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/route/{routeId}"
+  - id: "ise__put_update_route_configuration"
+    name: "Updates the route configuration details of an existing"
+    method: PUT
+    path: "/api/v1/prometheus-alertmanager/route/{routeId}"
+  - id: "ise__delete_delete_route_configuration_by_id"
+    name: "Delete an existing Prometheus Alertmanager route configuration"
+    method: DELETE
+    path: "/api/v1/prometheus-alertmanager/route/{routeId}"
+  - id: "ise__get_get_rules_configurations"
+    name: "List all the configured Prometheus rules."
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/rule"
+  - id: "ise__post_save_rule_configuration"
+    name: "Creates a new Prometheus rule configuration with the template."
+    method: POST
+    path: "/api/v1/prometheus-alertmanager/rule"
+  - id: "ise__get_get_rule_configuration_by_id"
+    name: "Get the Prometheus rule configuration based on rule ID."
+    method: GET
+    path: "/api/v1/prometheus-alertmanager/rule/{ruleId}"
+  - id: "ise__put_update_rule_configuration"
+    name: "Updates an existing Prometheus rule configuration."
+    method: PUT
+    path: "/api/v1/prometheus-alertmanager/rule/{ruleId}"
+  - id: "ise__delete_delete_rule_configuration_by_id"
+    name: "Delete a Prometheus rule configuration based on rule ID."
+    method: DELETE
+    path: "/api/v1/prometheus-alertmanager/rule/{ruleId}"
+  - id: "ise__get_get_proxy_connection"
+    name: "The following functionalities are impacted by the proxy"
+    method: GET
+    path: "/api/v1/system-settings/proxy"
+  - id: "ise__put_update_proxy_connection"
+    name: "The following functionalities are impacted by the proxy"
+    method: PUT
+    path: "/api/v1/system-settings/proxy"
+  - id: "ise__get_get_activation_url"
+    name: "Returns the activation URL which can be used to activate the"
+    method: GET
+    path: "/api/v1/pxgrid/cloud/activation-url"
+  - id: "ise__delete_unenroll_ise"
+    name: "Unenrolls the current Cisco ISE deployment from pxGrid Cloud and"
+    method: DELETE
+    path: "/api/v1/pxgrid/cloud/enroll"
+  - id: "ise__post_enroll_ise"
+    name: "Enrolls the current Cisco ISE deployment with pxGrid Cloud. If"
+    method: POST
+    path: "/api/v1/pxgrid/cloud/enroll/{hostname}"
+  - id: "ise__get_get_enrolled_device_info"
+    name: "Returns the pxGrid Cloud enrollment information for the current"
+    method: GET
+    path: "/api/v1/pxgrid/cloud/enrollment-info"
+  - id: "ise__get_get_regions"
+    name: "Returns the list of pxGrid Cloud regions."
+    method: GET
+    path: "/api/v1/pxgrid/cloud/regions"
+  - id: "ise__get_get_connector_config"
+    name: "pxGrid Direct Get ALL connectorConfig information."
+    method: GET
+    path: "/api/v1/pxgrid-direct/connector-config"
+  - id: "ise__post_create_connector_config"
+    name: "pxGrid Direct Configure connectorconfig information."
+    method: POST
+    path: "/api/v1/pxgrid-direct/connector-config"
+  - id: "ise__get_get_connector_config_by_connector_name"
+    name: "pxGrid Direct Get connectorConfig information based on"
+    method: GET
+    path: "/api/v1/pxgrid-direct/connector-config/{connectorName}"
+  - id: "ise__put_update_connector_config_by_connector_name"
+    name: "pxGrid Direct update Configure connectorConfig information based"
+    method: PUT
+    path: "/api/v1/pxgrid-direct/connector-config/{connectorName}"
+  - id: "ise__delete_delete_connector_config_by_connector_name"
+    name: "pxGrid Direct Delete Configure connectorConfig information based"
+    method: DELETE
+    path: "/api/v1/pxgrid-direct/connector-config/{connectorName}"
+  - id: "ise__get_getpxgrid_direct_dictionary_references"
+    name: "pxGrid Direct Get a map of references to pxgrid-direct"
+    method: GET
+    path: "/api/v1/pxgrid-direct/dictionary-references"
+  - id: "ise__get_get_connector_config_sync_now_status"
+    name: "pxGrid Direct Get connectorConfig information based on"
+    method: GET
+    path: "/api/v1/pxgrid-direct/syncNowStatus/{connectorName}"
+  - id: "ise__post_sync_now_connector"
+    name: "pxGrid Direct test the Connector."
+    method: POST
+    path: "/api/v1/pxgrid-direct/syncnow"
+  - id: "ise__post_test_connector"
+    name: "pxGrid Direct test the Connector."
+    method: POST
+    path: "/api/v1/pxgrid-direct/test-connector"
+  - id: "ise__get_get_all_push_connector_name"
+    name: "pxGrid Direct API Get endpoint attribute data using connector"
+    method: GET
+    path: "/api/v1/pxgrid-direct/push/{connectorName}"
+  - id: "ise__post_bulk_operation_push_connectors"
+    name: "pxGrid Direct Push Bulk operator based on create/update/delete"
+    method: POST
+    path: "/api/v1/pxgrid-direct/push/{connectorName}/bulk"
+  - id: "ise__get_get_push_connector_by_unique_id"
+    name: "pxGrid Direct Push Get endpoint attribute data Based on"
+    method: GET
+    path: "/api/v1/pxgrid-direct/push/{connectorName}/{uniqueId}"
+  - id: "ise__put_update_push_connector_by_unique_id"
+    name: "pxGrid Direct Push Update endpoint attribute data based on"
+    method: PUT
+    path: "/api/v1/pxgrid-direct/push/{connectorName}/{uniqueId}"
+  - id: "ise__delete_delete_push_connector_by_unique_id"
+    name: "pxGrid Direct Push Delete endpoint attribute data based on"
+    method: DELETE
+    path: "/api/v1/pxgrid-direct/push/{connectorName}/{uniqueId}"
+  - id: "ise__get_get_px_grid_node"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/pxgridnode/"
+  - id: "ise__get_get_pxgridnode_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/pxgridnode/name/{name}"
+  - id: "ise__delete_delete_pxgridnode_name_by_name"
+    name: "DeleteByName."
+    method: DELETE
+    path: "/ers/config/pxgridnode/name/{name}"
+  - id: "ise__put_update_pxgridnode_name_approve_by_name"
+    name: "Approve Node."
+    method: PUT
+    path: "/ers/config/pxgridnode/name/{name}/approve"
+  - id: "ise__get_get_px_grid_node_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/pxgridnode/{id}"
+  - id: "ise__put_update_pxgridsettings_autoapprove"
+    name: "AutoApprove."
+    method: PUT
+    path: "/ers/config/pxgridsettings/autoapprove"
+  - id: "ise__get_list_all_rbac_policy"
+    name: "Get rbac policy API allows to retrieve all rbac policy and"
+    method: GET
+    path: "/api/v1/rbac/policy"
+  - id: "ise__post_create_rbac_policy"
+    name: "Create rbac policy API allows to create rbac policy with related"
+    method: POST
+    path: "/api/v1/rbac/policy"
+  - id: "ise__put_update_rbac_policy"
+    name: "Update rbac policy API allows to update rbac policy with related"
+    method: PUT
+    path: "/api/v1/rbac/policy/{name}"
+  - id: "ise__delete_delete_rbac_policy"
+    name: "Delete rbac policy API allows to delete rbac policy available in"
+    method: DELETE
+    path: "/api/v1/rbac/policy/{name}"
+  - id: "ise__get_get_radius_server_sequence"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/radiusserversequence/"
+  - id: "ise__post_create_radius_server_sequence"
+    name: "Create."
+    method: POST
+    path: "/ers/config/radiusserversequence/"
+  - id: "ise__get_get_radius_server_sequence_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/radiusserversequence/{id}"
+  - id: "ise__put_update_radius_server_sequence_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/radiusserversequence/{id}"
+  - id: "ise__delete_delete_radius_server_sequence_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/radiusserversequence/{id}"
+  - id: "ise__patch_patch_radiusserversequence_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/radiusserversequence/{id}"
+  - id: "ise__post_create_reportconfig"
+    name: "TrustSec-Query."
+    method: POST
+    path: "/ers/config/reportconfig/"
+  - id: "ise__get_get_repositories"
+    name: "This will get the full list of repository definitions on the"
+    method: GET
+    path: "/api/v1/repository"
+  - id: "ise__post_create_repository"
+    name: "Create a new repository in the system. The name provided for the"
+    method: POST
+    path: "/api/v1/repository"
+  - id: "ise__get_get_repository"
+    name: "Get a specific repository identified by the name passed in the"
+    method: GET
+    path: "/api/v1/repository/{repositoryName}"
+  - id: "ise__put_update_repository"
+    name: "Update the definition of a specific repository, providing ALL"
+    method: PUT
+    path: "/api/v1/repository/{repositoryName}"
+  - id: "ise__delete_delete_repository"
+    name: "Long description TBD ."
+    method: DELETE
+    path: "/api/v1/repository/{repositoryName}"
+  - id: "ise__get_get_repository_files"
+    name: "This will get the full list of files present in the named"
+    method: GET
+    path: "/api/v1/repository/{repositoryName}/files"
+  - id: "ise__get_get_rest_id_store"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/restidstore/"
+  - id: "ise__post_create_rest_id_store"
+    name: "Create."
+    method: POST
+    path: "/ers/config/restidstore/"
+  - id: "ise__get_get_restidstore_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/restidstore/name/{name}"
+  - id: "ise__put_update_restidstore_name_by_name"
+    name: "Update-By-Name."
+    method: PUT
+    path: "/ers/config/restidstore/name/{name}"
+  - id: "ise__delete_delete_restidstore_name_by_name"
+    name: "Delete-By-Name."
+    method: DELETE
+    path: "/ers/config/restidstore/name/{name}"
+  - id: "ise__patch_patch_restidstore_name_by_name"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/restidstore/name/{name}"
+  - id: "ise__get_get_rest_id_store_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/restidstore/{id}"
+  - id: "ise__put_update_rest_id_store_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/restidstore/{id}"
+  - id: "ise__delete_delete_rest_id_store_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/restidstore/{id}"
+  - id: "ise__patch_patch_restidstore_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/restidstore/{id}"
+  - id: "ise__get_get_restidstoreattribute_fetchattributes"
+    name: "fetchAttributes."
+    method: GET
+    path: "/ers/config/restidstoreattribute/fetchAttributes"
+  - id: "ise__get_get_restidstoresettings"
+    name: "GetRestIDStoreSettings."
+    method: GET
+    path: "/ers/config/restidstoresettings/"
+  - id: "ise__put_update_restidstoresettings_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/restidstoresettings/{id}"
+  - id: "ise__get_get_security_groups"
+    name: "Get Security Groups."
+    method: GET
+    path: "/api/v1/trustsec/security-group"
+  - id: "ise__get_get_selfregportal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/selfregportal/"
+  - id: "ise__post_create_selfregportal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/selfregportal/"
+  - id: "ise__get_get_selfregportal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/selfregportal/{portal-id}"
+  - id: "ise__put_update_selfregportal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/selfregportal/{portal-id}"
+  - id: "ise__delete_delete_selfregportal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/selfregportal/{portal-id}"
+  - id: "ise__patch_patch_selfregportal_by_id"
+    name: "This API endpoint has the PATCH method enabled. However, only"
+    method: PATCH
+    path: "/ers/config/selfregportal/{portal-id}"
+  - id: "ise__get_get_service"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/service/"
+  - id: "ise__get_get_service_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/service/{name}"
+  - id: "ise__get_get_sessionservicenode"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sessionservicenode/"
+  - id: "ise__get_get_sessionservicenode_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/sessionservicenode/name/{name}"
+  - id: "ise__get_get_sessionservicenode_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sessionservicenode/{id}"
+  - id: "ise__get_get_sgacl"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sgacl/"
+  - id: "ise__post_create_sgacl"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sgacl/"
+  - id: "ise__get_get_sgacl_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sgacl/{id}"
+  - id: "ise__put_update_sgacl_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sgacl/{id}"
+  - id: "ise__delete_delete_sgacl_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sgacl/{id}"
+  - id: "ise__post_create_sgacls"
+    name: "TrustSec-Query."
+    method: POST
+    path: "/ers/config/sgacls/"
+  - id: "ise__get_get_sgmapping"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sgmapping/"
+  - id: "ise__post_create_sgmapping"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sgmapping/"
+  - id: "ise__get_get_sgmapping_deploy_status"
+    name: "Deploy Status."
+    method: GET
+    path: "/ers/config/sgmapping/deploy/status"
+  - id: "ise__put_update_sgmapping_deploy_by_id"
+    name: "Deploy by ID."
+    method: PUT
+    path: "/ers/config/sgmapping/{id}/deploy"
+  - id: "ise__put_update_sgmapping_deployall"
+    name: "Deploy All."
+    method: PUT
+    path: "/ers/config/sgmapping/deployall"
+  - id: "ise__get_get_sgmapping_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sgmapping/{id}"
+  - id: "ise__put_update_sgmapping_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sgmapping/{id}"
+  - id: "ise__delete_delete_sgmapping_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sgmapping/{id}"
+  - id: "ise__get_get_sgmappinggroup"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sgmappinggroup/"
+  - id: "ise__post_create_sgmappinggroup"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sgmappinggroup/"
+  - id: "ise__get_get_sgmappinggroup_deploy_status"
+    name: "Deploy Status."
+    method: GET
+    path: "/ers/config/sgmappinggroup/deploy/status"
+  - id: "ise__put_update_sgmappinggroup_deploy_by_id"
+    name: "Deploy by ID."
+    method: PUT
+    path: "/ers/config/sgmappinggroup/{id}/deploy"
+  - id: "ise__put_update_sgmappinggroup_deployall"
+    name: "Deploy All."
+    method: PUT
+    path: "/ers/config/sgmappinggroup/deployall"
+  - id: "ise__get_get_sgmappinggroup_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sgmappinggroup/{id}"
+  - id: "ise__put_update_sgmappinggroup_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sgmappinggroup/{id}"
+  - id: "ise__delete_delete_sgmappinggroup_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sgmappinggroup/{id}"
+  - id: "ise__get_get_sgt"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sgt/"
+  - id: "ise__post_create_sgt"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sgt/"
+  - id: "ise__get_get_sgt_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sgt/{id}"
+  - id: "ise__put_update_sgt_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sgt/{id}"
+  - id: "ise__delete_delete_sgt_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sgt/{id}"
+  - id: "ise__get_get_sgt_reserved_ranges"
+    name: "Get all the reserved Security Group tag ranges in ISE."
+    method: GET
+    path: "/api/v1/sgt/reservation"
+  - id: "ise__post_reserve_sgt_range"
+    name: "Reserve given number of SGTs in a continuous range for the given"
+    method: POST
+    path: "/api/v1/sgt/reservation/reserveRange"
+  - id: "ise__get_get_sgt_reserved_range"
+    name: "Get the reserved range of SGT for the specific client which is"
+    method: GET
+    path: "/api/v1/sgt/reservation/{clientID}"
+  - id: "ise__put_update_reserved_range"
+    name: "Update the reserved ranges of a specific Client by giving the"
+    method: PUT
+    path: "/api/v1/sgt/reservation/{clientID}"
+  - id: "ise__delete_delete_sgt_reserve_range"
+    name: "Delete the reserved range of SGT for the given Client."
+    method: DELETE
+    path: "/api/v1/sgt/reservation/{clientID}"
+  - id: "ise__get_get_sgtvnvlan"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sgtvnvlan/"
+  - id: "ise__post_create_sgtvnvlan"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sgtvnvlan/"
+  - id: "ise__get_get_sgtvnvlan_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sgtvnvlan/{id}"
+  - id: "ise__put_update_sgtvnvlan_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sgtvnvlan/{id}"
+  - id: "ise__delete_delete_sgtvnvlan_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sgtvnvlan/{id}"
+  - id: "ise__get_get_sms_provider"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/smsprovider/"
+  - id: "ise__get_get_smsprovider_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/smsprovider/{id}"
+  - id: "ise__get_get_sponsor_group"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sponsorgroup/"
+  - id: "ise__post_create_sponsor_group"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sponsorgroup/"
+  - id: "ise__get_get_sponsor_group_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sponsorgroup/{id}"
+  - id: "ise__put_update_sponsor_group_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/sponsorgroup/{id}"
+  - id: "ise__delete_delete_sponsor_group_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/sponsorgroup/{id}"
+  - id: "ise__get_get_sponsor_group_member"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sponsorgroupmember/"
+  - id: "ise__get_get_sponsorgroupmember_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sponsorgroupmember/{id}"
+  - id: "ise__get_get_sponsor_portal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sponsorportal/"
+  - id: "ise__post_create_sponsor_portal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sponsorportal/"
+  - id: "ise__get_get_sponsor_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sponsorportal/{portal-id}"
+  - id: "ise__put_update_sponsor_portal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/sponsorportal/{portal-id}"
+  - id: "ise__delete_delete_sponsor_portal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/sponsorportal/{portal-id}"
+  - id: "ise__get_get_sponsoredguestportal"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sponsoredguestportal/"
+  - id: "ise__post_create_sponsored_guest_portal"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sponsoredguestportal/"
+  - id: "ise__get_get_sponsored_guest_portal_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sponsoredguestportal/{portal-id}"
+  - id: "ise__put_update_sponsored_guest_portal_by_id"
+    name: "UpdateById."
+    method: PUT
+    path: "/ers/config/sponsoredguestportal/{portal-id}"
+  - id: "ise__delete_delete_sponsored_guest_portal_by_id"
+    name: "DeleteById."
+    method: DELETE
+    path: "/ers/config/sponsoredguestportal/{portal-id}"
+  - id: "ise__get_get_all_subscribers"
+    name: "Get all subscribers."
+    method: GET
+    path: "/v1/fiveg/subscriber"
+  - id: "ise__post_create_subscriber"
+    name: "Create subscriber holding the IMEI."
+    method: POST
+    path: "/v1/fiveg/subscriber"
+  - id: "ise__get_get_subscriber_by_id"
+    name: "Get the subscriber for a given ID."
+    method: GET
+    path: "/v1/fiveg/subscriber/{subscriberId}"
+  - id: "ise__put_update_subscriber"
+    name: "Update a subscriber for a given ID and the request payload."
+    method: PUT
+    path: "/v1/fiveg/subscriber/{subscriberId}"
+  - id: "ise__delete_delete_subscriber"
+    name: "Delete the subscriber for a given ID."
+    method: DELETE
+    path: "/v1/fiveg/subscriber/{subscriberId}"
+  - id: "ise__get_get_subscriber_by_i_m_s_i"
+    name: "Get a subscriber by IMSI."
+    method: GET
+    path: "/v1/fiveg/subscriber/imsi/{imsi}"
+  - id: "ise__post_bulk_subscriber_operation"
+    name: "Create, update and delete subscribers in bulk."
+    method: POST
+    path: "/v1/fiveg/subscriber/bulk"
+  - id: "ise__put_update_supportbundledownload"
+    name: "Download SupportBundle."
+    method: PUT
+    path: "/ers/config/supportbundledownload/"
+  - id: "ise__get_get_support_bundle_status"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/supportbundlestatus/"
+  - id: "ise__get_get_support_bundle_status_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/supportbundlestatus/{id}"
+  - id: "ise__post_create_supportbundle"
+    name: "Create."
+    method: POST
+    path: "/ers/config/supportbundle/"
+  - id: "ise__get_get_filters_for_all_sxp"
+    name: "List of all SXP Domains used in rules."
+    method: GET
+    path: "/api/v1/trustsec/rule/all-sxp"
+  - id: "ise__get_get_filters_for_sxp"
+    name: "List of rules containing provided SXP Domains."
+    method: GET
+    path: "/api/v1/trustsec/rule/sxp"
+  - id: "ise__get_get_sxp_domains"
+    name: "Get all SXP domains."
+    method: GET
+    path: "/api/v1/trustsec/sxp/domain"
+  - id: "ise__get_get_sxp_connections"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sxpconnections/"
+  - id: "ise__post_create_sxp_connections"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sxpconnections/"
+  - id: "ise__get_get_sxp_connections_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sxpconnections/{id}"
+  - id: "ise__put_update_sxp_connections_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sxpconnections/{id}"
+  - id: "ise__delete_delete_sxp_connections_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sxpconnections/{id}"
+  - id: "ise__get_get_sxp_domains_aggregation"
+    name: "Get SXP Domains with mapping and devices counts."
+    method: GET
+    path: "/api/v1/trustsec/rule/sxp-domains"
+  - id: "ise__get_get_sxp_local_bindings"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sxplocalbindings/"
+  - id: "ise__post_create_sxp_local_bindings"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sxplocalbindings/"
+  - id: "ise__get_get_sxp_local_bindings_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sxplocalbindings/{id}"
+  - id: "ise__put_update_sxp_local_bindings_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/sxplocalbindings/{id}"
+  - id: "ise__delete_delete_sxp_local_bindings_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sxplocalbindings/{id}"
+  - id: "ise__get_get_sxp_vpns"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/sxpvpns/"
+  - id: "ise__post_create_sxpvpns"
+    name: "Create."
+    method: POST
+    path: "/ers/config/sxpvpns/"
+  - id: "ise__get_get_sxpvpns_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/sxpvpns/{id}"
+  - id: "ise__delete_delete_sxpvpns_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/sxpvpns/{id}"
+  - id: "ise__post_create_system_certificate"
+    name: "Create."
+    method: POST
+    path: "/ers/config/systemcertificate/"
+  - id: "ise__get_get_tacacs_command_sets"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/tacacscommandsets/"
+  - id: "ise__post_create_tacacs_command_sets"
+    name: "Create."
+    method: POST
+    path: "/ers/config/tacacscommandsets/"
+  - id: "ise__get_get_tacacscommandsets_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/tacacscommandsets/name/{name}"
+  - id: "ise__get_get_tacacs_command_sets_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/tacacscommandsets/{id}"
+  - id: "ise__put_update_tacacs_command_sets_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/tacacscommandsets/{id}"
+  - id: "ise__delete_delete_tacacs_command_sets_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/tacacscommandsets/{id}"
+  - id: "ise__patch_patch_tacacscommandsets_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/tacacscommandsets/{id}"
+  - id: "ise__get_get_tacacs_external_servers"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/tacacsexternalservers/"
+  - id: "ise__post_create_tacacs_external_servers"
+    name: "Create."
+    method: POST
+    path: "/ers/config/tacacsexternalservers/"
+  - id: "ise__get_get_tacacsexternalservers_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/tacacsexternalservers/name/{name}"
+  - id: "ise__get_get_tacacs_external_servers_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/tacacsexternalservers/{id}"
+  - id: "ise__put_update_tacacs_external_servers_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/tacacsexternalservers/{id}"
+  - id: "ise__delete_delete_tacacs_external_servers_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/tacacsexternalservers/{id}"
+  - id: "ise__patch_patch_tacacsexternalservers_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/tacacsexternalservers/{id}"
+  - id: "ise__get_get_tacacs_profile"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/tacacsprofile/"
+  - id: "ise__post_create_tacacs_profile"
+    name: "Create."
+    method: POST
+    path: "/ers/config/tacacsprofile/"
+  - id: "ise__get_get_tacacsprofile_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/tacacsprofile/name/{name}"
+  - id: "ise__get_get_tacacs_profile_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/tacacsprofile/{id}"
+  - id: "ise__put_update_tacacs_profile_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/tacacsprofile/{id}"
+  - id: "ise__delete_delete_tacacs_profile_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/tacacsprofile/{id}"
+  - id: "ise__patch_patch_tacacsprofile_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/tacacsprofile/{id}"
+  - id: "ise__get_get_tacacs_server_sequence"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/tacacsserversequence/"
+  - id: "ise__post_create_tacacs_server_sequence"
+    name: "Create."
+    method: POST
+    path: "/ers/config/tacacsserversequence/"
+  - id: "ise__get_get_tacacsserversequence_name_by_name"
+    name: "Get-By-Name."
+    method: GET
+    path: "/ers/config/tacacsserversequence/name/{name}"
+  - id: "ise__get_get_tacacs_server_sequence_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/tacacsserversequence/{id}"
+  - id: "ise__put_update_tacacs_server_sequence_by_id"
+    name: "Update."
+    method: PUT
+    path: "/ers/config/tacacsserversequence/{id}"
+  - id: "ise__delete_delete_tacacs_server_sequence_by_id"
+    name: "Delete."
+    method: DELETE
+    path: "/ers/config/tacacsserversequence/{id}"
+  - id: "ise__patch_patch_tacacsserversequence_by_id"
+    name: "Update any attribute subset. Only attributes that sent will be"
+    method: PATCH
+    path: "/ers/config/tacacsserversequence/{id}"
+  - id: "ise__get_get_all_task_status"
+    name: "get all task status."
+    method: GET
+    path: "/api/v1/task"
+  - id: "ise__get_get_task_status"
+    name: "Monitor task status."
+    method: GET
+    path: "/api/v1/task/{taskId}"
+  - id: "ise__get_get_transport_gateway"
+    name: "Transport Gateway acts a proxy for the communication between the"
+    method: GET
+    path: "/api/v1/system-settings/telemetry/transport-gateway"
+  - id: "ise__put_update_transport_gateway"
+    name: "Transport Gateway acts a proxy for the communication between the"
+    method: PUT
+    path: "/api/v1/system-settings/telemetry/transport-gateway"
+  - id: "ise__get_get_telemetryinfo"
+    name: "Get-All."
+    method: GET
+    path: "/ers/config/telemetryinfo/"
+  - id: "ise__get_get_telemetryinfo_by_id"
+    name: "Get-By-Id."
+    method: GET
+    path: "/ers/config/telemetryinfo/{id}"
+  - id: "ise__put_update_threat_clearthreatsandvulneribilities"
+    name: "clearThreatsAndVulneribilities."
+    method: PUT
+    path: "/ers/config/threat/clearThreatsAndVulneribilities"
+  - id: "ise__get_get_default_trustsec_policy_view_details"
+    name: "Get default matrix data using view."
+    method: GET
+    path: "/api/v1/trustsec/matrix/defaultPolicy"
+  - id: "ise__get_get_trustsec_policy_view_details"
+    name: "Get entire matrix data using view."
+    method: GET
+    path: "/api/v1/trustsec/matrix/matrixPoliciesView"
+  - id: "ise__put_push_c_o_a"
+    name: "Push Trustsec COA to the network devices."
+    method: PUT
+    path: "/api/v1/trustsec/coa/push"
+  - id: "ise__get_get_c_t_s_https_servers"
+    name: "Get the list of Trustsec HTTPS Servers configured in ISE."
+    method: GET
+    path: "/api/v1/trustsec/https-server"
+  - id: "ise__post_create_c_t_s_https_server"
+    name: "Create Trustsec HTTPS Server in ISE."
+    method: POST
+    path: "/api/v1/trustsec/https-server"
+  - id: "ise__get_get_c_t_s_https_server_by_id"
+    name: "Get Trustsec HTTPS Server by id."
+    method: GET
+    path: "/api/v1/trustsec/https-server/{id}"
+  - id: "ise__put_update_c_t_s_https_server"
+    name: "Update Trustsec HTTPS Server in ISE."
+    method: PUT
+    path: "/api/v1/trustsec/https-server/{id}"
+  - id: "ise__delete_delete_c_t_s_https_server"
+    name: "Delete Trustsec HTTPS Server in ISE."
+    method: DELETE
+    path: "/api/v1/trustsec/https-server/{id}"
+  - id: "ise__get_get_default_c_d_policy_set"
+    name: "Get default CDP policy set for a connector type."
+    method: GET
+    path: "/api/v1/trustsec/policy-set/{connectorType}"
+  - id: "ise__get_get_common_policy_classification_dictionaries"
+    name: "Get all Dictionaries."
+    method: GET
+    path: "/api/v1/trustsec/classification-policy/dictionaries"
+  - id: "ise__get_get_common_policy_ingress_dictionaries"
+    name: "Get all Dictionaries."
+    method: GET
+    path: "/api/v1/trustsec/inbound-rule/dictionaries"
+  - id: "ise__get_get_common_policy_egress_dictionaries"
+    name: "Get all Dictionaries."
+    method: GET
+    path: "/api/v1/trustsec/outbound-rule/dictionaries"
+  - id: "ise__get_get_trustsec_general_settings"
+    name: "Get the details of the Trustsec General Settings in ISE."
+    method: GET
+    path: "/api/v1/trustsec/general-settings"
+  - id: "ise__put_update_trustsec_general_settings"
+    name: "Update Trustsec General Settings in ISE."
+    method: PUT
+    path: "/api/v1/trustsec/general-settings"
+  - id: "ise__get_get_c_t_s_devices_report"
+    name: "Get trustsec policy report of all the  Trustsec devices."
+    method: GET
+    path: "/api/v1/trustsec/policy/device-report"
+  - id: "ise__post_run_pre_checks_in_p_p_a_n"
+    name: "API's purpose is to initiate pre-checks execution on Primary PAN"
+    method: POST
+    path: "/v1/upgrade/prepare/pre-checks"
+  - id: "ise__get_get_precheck_status"
+    name: "get the latest precheck report ."
+    method: GET
+    path: "/v1/upgrade/prepare/get-status"
+  - id: "ise__post_initiate_upgrade_on_p_p_a_n"
+    name: "API's purpose would be to orchestrate upgrade execution on PPAN"
+    method: POST
+    path: "/v1/upgrade/proceed/initiate-upgrade"
+  - id: "ise__post_initiate_staging_on_p_p_a_n"
+    name: "API to initiate staging orcheastration from PPAN ."
+    method: POST
+    path: "/v1/upgrade/stage/start-stage"
+  - id: "ise__post_cancel_staging_on_p_p_a_n"
+    name: "API to cancel staging process of specified nodes from PPAN ."
+    method: POST
+    path: "/v1/upgrade/stage/cancel-stage"
+  - id: "ise__get_stage_status"
+    name: "get the status of upgrade stage process for the requested nodes"
+    method: GET
+    path: "/v1/upgrade/stage/get-status"
+  - id: "ise__get_proceed_status"
+    name: "get the status of upgrade process for the requested nodes ."
+    method: GET
+    path: "/v1/upgrade/proceed/get-status"
+  - id: "ise__get_upgradesummary"
+    name: "get the summary of upgrade process ."
+    method: GET
+    path: "/v1/upgrade/summary/get-status"
+  - id: "ise__get_get_user_equipments"
+    name: "Get user equipments."
+    method: GET
+    path: "/v1/fiveg/user-equipment"
+  - id: "ise__post_create_user_equipment"
+    name: "Create a user equipment."
+    method: POST
+    path: "/v1/fiveg/user-equipment"
+  - id: "ise__get_get_user_equipment_by_id"
+    name: "Get the user equipment for a given ID."
+    method: GET
+    path: "/v1/fiveg/user-equipment/{userEquipmentId}"
+  - id: "ise__put_update_user_equipment"
+    name: "Update the user equipment for a given ID and request payload."
+    method: PUT
+    path: "/v1/fiveg/user-equipment/{userEquipmentId}"
+  - id: "ise__delete_delete_user_equipment"
+    name: "Delete the user equipment for a given ID."
+    method: DELETE
+    path: "/v1/fiveg/user-equipment/{userEquipmentId}"
+  - id: "ise__get_get_user_equipments_by_subscriber_id"
+    name: "Get user equipments associated with a subscriber GUID."
+    method: GET
+    path: "/v1/fiveg/user-equipment/subscriber/{subscriberId}"
+  - id: "ise__get_get_user_equipment_by_i_m_e_i"
+    name: "Get a user equipment based on the IMEI."
+    method: GET
+    path: "/v1/fiveg/user-equipment/imei/{imei}"
+  - id: "ise__post_create_user_equipments_from_c_s_v"
+    name: "Create user equipments from a CSV file."
+    method: POST
+    path: "/v1/fiveg/user-equipment/csv"
+  - id: "ise__post_bulk_user_equipment_operation"
+    name: "Create, update and delete multiple user equipments."
+    method: POST
+    path: "/v1/fiveg/user-equipment/bulk"
+  - id: "ise__get_get_virtual_networks"
+    name: "Get all Virtual Networks."
+    method: GET
+    path: "/api/v1/trustsec/virtualnetwork"
+  - id: "ise__post_create_virtual_network"
+    name: "Create Virtual Network."
+    method: POST
+    path: "/api/v1/trustsec/virtualnetwork"
+  - id: "ise__post_bulk_create_virtual_networks"
+    name: "Create Virtual Network in bulk."
+    method: POST
+    path: "/api/v1/trustsec/virtualnetwork/bulk/create"
+  - id: "ise__post_bulk_delete_virtual_networks"
+    name: "Delete Virtual Network in bulk."
+    method: POST
+    path: "/api/v1/trustsec/virtualnetwork/bulk/delete"
+  - id: "ise__post_bulk_update_virtual_networks"
+    name: "Update Virtual Network in bulk."
+    method: POST
+    path: "/api/v1/trustsec/virtualnetwork/bulk/update"
+  - id: "ise__get_get_virtual_network_by_id"
+    name: "Get Virtual Network by id."
+    method: GET
+    path: "/api/v1/trustsec/virtualnetwork/{id}"
+  - id: "ise__put_update_virtual_network_by_id"
+    name: "Update Virtual Network."
+    method: PUT
+    path: "/api/v1/trustsec/virtualnetwork/{id}"
+  - id: "ise__delete_delete_virtual_network_by_id"
+    name: "Delete Virtual Network."
+    method: DELETE
+    path: "/api/v1/trustsec/virtualnetwork/{id}"

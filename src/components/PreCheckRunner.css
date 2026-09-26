@@ -1,0 +1,112 @@
+.pre-check-runner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.pre-check-prompt {
+  padding: 20px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.pre-check-prompt p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pre-check-running {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-default);
+  border-top-color: var(--border-default);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pre-check-running span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pre-check-complete {
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pre-check-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.pre-check-icon {
+  font-size: 16px;
+}
+
+.pre-check-results {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pre-check-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.result-check {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.result-command {
+  color: var(--text-primary);
+  font-family: Menlo, monospace;
+}
+
+.run-pre-check-btn,
+.start-change-btn {
+  padding: 12px;
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.run-pre-check-btn:hover,
+.start-change-btn:hover {
+  background: var(--surface-hover);
+}

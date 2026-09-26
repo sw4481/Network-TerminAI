@@ -1,0 +1,75 @@
+.run-structured-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.run-structured-modal {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  width: 640px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--text-primary);
+}
+
+.run-structured-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.run-structured-field {
+  margin-bottom: 12px;
+}
+
+.run-structured-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.run-structured-field input,
+.run-structured-field select {
+  width: 100%;
+  padding: 8px;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.run-structured-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.run-structured-error {
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--status-danger);
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.run-structured-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}

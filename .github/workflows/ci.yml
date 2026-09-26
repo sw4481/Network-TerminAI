@@ -1,0 +1,281 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.3.6"
+  RUST_VERSION: "1.97.0"
+  UV_VERSION: "0.8.19"
+
+jobs:
+  release-contract:
+    name: release-contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Validate release manifests and updater identity
+        run: python scripts/release_preflight.py check --no-git
+
+      - name: Require a frozen Python lock
+        working-directory: sidecar
+        run: uv lock --check
+
+      - name: Validate GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
+      - name: Test release helper scripts
+        run: python -m unittest discover -s scripts/tests -v
+
+      - name: ShellCheck release scripts
+        run: >-
+          shellcheck
+          run.sh
+          ci/sign-sidecar-macos.sh
+          scripts/bump-version.sh
+          scripts/check-release-environment.sh
+          scripts/check-rustfmt-changed.sh
+          scripts/verify-bundled-sidecar.sh
+          scripts/verify-updater-key.sh
+          sidecar/scripts/build_sidecar.sh
+
+      - name: Install Rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+
+      - name: Check formatting only for changed Rust files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: scripts/check-rustfmt-changed.sh "$BASE_SHA" "$HEAD_SHA"
+
+  rust-test:
+    name: rust-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    env:
+      # Keep the large Tauri test graph within hosted-runner linker memory and
+      # disk limits. CI does not need incremental objects or debug symbols.
+      CARGO_BUILD_JOBS: "1"
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            file \
+            libasound2-dev \
+            libayatana-appindicator3-dev \
+            libclang-dev \
+            libgtk-3-dev \
+            libssl-dev \
+            libudev-dev \
+            librsvg2-dev \
+            libwebkit2gtk-4.1-dev \
+            pkg-config
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Sync frozen sidecar environment
+        working-directory: sidecar
+        shell: bash
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv
+        run: |
+          uv sync --frozen --extra dev
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            .venv/Scripts/python.exe -c "import ccie_sidecar"
+          else
+            .venv/bin/python -c "import ccie_sidecar"
+          fi
+
+      - name: Create placeholder resources for Rust-only checks
+        shell: bash
+        run: |
+          mkdir -p sidecar/dist/python src-tauri/resources/models
+          touch src-tauri/resources/models/ggml-base.en.bin
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Cargo test
+        if: runner.os == 'Linux'
+        working-directory: src-tauri
+        env:
+          CCIE_REPO_ROOT: ${{ github.workspace }}
+        run: cargo test --locked --no-fail-fast
+
+      - name: Cargo test compile (Windows)
+        if: runner.os == 'Windows'
+        working-directory: src-tauri
+        env:
+          CCIE_REPO_ROOT: ${{ github.workspace }}
+        run: cargo test --locked --no-run
+
+      - name: Cargo test (macOS, serialized)
+        if: runner.os == 'macOS'
+        working-directory: src-tauri
+        shell: bash
+        env:
+          CCIE_REPO_ROOT: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          run_rust_test() {
+            local label="$1"
+            shift
+            echo "::group::$label"
+            if ! python3 -c 'import subprocess, sys; raise SystemExit(subprocess.run(sys.argv[1:], timeout=1800).returncode)' "$@"; then
+              echo "::endgroup::"
+              echo "::error::$label failed"
+              exit 1
+            fi
+            echo "::endgroup::"
+          }
+
+          run_rust_test "cargo test --locked --no-run" cargo test --locked --no-run
+          run_rust_test "cargo test --locked --bins" cargo test --locked --bins -- --test-threads=1
+          for module in \
+            agents api_runner app_lifecycle bridge browser claude_hooks codex_hooks command_parser \
+            commands::ai commands::appearance commands::editor commands::git commands::logs commands::pyats \
+            commands::rag_seed commands::serial commands::sftp commands::ssh commands::ssh_import \
+            commands::tests commands::topolograph commands::workflows \
+            config dap database db drift editor git guardrails heartbeat iac logging lsp \
+            mcp metadata netconf_runner notebooks pane_context pcap pty pyats rag search session sftp \
+            skills ssh_exec terminal_agent tftp troubleshoot unicode_truncation_tests validation whatsapp
+          do
+            run_rust_test "cargo test --lib $module" cargo test --locked --lib "$module" -- --test-threads=1
+          done
+          for stp_test in \
+            alternate_blocking_port_without_explicit_evidence_is_not_inconsistent \
+            auxiliary_evidence_cannot_make_zero_parsable_stp_complete \
+            auxiliary_evidence_gaps_do_not_invalidate_complete_stp_baseline \
+            cancellation_terminates_the_sidecar_process_group_and_reader \
+            collection_preserves_repository_errors \
+            collection_slot_publishes_one_cancellable_owner_atomically \
+            collection_status_requires_all_evidence_and_calculates_findings_before_baseline \
+            complete_collection_uses_persisted_baseline_before_promoting_current_snapshot \
+            findings_order_is_deterministic_across_disconnected_components \
+            legacy_stp_payloads_load_without_new_evidence_fields \
+            live_reschedule_wakes_worker_for_the_new_earlier_deadline \
+            mixed_device_collection_is_partial_and_not_baseline_eligible \
+            no_parsable_stp_devices_is_failed_and_never_becomes_a_baseline \
+            partial_collection_does_not_replace_newest_complete_baseline \
+            production_findings_compare_against_previous_complete_baseline \
+            rescheduling_uses_the_saved_enabled_interval \
+            retention_keeps_newest_complete_baseline \
+            scheduler_records_overdue_ticks_without_replaying_collection \
+            scheduler_waits_a_full_interval_and_skips_active_ticks_without_queueing \
+            sidecar_collection_requires_an_explicit_run_status \
+            sidecar_failure_codes_map_to_stable_collection_errors \
+            sidecar_payload_preserves_safe_instance_details_and_collection_gaps \
+            sidecar_payload_whitelists_normalized_evidence \
+            settings_round_trip_accepts_only_supported_intervals \
+            stable_collection_errors_are_persisted_for_the_ui \
+            structural_stp_placeholders_are_not_parsable_baseline_state \
+            unsupported_and_no_devices_states_are_typed_failures \
+            unsupported_platform_records_do_not_downgrade_supported_stp_state \
+            v0090_creates_typed_stp_tables_and_default_settings
+          do
+            run_rust_test "cargo test --lib commands::stp::tests::$stp_test" cargo test --locked --lib "commands::stp::tests::$stp_test" -- --test-threads=1
+          done
+          for test_file in tests/*.rs; do
+            test_name="$(basename "$test_file" .rs)"
+            run_rust_test "cargo test --test $test_name" cargo test --locked --test "$test_name" -- --test-threads=1
+          done
+          run_rust_test "cargo test --locked --doc" cargo test --locked --doc
+
+  python-test:
+    name: python-test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Sync and test from the frozen lock
+        working-directory: sidecar
+        run: |
+          uv sync --frozen --extra dev
+          uv run --frozen --extra dev pytest -v
+
+  frontend-build:
+    name: frontend-build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install from the frozen Bun lock
+        run: bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: bun run test
+
+      - name: Build frontend
+        run: bun run build:relaxed

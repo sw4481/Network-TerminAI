@@ -1,0 +1,21 @@
+.troubleshoot-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--app-bg, var(--app-canvas));
+  color: inherit;
+  min-height: 0;
+}
+
+.troubleshoot-tab__body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+  /* When the tab is too narrow for picker(260) + canvas(min 240) +
+     narration(360), scroll horizontally instead of letting the fixed
+     columns overlap each other. */
+  overflow-x: auto;
+}

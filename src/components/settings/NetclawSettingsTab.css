@@ -1,0 +1,145 @@
+/* Shared styles for the netclaw-inspired settings tabs
+   (Grafana / Prometheus / NetBox / Sketchfab). Mirrors IseSettingsTab.css with
+   a neutral `nc-` prefix so all four tabs share one stylesheet. */
+.nc-tab {
+  padding: 1.5rem;
+  max-width: 700px;
+}
+
+.nc-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.nc-subtitle {
+  margin: 0 0 2rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.nc-section {
+  margin-bottom: 2rem;
+}
+
+.nc-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.nc-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.nc-grid label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.nc-grid input[type='text'],
+.nc-grid input[type='password'] {
+  padding: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.nc-grid input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.nc-checkbox-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.nc-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.nc-field--full {
+  grid-column: 1 / -1;
+}
+
+.nc-field-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.nc-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.nc-btn-primary,
+.nc-btn-secondary {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nc-btn-primary {
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
+}
+
+.nc-btn-primary:hover:not(:disabled) {
+  background: var(--integration-primary-hover);
+}
+
+.nc-btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.nc-btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.nc-btn-primary:disabled,
+.nc-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nc-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.nc-status--ok {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.nc-status--err {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.nc-status--info {
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  border: 1px solid var(--focus-ring);
+  color: var(--status-info);
+}

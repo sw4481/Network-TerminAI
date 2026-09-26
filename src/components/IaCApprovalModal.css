@@ -1,0 +1,217 @@
+.iac-approval-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.iac-approval-modal {
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  width: min(560px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgb(var(--backdrop-rgb) / 0.5);
+}
+
+.iac-approval-modal.tier-high {
+  border-top: 4px solid var(--border-default);
+}
+.iac-approval-modal.tier-critical,
+.iac-approval-modal.tier-destructive {
+  border-top: 4px solid var(--border-default);
+}
+
+.iac-approval-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.iac-approval-header h2 {
+  font-size: 15px;
+  margin: 0;
+  flex: 1;
+}
+
+.iac-approval-badge {
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+.iac-approval-badge.tier-low {
+  background: var(--surface-2);
+}
+.iac-approval-badge.tier-medium {
+  background: var(--surface-2);
+}
+.iac-approval-badge.tier-high {
+  background: var(--surface-2);
+}
+.iac-approval-badge.tier-critical,
+.iac-approval-badge.tier-destructive {
+  background: var(--surface-2);
+}
+
+.iac-approval-context {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 13px;
+}
+
+.iac-approval-label {
+  display: inline-block;
+  min-width: 80px;
+  color: var(--text-primary);
+}
+
+.iac-approval-command {
+  font-family: monospace;
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.iac-approval-branch-warning {
+  display: block;
+  margin-top: 4px;
+  color: var(--status-warning);
+  font-size: 12px;
+}
+
+.iac-approval-changes {
+  padding: 0 1rem;
+}
+
+.iac-approval-section {
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+
+.iac-approval-section summary {
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.iac-approval-section.action-create summary {
+  color: var(--text-primary);
+}
+.iac-approval-section.action-update summary {
+  color: var(--text-primary);
+}
+.iac-approval-section.action-destroy summary {
+  color: var(--text-primary);
+}
+
+.iac-approval-section ul {
+  margin: 0;
+  padding: 0.4rem 1.4rem;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.iac-approval-rid {
+  color: var(--text-primary);
+  margin-left: 0.5rem;
+}
+
+.iac-approval-typed {
+  padding: 0.75rem 1rem;
+  font-size: 13px;
+}
+
+.iac-approval-typed input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-family: monospace;
+}
+
+.iac-approval-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.iac-approval-cancel,
+.iac-approval-proceed {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.iac-approval-cancel {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.iac-approval-proceed {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.iac-approval-proceed:disabled {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: not-allowed;
+}
+
+.terminal-fix-approval {
+  max-width: 680px;
+}
+
+.terminal-fix-field {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.terminal-fix-field input,
+.terminal-fix-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font: 12px/1.45 var(--font-mono, monospace);
+  resize: vertical;
+}
+
+.terminal-fix-tiers {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.terminal-fix-tiers > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}

@@ -1,0 +1,28 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "Mini DNA-C", "version": "2.0.0" },
+  "paths": {
+    "/dna/intent/api/v1/network-device": {
+      "get": {
+        "operationId": "getNetworkDevices",
+        "summary": "Get network devices",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/dna/intent/api/v1/network-device/{id}": {
+      "get": {
+        "operationId": "getDeviceById",
+        "summary": "Get device by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

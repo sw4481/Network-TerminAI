@@ -1,0 +1,53 @@
+{
+  "entries": [
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "green",
+      "property": "color",
+      "context": "action: 'Create'",
+      "role": "Terraform created resource group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "blue",
+      "property": "color",
+      "context": "action: 'Update'",
+      "role": "Terraform modified resource group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "red",
+      "property": "color",
+      "context": "action: 'Destroy'",
+      "role": "Terraform destroyed resource group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "blue",
+      "property": "color",
+      "context": "action: 'Changed'",
+      "role": "Ansible changed task group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "green",
+      "property": "color",
+      "context": "action: 'Ok'",
+      "role": "Ansible successful task group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "gray",
+      "property": "color",
+      "context": "action: 'Skipped'",
+      "role": "Ansible skipped task group identifier"
+    },
+    {
+      "path": "src/components/IaCCommandBlock.tsx",
+      "value": "red",
+      "property": "color",
+      "context": "action: 'Failed'",
+      "role": "Ansible failed task group identifier"
+    }
+  ]
+}

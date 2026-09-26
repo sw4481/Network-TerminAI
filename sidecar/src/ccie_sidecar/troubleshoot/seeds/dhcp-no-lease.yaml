@@ -1,0 +1,63 @@
+id: dhcp-no-lease
+name: Client cannot obtain DHCP lease
+symptom_keywords:
+  - dhcp
+  - no lease
+  - apipa
+  - no ip
+  - "169.254"
+  - dhcp relay
+  - ip helper
+vendor: cisco
+platform: iosxe
+description: >-
+  Walks the access switch / SVI side of a missing DHCP lease. Branches on
+  whether an ip helper-address is configured for the client subnet, then
+  inspects the bindings table on the local pool (if any) and the relay
+  destination.
+steps:
+  - id: check_intf
+    type: command
+    command: show ip interface {{intf}}
+  - id: route_on_helper
+    type: branch
+    expression: "interface.helper_addresses | length(@)"
+    cases:
+      - when: 0
+        next: narrate_no_helper
+      - when: 1
+        next: check_relay
+      - when: 2
+        next: check_relay
+  - id: narrate_no_helper
+    type: narration
+    text: >-
+      No 'ip helper-address' is configured on {{intf}}. Either add one
+      pointing at the DHCP server, or configure a local pool with
+      'ip dhcp pool ...' on this device.
+  - id: check_relay
+    type: command
+    command: show ip dhcp binding
+  - id: check_pool
+    type: command
+    command: show ip dhcp pool
+  - id: route_on_bindings
+    type: branch
+    expression: "bindings | length(@)"
+    cases:
+      - when: 0
+        next: narrate_relay_silent
+      - when: 1
+        next: narrate_partial
+  - id: narrate_relay_silent
+    type: narration
+    text: >-
+      Helper is configured but no bindings exist. Verify reachability to the
+      DHCP server (Tier-0 ping), and that the server has a scope covering
+      this subnet. Confirm 'service dhcp' is enabled globally.
+  - id: narrate_partial
+    type: narration
+    text: >-
+      Some clients do have bindings; the failing host may have a duplicate
+      MAC, a static reservation conflict, or be on a different VLAN than
+      assumed.

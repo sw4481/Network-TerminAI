@@ -1,0 +1,21 @@
+[
+  {
+    "name": "aci_api_call",
+    "description": "Call the Cisco ACI (APIC) REST API. Rooted at https://<host>; every path carries its own prefix. Auth (login cookie) is handled for you; do NOT call /api/aaaLogin. Returns {status_code, data, error, blast_radius}. Two query styles: CLASS queries (GET /api/node/class/<moClass>.json — every object of a type) and MO queries (GET /api/node/mo/<dn>.json — one object by distinguished name). Results are under data['imdata'] (list of {className:{attributes:{...}}}) with data['totalCount']. Key classes: fvTenant, fvAEPg (EPGs), fvBD (bridge domains), fvCtx (VRFs), vzBrCP (contracts), l3extOut (L3Outs), topSystem/fabricNode (inventory), fabricHealthTotal (health), faultInst (faults). Refine with query_params: query-target=subtree, rsp-subtree=children|full, query-target-filter=eq(fvTenant.name,\"X\"), page/page-size. Writes (POST an MO tree to its DN / DELETE a DN) hit the live fabric. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "aci_api_call",
+      "description": "Call the Cisco ACI (APIC) REST API rooted at https://<host>. Auth is handled internally.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "DELETE"], "description": "HTTP method" },
+          "path": { "type": "string", "description": "Full API path (e.g., '/api/node/class/fvTenant.json')" },
+          "body": { "type": "object", "description": "Request body (MO tree) for POST (optional)" },
+          "query_params": { "type": "object", "description": "URL query parameters (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

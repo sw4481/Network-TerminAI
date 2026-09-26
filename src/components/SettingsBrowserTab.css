@@ -1,0 +1,66 @@
+.browser-settings-tab {
+  padding: 24px;
+}
+
+.browser-settings-tab h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.browser-settings-tab h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.browser-settings-tab .muted {
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.browser-settings-tab .settings-group {
+  margin-bottom: 32px;
+}
+
+.browser-settings-tab .code-block {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+}
+
+.browser-settings-tab .code-block code,
+.browser-settings-tab .code-block pre {
+  font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: pre;
+}
+
+.browser-settings-tab .copy-button {
+  padding: 8px 16px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.browser-settings-tab .copy-button:hover {
+  background: var(--surface-hover);
+}
+
+.browser-settings-tab .copy-button:active {
+  transform: translateY(1px);
+}

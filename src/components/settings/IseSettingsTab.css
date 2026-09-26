@@ -1,0 +1,142 @@
+.ise-tab {
+  padding: 1.5rem;
+  max-width: 700px;
+}
+
+.ise-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.ise-subtitle {
+  margin: 0 0 2rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.ise-section {
+  margin-bottom: 2rem;
+}
+
+.ise-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.ise-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ise-grid label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.ise-grid input[type='text'],
+.ise-grid input[type='password'] {
+  padding: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.ise-grid input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.ise-checkbox-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.ise-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.ise-field--full {
+  grid-column: 1 / -1;
+}
+
+.ise-field-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.ise-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.ise-btn-primary,
+.ise-btn-secondary {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ise-btn-primary {
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
+}
+
+.ise-btn-primary:hover:not(:disabled) {
+  background: var(--integration-primary-hover);
+}
+
+.ise-btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.ise-btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.ise-btn-primary:disabled,
+.ise-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ise-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.ise-status--ok {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.ise-status--err {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.ise-status--info {
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  border: 1px solid var(--focus-ring);
+  color: var(--status-info);
+}

@@ -1,0 +1,25 @@
+.severity-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.severity-chip.severity-red {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.severity-chip.severity-yellow {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.severity-chip.severity-green {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}

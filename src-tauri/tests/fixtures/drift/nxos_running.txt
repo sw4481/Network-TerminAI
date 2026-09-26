@@ -1,0 +1,25 @@
+!Time: Mon May 18 09:14:23 2026
+!Command: show running-config
+version 9.3(11) Bios:version
+hostname dc1-spine-01
+!
+username admin password 5 $5$abcdef role network-admin
+!
+feature bgp
+feature interface-vlan
+!
+ip domain-name example.com
+!
+interface Ethernet1/1
+  description SPINE1 to LEAF1
+  no switchport
+  ip address 10.1.1.0/31
+  no shutdown
+!
+router bgp 65000
+  router-id 10.0.0.1
+  neighbor 10.1.1.1
+    remote-as 65000
+!
+snmp-server community public group network-operator
+!
