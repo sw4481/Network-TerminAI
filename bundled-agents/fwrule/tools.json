@@ -1,0 +1,30 @@
+[
+  {
+    "name": "fwrule_analyze",
+    "description": "Analyze a firewall/ACL rule set OFFLINE for shadowing, redundancy, duplicate, and conflicting rules. In the code sandbox this is exposed as the pre-bound `fwrule` object: fwrule.analyze(acl_text, vendor='ios') to parse Cisco IOS/IOS-XE ACLs, or fwrule.analyze(rules=[{action,protocol,src,dst,src_port,dst_port}, ...]) for a normalized rule list from any vendor. Returns {ok, rule_count, findings:[{type, earlier, later, detail}], summary:{shadowing, redundancy, duplicate, conflict}}. No network, no credentials.",
+    "type": "function",
+    "function": {
+      "name": "fwrule_analyze",
+      "description": "Offline firewall/ACL rule analyzer. Exposed as the `fwrule` object in the sandbox — call fwrule.analyze(...). Detects, via 6-dimension set intersection (protocol, src net, src port, dst net, dst port, action): shadowing (earlier rule fully covers a later rule with the OPPOSITE action -> later can never match), redundancy (earlier covers later, SAME action -> later is unnecessary), duplicate (identical match + action), conflict (overlapping rules with opposite actions -> order-dependent). Input EITHER acl_text (Cisco IOS/IOS-XE extended ACL CLI, vendor='ios') OR rules=[{action, protocol, src, dst, src_port, dst_port}] (normalized, any vendor; src/dst are CIDR or 'any', ports are int/[lo,hi]/'any'). Returns {ok, rule_count, findings, summary}.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "acl_text": {
+            "type": "string",
+            "description": "Raw ACL CLI text to parse (use with vendor). Cisco IOS/IOS-XE extended ACLs supported."
+          },
+          "vendor": {
+            "type": "string",
+            "description": "Vendor for acl_text parsing (default 'ios'). Only IOS/IOS-XE CLI parsing is implemented; for others pass rules=."
+          },
+          "rules": {
+            "type": "array",
+            "description": "Normalized rule list [{action, protocol, src, dst, src_port, dst_port}] for any vendor.",
+            "items": { "type": "object" }
+          }
+        },
+        "required": []
+      }
+    }
+  }
+]

@@ -1,0 +1,132 @@
+/* src/components/WorkflowParamForm.css
+   Modal that pairs with WorkflowPicker.css; same dark palette. */
+
+.wf-param-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.7);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 510;
+  padding-top: 16vh;
+}
+
+.wf-param-form {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  width: 480px;
+  max-width: 92vw;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px var(--surface-2);
+  font-family: Menlo, Monaco, "Courier New", monospace;
+  color: var(--text-primary);
+}
+
+.wf-param-header {
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.wf-param-header h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wf-param-header p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.wf-param-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 18px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.wf-param-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-param-field label {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.wf-param-field label .required {
+  color: var(--text-primary);
+  margin-left: 4px;
+}
+
+.wf-param-desc {
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.wf-param-field input,
+.wf-param-field select {
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.wf-param-field input:focus,
+.wf-param-field select:focus {
+  border-color: var(--focus-ring);
+}
+
+.wf-param-error {
+  font-size: 11px;
+  color: var(--status-danger);
+}
+
+.wf-param-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px 14px;
+  border-top: 1px solid var(--border-default);
+}
+
+.wf-param-actions button {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wf-param-actions button:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.wf-param-actions button.primary {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border-color: var(--accent-subtle);
+}
+
+.wf-param-actions button.primary:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}

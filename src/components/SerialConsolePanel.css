@@ -1,0 +1,72 @@
+.serial-panel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--backdrop-rgb) / 0.72);
+}
+
+.serial-panel {
+  display: flex;
+  width: min(1120px, 95vw);
+  height: min(760px, 90vh);
+  min-height: 420px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 12px 40px rgb(var(--backdrop-rgb) / 0.55);
+}
+
+.serial-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.serial-panel-header h2 { margin: 0; color: var(--text-primary); font-size: 17px; }
+.serial-panel-header span { color: var(--text-muted); font-size: 11px; text-transform: capitalize; }
+.serial-panel-header span[data-state="connected"] { color: var(--status-success); }
+.serial-panel-header span[data-state="reconnecting"] { color: var(--status-warning, var(--text-secondary)); }
+
+.serial-panel button,
+.serial-panel select {
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text-primary);
+  font: inherit;
+}
+.serial-panel button { padding: 6px 9px; cursor: pointer; }
+.serial-panel button:disabled { cursor: not-allowed; opacity: 0.5; }
+.serial-panel button:hover:not(:disabled) { background: var(--surface-hover); }
+
+.serial-panel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+.serial-panel-controls label { display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 10px; text-transform: uppercase; }
+.serial-panel-controls select { min-width: 68px; max-width: 100%; padding: 6px; text-transform: none; }
+.serial-port-field { min-width: 260px; flex: 1; }
+.serial-connect { border-color: var(--status-success) !important; }
+
+.serial-reconnect-notice,
+.serial-panel-error { padding: 7px 12px; font-size: 11px; }
+.serial-reconnect-notice { color: var(--status-warning, var(--text-secondary)); background: var(--surface-3); }
+.serial-panel-error { color: var(--status-danger); }
+.serial-terminal { min-width: 0; min-height: 0; flex: 1; padding: 8px; background: var(--terminal-bg, #0d1117); }
+.serial-terminal .terminal { height: 100%; }
+
+@media (max-width: 760px) {
+  .serial-panel { width: 98vw; height: 94vh; }
+  .serial-port-field { min-width: 100%; }
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "name": "devnet_api_call",
+    "description": "Search Cisco DevNet documentation (public, no auth). Read-only (everything=low). Rooted at https://developer.cisco.com.",
+    "type": "function",
+    "function": {
+      "name": "devnet_api_call",
+      "description": "Search Cisco DevNet developer documentation (rooted at https://developer.cisco.com). Public content, no credentials — do NOT use requests.\n\nRETURN VALUE: a JSON string; json.loads it -> {\"status_code\", \"data\", \"error\", \"blast_radius\"}.\n\nUSAGE:\n  GET /search/?q=<query>    Search DevNet content — API docs, code examples, learning labs. Returns matching pages/docs.\n\nGOOD QUERIES: include the product + the operation, e.g. \"meraki getNetworkClients\", \"catalyst center create site\", \"pyats parse show ip route\". For Meraki/Catalyst Center, searching the operationId finds the exact API reference.\n\nBLAST RADIUS: everything is low (read-only). Cite the doc links you surface.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET"],
+            "description": "HTTP method (GET)"
+          },
+          "path": {
+            "type": "string",
+            "description": "Endpoint path (e.g., '/search/')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Unused for reads (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters (e.g. {\"q\": \"meraki getNetworkClients\"})"
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

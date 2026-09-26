@@ -1,0 +1,6 @@
+import './IaCApprovalModal.css';
+export type ZabbixApprovalRequest = { method: string; params: unknown; rationale: string; risk: string };
+export function ZabbixApprovalModal({request,onApprove,onDeny}:{request:ZabbixApprovalRequest|null;onApprove:()=>void;onDeny:()=>void}) {
+ if (!request) return null;
+ return <div className="iac-approval-overlay" role="dialog" aria-modal="true"><div className={`iac-approval-modal tier-${request.risk}`}><header className="iac-approval-header"><h2>Zabbix change requires approval</h2><span className={`iac-approval-badge tier-${request.risk}`}>{request.risk.toUpperCase()}</span></header><div className="iac-approval-context"><div><span className="iac-approval-label">JSON-RPC method</span><code>{request.method}</code></div><div><span className="iac-approval-label">Parameters (redacted)</span><pre>{JSON.stringify(request.params,null,2)}</pre></div><div><span className="iac-approval-label">Rationale</span><span>{request.rationale || 'No rationale supplied.'}</span></div></div><footer className="iac-approval-actions"><button className="iac-approval-cancel" onClick={onDeny}>Deny</button><button className="iac-approval-proceed" onClick={onApprove}>Approve exact change</button></footer></div></div>;
+}

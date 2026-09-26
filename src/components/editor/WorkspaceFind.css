@@ -1,0 +1,136 @@
+.workspace-find {
+  position: absolute;
+  inset: 12px 12px auto;
+  z-index: 70;
+  display: flex;
+  max-height: calc(100% - 24px);
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-2);
+  box-shadow: 0 4px 12px var(--surface-2);
+}
+
+.workspace-find-header,
+.workspace-find-fields,
+.workspace-find-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-find-header {
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workspace-find-header button {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.workspace-find form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.workspace-find-fields label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.workspace-find-fields input {
+  min-width: 0;
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.workspace-find-fields button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.workspace-find-fields button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.workspace-find-options {
+  font-size: 11px;
+}
+
+.workspace-find-options label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.workspace-find-status,
+.workspace-find-error {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.workspace-find-error {
+  color: var(--status-danger);
+}
+
+.workspace-find-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.workspace-find-results > button {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-find-results > button:hover,
+.workspace-find-results > button:focus-visible {
+  background: var(--surface-selected);
+}
+
+.workspace-find-location {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.workspace-find-preview {
+  overflow: hidden;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: pre;
+}

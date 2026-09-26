@@ -1,0 +1,250 @@
+/* Plan 15 Phase 6 — PlaybookEditor split-pane layout. */
+
+.tb-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.tb-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+
+.tb-editor-toolbar-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 4px;
+}
+
+.tb-editor-select {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 220px;
+}
+
+.tb-editor-gen-prompt {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  min-width: 260px;
+  flex: 0 1 340px;
+}
+
+.tb-editor-gen-prompt::placeholder {
+  color: var(--text-muted);
+}
+
+.tb-editor-gen-prompt:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.tb-editor-gen-prompt:disabled {
+  opacity: 0.45;
+}
+
+.tb-editor-btn {
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tb-editor-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}
+
+.tb-editor-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tb-editor-btn.primary {
+  background: var(--surface-input);
+  border-color: var(--border-default);
+}
+
+.tb-editor-btn.primary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.tb-editor-btn.danger {
+  background: var(--status-danger-surface);
+  border-color: var(--status-danger);
+}
+
+.tb-editor-btn.danger:hover:not(:disabled) {
+  background: var(--status-danger-surface);
+}
+
+.tb-editor-toolbar-spacer {
+  flex: 1;
+}
+
+.tb-editor-toolbar-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tb-editor-toolbar-status.error {
+  color: var(--status-danger);
+}
+
+.tb-editor-toolbar-status.ok {
+  color: var(--text-primary);
+}
+
+.tb-editor-readonly-banner {
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+.tb-editor-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.tb-editor-pane-left,
+.tb-editor-pane-right {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.tb-editor-pane-left {
+  border-right: 1px solid var(--border-default);
+}
+
+.tb-editor-monaco-host {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.tb-editor-textarea-fallback {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  font-family: ui-monospace, "JetBrains Mono", monospace;
+  font-size: 12px;
+  padding: 8px 12px;
+  resize: none;
+  width: 100%;
+}
+
+.tb-editor-textarea-fallback:read-only {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.tb-editor-pane-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-input);
+}
+
+.tb-editor-preview-frozen {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+  font-size: 12px;
+  color: var(--text-primary);
+  padding: 16px;
+  text-align: center;
+}
+
+.tb-editor-diagnostics {
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-input);
+  max-height: 180px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tb-editor-diagnostics-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tb-editor-diagnostics-header.has-errors {
+  color: var(--status-danger);
+}
+
+.tb-editor-diagnostics-list {
+  overflow-y: auto;
+  padding: 0 12px 8px 12px;
+}
+
+.tb-editor-diagnostic-row {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 4px 0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tb-editor-diagnostic-row.error {
+  color: var(--status-danger);
+}
+
+.tb-editor-diagnostic-row.warn {
+  color: var(--status-warning);
+}
+
+.tb-editor-diagnostic-where {
+  color: var(--text-secondary);
+  margin-right: 8px;
+}

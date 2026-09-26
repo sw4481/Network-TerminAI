@@ -1,0 +1,48 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Mini Meraki", "version": "1.0.0" },
+  "paths": {
+    "/organizations": {
+      "get": {
+        "operationId": "listOrganizations",
+        "summary": "List organizations",
+        "description": "Return all organizations the caller has access to.",
+        "parameters": [
+          {
+            "name": "perPage",
+            "in": "query",
+            "schema": { "type": "integer", "default": 100 }
+          }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/organizations/{organizationId}/networks": {
+      "get": {
+        "summary": "List networks",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "operationId": "createNetwork",
+        "summary": "Create network",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "201": { "description": "Created" } }
+      }
+    }
+  }
+}

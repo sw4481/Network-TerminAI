@@ -1,0 +1,378 @@
+.topology-tab {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  color: var(--text-primary);
+  background: var(--app-canvas);
+}
+
+.topology-tab > [role="tabpanel"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.topology-tab__view-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.topology-tab__view-tab {
+  align-self: stretch;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.topology-tab__view-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.topology-tab__view-tab[aria-selected="true"] {
+  border-bottom-color: var(--status-info);
+  color: var(--text-primary);
+  background: var(--surface-selected);
+}
+
+.topology-tab__view-tab:focus-visible,
+.topology-tab__workspace button:focus-visible,
+.topology-tab__workspace select:focus-visible,
+.topology-tab__workspace input:focus-visible,
+.topology-tab__canvas .react-flow__node:focus-visible .neighbor-node,
+.topology-tab__canvas .neighbor-node:focus-visible {
+  outline: 2px solid var(--status-info);
+  outline-offset: 2px;
+}
+
+.topology-tab__panel,
+.topology-tab__workspace {
+  min-height: 0;
+  height: 100%;
+}
+
+.topology-tab__workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 12px;
+  background: var(--app-canvas);
+}
+
+.topology-tab__controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.topology-tab__title {
+  min-width: 190px;
+}
+
+.topology-tab__title h2,
+.topology-tab__title p,
+.topology-tab__graph-heading h3,
+.topology-tab__graph-heading p {
+  margin: 0;
+}
+
+.topology-tab__title h2 {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.topology-tab__title p,
+.topology-tab__graph-heading p {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.topology-tab__body {
+  display: grid;
+  grid-template-columns: 220px minmax(360px, 1fr);
+  flex: 1 1 auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+.topology-tab__body--inspector-open {
+  grid-template-columns: 220px minmax(360px, 1fr) 286px;
+}
+
+.topology-tab__rail,
+.topology-tab__canvas-panel,
+.topology-inspector {
+  min-height: 0;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.topology-tab__rail {
+  overflow: auto;
+}
+
+.topology-tab__rail .topology-filter-tree {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+}
+
+.topology-tab__rail .topology-filter-tree__group {
+  border-radius: 2px;
+}
+
+.topology-tab__rail .topology-filter-tree__summary {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.topology-tab__rail .topology-filter-tree__leaf {
+  color: var(--text-muted);
+}
+
+.topology-tab__rail .topology-filter-tree__leaf:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+.topology-tab__rail .topology-filter-tree__checkbox {
+  accent-color: var(--status-info);
+}
+
+.topology-tab__canvas-panel {
+  display: grid;
+  grid-template-rows: auto minmax(280px, 1fr);
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.topology-tab__graph-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topology-tab__graph-heading h3 {
+  font-size: 15px;
+}
+
+.topology-tab__evidence-badge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding: 4px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: var(--surface-3);
+  font-size: 10px;
+}
+
+.topology-tab__canvas {
+  position: relative;
+  min-width: 0;
+  min-height: 280px;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  background: var(--surface-1);
+}
+
+.topology-tab__canvas .react-flow {
+  --xy-background-color: var(--surface-1);
+  --xy-controls-button-background-color: var(--surface-3);
+  --xy-controls-button-background-color-hover: var(--surface-hover);
+  --xy-controls-button-color: var(--text-primary);
+  --xy-controls-button-border-color: var(--border-default);
+  --xy-minimap-background-color: var(--surface-3);
+  --xy-minimap-mask-background-color: var(--surface-modal-backdrop-60);
+}
+
+.topology-tab__canvas .react-flow__background-pattern {
+  fill: var(--border-default);
+}
+
+.topology-tab__canvas .neighbor-node {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 132px;
+  padding: 9px 10px;
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--neighbor-vendor-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  box-shadow: 0 8px 20px var(--surface-modal-backdrop-60);
+}
+
+.topology-tab__canvas .react-flow__node.selected .neighbor-node {
+  border-color: var(--status-info);
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 8px 20px var(--surface-modal-backdrop-60);
+}
+
+.topology-tab__canvas .neighbor-node__circle {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--surface-1);
+  border-radius: 50%;
+  background: var(--neighbor-vendor-color);
+  box-shadow: none;
+}
+
+.topology-tab__canvas .neighbor-node[data-vendor="unknown"] {
+  border-left-color: var(--status-warning);
+}
+
+.topology-tab__canvas .neighbor-node[data-vendor="unknown"] .neighbor-node__circle {
+  background: var(--status-warning);
+}
+
+.topology-tab__canvas .neighbor-node__label {
+  max-width: 106px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topology-tab__canvas .neighbor-node__tooltip {
+  top: calc(100% + 6px);
+  margin: 0;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-3);
+  box-shadow: 0 8px 20px var(--surface-modal-backdrop-60);
+}
+
+.topology-tab__canvas .react-flow__edge path[data-protocol=""] {
+  stroke: var(--status-warning);
+  stroke-dasharray: 7 5;
+}
+
+.topology-tab__empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.topology-tab__empty strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.topology-tab__empty span {
+  max-width: 420px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.topology-tab__empty code {
+  padding: 1px 4px;
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-primary);
+  background: var(--surface-3);
+  font-family: Menlo, monospace;
+}
+
+@media (max-width: 1180px) {
+  .topology-tab__controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .topology-tab__body,
+  .topology-tab__body--inspector-open {
+    grid-template-columns: 190px minmax(340px, 1fr);
+  }
+
+  .topology-tab__body--inspector-open .topology-inspector {
+    grid-column: 1 / -1;
+    width: auto;
+    max-height: 280px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-tab,
+  .topology-tab__panel,
+  .topology-tab__workspace {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .topology-tab__view-tabs {
+    overflow-x: auto;
+  }
+
+  .topology-tab__view-tab {
+    min-height: 38px;
+    white-space: nowrap;
+  }
+
+  .topology-tab__body,
+  .topology-tab__body--inspector-open {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topology-tab__rail {
+    max-height: 260px;
+  }
+
+  .topology-tab__canvas-panel {
+    min-height: 560px;
+  }
+
+  .topology-tab__body--inspector-open .topology-inspector {
+    width: auto;
+    max-height: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topology-tab *,
+  .topology-tab *::before,
+  .topology-tab *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

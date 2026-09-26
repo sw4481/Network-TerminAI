@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Plan 12 Phase 6 — optional starter pack of vendor reference docs.",
+    "Each entry below was verified via WebFetch on the date listed in `accessed`.",
+    "Skipped vendors (403 / login wall / no public PDF):",
+    "  - Cisco IOS-XE command reference: cisco.com returns HTTP 403 to non-",
+    "    browser User-Agents on the canonical /c/en/us/td/docs/... PDFs.",
+    "  - Cisco IOS-XE configuration guide: same anti-crawler protection.",
+    "  - Cisco NX-OS command reference: same anti-crawler protection.",
+    "  - Arista EOS command reference: arista.com gates manuals behind a",
+    "    customer login (ar-website cookie required). Public mirror not",
+    "    found.",
+    "When you (the human) have a browser session open, you can manually drag",
+    "those PDFs into Settings → RAG → drop zone after running the starter",
+    "pack. The two entries below are the verified-public ones that download",
+    "without authentication and form a useful baseline."
+  ],
+  "sources": [
+    {
+      "title": "Juniper Junos CLI Reference",
+      "url": "https://www.juniper.net/documentation/us/en/software/junos/cli-reference/cli-reference.pdf",
+      "kind": "pdf",
+      "tags": ["juniper-junos"],
+      "accessed": "2026-05-19"
+    },
+    {
+      "title": "Cisco Meraki Dashboard API v1 — Introduction",
+      "url": "https://developer.cisco.com/meraki/api-v1/introduction/",
+      "kind": "html",
+      "tags": ["cisco-meraki"],
+      "accessed": "2026-05-19"
+    }
+  ]
+}

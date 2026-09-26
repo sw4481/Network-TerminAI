@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    /* Temporarily relax linting for build - Phase 3 testing only */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    /* Allow test files to compile with missing test framework types */
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx",
+    "src/App.debug.tsx",
+    "src/App.broken.tsx"
+  ]
+}

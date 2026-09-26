@@ -1,0 +1,156 @@
+.device-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.device-picker-dialog {
+  width: 640px;
+  max-height: 78vh;
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  font-family: Menlo, monospace;
+  overflow: hidden;
+}
+.device-picker-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.device-picker-header h3 { margin: 0; font-size: 14px; font-weight: 500; }
+.device-picker-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+}
+.device-picker-toolbar {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.device-picker-toolbar input[type="text"] {
+  flex: 1;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.device-picker-toolbar select {
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.device-picker-toolbar button {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.device-picker-list {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 0;
+}
+.device-picker-row {
+  display: grid;
+  grid-template-columns: 24px 80px 1fr 1fr;
+  gap: 8px;
+  padding: 6px 14px;
+  align-items: center;
+  font-size: 12px;
+  cursor: pointer;
+}
+.device-picker-row:hover { background: var(--surface-2); }
+.device-picker-row.is-member { opacity: 0.4; cursor: not-allowed; }
+
+.device-picker-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.device-picker-status { font-size: 11px; color: var(--text-secondary); flex: 1; }
+.device-picker-footer button.primary {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.device-picker-footer button.primary:disabled { background: var(--surface-3); cursor: not-allowed; }
+.device-picker-footer button.secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.device-picker-warn {
+  padding: 8px 14px;
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+  font-size: 11px;
+}
+.csv-import-area {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 14px;
+  gap: 6px;
+  border-top: 1px solid var(--border-default);
+}
+.csv-import-area textarea {
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 6px;
+  min-height: 60px;
+  resize: vertical;
+}
+.csv-import-area .row {
+  display: flex;
+  gap: 8px;
+}
+.csv-warnings {
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  max-height: 80px;
+  overflow: auto;
+}

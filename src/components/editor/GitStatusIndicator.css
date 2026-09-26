@@ -1,0 +1,40 @@
+.editor-git-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-right: auto;
+  color: inherit;
+  white-space: nowrap;
+}
+
+button.editor-git-status {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+button.editor-git-status:hover,
+button.editor-git-status[aria-pressed="true"] {
+  color: var(--text-primary);
+}
+
+.editor-git-branch {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-git-state {
+  color: var(--text-primary);
+}
+
+.editor-git-state--dirty {
+  color: var(--text-primary);
+}
+
+.detached-editor-status .editor-git-status {
+  margin-right: 12px;
+}

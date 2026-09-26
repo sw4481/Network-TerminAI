@@ -1,0 +1,4 @@
+[
+  { "device_id": "switch-1.example.com", "local_intf": "Gi1", "holdtime": 145, "capability": "S I",   "platform": "C9300-24P", "port_id": "Gi1/0/24" },
+  { "device_id": "router-2.example.com", "local_intf": "Gi2", "holdtime": 130, "capability": "R B",   "platform": "C8200-1N1S", "port_id": "Gi0/0/1"  }
+]

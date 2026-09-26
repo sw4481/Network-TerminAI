@@ -1,0 +1,14 @@
+# Plan 12 Phase 6 — pytest configuration for the seed-pack tests.
+#
+# pytest's default import mode treats `seed.test.py` as the dotted
+# module name `seed.test`, which fails because `seed` isn't a package.
+# `importlib` mode loads each test file by path, which works correctly
+# for files with dots in the name.
+#
+# This file is intentionally local to scripts/seed-rag/ — the sidecar
+# tests have their own pyproject.toml in sidecar/.
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+testpaths = ["."]
+python_files = ["seed.test.py", "test_*.py"]

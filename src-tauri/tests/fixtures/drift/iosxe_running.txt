@@ -1,0 +1,40 @@
+Building configuration...
+
+Current configuration : 4823 bytes
+!
+! Last configuration change at 09:14:23 UTC Mon May 18 2026
+! NVRAM config last updated at 03:02:11 UTC Mon May 18 2026 by admin
+!
+version 17.6
+service timestamps debug datetime msec
+service timestamps log datetime msec
+hostname core-01-atl
+!
+enable secret 9 $9$abcdef1234567890
+!
+username admin privilege 15 secret 9 $9$xyz123
+username readonly password 7 13061E010803
+!
+ip domain-name example.com
+!
+interface Loopback0
+ description Management Loopback
+ ip address 10.0.0.1 255.255.255.255
+!
+interface GigabitEthernet0/0/0
+ description WAN UPLINK
+ ip address 192.168.1.1 255.255.255.0
+ negotiation auto
+!
+router bgp 65001
+ bgp router-id 10.0.0.1
+ neighbor 192.168.1.2 remote-as 65002
+ neighbor 192.168.1.2 password 7 0822455D0A16
+!
+snmp-server community public RO
+snmp-server community private RW
+!
+tacacs-server host 10.10.10.10
+tacacs-server key 7 0011223344556677
+!
+end

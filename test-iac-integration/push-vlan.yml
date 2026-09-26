@@ -1,0 +1,38 @@
+---
+- name: Push VLAN 78 (test-terraform) to switches
+  hosts: switches
+  gather_facts: no
+  
+  tasks:
+    - name: Ensure cisco.ios collection is available
+      ansible.builtin.debug:
+        msg: "Using Cisco IOS modules from cisco.ios collection"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Create VLAN 78
+      cisco.ios.ios_vlans:
+        config:
+          - vlan_id: 78
+            name: test-terraform
+        state: merged
+      register: vlan_result
+
+    - name: Show VLAN creation result
+      ansible.builtin.debug:
+        msg: "VLAN 78 {{ 'created' if vlan_result.changed else 'already exists' }} on {{ inventory_hostname }}"
+
+    - name: Save configuration
+      cisco.ios.ios_config:
+        save_when: always
+      when: vlan_result.changed
+
+    - name: Verify VLAN configuration
+      cisco.ios.ios_command:
+        commands:
+          - show vlan id 78
+      register: vlan_verify
+
+    - name: Display verification
+      ansible.builtin.debug:
+        var: vlan_verify.stdout_lines

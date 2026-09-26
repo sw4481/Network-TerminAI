@@ -1,0 +1,20 @@
+[
+  {
+    "name": "thousandeyes_api_call",
+    "description": "Call the Cisco ThousandEyes API v7 (read-only). Base https://api.thousandeyes.com; auth (Bearer token) is handled for you. A configured account group is auto-applied as the 'aid' query param. Returns {status_code, data, error, blast_radius}. List responses are an object keyed by resource name (e.g. data['tests']). Core: GET /v7/account-groups, /v7/tests (find testId), /v7/tests/{id}, /v7/agents, /v7/test-results/{testId}/{testType} (network|http-server|page-load|dns-server|bgp), /v7/test-results/{testId}/path-vis (hop-by-hop), /v7/dashboards, /v7/alerts. Method is always GET. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "thousandeyes_api_call",
+      "description": "Call the Cisco ThousandEyes API v7 (read-only). Auth is handled internally.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET"], "description": "HTTP method (read-only)" },
+          "path": { "type": "string", "description": "API path under /v7 (e.g., '/v7/tests')" },
+          "query_params": { "type": "object", "description": "URL query parameters (e.g. aid, window) (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

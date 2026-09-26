@@ -1,0 +1,59 @@
+.block-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 12px 96px;
+  position: relative;
+  scrollbar-gutter: stable;
+}
+
+.block-list-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  margin-bottom: 8px;
+}
+
+/* Pin the filter bar to the top-right of the list while pinned-row sits inline. */
+.block-list-header .tag-filter-bar {
+  align-self: flex-end;
+  position: sticky;
+  top: 8px;
+}
+
+.block-list-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 32px;
+}
+.block-list-empty .hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.block-list-empty strong {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.block-list-virtual {
+  /* dynamic height set inline by the virtualizer */
+}
+
+.block-list-row {
+  padding-bottom: 8px;
+}
+
+.block-list-row[data-focused="true"] .command-block {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -1px;
+}

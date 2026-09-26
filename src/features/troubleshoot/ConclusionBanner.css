@@ -1,0 +1,91 @@
+.tb-conclusion {
+  margin: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  border-left-width: 3px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tb-conclusion[data-status="completed"] {
+  border-left-color: var(--status-success);
+}
+.tb-conclusion[data-status="failed"] {
+  border-left-color: var(--status-danger);
+}
+
+.tb-conclusion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.tb-conclusion-headline {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.tb-conclusion-confidence {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--border-default);
+}
+
+.tb-conclusion-confidence[data-confidence="low"]    { color: var(--border-default); border-color: var(--border-default); }
+.tb-conclusion-confidence[data-confidence="medium"] { color: var(--border-default); border-color: var(--border-default); }
+.tb-conclusion-confidence[data-confidence="high"]   { color: var(--border-default); border-color: var(--border-default); }
+
+.tb-conclusion-row {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.tb-conclusion-row strong {
+  color: var(--text-primary);
+  margin-right: 6px;
+}
+
+.tb-conclusion-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.tb-conclusion-evidence-pill {
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.tb-conclusion-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tb-conclusion-btn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+.tb-conclusion-btn:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}

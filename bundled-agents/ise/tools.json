@@ -1,0 +1,39 @@
+[
+  {
+    "name": "ise_api_call",
+    "description": "Call the Cisco Identity Services Engine (ISE) REST API. Blast radius: GET + all MnT=low, config writes (networkdevice/identitygroup/internaluser/endpointgroup/sgt/trustsec/policy)=high, other writes=medium, DELETE=destructive. The surface/port is inferred from the path prefix.",
+    "type": "function",
+    "function": {
+      "name": "ise_api_call",
+      "description": "Call the Cisco Identity Services Engine (ISE) REST API.\n\nTHREE SURFACES (port inferred from path prefix, or set `base`):\n- ERS     /ers/config/...     port 9060  classic config API (Basic Auth, JSON)\n- OpenAPI /api/v1/...          port 443   newer config API (same creds)\n- MnT     /admin/API/mnt/...   port 443   READ-ONLY monitoring (sessions, health)\n\nBLAST RADIUS TIERS:\n- low: GET operations + all MnT calls (read-only, auto-allowed)\n- medium: POST/PUT non-config writes\n- high: config changes to network devices, identity/endpoint groups, internal users, SGTs/TrustSec, policy\n- destructive: DELETE operations\n\nERS LIST SHAPE & PAGING (read this before guessing):\n- List responses wrap rows under data[\"SearchResult\"][\"resources\"]; each row is a STUB {id, name, link}. GET the resource by id for full detail.\n- Page with query_params {\"size\": 1-100, \"page\": n}. Filter with {\"filter\": \"<field>.<op>.<value>\"} e.g. name.CONTAINS.switch or mac.EQ.AA:BB:CC:DD:EE:FF. Do NOT invent other query keys.\n\nNETWORK DEVICES (ERS):\n  GET    /ers/config/networkdevice                 List NADs (low)\n  GET    /ers/config/networkdevice/{id}            Device detail (low)\n  GET    /ers/config/networkdevice/name/{name}     Lookup by name (low)\n  POST   /ers/config/networkdevice                 Create NAD (high)\n    Body: {\"NetworkDevice\": {\"name\": \"...\", \"NetworkDeviceIPList\": [{\"ipaddress\": \"...\", \"mask\": 32}], \"authenticationSettings\": {\"radiusSharedSecret\": \"...\"}}}\n  PUT    /ers/config/networkdevice/{id}            Update NAD (high)\n  DELETE /ers/config/networkdevice/{id}            Delete NAD (destructive)\n\nENDPOINTS & GROUPS (ERS):\n  GET  /ers/config/endpoint                        List endpoints (low)\n  GET  /ers/config/endpoint/{id}                   Endpoint detail (low)\n  GET  /ers/config/endpoint?filter=mac.EQ.{MAC}    Find by MAC (low)\n  GET  /ers/config/endpointgroup                   List endpoint identity groups (low)\n  POST /ers/config/endpoint                        Register endpoint (high)\n    Body: {\"ERSEndPoint\": {\"mac\": \"AA:BB:CC:DD:EE:FF\", \"groupId\": \"...\", \"staticGroupAssignment\": true}}\n\nIDENTITY (ERS):\n  GET  /ers/config/identitygroup                   List user identity groups (low)\n  GET  /ers/config/internaluser                    List internal users (low)\n  POST /ers/config/internaluser                    Create internal user (high)\n    Body: {\"InternalUser\": {\"name\": \"...\", \"password\": \"...\", \"identityGroups\": \"...\"}}\n\nTRUSTSEC / SGT (ERS):\n  GET  /ers/config/sgt                             List Security Group Tags (low)\n  POST /ers/config/sgt                             Create SGT (high)\n\nPOLICY (OpenAPI, base=\"openapi\"):\n  GET  /api/v1/policy/network-access/policy-set    List policy sets (low)\n  GET  /api/v1/trustsec/sgacl                       List SGACLs (low)\n\nMONITORING (MnT, read-only — serves XML, auto-parsed to a nested dict e.g. {\"sessionCount\": {\"count\": \"35\"}}):\n  GET  /admin/API/mnt/Version                       MnT/ISE version (low)\n  GET  /admin/API/mnt/Session/ActiveList            Active auth sessions (low)\n  GET  /admin/API/mnt/Session/ActiveCount           Active session count (low)\n  GET  /admin/API/mnt/Session/MACAddress/{mac}      Session detail by MAC (low)\n  GET  /admin/API/mnt/FailureReasons                Auth failure reason catalog (low)\n\nNOTES:\n- ERS must be enabled in ISE: Admin -> System -> Settings -> API Settings -> ERS.\n- Self-signed certs are common; SSL verification is controlled by Settings -> ISE.\n- Responses are {\"status_code\", \"data\", \"error\", \"blast_radius\"}; check status_code < 400 before trusting data.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+            "description": "HTTP method"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path (e.g., '/ers/config/networkdevice')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Request body for POST/PUT/PATCH (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters as key-value pairs (optional, e.g. {\"size\": 100, \"filter\": \"name.CONTAINS.switch\"})"
+          },
+          "base": {
+            "type": "string",
+            "enum": ["ers", "openapi", "mnt"],
+            "description": "Force the API surface/port. Optional; inferred from the path prefix when omitted."
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

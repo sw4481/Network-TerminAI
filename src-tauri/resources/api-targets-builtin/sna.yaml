@@ -1,0 +1,113 @@
+id: sna
+display_name: "Cisco Secure Network Analytics (Stealthwatch)"
+schema_version: 1
+base_url: "https://${env:SNA_HOST}"
+openapi_url: "https://developer.cisco.com/stealthwatch/enterprise/"
+auth:
+  type: session_cookie
+  login:
+    method: POST
+    url: "/token/v2/authenticate"
+    # SNA's /token/v2/authenticate requires application/x-www-form-urlencoded.
+    # Sending JSON produces 415 Unsupported Media Type. This matches the
+    # Cisco DevNet stealthwatch-enterprise-sample-postman collection.
+    credentials:
+      type: form_body
+      body: "username=${env:SNA_USER}&password=${env:SNA_PASS}"
+tls:
+  verify: false
+defaults:
+  # SNA is not uniformly JSON. Some endpoints (e.g. `/sw-reporting/v1/tenants`)
+  # return `text/plain` and reject a forced `Accept: application/json` with
+  # 406 Not Acceptable. Ship with NO default Accept header; set per-request
+  # on endpoints that actually serve JSON.
+  headers: {}
+endpoints:
+  - id: "sna__post_login"
+    name: "Login"
+    method: POST
+    path: "/token/v2/authenticate"
+  - id: "sna__get_get_domains_tenants"
+    name: "Get Domains (Tenants)"
+    method: GET
+    path: "/sw-reporting/v1/tenants"
+  - id: "sna__get_get_host_groups_tags"
+    name: "Get Host Groups (Tags)"
+    method: GET
+    path: "/smc-configuration/rest/v1/tenants/:tenant-id/tags/"
+  - id: "sna__post_add_host_group_tag"
+    name: "Add Host Group (Tag)"
+    method: POST
+    path: "/smc-configuration/rest/v1/tenants/:tenant-id/tags/"
+  - id: "sna__get_get_host_group_tag_details"
+    name: "Get Host Group (Tag) Details"
+    method: GET
+    path: "/smc-configuration/rest/v1/tenants/:tenant-id/tags/:tag-id"
+  - id: "sna__put_update_host_group_tag"
+    name: "Update Host Group (Tag)"
+    method: PUT
+    path: "/smc-configuration/rest/v1/tenants/:tenant-id/tags/:tag-id"
+  - id: "sna__delete_delete_host_group_tag"
+    name: "Delete Host Group (Tag)"
+    method: DELETE
+    path: "/smc-configuration/rest/v1/tenants/:tenant-id/tags/:tag-id"
+  - id: "sna__delete_logout"
+    name: "Logout"
+    method: DELETE
+    path: "/token"
+  - id: "sna__post_get_host_snapshot"
+    name: "Get Host Snapshot"
+    method: POST
+    path: "/smc/swsService/hosts"
+  - id: "sna__post_get_flows_query"
+    name: "Get Flows (Query)"
+    method: POST
+    path: "/sw-reporting/v2/tenants/:tenant-id/flows/queries"
+  - id: "sna__get_get_flows_status"
+    name: "Get Flows (Status)"
+    method: GET
+    path: "/sw-reporting/v2/tenants/:tenant-id/flows/queries/:query-id"
+  - id: "sna__get_get_flows_results"
+    name: "Get Flows (Results)"
+    method: GET
+    path: "/sw-reporting/v2/tenants/:tenant-id/flows/queries/:query-id/results"
+  - id: "sna__post_get_security_events_query"
+    name: "Get Security Events (Query)"
+    method: POST
+    path: "/sw-reporting/v1/tenants/:tenant-id/security-events/queries"
+  - id: "sna__get_get_security_events_status"
+    name: "Get Security Events (Status)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/security-events/queries/:query-id"
+  - id: "sna__get_get_security_events_results"
+    name: "Get Security Events (Results)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/security-events/results/:query-id"
+  - id: "sna__post_get_top_conversations_query"
+    name: "Get Top Conversations (Query)"
+    method: POST
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-conversations/queries"
+  - id: "sna__get_get_top_conversations_status"
+    name: "Get Top Conversations (Status)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-conversations/queries/:query-id"
+  - id: "sna__get_get_top_conversations_results"
+    name: "Get Top Conversations (Results)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-conversations/results/:query-id"
+  - id: "sna__post_get_top_ports_query"
+    name: "Get Top Ports (Query)"
+    method: POST
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-ports/queries"
+  - id: "sna__get_get_top_ports_status"
+    name: "Get Top Ports (Status)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-ports/queries/:query-id"
+  - id: "sna__get_get_top_ports_results"
+    name: "Get Top Ports (Results)"
+    method: GET
+    path: "/sw-reporting/v1/tenants/:tenant-id/flow-reports/top-ports/results/:query-id"
+  - id: "sna__get_get_cognitive_intelligence_incidents"
+    name: "Get Cognitive Intelligence Incidents"
+    method: GET
+    path: "/sw-reporting/v2/tenants/:tenant-id/incidents"

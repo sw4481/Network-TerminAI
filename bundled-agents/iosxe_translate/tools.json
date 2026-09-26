@@ -1,0 +1,27 @@
+[
+  {
+    "name": "iosxe_translate",
+    "description": "Translate Cisco IOS-XE CLI <-> NETCONF/XML. In the code sandbox this is exposed as the `iosxe` helper object: iosxe.models(filter) (list downloaded YANG modules, Tier B), iosxe.schema_tree(module, path, depth) (pyang tree of real containers/leaves, Tier B), iosxe.validate_native(native_xml) (namespace check, Tier B), iosxe.cli_to_rpc(cli_text) (Cisco-IOS-XE-cli-rpc envelope, Tier C transport only), iosxe.cli_to_native(device, cli_text, restconf_path) (WRITE: apply CLI on a device and read back native XML, Tier A device-verified), iosxe.native_to_cli(device, native_xml, restconf_path, method) (WRITE: apply native XML and diff show running-config, Tier A). Each method returns {ok, op, data, error, tier, blast_radius}. Tier A is authoritative (device-verified); Tier B is model-grounded but NOT device-verified; Tier C is transport, not native translation. Never invent paths/namespaces; ground them via schema_tree. cli_to_native/native_to_cli change live config (blast 'high').",
+    "type": "function",
+    "function": {
+      "name": "iosxe_translate",
+      "description": "Translate Cisco IOS-XE CLI <-> NETCONF/XML. Exposed as the `iosxe` helper object in the sandbox.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": { "type": "string", "enum": ["models", "schema_tree", "validate_native", "cli_to_rpc", "cli_to_native", "native_to_cli"], "description": "Translation operation" },
+          "module": { "type": "string", "description": "schema_tree only: YANG module name (e.g. Cisco-IOS-XE-native)" },
+          "path": { "type": "string", "description": "schema_tree only: data path to scope the tree (e.g. native/interface)" },
+          "depth": { "type": "integer", "description": "schema_tree only: tree depth (default 3)" },
+          "filter": { "type": "string", "description": "models only: case-insensitive module-name substring filter" },
+          "cli_text": { "type": "string", "description": "cli_to_rpc / cli_to_native: IOS-XE configuration CLI (config-only; no show/exec)" },
+          "native_xml": { "type": "string", "description": "validate_native / native_to_cli: native YANG XML payload" },
+          "device": { "type": "string", "description": "cli_to_native / native_to_cli: pyATS device name to run against" },
+          "restconf_path": { "type": "string", "description": "cli_to_native / native_to_cli: RESTCONF data path (e.g. native/interface/Loopback=1)" },
+          "method": { "type": "string", "enum": ["PATCH", "PUT"], "description": "native_to_cli only: RESTCONF write method (default PATCH)" }
+        },
+        "required": ["op"]
+      }
+    }
+  }
+]

@@ -1,0 +1,31 @@
+.tb-canvas {
+  flex: 1 1 auto;
+  position: relative;
+  /* Keep a usable minimum so the canvas never collapses to zero and lets
+     the fixed side columns visually overlap it when the tab is narrow
+     (e.g. with the AI chat panel open). */
+  min-width: 240px;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--app-canvas);
+}
+
+.tb-canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-secondary);
+  font-family: Menlo, monospace;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.tb-canvas-empty code {
+  background: var(--surface-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+}

@@ -1,0 +1,256 @@
+.block-notebook-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgb(var(--backdrop-rgb) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.block-notebook-modal {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgb(var(--backdrop-rgb) / 0.3);
+}
+
+.block-notebook-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.block-notebook-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: var(--text-primary);
+}
+
+.block-notebook-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 20px;
+  background: var(--app-canvas);
+}
+
+.block-notebook-tabs button {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.block-notebook-tabs button:hover {
+  color: var(--text-primary);
+}
+
+.block-notebook-tabs button.active {
+  color: var(--accent);
+}
+
+.block-notebook-tabs button.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.block-notebook-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Save tab styles */
+.notebook-save-tab .form-group {
+  margin-bottom: 20px;
+}
+
+.notebook-save-tab label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.notebook-save-tab input,
+.notebook-save-tab textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.notebook-save-tab input::placeholder,
+.notebook-save-tab textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.notebook-save-tab input:focus,
+.notebook-save-tab textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.save-btn {
+  background: var(--accent);
+  color: var(--app-canvas);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+.save-btn:hover {
+  opacity: 0.9;
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Load tab styles */
+.notebook-load-tab p {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.notebook-load-tab input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.notebook-load-tab input[type="file"]::file-selector-button {
+  background: var(--accent);
+  color: var(--app-canvas);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 12px;
+}
+
+.notebook-load-tab input[type="file"]::file-selector-button:hover {
+  opacity: 0.9;
+}
+
+/* Saved notebooks tab */
+.notebooks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notebook-item {
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: var(--app-canvas);
+}
+
+.notebook-info {
+  flex: 1;
+}
+
+.notebook-info h3 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.notebook-description {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.notebook-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.notebook-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notebook-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.notebook-actions button:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+.empty-state,
+.loading-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--status-info);
+}

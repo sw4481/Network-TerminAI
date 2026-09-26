@@ -1,0 +1,15 @@
+Cisco IOS-XE Quick Reference
+
+This is a plain-text fixture used by the RAG extract tests. The contents
+need to round-trip through extract_text() and produce at least 100
+characters of clean text.
+
+Common show commands:
+  show running-config       - display active configuration
+  show ip interface brief   - list interface state
+  show ip bgp summary       - display BGP neighbor summary
+
+Common configuration snippet:
+  interface GigabitEthernet1
+   ip address 10.0.0.1 255.255.255.0
+   no shutdown

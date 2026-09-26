@@ -1,0 +1,116 @@
+.topology-toolbar {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topology-toolbar__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topology-toolbar__group--secondary {
+  padding-left: 12px;
+  border-left: 1px solid var(--border-default);
+}
+
+.topology-toolbar__interval {
+  display: inline-grid;
+  grid-template-columns: max-content minmax(72px, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.topology-toolbar__label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.topology-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.topology-toolbar__button:hover {
+  background: var(--surface-hover);
+}
+
+.topology-toolbar__button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.topology-toolbar__primary {
+  background: var(--accent-subtle);
+  border-color: var(--status-info);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.topology-toolbar__primary:hover {
+  background: var(--surface-hover);
+  border-color: var(--status-info);
+}
+
+.topology-toolbar__danger {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+
+.topology-toolbar__danger:hover {
+  background: var(--status-danger-surface);
+}
+
+.topology-toolbar__select {
+  min-height: 30px;
+  padding: 3px 7px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+@media (max-width: 1180px) {
+  .topology-toolbar {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 760px) {
+  .topology-toolbar,
+  .topology-toolbar__group {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .topology-toolbar__group--secondary {
+    padding-top: 10px;
+    padding-left: 0;
+    border-top: 1px solid var(--border-default);
+    border-left: 0;
+  }
+
+  .topology-toolbar__button,
+  .topology-toolbar__interval {
+    width: 100%;
+  }
+}

@@ -1,0 +1,193 @@
+/* CodeBlock - Dark theme styling with status colors */
+
+.code-block {
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-2);
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+/* Header */
+.code-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.code-block-header:hover {
+  background: var(--surface-hover);
+}
+
+.code-block-header:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* Status icon */
+.code-block-status-icon {
+  font-size: 16px;
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Status text */
+.code-block-status-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+/* Expand/collapse icon */
+.code-block-expand-icon {
+  font-size: 10px;
+  color: var(--text-primary);
+  transition: transform 0.2s ease;
+}
+
+/* Status-specific colors */
+
+/* Executing - Cyan */
+.code-block-status-executing .code-block-status-icon {
+  color: var(--status-info);
+  animation: spin 2s linear infinite;
+}
+
+.code-block-status-executing .code-block-status-text {
+  color: var(--status-info);
+}
+
+.code-block-status-executing {
+  border-color: var(--status-info);
+}
+
+/* Success - Green */
+.code-block-status-success .code-block-status-icon {
+  color: var(--status-success);
+}
+
+.code-block-status-success .code-block-status-text {
+  color: var(--status-success);
+}
+
+.code-block-status-success {
+  border-color: var(--status-success);
+}
+
+/* Error - Red */
+.code-block-status-error .code-block-status-icon {
+  color: var(--status-danger);
+}
+
+.code-block-status-error .code-block-status-text {
+  color: var(--status-danger);
+}
+
+.code-block-status-error {
+  border-color: var(--status-danger);
+}
+
+/* Retrying - Yellow */
+.code-block-status-retrying .code-block-status-icon {
+  color: var(--status-warning);
+  animation: spin 2s linear infinite;
+}
+
+.code-block-status-retrying .code-block-status-text {
+  color: var(--status-warning);
+}
+
+.code-block-status-retrying {
+  border-color: var(--status-warning);
+}
+
+/* Body */
+.code-block-body {
+  padding: 0;
+}
+
+/* Section header */
+.code-block-section-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px 4px;
+}
+
+/* Code section */
+.code-block-code-section {
+  background: var(--surface-overlay);
+}
+
+.code-block-code {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  overflow-x: auto;
+}
+
+.code-block-code code {
+  font-family: inherit;
+}
+
+/* Output section */
+.code-block-output-section {
+  background: var(--surface-2);
+  border-top: 1px solid var(--border-default);
+}
+
+.code-block-output {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: transparent;
+  overflow-x: auto;
+}
+
+.code-block-output code {
+  font-family: inherit;
+}
+
+/* Error section */
+.code-block-error-section {
+  background: var(--status-danger-surface);
+  border-top: 1px solid var(--status-danger);
+}
+
+.code-block-error {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 12px;
+  color: var(--status-danger);
+  background: transparent;
+  overflow-x: auto;
+}
+
+.code-block-error code {
+  font-family: inherit;
+}
+
+/* Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

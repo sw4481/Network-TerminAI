@@ -1,0 +1,142 @@
+.cml-tab {
+  padding: 1.5rem;
+  max-width: 700px;
+}
+
+.cml-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+}
+
+.cml-subtitle {
+  margin: 0 0 2rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.cml-section {
+  margin-bottom: 2rem;
+}
+
+.cml-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.cml-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.cml-grid label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.cml-grid input[type='text'],
+.cml-grid input[type='password'] {
+  padding: 0.5rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.cml-grid input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.cml-checkbox-label {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.cml-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.cml-field--full {
+  grid-column: 1 / -1;
+}
+
+.cml-field-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
+.cml-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.cml-btn-primary,
+.cml-btn-secondary {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cml-btn-primary {
+  background: var(--integration-primary);
+  color: var(--text-on-strong-accent);
+}
+
+.cml-btn-primary:hover:not(:disabled) {
+  background: var(--integration-primary-hover);
+}
+
+.cml-btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.cml-btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.cml-btn-primary:disabled,
+.cml-btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cml-status {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.cml-status--ok {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.cml-status--err {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.cml-status--info {
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  border: 1px solid var(--focus-ring);
+  color: var(--status-info);
+}

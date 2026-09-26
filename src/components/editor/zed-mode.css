@@ -1,0 +1,110 @@
+.zed-mode .tabbar {
+  gap: 0;
+  padding: 2px 8px 0;
+  min-height: 30px;
+  background: var(--surface-2);
+  border-bottom-color: var(--border-default);
+}
+
+.zed-mode .tab {
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 0;
+  border-right: 1px solid var(--border-default);
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.zed-mode .tab-active {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+
+.zed-mode .editor-tab {
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Zed Sans", sans-serif;
+}
+
+.zed-mode .editor-toolbar {
+  min-height: 28px;
+  padding: 3px 8px;
+  background: var(--surface-input);
+  border-bottom-color: var(--border-default);
+}
+
+.zed-mode .editor-file-info {
+  gap: 6px;
+  font-size: 12px;
+}
+
+.zed-mode .editor-actions {
+  gap: 4px;
+}
+
+.zed-mode .editor-actions button {
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.zed-mode .editor-actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.zed-mode .editor-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.zed-mode .editor-canvas {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.zed-mode .editor-breadcrumb {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  overflow: hidden;
+  color: var(--text-primary);
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.zed-mode .editor-breadcrumb-part {
+  display: inline-flex;
+  align-items: center;
+}
+
+.zed-mode .editor-breadcrumb-separator {
+  padding: 0 5px;
+  color: var(--text-primary);
+}
+
+.zed-mode .editor-breadcrumb [aria-current="page"] {
+  color: var(--text-primary);
+}
+
+.zed-mode .editor-status-bar {
+  min-height: 20px;
+  padding: 1px 8px;
+  gap: 12px;
+  justify-content: flex-end;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-default);
+}
+
+.zed-mode .zed-vim-status {
+  margin-right: auto;
+  color: var(--text-primary);
+  font-weight: 600;
+}

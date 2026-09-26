@@ -1,0 +1,156 @@
+/*
+ * Plan 13 Phase 2 Task 2.3 — Inline topology panel styles.
+ *
+ * Class-name contract from `docs/design/topology-inline.md`. The
+ * `.cb-side-panel` class is reserved here so Task 2.4 (CommandBlock
+ * wiring) can slot the panel into the right side of a block without
+ * inventing new layout tokens.
+ */
+
+/* Container that CommandBlock places this panel into. */
+.cb-side-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 320px;
+  min-width: 280px;
+  max-width: 360px;
+  border-left: 1px solid var(--cb-border, var(--border-default));
+  background: var(--cb-side-bg, var(--surface-2));
+}
+
+/* Inner panel — height-capped at 280px per spec. */
+.topology-inline {
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow: hidden;
+  font-family: inherit;
+  color: inherit;
+}
+
+.topology-inline__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--cb-border, var(--border-default));
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--surface-2);
+}
+
+.topology-inline__title {
+  opacity: 0.85;
+}
+
+.topology-inline__expand {
+  background: transparent;
+  border: 1px solid transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.topology-inline__expand:hover {
+  border-color: var(--cb-border, var(--border-default));
+  background: var(--surface-hover);
+}
+
+.topology-inline__canvas {
+  flex: 1 1 auto;
+  min-height: 200px;
+  position: relative;
+}
+
+.topology-inline__empty {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* Narrow-screen chip — Task 2.4 toggles between this and the full
+ * panel via a media query on the host CommandBlock. */
+.topology-inline__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid var(--cb-border, var(--border-default));
+  border-radius: 12px;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+}
+
+/* Custom node — the vendor-coloured ring + label cluster. */
+.neighbor-node {
+  --neighbor-vendor-color: var(--topology-vendor-default);
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+
+.neighbor-node:focus-visible .neighbor-node__circle {
+  box-shadow: 0 0 0 2px var(--neighbor-vendor-color);
+}
+
+.neighbor-node__circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--neighbor-vendor-color);
+  border: 2px solid var(--border-default);
+  box-shadow: 0 0 0 1px var(--surface-2);
+}
+
+.neighbor-node--source .neighbor-node__circle {
+  border-style: dashed;
+}
+
+.neighbor-node__label {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.neighbor-node__tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  margin-top: 14px;
+  padding: 4px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border-radius: 3px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+  z-index: 5;
+}
+
+.neighbor-node:hover .neighbor-node__tooltip,
+.neighbor-node:focus-visible .neighbor-node__tooltip {
+  opacity: 1;
+}

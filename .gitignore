@@ -1,0 +1,92 @@
+# macOS
+.DS_Store
+
+# Node / Bun
+node_modules/
+dist/
+dist-ssr/
+.vite/
+bun.lockb.lock
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
+src-tauri/resources/models/*.bin
+!src-tauri/resources/models/.gitkeep
+
+# Python
+sidecar/dist/
+sidecar/build/
+sidecar/**/__pycache__/
+sidecar/**/*.pyc
+sidecar/.venv/
+scripts/**/__pycache__/
+scripts/**/*.pyc
+sidecar/tests/fixtures/*.pcap
+# RAG ONNX weights — fetched at build time by sidecar/scripts/fetch_onnx.py
+sidecar/src/ccie_sidecar/rag/models/all-MiniLM-L6-v2/
+!sidecar/src/ccie_sidecar/rag/models/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# App/user data that may accidentally land here
+.superpowers/
+.ccie-test/
+
+# Local env files (but keep .env.example)
+.env
+!.env.example
+/e2e/test-results/
+/test-results/
+.playwright-cli/
+
+# Lab inventory with plaintext credentials — never commit
+test-iac-integration/inventory.ini
+.worktrees/
+
+# Personal scratch notes
+notes.md
+
+# WhatsApp bridge runtime state (contains live chat JIDs — never commit)
+sidecar/observed_chats.json
+**/observed_chats.json
+
+# Archived legacy docs / scratch / test scripts (not app code)
+archive/
+# Claude Code worktree state
+.claude/worktrees/
+# Lowercase duplicate of the tracked CLAUDE.md
+/claude.md
+!/CLAUDE.md
+
+# SQLite databases (contain user data and credentials)
+*.db
+*.sqlite
+*.sqlite3
+src-tauri/*.db
+
+# Local test reports
+TEST_*.md
+TESTING.md
+
+# Local audit notes are not part of the public repository
+/Plans/

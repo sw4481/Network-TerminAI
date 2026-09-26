@@ -1,0 +1,17 @@
+{
+  "hostname": "R1",
+  "version": "17.9",
+  "interfaces": {
+    "GigabitEthernet1": { "ip_address": "10.0.0.1", "subnet_mask": "255.255.255.0", "description": "uplink", "shutdown": false },
+    "GigabitEthernet2": { "shutdown": true },
+    "GigabitEthernet3": { "ip_address": "192.168.1.1", "subnet_mask": "255.255.255.0", "shutdown": false }
+  },
+  "router_bgp": {
+    "65000": {
+      "neighbor": {
+        "10.0.0.2": { "remote_as": 65001 },
+        "10.0.0.3": { "remote_as": 65002 }
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+.iac-wizard-overlay {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: center;
+  background: rgb(var(--backdrop-rgb) / 0.5);
+}
+.iac-wizard-modal {
+  width: 480px; max-width: 90%;
+  background: var(--surface-terminal); color: var(--text-primary);
+  border: 1px solid var(--border-default); border-radius: 6px;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.iac-wizard-title { font-weight: 600; font-size: 14px; }
+.iac-wizard-field { display: flex; flex-direction: column; gap: 4px; }
+.iac-wizard-field label { font-size: 12px; color: var(--text-primary); }
+.iac-wizard-field input,
+.iac-wizard-field select,
+.iac-wizard-field textarea {
+  background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--text-primary);
+  border-radius: 4px; padding: 6px; font-size: 13px;
+}
+.iac-wizard-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.iac-wizard-actions button { padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+.iac-wizard-generate { background: var(--accent-subtle); color: var(--text-primary); border: none; }
+.iac-wizard-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+.iac-wizard-cancel { background: transparent; color: var(--text-primary); border: 1px solid var(--text-primary); }
+.iac-wizard-error { color: var(--status-danger); font-size: 12px; }
+.iac-wizard-checks { display: flex; gap: 14px; }
+.iac-wizard-checks label { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-primary); }

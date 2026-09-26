@@ -1,0 +1,34 @@
+[
+  {
+    "name": "stealthwatch_api_call",
+    "description": "Call Cisco Stealthwatch Enterprise REST API. Blast radius: GET=low, POST/PUT=medium, config paths=high, DELETE=destructive. Always retrieve tenantId first via GET /sw-reporting/v1/tenants before making other calls.",
+    "type": "function",
+    "function": {
+      "name": "stealthwatch_api_call",
+      "description": "Call Cisco Stealthwatch Enterprise (Secure Network Analytics) REST API.\n\nGENERAL PATTERN (read this before guessing endpoints):\n- Every data path is under /sw-reporting/v1/tenants/{tenantId}/... so ALWAYS get the tenantId first via GET /sw-reporting/v1/tenants.\n- Reads like hosts/host-groups are a single GET.\n- Security-events and flows are NOT a single GET. They are ASYNC: POST a query to .../queries to start a search job, then GET .../results/{queryId} and poll until the results array is populated. Do NOT brute-force singular/plural endpoint names; if a path 404s it is the wrong SHAPE, switch to the query/poll pattern.\n- Query filter bodies accept ONLY documented keys; unknown keys (startTime, endTime, limit, searchName, ...) return 400 BAD_REQUEST_UNMARSHALING_FAILED.\n\nBLAST RADIUS TIERS:\n- low: GET operations (read-only, auto-allowed)\n- medium: POST/PUT queries, non-destructive writes\n- high: Configuration changes (tags, policies, custom security events)\n- destructive: DELETE operations\n\nTENANT INFO (low):\n  GET /sw-reporting/v1/tenants\n    Get tenants. Payload: {\"data\": [{\"id\": 301, \"displayName\": \"...\"}]}\n\nSECURITY-EVENT TYPES (the CATALOG of event types — a SINGLE GET, not async):\n  GET /sw-reporting/v1/tenants/{tenantId}/security-events/templates        (low)\n    Use this for 'what security-event types exist'. Returns {\"data\": [{\"id\", \"name\", \"description\"}]} (~100 types e.g. SYN Flood, Host Lock Violation). There is NO /sw-reporting/v1/security-event-types (that 404s).\n\nSECURITY EVENTS (async query -> poll -> results):\n  POST /sw-reporting/v1/tenants/{tenantId}/security-events/queries        (medium)\n    Start a security-event search. Body filter keys (ALL optional except timeRange):\n      timeRange: {\"from\": \"YYYY-MM-DDTHH:MM:SSZ\", \"to\": \"YYYY-MM-DDTHH:MM:SSZ\"}\n      alarmCategoryId: int\n      hosts: [\"ip-or-range\"]\n      securityEventTypeIds: [int]\n    Returns: {\"data\": {\"searchJob\": {\"id\": \"<queryId>\", \"searchJobStatus\": \"IN_PROGRESS\", \"percentComplete\": 0}}}\n  GET /sw-reporting/v1/tenants/{tenantId}/security-events/results/{queryId}   (low)\n    Poll for results (sleep ~2s between polls). When ready:\n      {\"data\": {\"results\": [{\"id\", \"securityEventType\", \"firstActiveTime\", \"lastActiveTime\", \"source\": {\"ipAddress\",...}, \"target\": {\"ipAddress\",...}, \"details\": [{\"key\",\"value\"}]}]}}\n\nFLOWS (same async query -> poll -> results pattern):\n  POST /sw-reporting/v1/tenants/{tenantId}/flows/queries        (medium)\n    Body: {timeRange: {from, to}, ...flow filters}. Returns a searchJob id.\n  GET /sw-reporting/v1/tenants/{tenantId}/flows/results/{queryId}   (low)\n    Poll until results populated.\n\nHOSTS & INVENTORY (low):\n  GET /sw-reporting/v1/tenants/{tenantId}/hosts\n    List monitored hosts. Optional query: filter\n  GET /sw-reporting/v1/tenants/{tenantId}/host-groups\n    Configured host groups\n  GET /sw-reporting/v1/tenants/{tenantId}/hosts/{hostId}\n    Detail for one host\n\nCONFIGURATION (high):\n  POST /smc-configuration/rest/v1/tenants/{tenantId}/tags\n    Create a tag. Body: {name, ranges: [\"CIDR\"], description}\n  PUT  /smc-configuration/rest/v1/tenants/{tenantId}/tags/{id}\n    Update a tag. Body: {name, ranges, description}\n  POST /smc-configuration/rest/v1/tenants/{tenantId}/custom-security-events\n    Create custom security event rule. Body: {name, conditions, severity, actions}\n\nDESTRUCTIVE (destructive):\n  DELETE /smc-configuration/rest/v1/tenants/{tenantId}/tags/{id}\n    Permanently delete a tag\n  DELETE /smc-configuration/rest/v1/tenants/{tenantId}/custom-security-events/{id}\n    Permanently delete a custom security event rule",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "DELETE"],
+            "description": "HTTP method"
+          },
+          "path": {
+            "type": "string",
+            "description": "API endpoint path (e.g., '/sw-reporting/v1/tenants/123/flows/queries')"
+          },
+          "body": {
+            "type": "object",
+            "description": "Request body for POST/PUT (optional)"
+          },
+          "query_params": {
+            "type": "object",
+            "description": "URL query parameters as key-value pairs (optional)"
+          }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

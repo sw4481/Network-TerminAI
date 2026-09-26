@@ -1,0 +1,3672 @@
+id: meraki
+display_name: "Cisco Meraki Dashboard"
+schema_version: 1
+base_url: "https://api.meraki.com/api/v1"
+openapi_url: "https://raw.githubusercontent.com/meraki/openapi/master/openapi/spec3.json"
+auth:
+  type: header
+  header_name: "X-Cisco-Meraki-API-Key"
+  value: "${env:MERAKI_API_KEY}"
+tls:
+  verify: true
+defaults:
+  headers:
+    "Accept": "application/json"
+    "Content-Type": "application/json"
+endpoints:
+  - id: "meraki__get_getadministeredidentitiesme"
+    name: "Returns the identity of the current user."
+    method: GET
+    path: "/administered/identities/me"
+  - id: "meraki__get_getadministeredidentitiesmeapikeys"
+    name: "List the non-sensitive metadata associated with the API keys that belong to the user"
+    method: GET
+    path: "/administered/identities/me/api/keys"
+  - id: "meraki__post_generateadministeredidentitiesmeapikeys"
+    name: "Generates an API key for an identity"
+    method: POST
+    path: "/administered/identities/me/api/keys/generate"
+  - id: "meraki__post_revokeadministeredidentitiesmeapikeys"
+    name: "Revokes an identity's API key, using the last four characters of the key"
+    method: POST
+    path: "/administered/identities/me/api/keys/{suffix}/revoke"
+  - id: "meraki__get_getadministeredlicensingsubscriptionentitlements"
+    name: "Retrieve the list of purchasable entitlements"
+    method: GET
+    path: "/administered/licensing/subscription/entitlements"
+  - id: "meraki__get_getadministeredlicensingsubscriptionsubscriptions"
+    name: "List available subscriptions"
+    method: GET
+    path: "/administered/licensing/subscription/subscriptions"
+  - id: "meraki__post_claimadministeredlicensingsubscriptionsubscriptions"
+    name: "Claim a subscription into an organization."
+    method: POST
+    path: "/administered/licensing/subscription/subscriptions/claim"
+  - id: "meraki__post_validateadministeredlicensingsubscriptionsubscriptionsclaimkey"
+    name: "Find a subscription by claim key"
+    method: POST
+    path: "/administered/licensing/subscription/subscriptions/claimKey/validate"
+  - id: "meraki__get_getadministeredlicensingsubscriptionsubscriptionscompliancestatuses"
+    name: "Get compliance status for requested subscriptions"
+    method: GET
+    path: "/administered/licensing/subscription/subscriptions/compliance/statuses"
+  - id: "meraki__post_bindadministeredlicensingsubscriptionsubscription"
+    name: "Bind networks to a subscription"
+    method: POST
+    path: "/administered/licensing/subscription/subscriptions/{subscriptionId}/bind"
+  - id: "meraki__get_getdevice"
+    name: "Return a single device"
+    method: GET
+    path: "/devices/{serial}"
+  - id: "meraki__put_updatedevice"
+    name: "Update the attributes of a device"
+    method: PUT
+    path: "/devices/{serial}"
+  - id: "meraki__get_getdeviceappliancedhcpsubnets"
+    name: "Return the DHCP subnet information for an appliance"
+    method: GET
+    path: "/devices/{serial}/appliance/dhcp/subnets"
+  - id: "meraki__get_getdeviceapplianceperformance"
+    name: "Return the performance score for a single MX"
+    method: GET
+    path: "/devices/{serial}/appliance/performance"
+  - id: "meraki__get_getdeviceapplianceprefixesdelegated"
+    name: "Return current delegated IPv6 prefixes on an appliance."
+    method: GET
+    path: "/devices/{serial}/appliance/prefixes/delegated"
+  - id: "meraki__get_getdeviceapplianceprefixesdelegatedvlanassignments"
+    name: "Return prefixes assigned to all IPv6 enabled VLANs on an appliance."
+    method: GET
+    path: "/devices/{serial}/appliance/prefixes/delegated/vlanAssignments"
+  - id: "meraki__get_getdeviceapplianceradiosettings"
+    name: "Return the radio settings of an appliance"
+    method: GET
+    path: "/devices/{serial}/appliance/radio/settings"
+  - id: "meraki__put_updatedeviceapplianceradiosettings"
+    name: "Update the radio settings of an appliance"
+    method: PUT
+    path: "/devices/{serial}/appliance/radio/settings"
+  - id: "meraki__get_getdeviceapplianceuplinkssettings"
+    name: "Return the uplink settings for an MX appliance"
+    method: GET
+    path: "/devices/{serial}/appliance/uplinks/settings"
+  - id: "meraki__put_updatedeviceapplianceuplinkssettings"
+    name: "Update the uplink settings for an MX appliance"
+    method: PUT
+    path: "/devices/{serial}/appliance/uplinks/settings"
+  - id: "meraki__post_createdeviceappliancevmxauthenticationtoken"
+    name: "Generate a new vMX authentication token"
+    method: POST
+    path: "/devices/{serial}/appliance/vmx/authenticationToken"
+  - id: "meraki__post_blinkdeviceleds"
+    name: "Blink the LEDs on a device"
+    method: POST
+    path: "/devices/{serial}/blinkLeds"
+  - id: "meraki__get_getdevicecameraanalyticslive"
+    name: "Returns live state from camera analytics zones"
+    method: GET
+    path: "/devices/{serial}/camera/analytics/live"
+  - id: "meraki__get_getdevicecameraanalyticsoverview"
+    name: "Returns an overview of aggregate analytics data for a timespan"
+    method: GET
+    path: "/devices/{serial}/camera/analytics/overview"
+  - id: "meraki__get_getdevicecameraanalyticsrecent"
+    name: "Returns most recent record for analytics zones"
+    method: GET
+    path: "/devices/{serial}/camera/analytics/recent"
+  - id: "meraki__get_getdevicecameraanalyticszones"
+    name: "Returns all configured analytic zones for this camera"
+    method: GET
+    path: "/devices/{serial}/camera/analytics/zones"
+  - id: "meraki__get_getdevicecameraanalyticszonehistory"
+    name: "Return historical records for analytic zones"
+    method: GET
+    path: "/devices/{serial}/camera/analytics/zones/{zoneId}/history"
+  - id: "meraki__get_clipdevicecamera"
+    name: "Generate a video clip of up to 5 minutes long."
+    method: GET
+    path: "/devices/{serial}/camera/clip"
+  - id: "meraki__get_getdevicecameracustomanalytics"
+    name: "Return custom analytics settings for a camera"
+    method: GET
+    path: "/devices/{serial}/camera/customAnalytics"
+  - id: "meraki__put_updatedevicecameracustomanalytics"
+    name: "Update custom analytics settings for a camera"
+    method: PUT
+    path: "/devices/{serial}/camera/customAnalytics"
+  - id: "meraki__post_generatedevicecamerasnapshot"
+    name: "Generate a snapshot of what the camera sees at the specified time and return a link to that image."
+    method: POST
+    path: "/devices/{serial}/camera/generateSnapshot"
+  - id: "meraki__get_getdevicecameraqualityandretention"
+    name: "Returns quality and retention settings for the given camera"
+    method: GET
+    path: "/devices/{serial}/camera/qualityAndRetention"
+  - id: "meraki__put_updatedevicecameraqualityandretention"
+    name: "Update quality and retention settings for the given camera"
+    method: PUT
+    path: "/devices/{serial}/camera/qualityAndRetention"
+  - id: "meraki__get_getdevicecamerasense"
+    name: "Returns sense settings for a given camera"
+    method: GET
+    path: "/devices/{serial}/camera/sense"
+  - id: "meraki__put_updatedevicecamerasense"
+    name: "Update sense settings for the given camera"
+    method: PUT
+    path: "/devices/{serial}/camera/sense"
+  - id: "meraki__get_getdevicecamerasenseobjectdetectionmodels"
+    name: "Returns the MV Sense object detection model list for the given camera"
+    method: GET
+    path: "/devices/{serial}/camera/sense/objectDetectionModels"
+  - id: "meraki__get_getdevicecameravideosettings"
+    name: "Returns video settings for the given camera"
+    method: GET
+    path: "/devices/{serial}/camera/video/settings"
+  - id: "meraki__put_updatedevicecameravideosettings"
+    name: "Update video settings for the given camera"
+    method: PUT
+    path: "/devices/{serial}/camera/video/settings"
+  - id: "meraki__get_getdevicecameravideolink"
+    name: "Returns video link to the specified camera"
+    method: GET
+    path: "/devices/{serial}/camera/videoLink"
+  - id: "meraki__get_getdevicecamerawirelessprofiles"
+    name: "Returns wireless profile assigned to the given camera"
+    method: GET
+    path: "/devices/{serial}/camera/wirelessProfiles"
+  - id: "meraki__put_updatedevicecamerawirelessprofiles"
+    name: "Assign wireless profiles to the given camera"
+    method: PUT
+    path: "/devices/{serial}/camera/wirelessProfiles"
+  - id: "meraki__get_getdevicecellularsims"
+    name: "Return the SIM and APN configurations for a cellular device."
+    method: GET
+    path: "/devices/{serial}/cellular/sims"
+  - id: "meraki__put_updatedevicecellularsims"
+    name: "Updates the SIM and APN configurations for a cellular device."
+    method: PUT
+    path: "/devices/{serial}/cellular/sims"
+  - id: "meraki__get_getdevicecellulargatewaylan"
+    name: "Show the LAN Settings of a MG"
+    method: GET
+    path: "/devices/{serial}/cellularGateway/lan"
+  - id: "meraki__put_updatedevicecellulargatewaylan"
+    name: "Update the LAN Settings for a single MG."
+    method: PUT
+    path: "/devices/{serial}/cellularGateway/lan"
+  - id: "meraki__get_getdevicecellulargatewayportforwardingrules"
+    name: "Returns the port forwarding rules for a single MG."
+    method: GET
+    path: "/devices/{serial}/cellularGateway/portForwardingRules"
+  - id: "meraki__put_updatedevicecellulargatewayportforwardingrules"
+    name: "Updates the port forwarding rules for a single MG."
+    method: PUT
+    path: "/devices/{serial}/cellularGateway/portForwardingRules"
+  - id: "meraki__get_getdeviceclients"
+    name: "List the clients of a device, up to a maximum of a month ago"
+    method: GET
+    path: "/devices/{serial}/clients"
+  - id: "meraki__post_createdevicelivetoolsarptable"
+    name: "Enqueue a job to perform a ARP table request for the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/arpTable"
+  - id: "meraki__get_getdevicelivetoolsarptable"
+    name: "Return an ARP table live tool job."
+    method: GET
+    path: "/devices/{serial}/liveTools/arpTable/{arpTableId}"
+  - id: "meraki__post_createdevicelivetoolscabletest"
+    name: "Enqueue a job to perform a cable test for the device on the specified ports"
+    method: POST
+    path: "/devices/{serial}/liveTools/cableTest"
+  - id: "meraki__get_getdevicelivetoolscabletest"
+    name: "Return a cable test live tool job."
+    method: GET
+    path: "/devices/{serial}/liveTools/cableTest/{id}"
+  - id: "meraki__post_createdevicelivetoolsledsblink"
+    name: "Enqueue a job to blink LEDs on a device"
+    method: POST
+    path: "/devices/{serial}/liveTools/leds/blink"
+  - id: "meraki__get_getdevicelivetoolsledsblink"
+    name: "Return a blink LEDs job"
+    method: GET
+    path: "/devices/{serial}/liveTools/leds/blink/{ledsBlinkId}"
+  - id: "meraki__post_createdevicelivetoolsmactable"
+    name: "Enqueue a job to request the MAC table from the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/macTable"
+  - id: "meraki__get_getdevicelivetoolsmactable"
+    name: "Return a MAC table live tool job."
+    method: GET
+    path: "/devices/{serial}/liveTools/macTable/{macTableId}"
+  - id: "meraki__post_createdevicelivetoolsmulticastrouting"
+    name: "Enqueue a job to perform a Multicast routing request for the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/multicastRouting"
+  - id: "meraki__get_getdevicelivetoolsmulticastrouting"
+    name: "Return a Multicast routing live tool job."
+    method: GET
+    path: "/devices/{serial}/liveTools/multicastRouting/{multicastRoutingId}"
+  - id: "meraki__post_createdevicelivetoolsping"
+    name: "Enqueue a job to ping a target host from the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/ping"
+  - id: "meraki__get_getdevicelivetoolsping"
+    name: "Return a ping job"
+    method: GET
+    path: "/devices/{serial}/liveTools/ping/{id}"
+  - id: "meraki__post_createdevicelivetoolspingdevice"
+    name: "Enqueue a job to check connectivity status to the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/pingDevice"
+  - id: "meraki__get_getdevicelivetoolspingdevice"
+    name: "Return a ping device job"
+    method: GET
+    path: "/devices/{serial}/liveTools/pingDevice/{id}"
+  - id: "meraki__post_createdevicelivetoolsthroughputtest"
+    name: "Enqueue a job to test a device throughput, the test will run for 10 secs to test throughput"
+    method: POST
+    path: "/devices/{serial}/liveTools/throughputTest"
+  - id: "meraki__get_getdevicelivetoolsthroughputtest"
+    name: "Return a throughput test job"
+    method: GET
+    path: "/devices/{serial}/liveTools/throughputTest/{throughputTestId}"
+  - id: "meraki__post_createdevicelivetoolswakeonlan"
+    name: "Enqueue a job to send a Wake-on-LAN packet from the device"
+    method: POST
+    path: "/devices/{serial}/liveTools/wakeOnLan"
+  - id: "meraki__get_getdevicelivetoolswakeonlan"
+    name: "Return a Wake-on-LAN job"
+    method: GET
+    path: "/devices/{serial}/liveTools/wakeOnLan/{wakeOnLanId}"
+  - id: "meraki__get_getdevicelldpcdp"
+    name: "List LLDP and CDP information for a device"
+    method: GET
+    path: "/devices/{serial}/lldpCdp"
+  - id: "meraki__get_getdevicelossandlatencyhistory"
+    name: "Get the uplink loss percentage and latency in milliseconds, and goodput in kilobits per second for MX, MG and Z devices."
+    method: GET
+    path: "/devices/{serial}/lossAndLatencyHistory"
+  - id: "meraki__get_getdevicemanagementinterface"
+    name: "Return the management interface settings for a device"
+    method: GET
+    path: "/devices/{serial}/managementInterface"
+  - id: "meraki__put_updatedevicemanagementinterface"
+    name: "Update the management interface settings for a device"
+    method: PUT
+    path: "/devices/{serial}/managementInterface"
+  - id: "meraki__post_rebootdevice"
+    name: "Reboot a device"
+    method: POST
+    path: "/devices/{serial}/reboot"
+  - id: "meraki__get_getdevicesensorcommands"
+    name: "Returns a historical log of all commands"
+    method: GET
+    path: "/devices/{serial}/sensor/commands"
+  - id: "meraki__post_createdevicesensorcommand"
+    name: "Sends a command to a sensor"
+    method: POST
+    path: "/devices/{serial}/sensor/commands"
+  - id: "meraki__get_getdevicesensorcommand"
+    name: "Returns information about the command's execution, including the status"
+    method: GET
+    path: "/devices/{serial}/sensor/commands/{commandId}"
+  - id: "meraki__get_getdevicesensorrelationships"
+    name: "List the sensor roles for a given sensor or camera device."
+    method: GET
+    path: "/devices/{serial}/sensor/relationships"
+  - id: "meraki__put_updatedevicesensorrelationships"
+    name: "Assign one or more sensor roles to a given sensor or camera device."
+    method: PUT
+    path: "/devices/{serial}/sensor/relationships"
+  - id: "meraki__get_getdeviceswitchports"
+    name: "List the switch ports for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/ports"
+  - id: "meraki__post_cycledeviceswitchports"
+    name: "Cycle a set of switch ports"
+    method: POST
+    path: "/devices/{serial}/switch/ports/cycle"
+  - id: "meraki__get_getdeviceswitchportsstatuses"
+    name: "Return the status for all the ports of a switch"
+    method: GET
+    path: "/devices/{serial}/switch/ports/statuses"
+  - id: "meraki__get_getdeviceswitchportsstatusespackets"
+    name: "Return the packet counters for all the ports of a switch"
+    method: GET
+    path: "/devices/{serial}/switch/ports/statuses/packets"
+  - id: "meraki__get_getdeviceswitchport"
+    name: "Return a switch port"
+    method: GET
+    path: "/devices/{serial}/switch/ports/{portId}"
+  - id: "meraki__put_updatedeviceswitchport"
+    name: "Update a switch port"
+    method: PUT
+    path: "/devices/{serial}/switch/ports/{portId}"
+  - id: "meraki__get_getdeviceswitchroutinginterfaces"
+    name: "List layer 3 interfaces for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/routing/interfaces"
+  - id: "meraki__post_createdeviceswitchroutinginterface"
+    name: "Create a layer 3 interface for a switch"
+    method: POST
+    path: "/devices/{serial}/switch/routing/interfaces"
+  - id: "meraki__get_getdeviceswitchroutinginterface"
+    name: "Return a layer 3 interface for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/routing/interfaces/{interfaceId}"
+  - id: "meraki__put_updatedeviceswitchroutinginterface"
+    name: "Update a layer 3 interface for a switch"
+    method: PUT
+    path: "/devices/{serial}/switch/routing/interfaces/{interfaceId}"
+  - id: "meraki__delete_deletedeviceswitchroutinginterface"
+    name: "Delete a layer 3 interface from the switch"
+    method: DELETE
+    path: "/devices/{serial}/switch/routing/interfaces/{interfaceId}"
+  - id: "meraki__get_getdeviceswitchroutinginterfacedhcp"
+    name: "Return a layer 3 interface DHCP configuration for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/routing/interfaces/{interfaceId}/dhcp"
+  - id: "meraki__put_updatedeviceswitchroutinginterfacedhcp"
+    name: "Update a layer 3 interface DHCP configuration for a switch"
+    method: PUT
+    path: "/devices/{serial}/switch/routing/interfaces/{interfaceId}/dhcp"
+  - id: "meraki__get_getdeviceswitchroutingstaticroutes"
+    name: "List layer 3 static routes for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/routing/staticRoutes"
+  - id: "meraki__post_createdeviceswitchroutingstaticroute"
+    name: "Create a layer 3 static route for a switch"
+    method: POST
+    path: "/devices/{serial}/switch/routing/staticRoutes"
+  - id: "meraki__get_getdeviceswitchroutingstaticroute"
+    name: "Return a layer 3 static route for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__put_updatedeviceswitchroutingstaticroute"
+    name: "Update a layer 3 static route for a switch"
+    method: PUT
+    path: "/devices/{serial}/switch/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__delete_deletedeviceswitchroutingstaticroute"
+    name: "Delete a layer 3 static route for a switch"
+    method: DELETE
+    path: "/devices/{serial}/switch/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__get_getdeviceswitchwarmspare"
+    name: "Return warm spare configuration for a switch"
+    method: GET
+    path: "/devices/{serial}/switch/warmSpare"
+  - id: "meraki__put_updatedeviceswitchwarmspare"
+    name: "Update warm spare configuration for a switch"
+    method: PUT
+    path: "/devices/{serial}/switch/warmSpare"
+  - id: "meraki__put_updatedevicewirelessalternatemanagementinterfaceipv6"
+    name: "Update alternate management interface IPv6 address"
+    method: PUT
+    path: "/devices/{serial}/wireless/alternateManagementInterface/ipv6"
+  - id: "meraki__get_getdevicewirelessbluetoothsettings"
+    name: "Return the bluetooth settings for a wireless device"
+    method: GET
+    path: "/devices/{serial}/wireless/bluetooth/settings"
+  - id: "meraki__put_updatedevicewirelessbluetoothsettings"
+    name: "Update the bluetooth settings for a wireless device"
+    method: PUT
+    path: "/devices/{serial}/wireless/bluetooth/settings"
+  - id: "meraki__get_getdevicewirelessconnectionstats"
+    name: "Aggregated connectivity info for a given AP on this network"
+    method: GET
+    path: "/devices/{serial}/wireless/connectionStats"
+  - id: "meraki__get_getdevicewirelesselectronicshelflabel"
+    name: "Return the ESL settings of a device"
+    method: GET
+    path: "/devices/{serial}/wireless/electronicShelfLabel"
+  - id: "meraki__put_updatedevicewirelesselectronicshelflabel"
+    name: "Update the ESL settings of a device"
+    method: PUT
+    path: "/devices/{serial}/wireless/electronicShelfLabel"
+  - id: "meraki__get_getdevicewirelesslatencystats"
+    name: "Aggregated latency info for a given AP on this network"
+    method: GET
+    path: "/devices/{serial}/wireless/latencyStats"
+  - id: "meraki__get_getdevicewirelessradiosettings"
+    name: "Return the manually configured radio settings overrides of a device, which take precedence over RF profiles."
+    method: GET
+    path: "/devices/{serial}/wireless/radio/settings"
+  - id: "meraki__put_updatedevicewirelessradiosettings"
+    name: "Update 2.4 GHz and 5 GHz radio settings (channel, channel width, power) that override RF profiles"
+    method: PUT
+    path: "/devices/{serial}/wireless/radio/settings"
+  - id: "meraki__get_getdevicewirelessstatus"
+    name: "Return the SSID statuses of an access point"
+    method: GET
+    path: "/devices/{serial}/wireless/status"
+  - id: "meraki__post_createdevicewirelesszigbeeenrollment"
+    name: "Enqueue a job to start enrolling door locks on zigbee configured wireless devices"
+    method: POST
+    path: "/devices/{serial}/wireless/zigbee/enrollments"
+  - id: "meraki__get_getdevicewirelesszigbeeenrollment"
+    name: "Return an enrollment"
+    method: GET
+    path: "/devices/{serial}/wireless/zigbee/enrollments/{enrollmentId}"
+  - id: "meraki__get_getnetwork"
+    name: "Return a network"
+    method: GET
+    path: "/networks/{networkId}"
+  - id: "meraki__put_updatenetwork"
+    name: "Update a network"
+    method: PUT
+    path: "/networks/{networkId}"
+  - id: "meraki__delete_deletenetwork"
+    name: "Delete a network"
+    method: DELETE
+    path: "/networks/{networkId}"
+  - id: "meraki__get_getnetworkalertshistory"
+    name: "Return the alert history for this network"
+    method: GET
+    path: "/networks/{networkId}/alerts/history"
+  - id: "meraki__get_getnetworkalertssettings"
+    name: "Return the alert configuration for this network"
+    method: GET
+    path: "/networks/{networkId}/alerts/settings"
+  - id: "meraki__put_updatenetworkalertssettings"
+    name: "Update the alert configuration for this network"
+    method: PUT
+    path: "/networks/{networkId}/alerts/settings"
+  - id: "meraki__get_getnetworkapplianceclientsecurityevents"
+    name: "List the security events for a client"
+    method: GET
+    path: "/networks/{networkId}/appliance/clients/{clientId}/security/events"
+  - id: "meraki__get_getnetworkapplianceconnectivitymonitoringdestinations"
+    name: "Return the connectivity testing destinations for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/connectivityMonitoringDestinations"
+  - id: "meraki__put_updatenetworkapplianceconnectivitymonitoringdestinations"
+    name: "Update the connectivity testing destinations for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/connectivityMonitoringDestinations"
+  - id: "meraki__get_getnetworkappliancecontentfiltering"
+    name: "Return the content filtering settings for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/contentFiltering"
+  - id: "meraki__put_updatenetworkappliancecontentfiltering"
+    name: "Update the content filtering settings for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/contentFiltering"
+  - id: "meraki__get_getnetworkappliancecontentfilteringcategories"
+    name: "List all available content filtering categories for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/contentFiltering/categories"
+  - id: "meraki__get_getnetworkappliancefirewallcellularfirewallrules"
+    name: "Return the cellular firewall rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/cellularFirewallRules"
+  - id: "meraki__put_updatenetworkappliancefirewallcellularfirewallrules"
+    name: "Update the cellular firewall rules of an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/cellularFirewallRules"
+  - id: "meraki__get_getnetworkappliancefirewallfirewalledservices"
+    name: "List the appliance services and their accessibility rules"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/firewalledServices"
+  - id: "meraki__get_getnetworkappliancefirewallfirewalledservice"
+    name: "Return the accessibility settings of the given service ('ICMP', 'web', or 'SNMP')"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/firewalledServices/{service}"
+  - id: "meraki__put_updatenetworkappliancefirewallfirewalledservice"
+    name: "Updates the accessibility settings for the given service ('ICMP', 'web', or 'SNMP')"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/firewalledServices/{service}"
+  - id: "meraki__get_getnetworkappliancefirewallinboundcellularfirewallrules"
+    name: "Return the inbound cellular firewall rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/inboundCellularFirewallRules"
+  - id: "meraki__put_updatenetworkappliancefirewallinboundcellularfirewallrules"
+    name: "Update the inbound cellular firewall rules of an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/inboundCellularFirewallRules"
+  - id: "meraki__get_getnetworkappliancefirewallinboundfirewallrules"
+    name: "Return the inbound firewall rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/inboundFirewallRules"
+  - id: "meraki__put_updatenetworkappliancefirewallinboundfirewallrules"
+    name: "Update the inbound firewall rules of an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/inboundFirewallRules"
+  - id: "meraki__get_getnetworkappliancefirewalll3firewallrules"
+    name: "Return the L3 firewall rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/l3FirewallRules"
+  - id: "meraki__put_updatenetworkappliancefirewalll3firewallrules"
+    name: "Update the L3 firewall rules of an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/l3FirewallRules"
+  - id: "meraki__get_getnetworkappliancefirewalll7firewallrules"
+    name: "List the MX L7 firewall rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/l7FirewallRules"
+  - id: "meraki__put_updatenetworkappliancefirewalll7firewallrules"
+    name: "Update the MX L7 firewall rules for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/l7FirewallRules"
+  - id: "meraki__get_getnetworkappliancefirewalll7firewallrulesapplicationcategories"
+    name: "Return the L7 firewall application categories and their associated applications for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/l7FirewallRules/applicationCategories"
+  - id: "meraki__put_updatenetworkappliancefirewallmulticastforwarding"
+    name: "Update static multicast forward rules for a network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/multicastForwarding"
+  - id: "meraki__get_getnetworkappliancefirewallonetomanynatrules"
+    name: "Return the 1:Many NAT mapping rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/oneToManyNatRules"
+  - id: "meraki__put_updatenetworkappliancefirewallonetomanynatrules"
+    name: "Set the 1:Many NAT mapping rules for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/oneToManyNatRules"
+  - id: "meraki__get_getnetworkappliancefirewallonetoonenatrules"
+    name: "Return the 1:1 NAT mapping rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/oneToOneNatRules"
+  - id: "meraki__put_updatenetworkappliancefirewallonetoonenatrules"
+    name: "Set the 1:1 NAT mapping rules for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/oneToOneNatRules"
+  - id: "meraki__get_getnetworkappliancefirewallportforwardingrules"
+    name: "Return the port forwarding rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/portForwardingRules"
+  - id: "meraki__put_updatenetworkappliancefirewallportforwardingrules"
+    name: "Update the port forwarding rules for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/portForwardingRules"
+  - id: "meraki__get_getnetworkappliancefirewallsettings"
+    name: "Return the firewall settings for this network"
+    method: GET
+    path: "/networks/{networkId}/appliance/firewall/settings"
+  - id: "meraki__put_updatenetworkappliancefirewallsettings"
+    name: "Update the firewall settings for this network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/firewall/settings"
+  - id: "meraki__get_getnetworkapplianceports"
+    name: "List per-port VLAN settings for all ports of a secure router or security appliance."
+    method: GET
+    path: "/networks/{networkId}/appliance/ports"
+  - id: "meraki__get_getnetworkapplianceport"
+    name: "Return per-port VLAN settings for a single secure router or security appliance port."
+    method: GET
+    path: "/networks/{networkId}/appliance/ports/{portId}"
+  - id: "meraki__put_updatenetworkapplianceport"
+    name: "Update the per-port VLAN settings for a single secure router or security appliance port."
+    method: PUT
+    path: "/networks/{networkId}/appliance/ports/{portId}"
+  - id: "meraki__get_getnetworkapplianceprefixesdelegatedstatics"
+    name: "List static delegated prefixes for a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/prefixes/delegated/statics"
+  - id: "meraki__post_createnetworkapplianceprefixesdelegatedstatic"
+    name: "Add a static delegated prefix from a network"
+    method: POST
+    path: "/networks/{networkId}/appliance/prefixes/delegated/statics"
+  - id: "meraki__get_getnetworkapplianceprefixesdelegatedstatic"
+    name: "Return a static delegated prefix from a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/prefixes/delegated/statics/{staticDelegatedPrefixId}"
+  - id: "meraki__put_updatenetworkapplianceprefixesdelegatedstatic"
+    name: "Update a static delegated prefix from a network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/prefixes/delegated/statics/{staticDelegatedPrefixId}"
+  - id: "meraki__delete_deletenetworkapplianceprefixesdelegatedstatic"
+    name: "Delete a static delegated prefix from a network"
+    method: DELETE
+    path: "/networks/{networkId}/appliance/prefixes/delegated/statics/{staticDelegatedPrefixId}"
+  - id: "meraki__get_getnetworkappliancerfprofiles"
+    name: "List the RF profiles for this network"
+    method: GET
+    path: "/networks/{networkId}/appliance/rfProfiles"
+  - id: "meraki__post_createnetworkappliancerfprofile"
+    name: "Creates new RF profile for this network"
+    method: POST
+    path: "/networks/{networkId}/appliance/rfProfiles"
+  - id: "meraki__put_updatenetworkappliancerfprofile"
+    name: "Updates specified RF profile for this network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/rfProfiles/{rfProfileId}"
+  - id: "meraki__delete_deletenetworkappliancerfprofile"
+    name: "Delete a RF Profile"
+    method: DELETE
+    path: "/networks/{networkId}/appliance/rfProfiles/{rfProfileId}"
+  - id: "meraki__get_getnetworkappliancerfprofile"
+    name: "Return a RF profile"
+    method: GET
+    path: "/networks/{networkId}/appliance/rfProfiles/{rfProfileId}"
+  - id: "meraki__put_updatenetworkappliancesdwaninternetpolicies"
+    name: "Update SDWAN internet traffic preferences for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/sdwan/internetPolicies"
+  - id: "meraki__get_getnetworkappliancesecurityevents"
+    name: "List the security events for a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/security/events"
+  - id: "meraki__get_getnetworkappliancesecurityintrusion"
+    name: "Returns all supported intrusion settings for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/security/intrusion"
+  - id: "meraki__put_updatenetworkappliancesecurityintrusion"
+    name: "Set the supported intrusion settings for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/security/intrusion"
+  - id: "meraki__get_getnetworkappliancesecuritymalware"
+    name: "Returns all supported malware settings for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/security/malware"
+  - id: "meraki__put_updatenetworkappliancesecuritymalware"
+    name: "Set the supported malware settings for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/security/malware"
+  - id: "meraki__get_getnetworkappliancesettings"
+    name: "Return the appliance settings for a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/settings"
+  - id: "meraki__put_updatenetworkappliancesettings"
+    name: "Update the appliance settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/settings"
+  - id: "meraki__get_getnetworkappliancesinglelan"
+    name: "Return single LAN configuration"
+    method: GET
+    path: "/networks/{networkId}/appliance/singleLan"
+  - id: "meraki__put_updatenetworkappliancesinglelan"
+    name: "Update single LAN configuration"
+    method: PUT
+    path: "/networks/{networkId}/appliance/singleLan"
+  - id: "meraki__get_getnetworkappliancessids"
+    name: "List the MX SSIDs in a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/ssids"
+  - id: "meraki__get_getnetworkappliancessid"
+    name: "Return a single MX SSID"
+    method: GET
+    path: "/networks/{networkId}/appliance/ssids/{number}"
+  - id: "meraki__put_updatenetworkappliancessid"
+    name: "Update the attributes of an MX SSID"
+    method: PUT
+    path: "/networks/{networkId}/appliance/ssids/{number}"
+  - id: "meraki__get_getnetworkappliancestaticroutes"
+    name: "List the static routes for an MX or teleworker network"
+    method: GET
+    path: "/networks/{networkId}/appliance/staticRoutes"
+  - id: "meraki__post_createnetworkappliancestaticroute"
+    name: "Add a static route for an MX or teleworker network"
+    method: POST
+    path: "/networks/{networkId}/appliance/staticRoutes"
+  - id: "meraki__get_getnetworkappliancestaticroute"
+    name: "Return a static route for an MX or teleworker network"
+    method: GET
+    path: "/networks/{networkId}/appliance/staticRoutes/{staticRouteId}"
+  - id: "meraki__put_updatenetworkappliancestaticroute"
+    name: "Update a static route for an MX or teleworker network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/staticRoutes/{staticRouteId}"
+  - id: "meraki__delete_deletenetworkappliancestaticroute"
+    name: "Delete a static route from an MX or teleworker network"
+    method: DELETE
+    path: "/networks/{networkId}/appliance/staticRoutes/{staticRouteId}"
+  - id: "meraki__get_getnetworkappliancetrafficshaping"
+    name: "Display the traffic shaping settings for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping"
+  - id: "meraki__put_updatenetworkappliancetrafficshaping"
+    name: "Update the traffic shaping settings for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping"
+  - id: "meraki__get_getnetworkappliancetrafficshapingcustomperformanceclasses"
+    name: "List all custom performance classes for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses"
+  - id: "meraki__post_createnetworkappliancetrafficshapingcustomperformanceclass"
+    name: "Add a custom performance class for an MX network"
+    method: POST
+    path: "/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses"
+  - id: "meraki__get_getnetworkappliancetrafficshapingcustomperformanceclass"
+    name: "Return a custom performance class for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses/{customPerformanceClassId}"
+  - id: "meraki__put_updatenetworkappliancetrafficshapingcustomperformanceclass"
+    name: "Update a custom performance class for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses/{customPerformanceClassId}"
+  - id: "meraki__delete_deletenetworkappliancetrafficshapingcustomperformanceclass"
+    name: "Delete a custom performance class from an MX network"
+    method: DELETE
+    path: "/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses/{customPerformanceClassId}"
+  - id: "meraki__put_updatenetworkappliancetrafficshapingrules"
+    name: "Update the traffic shaping settings rules for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping/rules"
+  - id: "meraki__get_getnetworkappliancetrafficshapingrules"
+    name: "Display the traffic shaping settings rules for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping/rules"
+  - id: "meraki__get_getnetworkappliancetrafficshapinguplinkbandwidth"
+    name: "Returns the uplink bandwidth limits for your MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping/uplinkBandwidth"
+  - id: "meraki__put_updatenetworkappliancetrafficshapinguplinkbandwidth"
+    name: "Updates the uplink bandwidth settings for your MX network."
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping/uplinkBandwidth"
+  - id: "meraki__get_getnetworkappliancetrafficshapinguplinkselection"
+    name: "Show uplink selection settings for an MX network"
+    method: GET
+    path: "/networks/{networkId}/appliance/trafficShaping/uplinkSelection"
+  - id: "meraki__put_updatenetworkappliancetrafficshapinguplinkselection"
+    name: "Update uplink selection settings for an MX network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping/uplinkSelection"
+  - id: "meraki__put_updatenetworkappliancetrafficshapingvpnexclusions"
+    name: "Update VPN exclusion rules for an MX network."
+    method: PUT
+    path: "/networks/{networkId}/appliance/trafficShaping/vpnExclusions"
+  - id: "meraki__post_connectnetworkapplianceumbrellaaccount"
+    name: "Connect a Cisco Umbrella account to this network"
+    method: POST
+    path: "/networks/{networkId}/appliance/umbrella/account/connect"
+  - id: "meraki__post_disconnectnetworkapplianceumbrellaaccount"
+    name: "Disconnect Umbrella account from this network"
+    method: POST
+    path: "/networks/{networkId}/appliance/umbrella/account/disconnect"
+  - id: "meraki__put_updatenetworkapplianceuplinksnat"
+    name: "Update uplink NAT settings of the specified network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/uplinks/nat"
+  - id: "meraki__get_getnetworkapplianceuplinksusagehistory"
+    name: "Get the sent and received bytes for each uplink of a network."
+    method: GET
+    path: "/networks/{networkId}/appliance/uplinks/usageHistory"
+  - id: "meraki__get_getnetworkappliancevlans"
+    name: "List the VLANs for a Security Appliance network"
+    method: GET
+    path: "/networks/{networkId}/appliance/vlans"
+  - id: "meraki__post_createnetworkappliancevlan"
+    name: "Add a VLAN"
+    method: POST
+    path: "/networks/{networkId}/appliance/vlans"
+  - id: "meraki__get_getnetworkappliancevlanssettings"
+    name: "Returns the enabled status of VLANs for the network"
+    method: GET
+    path: "/networks/{networkId}/appliance/vlans/settings"
+  - id: "meraki__put_updatenetworkappliancevlanssettings"
+    name: "Enable/Disable VLANs for the given network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/vlans/settings"
+  - id: "meraki__get_getnetworkappliancevlan"
+    name: "Return a VLAN"
+    method: GET
+    path: "/networks/{networkId}/appliance/vlans/{vlanId}"
+  - id: "meraki__put_updatenetworkappliancevlan"
+    name: "Update a VLAN"
+    method: PUT
+    path: "/networks/{networkId}/appliance/vlans/{vlanId}"
+  - id: "meraki__delete_deletenetworkappliancevlan"
+    name: "Delete a VLAN from a network"
+    method: DELETE
+    path: "/networks/{networkId}/appliance/vlans/{vlanId}"
+  - id: "meraki__get_getnetworkappliancevpnbgp"
+    name: "Return a Hub BGP Configuration"
+    method: GET
+    path: "/networks/{networkId}/appliance/vpn/bgp"
+  - id: "meraki__put_updatenetworkappliancevpnbgp"
+    name: "Update a Hub BGP Configuration"
+    method: PUT
+    path: "/networks/{networkId}/appliance/vpn/bgp"
+  - id: "meraki__get_getnetworkappliancevpnsitetositevpn"
+    name: "Return the site-to-site VPN settings of a network"
+    method: GET
+    path: "/networks/{networkId}/appliance/vpn/siteToSiteVpn"
+  - id: "meraki__put_updatenetworkappliancevpnsitetositevpn"
+    name: "Update the site-to-site VPN settings of a network"
+    method: PUT
+    path: "/networks/{networkId}/appliance/vpn/siteToSiteVpn"
+  - id: "meraki__get_getnetworkappliancewarmspare"
+    name: "Return MX warm spare settings"
+    method: GET
+    path: "/networks/{networkId}/appliance/warmSpare"
+  - id: "meraki__put_updatenetworkappliancewarmspare"
+    name: "Update MX warm spare settings"
+    method: PUT
+    path: "/networks/{networkId}/appliance/warmSpare"
+  - id: "meraki__post_swapnetworkappliancewarmspare"
+    name: "Swap MX primary and warm spare appliances"
+    method: POST
+    path: "/networks/{networkId}/appliance/warmSpare/swap"
+  - id: "meraki__post_bindnetwork"
+    name: "Bind a network to a template."
+    method: POST
+    path: "/networks/{networkId}/bind"
+  - id: "meraki__get_getnetworkbluetoothclients"
+    name: "List the Bluetooth clients seen by APs in this network"
+    method: GET
+    path: "/networks/{networkId}/bluetoothClients"
+  - id: "meraki__get_getnetworkbluetoothclient"
+    name: "Return a Bluetooth client"
+    method: GET
+    path: "/networks/{networkId}/bluetoothClients/{bluetoothClientId}"
+  - id: "meraki__get_getnetworkcameraqualityretentionprofiles"
+    name: "List the quality retention profiles for this network"
+    method: GET
+    path: "/networks/{networkId}/camera/qualityRetentionProfiles"
+  - id: "meraki__post_createnetworkcameraqualityretentionprofile"
+    name: "Creates new quality retention profile for this network."
+    method: POST
+    path: "/networks/{networkId}/camera/qualityRetentionProfiles"
+  - id: "meraki__get_getnetworkcameraqualityretentionprofile"
+    name: "Retrieve a single quality retention profile"
+    method: GET
+    path: "/networks/{networkId}/camera/qualityRetentionProfiles/{qualityRetentionProfileId}"
+  - id: "meraki__put_updatenetworkcameraqualityretentionprofile"
+    name: "Update an existing quality retention profile for this network."
+    method: PUT
+    path: "/networks/{networkId}/camera/qualityRetentionProfiles/{qualityRetentionProfileId}"
+  - id: "meraki__delete_deletenetworkcameraqualityretentionprofile"
+    name: "Delete an existing quality retention profile for this network."
+    method: DELETE
+    path: "/networks/{networkId}/camera/qualityRetentionProfiles/{qualityRetentionProfileId}"
+  - id: "meraki__get_getnetworkcameraschedules"
+    name: "Returns a list of all camera recording schedules."
+    method: GET
+    path: "/networks/{networkId}/camera/schedules"
+  - id: "meraki__post_createnetworkcamerawirelessprofile"
+    name: "Creates a new camera wireless profile for this network."
+    method: POST
+    path: "/networks/{networkId}/camera/wirelessProfiles"
+  - id: "meraki__get_getnetworkcamerawirelessprofiles"
+    name: "List the camera wireless profiles for this network."
+    method: GET
+    path: "/networks/{networkId}/camera/wirelessProfiles"
+  - id: "meraki__get_getnetworkcamerawirelessprofile"
+    name: "Retrieve a single camera wireless profile."
+    method: GET
+    path: "/networks/{networkId}/camera/wirelessProfiles/{wirelessProfileId}"
+  - id: "meraki__put_updatenetworkcamerawirelessprofile"
+    name: "Update an existing camera wireless profile in this network."
+    method: PUT
+    path: "/networks/{networkId}/camera/wirelessProfiles/{wirelessProfileId}"
+  - id: "meraki__delete_deletenetworkcamerawirelessprofile"
+    name: "Delete an existing camera wireless profile for this network."
+    method: DELETE
+    path: "/networks/{networkId}/camera/wirelessProfiles/{wirelessProfileId}"
+  - id: "meraki__post_createnetworkcampusgatewaycluster"
+    name: "Create a cluster and add campus gateways to it"
+    method: POST
+    path: "/networks/{networkId}/campusGateway/clusters"
+  - id: "meraki__put_updatenetworkcampusgatewaycluster"
+    name: "Update a cluster and add/remove campus gateways to/from it"
+    method: PUT
+    path: "/networks/{networkId}/campusGateway/clusters/{clusterId}"
+  - id: "meraki__get_getnetworkcellulargatewayconnectivitymonitoringdestinations"
+    name: "Return the connectivity testing destinations for an MG network"
+    method: GET
+    path: "/networks/{networkId}/cellularGateway/connectivityMonitoringDestinations"
+  - id: "meraki__put_updatenetworkcellulargatewayconnectivitymonitoringdestinations"
+    name: "Update the connectivity testing destinations for an MG network"
+    method: PUT
+    path: "/networks/{networkId}/cellularGateway/connectivityMonitoringDestinations"
+  - id: "meraki__get_getnetworkcellulargatewaydhcp"
+    name: "List common DHCP settings of MGs"
+    method: GET
+    path: "/networks/{networkId}/cellularGateway/dhcp"
+  - id: "meraki__put_updatenetworkcellulargatewaydhcp"
+    name: "Update common DHCP settings of MGs"
+    method: PUT
+    path: "/networks/{networkId}/cellularGateway/dhcp"
+  - id: "meraki__get_getnetworkcellulargatewaysubnetpool"
+    name: "Return the subnet pool and mask configured for MGs in the network."
+    method: GET
+    path: "/networks/{networkId}/cellularGateway/subnetPool"
+  - id: "meraki__put_updatenetworkcellulargatewaysubnetpool"
+    name: "Update the subnet pool and mask configuration for MGs in the network."
+    method: PUT
+    path: "/networks/{networkId}/cellularGateway/subnetPool"
+  - id: "meraki__get_getnetworkcellulargatewayuplink"
+    name: "Returns the uplink settings for your MG network."
+    method: GET
+    path: "/networks/{networkId}/cellularGateway/uplink"
+  - id: "meraki__put_updatenetworkcellulargatewayuplink"
+    name: "Updates the uplink settings for your MG network."
+    method: PUT
+    path: "/networks/{networkId}/cellularGateway/uplink"
+  - id: "meraki__get_getnetworkclients"
+    name: "List the clients that have used this network in the timespan"
+    method: GET
+    path: "/networks/{networkId}/clients"
+  - id: "meraki__get_getnetworkclientsapplicationusage"
+    name: "Return the application usage data for clients"
+    method: GET
+    path: "/networks/{networkId}/clients/applicationUsage"
+  - id: "meraki__get_getnetworkclientsbandwidthusagehistory"
+    name: "Returns a timeseries of total traffic consumption rates for all clients on a network within a given timespan, in megabits per second."
+    method: GET
+    path: "/networks/{networkId}/clients/bandwidthUsageHistory"
+  - id: "meraki__get_getnetworkclientsoverview"
+    name: "Return overview statistics for network clients"
+    method: GET
+    path: "/networks/{networkId}/clients/overview"
+  - id: "meraki__post_provisionnetworkclients"
+    name: "Provisions a client with a name and policy"
+    method: POST
+    path: "/networks/{networkId}/clients/provision"
+  - id: "meraki__get_getnetworkclientsusagehistories"
+    name: "Return the usage histories for clients"
+    method: GET
+    path: "/networks/{networkId}/clients/usageHistories"
+  - id: "meraki__get_getnetworkclient"
+    name: "Return the client associated with the given identifier"
+    method: GET
+    path: "/networks/{networkId}/clients/{clientId}"
+  - id: "meraki__get_getnetworkclientpolicy"
+    name: "Return the policy assigned to a client on the network"
+    method: GET
+    path: "/networks/{networkId}/clients/{clientId}/policy"
+  - id: "meraki__put_updatenetworkclientpolicy"
+    name: "Update the policy assigned to a client on the network"
+    method: PUT
+    path: "/networks/{networkId}/clients/{clientId}/policy"
+  - id: "meraki__get_getnetworkclientsplashauthorizationstatus"
+    name: "Return the splash authorization for a client, for each SSID they've associated with through splash"
+    method: GET
+    path: "/networks/{networkId}/clients/{clientId}/splashAuthorizationStatus"
+  - id: "meraki__put_updatenetworkclientsplashauthorizationstatus"
+    name: "Update a client's splash authorization"
+    method: PUT
+    path: "/networks/{networkId}/clients/{clientId}/splashAuthorizationStatus"
+  - id: "meraki__get_getnetworkclienttraffichistory"
+    name: "Return the client's network traffic data over time"
+    method: GET
+    path: "/networks/{networkId}/clients/{clientId}/trafficHistory"
+  - id: "meraki__get_getnetworkclientusagehistory"
+    name: "Return the client's daily usage history"
+    method: GET
+    path: "/networks/{networkId}/clients/{clientId}/usageHistory"
+  - id: "meraki__get_getnetworkdevices"
+    name: "List the devices in a network"
+    method: GET
+    path: "/networks/{networkId}/devices"
+  - id: "meraki__post_claimnetworkdevices"
+    name: "Claim devices into a network. (Note: for recently claimed devices, it may take a few minutes for API requests against that device to succeed)"
+    method: POST
+    path: "/networks/{networkId}/devices/claim"
+  - id: "meraki__post_vmxnetworkdevicesclaim"
+    name: "Claim a vMX into a network"
+    method: POST
+    path: "/networks/{networkId}/devices/claim/vmx"
+  - id: "meraki__post_removenetworkdevices"
+    name: "Remove a single device"
+    method: POST
+    path: "/networks/{networkId}/devices/remove"
+  - id: "meraki__get_getnetworkevents"
+    name: "List the events for the network"
+    method: GET
+    path: "/networks/{networkId}/events"
+  - id: "meraki__get_getnetworkeventseventtypes"
+    name: "List the event type to human-readable description"
+    method: GET
+    path: "/networks/{networkId}/events/eventTypes"
+  - id: "meraki__get_getnetworkfirmwareupgrades"
+    name: "Get firmware upgrade information for a network"
+    method: GET
+    path: "/networks/{networkId}/firmwareUpgrades"
+  - id: "meraki__put_updatenetworkfirmwareupgrades"
+    name: "Update firmware upgrade information for a network"
+    method: PUT
+    path: "/networks/{networkId}/firmwareUpgrades"
+  - id: "meraki__post_createnetworkfirmwareupgradesrollback"
+    name: "Rollback a Firmware Upgrade For A Network"
+    method: POST
+    path: "/networks/{networkId}/firmwareUpgrades/rollbacks"
+  - id: "meraki__get_getnetworkfirmwareupgradesstagedevents"
+    name: "Get the Staged Upgrade Event from a network"
+    method: GET
+    path: "/networks/{networkId}/firmwareUpgrades/staged/events"
+  - id: "meraki__post_createnetworkfirmwareupgradesstagedevent"
+    name: "Create a Staged Upgrade Event for a network"
+    method: POST
+    path: "/networks/{networkId}/firmwareUpgrades/staged/events"
+  - id: "meraki__put_updatenetworkfirmwareupgradesstagedevents"
+    name: "Update the Staged Upgrade Event for a network"
+    method: PUT
+    path: "/networks/{networkId}/firmwareUpgrades/staged/events"
+  - id: "meraki__post_defernetworkfirmwareupgradesstagedevents"
+    name: "Postpone by 1 week all pending staged upgrade stages for a network"
+    method: POST
+    path: "/networks/{networkId}/firmwareUpgrades/staged/events/defer"
+  - id: "meraki__post_rollbacksnetworkfirmwareupgradesstagedevents"
+    name: "Rollback a Staged Upgrade Event for a network"
+    method: POST
+    path: "/networks/{networkId}/firmwareUpgrades/staged/events/rollbacks"
+  - id: "meraki__get_getnetworkfirmwareupgradesstagedgroups"
+    name: "List of Staged Upgrade Groups in a network"
+    method: GET
+    path: "/networks/{networkId}/firmwareUpgrades/staged/groups"
+  - id: "meraki__post_createnetworkfirmwareupgradesstagedgroup"
+    name: "Create a Staged Upgrade Group for a network"
+    method: POST
+    path: "/networks/{networkId}/firmwareUpgrades/staged/groups"
+  - id: "meraki__get_getnetworkfirmwareupgradesstagedgroup"
+    name: "Get a Staged Upgrade Group from a network"
+    method: GET
+    path: "/networks/{networkId}/firmwareUpgrades/staged/groups/{groupId}"
+  - id: "meraki__put_updatenetworkfirmwareupgradesstagedgroup"
+    name: "Update a Staged Upgrade Group for a network"
+    method: PUT
+    path: "/networks/{networkId}/firmwareUpgrades/staged/groups/{groupId}"
+  - id: "meraki__delete_deletenetworkfirmwareupgradesstagedgroup"
+    name: "Delete a Staged Upgrade Group"
+    method: DELETE
+    path: "/networks/{networkId}/firmwareUpgrades/staged/groups/{groupId}"
+  - id: "meraki__get_getnetworkfirmwareupgradesstagedstages"
+    name: "Order of Staged Upgrade Groups in a network"
+    method: GET
+    path: "/networks/{networkId}/firmwareUpgrades/staged/stages"
+  - id: "meraki__put_updatenetworkfirmwareupgradesstagedstages"
+    name: "Assign Staged Upgrade Group order in the sequence."
+    method: PUT
+    path: "/networks/{networkId}/firmwareUpgrades/staged/stages"
+  - id: "meraki__get_getnetworkfloorplans"
+    name: "List the floor plans that belong to your network"
+    method: GET
+    path: "/networks/{networkId}/floorPlans"
+  - id: "meraki__post_createnetworkfloorplan"
+    name: "Upload a floor plan"
+    method: POST
+    path: "/networks/{networkId}/floorPlans"
+  - id: "meraki__post_batchnetworkfloorplansautolocatejobs"
+    name: "Schedule auto locate jobs for one or more floor plans in a network"
+    method: POST
+    path: "/networks/{networkId}/floorPlans/autoLocate/jobs/batch"
+  - id: "meraki__post_cancelnetworkfloorplansautolocatejob"
+    name: "Cancel a scheduled or running auto locate job"
+    method: POST
+    path: "/networks/{networkId}/floorPlans/autoLocate/jobs/{jobId}/cancel"
+  - id: "meraki__post_publishnetworkfloorplansautolocatejob"
+    name: "Update the status of a finished auto locate job to be published, and update device locations"
+    method: POST
+    path: "/networks/{networkId}/floorPlans/autoLocate/jobs/{jobId}/publish"
+  - id: "meraki__post_recalculatenetworkfloorplansautolocatejob"
+    name: "Trigger auto locate recalculation for a job, and optionally set anchors"
+    method: POST
+    path: "/networks/{networkId}/floorPlans/autoLocate/jobs/{jobId}/recalculate"
+  - id: "meraki__post_batchnetworkfloorplansdevicesupdate"
+    name: "Update floorplan assignments for a batch of devices"
+    method: POST
+    path: "/networks/{networkId}/floorPlans/devices/batchUpdate"
+  - id: "meraki__get_getnetworkfloorplan"
+    name: "Find a floor plan by ID"
+    method: GET
+    path: "/networks/{networkId}/floorPlans/{floorPlanId}"
+  - id: "meraki__put_updatenetworkfloorplan"
+    name: "Update a floor plan's geolocation and other meta data"
+    method: PUT
+    path: "/networks/{networkId}/floorPlans/{floorPlanId}"
+  - id: "meraki__delete_deletenetworkfloorplan"
+    name: "Destroy a floor plan"
+    method: DELETE
+    path: "/networks/{networkId}/floorPlans/{floorPlanId}"
+  - id: "meraki__get_getnetworkgrouppolicies"
+    name: "List the group policies in a network"
+    method: GET
+    path: "/networks/{networkId}/groupPolicies"
+  - id: "meraki__post_createnetworkgrouppolicy"
+    name: "Create a group policy"
+    method: POST
+    path: "/networks/{networkId}/groupPolicies"
+  - id: "meraki__get_getnetworkgrouppolicy"
+    name: "Display a group policy"
+    method: GET
+    path: "/networks/{networkId}/groupPolicies/{groupPolicyId}"
+  - id: "meraki__put_updatenetworkgrouppolicy"
+    name: "Update a group policy"
+    method: PUT
+    path: "/networks/{networkId}/groupPolicies/{groupPolicyId}"
+  - id: "meraki__delete_deletenetworkgrouppolicy"
+    name: "Delete a group policy"
+    method: DELETE
+    path: "/networks/{networkId}/groupPolicies/{groupPolicyId}"
+  - id: "meraki__get_getnetworkhealthalerts"
+    name: "Return all global alerts on this network"
+    method: GET
+    path: "/networks/{networkId}/health/alerts"
+  - id: "meraki__get_getnetworkinsightapplicationhealthbytime"
+    name: "Get application health by time"
+    method: GET
+    path: "/networks/{networkId}/insight/applications/{applicationId}/healthByTime"
+  - id: "meraki__get_getnetworkmerakiauthusers"
+    name: "List the authorized users configured under Meraki Authentication for a network (splash guest or RADIUS users for a wireless network, or client VPN users for a MX network)"
+    method: GET
+    path: "/networks/{networkId}/merakiAuthUsers"
+  - id: "meraki__post_createnetworkmerakiauthuser"
+    name: "Authorize a user configured with Meraki Authentication for a network (currently supports 802.1X, splash guest, and client VPN users, and currently, organizations have a 50,000 user cap)"
+    method: POST
+    path: "/networks/{networkId}/merakiAuthUsers"
+  - id: "meraki__get_getnetworkmerakiauthuser"
+    name: "Return the Meraki Auth splash guest, RADIUS, or client VPN user"
+    method: GET
+    path: "/networks/{networkId}/merakiAuthUsers/{merakiAuthUserId}"
+  - id: "meraki__delete_deletenetworkmerakiauthuser"
+    name: "Delete an 802.1X RADIUS user, or deauthorize and optionally delete a splash guest or client VPN user."
+    method: DELETE
+    path: "/networks/{networkId}/merakiAuthUsers/{merakiAuthUserId}"
+  - id: "meraki__put_updatenetworkmerakiauthuser"
+    name: "Update a user configured with Meraki Authentication (currently, 802.1X RADIUS, splash guest, and client VPN users can be updated)"
+    method: PUT
+    path: "/networks/{networkId}/merakiAuthUsers/{merakiAuthUserId}"
+  - id: "meraki__get_getnetworkmqttbrokers"
+    name: "List the MQTT brokers for this network"
+    method: GET
+    path: "/networks/{networkId}/mqttBrokers"
+  - id: "meraki__post_createnetworkmqttbroker"
+    name: "Add an MQTT broker"
+    method: POST
+    path: "/networks/{networkId}/mqttBrokers"
+  - id: "meraki__get_getnetworkmqttbroker"
+    name: "Return an MQTT broker"
+    method: GET
+    path: "/networks/{networkId}/mqttBrokers/{mqttBrokerId}"
+  - id: "meraki__put_updatenetworkmqttbroker"
+    name: "Update an MQTT broker"
+    method: PUT
+    path: "/networks/{networkId}/mqttBrokers/{mqttBrokerId}"
+  - id: "meraki__delete_deletenetworkmqttbroker"
+    name: "Delete an MQTT broker"
+    method: DELETE
+    path: "/networks/{networkId}/mqttBrokers/{mqttBrokerId}"
+  - id: "meraki__get_getnetworknetflow"
+    name: "Return the NetFlow traffic reporting settings for a network"
+    method: GET
+    path: "/networks/{networkId}/netflow"
+  - id: "meraki__put_updatenetworknetflow"
+    name: "Update the NetFlow traffic reporting settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/netflow"
+  - id: "meraki__get_getnetworknetworkhealthchannelutilization"
+    name: "Get the channel utilization over each radio for all APs in a network."
+    method: GET
+    path: "/networks/{networkId}/networkHealth/channelUtilization"
+  - id: "meraki__get_getnetworkpiipiikeys"
+    name: "List the keys required to access Personally Identifiable Information (PII) for a given identifier"
+    method: GET
+    path: "/networks/{networkId}/pii/piiKeys"
+  - id: "meraki__get_getnetworkpiirequests"
+    name: "List the PII requests for this network or organization"
+    method: GET
+    path: "/networks/{networkId}/pii/requests"
+  - id: "meraki__post_createnetworkpiirequest"
+    name: "Submit a new delete or restrict processing PII request"
+    method: POST
+    path: "/networks/{networkId}/pii/requests"
+  - id: "meraki__get_getnetworkpiirequest"
+    name: "Return a PII request"
+    method: GET
+    path: "/networks/{networkId}/pii/requests/{requestId}"
+  - id: "meraki__delete_deletenetworkpiirequest"
+    name: "Delete a restrict processing PII request"
+    method: DELETE
+    path: "/networks/{networkId}/pii/requests/{requestId}"
+  - id: "meraki__get_getnetworkpiismdevicesforkey"
+    name: "Given a piece of Personally Identifiable Information (PII), return the Systems Manager device ID(s) associated with that identifier"
+    method: GET
+    path: "/networks/{networkId}/pii/smDevicesForKey"
+  - id: "meraki__get_getnetworkpiismownersforkey"
+    name: "Given a piece of Personally Identifiable Information (PII), return the Systems Manager owner ID(s) associated with that identifier"
+    method: GET
+    path: "/networks/{networkId}/pii/smOwnersForKey"
+  - id: "meraki__get_getnetworkpoliciesbyclient"
+    name: "Get policies for all clients with policies"
+    method: GET
+    path: "/networks/{networkId}/policies/byClient"
+  - id: "meraki__get_getnetworksensoralertscurrentoverviewbymetric"
+    name: "Return an overview of currently alerting sensors by metric"
+    method: GET
+    path: "/networks/{networkId}/sensor/alerts/current/overview/byMetric"
+  - id: "meraki__get_getnetworksensoralertsoverviewbymetric"
+    name: "Return an overview of alert occurrences over a timespan, by metric"
+    method: GET
+    path: "/networks/{networkId}/sensor/alerts/overview/byMetric"
+  - id: "meraki__get_getnetworksensoralertsprofiles"
+    name: "Lists all sensor alert profiles for a network."
+    method: GET
+    path: "/networks/{networkId}/sensor/alerts/profiles"
+  - id: "meraki__post_createnetworksensoralertsprofile"
+    name: "Creates a sensor alert profile for a network."
+    method: POST
+    path: "/networks/{networkId}/sensor/alerts/profiles"
+  - id: "meraki__get_getnetworksensoralertsprofile"
+    name: "Show details of a sensor alert profile for a network."
+    method: GET
+    path: "/networks/{networkId}/sensor/alerts/profiles/{id}"
+  - id: "meraki__put_updatenetworksensoralertsprofile"
+    name: "Updates a sensor alert profile for a network."
+    method: PUT
+    path: "/networks/{networkId}/sensor/alerts/profiles/{id}"
+  - id: "meraki__delete_deletenetworksensoralertsprofile"
+    name: "Deletes a sensor alert profile from a network."
+    method: DELETE
+    path: "/networks/{networkId}/sensor/alerts/profiles/{id}"
+  - id: "meraki__get_getnetworksensormqttbrokers"
+    name: "List the sensor settings of all MQTT brokers for this network"
+    method: GET
+    path: "/networks/{networkId}/sensor/mqttBrokers"
+  - id: "meraki__get_getnetworksensormqttbroker"
+    name: "Return the sensor settings of an MQTT broker"
+    method: GET
+    path: "/networks/{networkId}/sensor/mqttBrokers/{mqttBrokerId}"
+  - id: "meraki__put_updatenetworksensormqttbroker"
+    name: "Update the sensor settings of an MQTT broker"
+    method: PUT
+    path: "/networks/{networkId}/sensor/mqttBrokers/{mqttBrokerId}"
+  - id: "meraki__get_getnetworksensorrelationships"
+    name: "List the sensor roles for devices in a given network"
+    method: GET
+    path: "/networks/{networkId}/sensor/relationships"
+  - id: "meraki__get_getnetworksettings"
+    name: "Return the settings for a network"
+    method: GET
+    path: "/networks/{networkId}/settings"
+  - id: "meraki__put_updatenetworksettings"
+    name: "Update the settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/settings"
+  - id: "meraki__post_createnetworksmbypassactivationlockattempt"
+    name: "Bypass activation lock attempt"
+    method: POST
+    path: "/networks/{networkId}/sm/bypassActivationLockAttempts"
+  - id: "meraki__get_getnetworksmbypassactivationlockattempt"
+    name: "Bypass activation lock attempt status"
+    method: GET
+    path: "/networks/{networkId}/sm/bypassActivationLockAttempts/{attemptId}"
+  - id: "meraki__get_getnetworksmdevices"
+    name: "List the devices enrolled in an SM network with various specified fields and filters"
+    method: GET
+    path: "/networks/{networkId}/sm/devices"
+  - id: "meraki__post_checkinnetworksmdevices"
+    name: "Force check-in a set of devices"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/checkin"
+  - id: "meraki__put_updatenetworksmdevicesfields"
+    name: "Modify the fields of a device"
+    method: PUT
+    path: "/networks/{networkId}/sm/devices/fields"
+  - id: "meraki__post_locknetworksmdevices"
+    name: "Lock a set of devices"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/lock"
+  - id: "meraki__post_modifynetworksmdevicestags"
+    name: "Add, delete, or update the tags of a set of devices"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/modifyTags"
+  - id: "meraki__post_movenetworksmdevices"
+    name: "Move a set of devices to a new network"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/move"
+  - id: "meraki__post_rebootnetworksmdevices"
+    name: "Reboot a set of endpoints"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/reboot"
+  - id: "meraki__post_shutdownnetworksmdevices"
+    name: "Shutdown a set of endpoints"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/shutdown"
+  - id: "meraki__post_wipenetworksmdevices"
+    name: "Wipe a device"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/wipe"
+  - id: "meraki__get_getnetworksmdevicecellularusagehistory"
+    name: "Return the client's daily cellular data usage history"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/cellularUsageHistory"
+  - id: "meraki__get_getnetworksmdevicecerts"
+    name: "List the certs on a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/certs"
+  - id: "meraki__get_getnetworksmdeviceconnectivity"
+    name: "Returns historical connectivity data (whether a device is regularly checking in to Dashboard)."
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/connectivity"
+  - id: "meraki__get_getnetworksmdevicedesktoplogs"
+    name: "Return historical records of various Systems Manager network connection details for desktop devices."
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/desktopLogs"
+  - id: "meraki__get_getnetworksmdevicedevicecommandlogs"
+    name: "Return historical records of commands sent to Systems Manager devices"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/deviceCommandLogs"
+  - id: "meraki__get_getnetworksmdevicedeviceprofiles"
+    name: "Get the installed profiles associated with a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/deviceProfiles"
+  - id: "meraki__post_installnetworksmdeviceapps"
+    name: "Install applications on a device"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/{deviceId}/installApps"
+  - id: "meraki__get_getnetworksmdevicenetworkadapters"
+    name: "List the network adapters of a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/networkAdapters"
+  - id: "meraki__get_getnetworksmdeviceperformancehistory"
+    name: "Return historical records of various Systems Manager client metrics for desktop devices."
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/performanceHistory"
+  - id: "meraki__post_refreshnetworksmdevicedetails"
+    name: "Refresh the details of a device"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/{deviceId}/refreshDetails"
+  - id: "meraki__get_getnetworksmdevicerestrictions"
+    name: "List the restrictions on a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/restrictions"
+  - id: "meraki__get_getnetworksmdevicesecuritycenters"
+    name: "List the security centers on a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/securityCenters"
+  - id: "meraki__get_getnetworksmdevicesoftwares"
+    name: "Get a list of softwares associated with a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/softwares"
+  - id: "meraki__post_unenrollnetworksmdevice"
+    name: "Unenroll a device"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/{deviceId}/unenroll"
+  - id: "meraki__post_uninstallnetworksmdeviceapps"
+    name: "Uninstall applications on a device"
+    method: POST
+    path: "/networks/{networkId}/sm/devices/{deviceId}/uninstallApps"
+  - id: "meraki__get_getnetworksmdevicewlanlists"
+    name: "List the saved SSID names on a device"
+    method: GET
+    path: "/networks/{networkId}/sm/devices/{deviceId}/wlanLists"
+  - id: "meraki__get_getnetworksmprofiles"
+    name: "List all profiles in a network"
+    method: GET
+    path: "/networks/{networkId}/sm/profiles"
+  - id: "meraki__get_getnetworksmtargetgroups"
+    name: "List the target groups in this network"
+    method: GET
+    path: "/networks/{networkId}/sm/targetGroups"
+  - id: "meraki__post_createnetworksmtargetgroup"
+    name: "Add a target group"
+    method: POST
+    path: "/networks/{networkId}/sm/targetGroups"
+  - id: "meraki__get_getnetworksmtargetgroup"
+    name: "Return a target group"
+    method: GET
+    path: "/networks/{networkId}/sm/targetGroups/{targetGroupId}"
+  - id: "meraki__put_updatenetworksmtargetgroup"
+    name: "Update a target group"
+    method: PUT
+    path: "/networks/{networkId}/sm/targetGroups/{targetGroupId}"
+  - id: "meraki__delete_deletenetworksmtargetgroup"
+    name: "Delete a target group from a network"
+    method: DELETE
+    path: "/networks/{networkId}/sm/targetGroups/{targetGroupId}"
+  - id: "meraki__get_getnetworksmtrustedaccessconfigs"
+    name: "List Trusted Access Configs"
+    method: GET
+    path: "/networks/{networkId}/sm/trustedAccessConfigs"
+  - id: "meraki__get_getnetworksmuseraccessdevices"
+    name: "List User Access Devices and its Trusted Access Connections"
+    method: GET
+    path: "/networks/{networkId}/sm/userAccessDevices"
+  - id: "meraki__delete_deletenetworksmuseraccessdevice"
+    name: "Delete a User Access Device"
+    method: DELETE
+    path: "/networks/{networkId}/sm/userAccessDevices/{userAccessDeviceId}"
+  - id: "meraki__get_getnetworksmusers"
+    name: "List the owners in an SM network with various specified fields and filters"
+    method: GET
+    path: "/networks/{networkId}/sm/users"
+  - id: "meraki__get_getnetworksmuserdeviceprofiles"
+    name: "Get the profiles associated with a user"
+    method: GET
+    path: "/networks/{networkId}/sm/users/{userId}/deviceProfiles"
+  - id: "meraki__get_getnetworksmusersoftwares"
+    name: "Get a list of softwares associated with a user"
+    method: GET
+    path: "/networks/{networkId}/sm/users/{userId}/softwares"
+  - id: "meraki__get_getnetworksnmp"
+    name: "Return the SNMP settings for a network"
+    method: GET
+    path: "/networks/{networkId}/snmp"
+  - id: "meraki__put_updatenetworksnmp"
+    name: "Update the SNMP settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/snmp"
+  - id: "meraki__get_getnetworksplashloginattempts"
+    name: "List the splash login attempts for a network"
+    method: GET
+    path: "/networks/{networkId}/splashLoginAttempts"
+  - id: "meraki__post_splitnetwork"
+    name: "Split a combined network into individual networks for each type of device"
+    method: POST
+    path: "/networks/{networkId}/split"
+  - id: "meraki__get_getnetworkswitchaccesscontrollists"
+    name: "Return the access control lists for a MS network"
+    method: GET
+    path: "/networks/{networkId}/switch/accessControlLists"
+  - id: "meraki__put_updatenetworkswitchaccesscontrollists"
+    name: "Update the access control lists for a MS network"
+    method: PUT
+    path: "/networks/{networkId}/switch/accessControlLists"
+  - id: "meraki__get_getnetworkswitchaccesspolicies"
+    name: "List the access policies for a switch network"
+    method: GET
+    path: "/networks/{networkId}/switch/accessPolicies"
+  - id: "meraki__post_createnetworkswitchaccesspolicy"
+    name: "Create an access policy for a switch network"
+    method: POST
+    path: "/networks/{networkId}/switch/accessPolicies"
+  - id: "meraki__get_getnetworkswitchaccesspolicy"
+    name: "Return a specific access policy for a switch network"
+    method: GET
+    path: "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
+  - id: "meraki__put_updatenetworkswitchaccesspolicy"
+    name: "Update an access policy for a switch network"
+    method: PUT
+    path: "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
+  - id: "meraki__delete_deletenetworkswitchaccesspolicy"
+    name: "Delete an access policy for a switch network"
+    method: DELETE
+    path: "/networks/{networkId}/switch/accessPolicies/{accessPolicyNumber}"
+  - id: "meraki__get_getnetworkswitchalternatemanagementinterface"
+    name: "Return the switch alternate management interface for the network"
+    method: GET
+    path: "/networks/{networkId}/switch/alternateManagementInterface"
+  - id: "meraki__put_updatenetworkswitchalternatemanagementinterface"
+    name: "Update the switch alternate management interface for the network"
+    method: PUT
+    path: "/networks/{networkId}/switch/alternateManagementInterface"
+  - id: "meraki__get_getnetworkswitchdhcpv4serversseen"
+    name: "Return the network's DHCPv4 servers seen within the selected timeframe (default 1 day)"
+    method: GET
+    path: "/networks/{networkId}/switch/dhcp/v4/servers/seen"
+  - id: "meraki__get_getnetworkswitchdhcpserverpolicy"
+    name: "Return the DHCP server settings"
+    method: GET
+    path: "/networks/{networkId}/switch/dhcpServerPolicy"
+  - id: "meraki__put_updatenetworkswitchdhcpserverpolicy"
+    name: "Update the DHCP server settings"
+    method: PUT
+    path: "/networks/{networkId}/switch/dhcpServerPolicy"
+  - id: "meraki__get_getnetworkswitchdhcpserverpolicyarpinspectiontrustedservers"
+    name: "Return the list of servers trusted by Dynamic ARP Inspection on this network"
+    method: GET
+    path: "/networks/{networkId}/switch/dhcpServerPolicy/arpInspection/trustedServers"
+  - id: "meraki__post_createnetworkswitchdhcpserverpolicyarpinspectiontrustedserver"
+    name: "Add a server to be trusted by Dynamic ARP Inspection on this network"
+    method: POST
+    path: "/networks/{networkId}/switch/dhcpServerPolicy/arpInspection/trustedServers"
+  - id: "meraki__put_updatenetworkswitchdhcpserverpolicyarpinspectiontrustedserver"
+    name: "Update a server that is trusted by Dynamic ARP Inspection on this network"
+    method: PUT
+    path: "/networks/{networkId}/switch/dhcpServerPolicy/arpInspection/trustedServers/{trustedServerId}"
+  - id: "meraki__delete_deletenetworkswitchdhcpserverpolicyarpinspectiontrustedserver"
+    name: "Remove a server from being trusted by Dynamic ARP Inspection on this network"
+    method: DELETE
+    path: "/networks/{networkId}/switch/dhcpServerPolicy/arpInspection/trustedServers/{trustedServerId}"
+  - id: "meraki__get_getnetworkswitchdhcpserverpolicyarpinspectionwarningsbydevice"
+    name: "Return the devices that have a Dynamic ARP Inspection warning and their warnings"
+    method: GET
+    path: "/networks/{networkId}/switch/dhcpServerPolicy/arpInspection/warnings/byDevice"
+  - id: "meraki__get_getnetworkswitchdscptocosmappings"
+    name: "Return the DSCP to CoS mappings"
+    method: GET
+    path: "/networks/{networkId}/switch/dscpToCosMappings"
+  - id: "meraki__put_updatenetworkswitchdscptocosmappings"
+    name: "Update the DSCP to CoS mappings"
+    method: PUT
+    path: "/networks/{networkId}/switch/dscpToCosMappings"
+  - id: "meraki__get_getnetworkswitchlinkaggregations"
+    name: "List link aggregation groups"
+    method: GET
+    path: "/networks/{networkId}/switch/linkAggregations"
+  - id: "meraki__post_createnetworkswitchlinkaggregation"
+    name: "Create a link aggregation group"
+    method: POST
+    path: "/networks/{networkId}/switch/linkAggregations"
+  - id: "meraki__put_updatenetworkswitchlinkaggregation"
+    name: "Update a link aggregation group"
+    method: PUT
+    path: "/networks/{networkId}/switch/linkAggregations/{linkAggregationId}"
+  - id: "meraki__delete_deletenetworkswitchlinkaggregation"
+    name: "Split a link aggregation group into separate ports"
+    method: DELETE
+    path: "/networks/{networkId}/switch/linkAggregations/{linkAggregationId}"
+  - id: "meraki__get_getnetworkswitchmtu"
+    name: "Return the MTU configuration"
+    method: GET
+    path: "/networks/{networkId}/switch/mtu"
+  - id: "meraki__put_updatenetworkswitchmtu"
+    name: "Update the MTU configuration"
+    method: PUT
+    path: "/networks/{networkId}/switch/mtu"
+  - id: "meraki__get_getnetworkswitchportschedules"
+    name: "List switch port schedules"
+    method: GET
+    path: "/networks/{networkId}/switch/portSchedules"
+  - id: "meraki__post_createnetworkswitchportschedule"
+    name: "Add a switch port schedule"
+    method: POST
+    path: "/networks/{networkId}/switch/portSchedules"
+  - id: "meraki__delete_deletenetworkswitchportschedule"
+    name: "Delete a switch port schedule"
+    method: DELETE
+    path: "/networks/{networkId}/switch/portSchedules/{portScheduleId}"
+  - id: "meraki__put_updatenetworkswitchportschedule"
+    name: "Update a switch port schedule"
+    method: PUT
+    path: "/networks/{networkId}/switch/portSchedules/{portScheduleId}"
+  - id: "meraki__get_getnetworkswitchqosrules"
+    name: "List quality of service rules"
+    method: GET
+    path: "/networks/{networkId}/switch/qosRules"
+  - id: "meraki__post_createnetworkswitchqosrule"
+    name: "Add a quality of service rule"
+    method: POST
+    path: "/networks/{networkId}/switch/qosRules"
+  - id: "meraki__get_getnetworkswitchqosrulesorder"
+    name: "Return the quality of service rule IDs by order in which they will be processed by the switch"
+    method: GET
+    path: "/networks/{networkId}/switch/qosRules/order"
+  - id: "meraki__put_updatenetworkswitchqosrulesorder"
+    name: "Update the order in which the rules should be processed by the switch"
+    method: PUT
+    path: "/networks/{networkId}/switch/qosRules/order"
+  - id: "meraki__get_getnetworkswitchqosrule"
+    name: "Return a quality of service rule"
+    method: GET
+    path: "/networks/{networkId}/switch/qosRules/{qosRuleId}"
+  - id: "meraki__delete_deletenetworkswitchqosrule"
+    name: "Delete a quality of service rule"
+    method: DELETE
+    path: "/networks/{networkId}/switch/qosRules/{qosRuleId}"
+  - id: "meraki__put_updatenetworkswitchqosrule"
+    name: "Update a quality of service rule"
+    method: PUT
+    path: "/networks/{networkId}/switch/qosRules/{qosRuleId}"
+  - id: "meraki__get_getnetworkswitchroutingmulticast"
+    name: "Return multicast settings for a network"
+    method: GET
+    path: "/networks/{networkId}/switch/routing/multicast"
+  - id: "meraki__put_updatenetworkswitchroutingmulticast"
+    name: "Update multicast settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/switch/routing/multicast"
+  - id: "meraki__get_getnetworkswitchroutingmulticastrendezvouspoints"
+    name: "List multicast rendezvous points"
+    method: GET
+    path: "/networks/{networkId}/switch/routing/multicast/rendezvousPoints"
+  - id: "meraki__post_createnetworkswitchroutingmulticastrendezvouspoint"
+    name: "Create a multicast rendezvous point"
+    method: POST
+    path: "/networks/{networkId}/switch/routing/multicast/rendezvousPoints"
+  - id: "meraki__get_getnetworkswitchroutingmulticastrendezvouspoint"
+    name: "Return a multicast rendezvous point"
+    method: GET
+    path: "/networks/{networkId}/switch/routing/multicast/rendezvousPoints/{rendezvousPointId}"
+  - id: "meraki__delete_deletenetworkswitchroutingmulticastrendezvouspoint"
+    name: "Delete a multicast rendezvous point"
+    method: DELETE
+    path: "/networks/{networkId}/switch/routing/multicast/rendezvousPoints/{rendezvousPointId}"
+  - id: "meraki__put_updatenetworkswitchroutingmulticastrendezvouspoint"
+    name: "Update a multicast rendezvous point"
+    method: PUT
+    path: "/networks/{networkId}/switch/routing/multicast/rendezvousPoints/{rendezvousPointId}"
+  - id: "meraki__get_getnetworkswitchroutingospf"
+    name: "Return layer 3 OSPF routing configuration"
+    method: GET
+    path: "/networks/{networkId}/switch/routing/ospf"
+  - id: "meraki__put_updatenetworkswitchroutingospf"
+    name: "Update layer 3 OSPF routing configuration"
+    method: PUT
+    path: "/networks/{networkId}/switch/routing/ospf"
+  - id: "meraki__get_getnetworkswitchsettings"
+    name: "Returns the switch network settings"
+    method: GET
+    path: "/networks/{networkId}/switch/settings"
+  - id: "meraki__put_updatenetworkswitchsettings"
+    name: "Update switch network settings"
+    method: PUT
+    path: "/networks/{networkId}/switch/settings"
+  - id: "meraki__get_getnetworkswitchstacks"
+    name: "List the switch stacks in a network"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks"
+  - id: "meraki__post_createnetworkswitchstack"
+    name: "Create a switch stack"
+    method: POST
+    path: "/networks/{networkId}/switch/stacks"
+  - id: "meraki__get_getnetworkswitchstack"
+    name: "Show a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}"
+  - id: "meraki__delete_deletenetworkswitchstack"
+    name: "Delete a stack"
+    method: DELETE
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}"
+  - id: "meraki__post_addnetworkswitchstack"
+    name: "Add a switch to a stack"
+    method: POST
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/add"
+  - id: "meraki__post_removenetworkswitchstack"
+    name: "Remove a switch from a stack"
+    method: POST
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/remove"
+  - id: "meraki__get_getnetworkswitchstackroutinginterfaces"
+    name: "List layer 3 interfaces for a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces"
+  - id: "meraki__post_createnetworkswitchstackroutinginterface"
+    name: "Create a layer 3 interface for a switch stack"
+    method: POST
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces"
+  - id: "meraki__get_getnetworkswitchstackroutinginterface"
+    name: "Return a layer 3 interface from a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces/{interfaceId}"
+  - id: "meraki__put_updatenetworkswitchstackroutinginterface"
+    name: "Update a layer 3 interface for a switch stack"
+    method: PUT
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces/{interfaceId}"
+  - id: "meraki__delete_deletenetworkswitchstackroutinginterface"
+    name: "Delete a layer 3 interface from a switch stack"
+    method: DELETE
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces/{interfaceId}"
+  - id: "meraki__get_getnetworkswitchstackroutinginterfacedhcp"
+    name: "Return a layer 3 interface DHCP configuration for a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces/{interfaceId}/dhcp"
+  - id: "meraki__put_updatenetworkswitchstackroutinginterfacedhcp"
+    name: "Update a layer 3 interface DHCP configuration for a switch stack"
+    method: PUT
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/interfaces/{interfaceId}/dhcp"
+  - id: "meraki__get_getnetworkswitchstackroutingstaticroutes"
+    name: "List layer 3 static routes for a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/staticRoutes"
+  - id: "meraki__post_createnetworkswitchstackroutingstaticroute"
+    name: "Create a layer 3 static route for a switch stack"
+    method: POST
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/staticRoutes"
+  - id: "meraki__get_getnetworkswitchstackroutingstaticroute"
+    name: "Return a layer 3 static route for a switch stack"
+    method: GET
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__put_updatenetworkswitchstackroutingstaticroute"
+    name: "Update a layer 3 static route for a switch stack"
+    method: PUT
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__delete_deletenetworkswitchstackroutingstaticroute"
+    name: "Delete a layer 3 static route for a switch stack"
+    method: DELETE
+    path: "/networks/{networkId}/switch/stacks/{switchStackId}/routing/staticRoutes/{staticRouteId}"
+  - id: "meraki__get_getnetworkswitchstormcontrol"
+    name: "Return the storm control configuration for a switch network"
+    method: GET
+    path: "/networks/{networkId}/switch/stormControl"
+  - id: "meraki__put_updatenetworkswitchstormcontrol"
+    name: "Update the storm control configuration for a switch network"
+    method: PUT
+    path: "/networks/{networkId}/switch/stormControl"
+  - id: "meraki__get_getnetworkswitchstp"
+    name: "Returns STP settings"
+    method: GET
+    path: "/networks/{networkId}/switch/stp"
+  - id: "meraki__put_updatenetworkswitchstp"
+    name: "Updates STP settings"
+    method: PUT
+    path: "/networks/{networkId}/switch/stp"
+  - id: "meraki__get_getnetworksyslogservers"
+    name: "List the syslog servers for a network"
+    method: GET
+    path: "/networks/{networkId}/syslogServers"
+  - id: "meraki__put_updatenetworksyslogservers"
+    name: "Update the syslog servers for a network"
+    method: PUT
+    path: "/networks/{networkId}/syslogServers"
+  - id: "meraki__get_getnetworktopologylinklayer"
+    name: "List the LLDP and CDP information for all discovered devices and connections in a network"
+    method: GET
+    path: "/networks/{networkId}/topology/linkLayer"
+  - id: "meraki__get_getnetworktraffic"
+    name: "Return the traffic analysis data for this network"
+    method: GET
+    path: "/networks/{networkId}/traffic"
+  - id: "meraki__get_getnetworktrafficanalysis"
+    name: "Return the traffic analysis settings for a network"
+    method: GET
+    path: "/networks/{networkId}/trafficAnalysis"
+  - id: "meraki__put_updatenetworktrafficanalysis"
+    name: "Update the traffic analysis settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/trafficAnalysis"
+  - id: "meraki__get_getnetworktrafficshapingapplicationcategories"
+    name: "Returns the application categories for traffic shaping rules"
+    method: GET
+    path: "/networks/{networkId}/trafficShaping/applicationCategories"
+  - id: "meraki__get_getnetworktrafficshapingdscptaggingoptions"
+    name: "Returns the available DSCP tagging options for your traffic shaping rules."
+    method: GET
+    path: "/networks/{networkId}/trafficShaping/dscpTaggingOptions"
+  - id: "meraki__post_unbindnetwork"
+    name: "Unbind a network from a template."
+    method: POST
+    path: "/networks/{networkId}/unbind"
+  - id: "meraki__get_getnetworkvlanprofiles"
+    name: "List VLAN profiles for a network"
+    method: GET
+    path: "/networks/{networkId}/vlanProfiles"
+  - id: "meraki__post_createnetworkvlanprofile"
+    name: "Create a VLAN profile for a network"
+    method: POST
+    path: "/networks/{networkId}/vlanProfiles"
+  - id: "meraki__get_getnetworkvlanprofilesassignmentsbydevice"
+    name: "Get the assigned VLAN Profiles for devices in a network"
+    method: GET
+    path: "/networks/{networkId}/vlanProfiles/assignments/byDevice"
+  - id: "meraki__post_reassignnetworkvlanprofilesassignments"
+    name: "Update the assigned VLAN Profile for devices in a network"
+    method: POST
+    path: "/networks/{networkId}/vlanProfiles/assignments/reassign"
+  - id: "meraki__get_getnetworkvlanprofile"
+    name: "Get an existing VLAN profile of a network"
+    method: GET
+    path: "/networks/{networkId}/vlanProfiles/{iname}"
+  - id: "meraki__put_updatenetworkvlanprofile"
+    name: "Update an existing VLAN profile of a network"
+    method: PUT
+    path: "/networks/{networkId}/vlanProfiles/{iname}"
+  - id: "meraki__delete_deletenetworkvlanprofile"
+    name: "Delete a VLAN profile of a network"
+    method: DELETE
+    path: "/networks/{networkId}/vlanProfiles/{iname}"
+  - id: "meraki__get_getnetworkwebhookshttpservers"
+    name: "List the HTTP servers for a network"
+    method: GET
+    path: "/networks/{networkId}/webhooks/httpServers"
+  - id: "meraki__post_createnetworkwebhookshttpserver"
+    name: "Add an HTTP server to a network"
+    method: POST
+    path: "/networks/{networkId}/webhooks/httpServers"
+  - id: "meraki__get_getnetworkwebhookshttpserver"
+    name: "Return an HTTP server for a network"
+    method: GET
+    path: "/networks/{networkId}/webhooks/httpServers/{httpServerId}"
+  - id: "meraki__put_updatenetworkwebhookshttpserver"
+    name: "Update an HTTP server"
+    method: PUT
+    path: "/networks/{networkId}/webhooks/httpServers/{httpServerId}"
+  - id: "meraki__delete_deletenetworkwebhookshttpserver"
+    name: "Delete an HTTP server from a network"
+    method: DELETE
+    path: "/networks/{networkId}/webhooks/httpServers/{httpServerId}"
+  - id: "meraki__get_getnetworkwebhookspayloadtemplates"
+    name: "List the webhook payload templates for a network"
+    method: GET
+    path: "/networks/{networkId}/webhooks/payloadTemplates"
+  - id: "meraki__post_createnetworkwebhookspayloadtemplate"
+    name: "Create a webhook payload template for a network"
+    method: POST
+    path: "/networks/{networkId}/webhooks/payloadTemplates"
+  - id: "meraki__get_getnetworkwebhookspayloadtemplate"
+    name: "Get the webhook payload template for a network"
+    method: GET
+    path: "/networks/{networkId}/webhooks/payloadTemplates/{payloadTemplateId}"
+  - id: "meraki__delete_deletenetworkwebhookspayloadtemplate"
+    name: "Destroy a webhook payload template for a network"
+    method: DELETE
+    path: "/networks/{networkId}/webhooks/payloadTemplates/{payloadTemplateId}"
+  - id: "meraki__put_updatenetworkwebhookspayloadtemplate"
+    name: "Update a webhook payload template for a network"
+    method: PUT
+    path: "/networks/{networkId}/webhooks/payloadTemplates/{payloadTemplateId}"
+  - id: "meraki__post_createnetworkwebhookswebhooktest"
+    name: "Send a test webhook for a network"
+    method: POST
+    path: "/networks/{networkId}/webhooks/webhookTests"
+  - id: "meraki__get_getnetworkwebhookswebhooktest"
+    name: "Return the status of a webhook test for a network"
+    method: GET
+    path: "/networks/{networkId}/webhooks/webhookTests/{webhookTestId}"
+  - id: "meraki__get_getnetworkwirelessairmarshal"
+    name: "List Air Marshal scan results from a network"
+    method: GET
+    path: "/networks/{networkId}/wireless/airMarshal"
+  - id: "meraki__post_createnetworkwirelessairmarshalrule"
+    name: "Creates a new rule"
+    method: POST
+    path: "/networks/{networkId}/wireless/airMarshal/rules"
+  - id: "meraki__put_updatenetworkwirelessairmarshalrule"
+    name: "Update a rule"
+    method: PUT
+    path: "/networks/{networkId}/wireless/airMarshal/rules/{ruleId}"
+  - id: "meraki__delete_deletenetworkwirelessairmarshalrule"
+    name: "Delete an Air Marshal rule."
+    method: DELETE
+    path: "/networks/{networkId}/wireless/airMarshal/rules/{ruleId}"
+  - id: "meraki__put_updatenetworkwirelessairmarshalsettings"
+    name: "Updates Air Marshal settings."
+    method: PUT
+    path: "/networks/{networkId}/wireless/airMarshal/settings"
+  - id: "meraki__get_getnetworkwirelessalternatemanagementinterface"
+    name: "Return alternate management interface and devices with IP assigned"
+    method: GET
+    path: "/networks/{networkId}/wireless/alternateManagementInterface"
+  - id: "meraki__put_updatenetworkwirelessalternatemanagementinterface"
+    name: "Update alternate management interface and device static IP"
+    method: PUT
+    path: "/networks/{networkId}/wireless/alternateManagementInterface"
+  - id: "meraki__get_getnetworkwirelessbilling"
+    name: "Return the billing settings of this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/billing"
+  - id: "meraki__put_updatenetworkwirelessbilling"
+    name: "Update the billing settings"
+    method: PUT
+    path: "/networks/{networkId}/wireless/billing"
+  - id: "meraki__get_getnetworkwirelessbluetoothsettings"
+    name: "Return the Bluetooth settings for a network. <a href=\"https://documentation.meraki.com/MR/Bluetooth/Bluetooth_Low_Energy_(BLE)\">Bluetooth settings</a> must be enabled on the network."
+    method: GET
+    path: "/networks/{networkId}/wireless/bluetooth/settings"
+  - id: "meraki__put_updatenetworkwirelessbluetoothsettings"
+    name: "Update the Bluetooth settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/bluetooth/settings"
+  - id: "meraki__get_getnetworkwirelesschannelutilizationhistory"
+    name: "Return AP channel utilization over time for a device or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/channelUtilizationHistory"
+  - id: "meraki__get_getnetworkwirelessclientcounthistory"
+    name: "Return wireless client counts over time for a network, device, or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/clientCountHistory"
+  - id: "meraki__get_getnetworkwirelessclientsconnectionstats"
+    name: "Aggregated connectivity info for this network, grouped by clients"
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/connectionStats"
+  - id: "meraki__get_getnetworkwirelessclientslatencystats"
+    name: "Aggregated latency info for this network, grouped by clients"
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/latencyStats"
+  - id: "meraki__get_getnetworkwirelessclientconnectionstats"
+    name: "Aggregated connectivity info for a given client on this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/{clientId}/connectionStats"
+  - id: "meraki__get_getnetworkwirelessclientconnectivityevents"
+    name: "List the wireless connectivity events for a client within a network in the timespan."
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/{clientId}/connectivityEvents"
+  - id: "meraki__get_getnetworkwirelessclientlatencyhistory"
+    name: "Return the latency history for a client"
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/{clientId}/latencyHistory"
+  - id: "meraki__get_getnetworkwirelessclientlatencystats"
+    name: "Aggregated latency info for a given client on this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/clients/{clientId}/latencyStats"
+  - id: "meraki__get_getnetworkwirelessconnectionstats"
+    name: "Aggregated connectivity info for this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/connectionStats"
+  - id: "meraki__get_getnetworkwirelessdataratehistory"
+    name: "Return PHY data rates over time for a network, device, or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/dataRateHistory"
+  - id: "meraki__get_getnetworkwirelessdevicesconnectionstats"
+    name: "Aggregated connectivity info for this network, grouped by node"
+    method: GET
+    path: "/networks/{networkId}/wireless/devices/connectionStats"
+  - id: "meraki__get_getnetworkwirelessdeviceslatencystats"
+    name: "Aggregated latency info for this network, grouped by node"
+    method: GET
+    path: "/networks/{networkId}/wireless/devices/latencyStats"
+  - id: "meraki__get_getnetworkwirelesselectronicshelflabel"
+    name: "Return the ESL settings of a wireless network"
+    method: GET
+    path: "/networks/{networkId}/wireless/electronicShelfLabel"
+  - id: "meraki__put_updatenetworkwirelesselectronicshelflabel"
+    name: "Update the ESL settings of a wireless network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/electronicShelfLabel"
+  - id: "meraki__get_getnetworkwirelesselectronicshelflabelconfigureddevices"
+    name: "Get a list of all ESL eligible devices of a network"
+    method: GET
+    path: "/networks/{networkId}/wireless/electronicShelfLabel/configuredDevices"
+  - id: "meraki__get_getnetworkwirelessethernetportsprofiles"
+    name: "List the AP port profiles for this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles"
+  - id: "meraki__post_createnetworkwirelessethernetportsprofile"
+    name: "Create an AP port profile"
+    method: POST
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles"
+  - id: "meraki__post_assignnetworkwirelessethernetportsprofiles"
+    name: "Assign AP port profile to list of APs"
+    method: POST
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles/assign"
+  - id: "meraki__post_setnetworkwirelessethernetportsprofilesdefault"
+    name: "Set the AP port profile to be default for this network"
+    method: POST
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles/setDefault"
+  - id: "meraki__get_getnetworkwirelessethernetportsprofile"
+    name: "Show the AP port profile by ID for this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles/{profileId}"
+  - id: "meraki__put_updatenetworkwirelessethernetportsprofile"
+    name: "Update the AP port profile by ID for this network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles/{profileId}"
+  - id: "meraki__delete_deletenetworkwirelessethernetportsprofile"
+    name: "Delete an AP port profile"
+    method: DELETE
+    path: "/networks/{networkId}/wireless/ethernet/ports/profiles/{profileId}"
+  - id: "meraki__get_getnetworkwirelessfailedconnections"
+    name: "List of all failed client connection events on this network in a given time range"
+    method: GET
+    path: "/networks/{networkId}/wireless/failedConnections"
+  - id: "meraki__get_getnetworkwirelesslatencyhistory"
+    name: "Return average wireless latency over time for a network, device, or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/latencyHistory"
+  - id: "meraki__get_getnetworkwirelesslatencystats"
+    name: "Aggregated latency info for this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/latencyStats"
+  - id: "meraki__put_updatenetworkwirelesslocationscanning"
+    name: "Change scanning API settings"
+    method: PUT
+    path: "/networks/{networkId}/wireless/location/scanning"
+  - id: "meraki__get_getnetworkwirelessmeshstatuses"
+    name: "List wireless mesh statuses for repeaters"
+    method: GET
+    path: "/networks/{networkId}/wireless/meshStatuses"
+  - id: "meraki__put_updatenetworkwirelessradiorrm"
+    name: "Update the AutoRF settings for a wireless network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/radio/rrm"
+  - id: "meraki__get_getnetworkwirelessrfprofiles"
+    name: "List RF profiles for this network"
+    method: GET
+    path: "/networks/{networkId}/wireless/rfProfiles"
+  - id: "meraki__post_createnetworkwirelessrfprofile"
+    name: "Creates new RF profile for this network"
+    method: POST
+    path: "/networks/{networkId}/wireless/rfProfiles"
+  - id: "meraki__put_updatenetworkwirelessrfprofile"
+    name: "Updates specified RF profile for this network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/rfProfiles/{rfProfileId}"
+  - id: "meraki__delete_deletenetworkwirelessrfprofile"
+    name: "Delete a RF Profile"
+    method: DELETE
+    path: "/networks/{networkId}/wireless/rfProfiles/{rfProfileId}"
+  - id: "meraki__get_getnetworkwirelessrfprofile"
+    name: "Return a RF profile"
+    method: GET
+    path: "/networks/{networkId}/wireless/rfProfiles/{rfProfileId}"
+  - id: "meraki__get_getnetworkwirelesssettings"
+    name: "Return the wireless settings for a network"
+    method: GET
+    path: "/networks/{networkId}/wireless/settings"
+  - id: "meraki__put_updatenetworkwirelesssettings"
+    name: "Update the wireless settings for a network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/settings"
+  - id: "meraki__get_getnetworkwirelesssignalqualityhistory"
+    name: "Return signal quality (SNR/RSSI) over time for a device or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/signalQualityHistory"
+  - id: "meraki__get_getnetworkwirelessssids"
+    name: "List the MR SSIDs in a network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids"
+  - id: "meraki__get_getnetworkwirelessssid"
+    name: "Return a single MR SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}"
+  - id: "meraki__put_updatenetworkwirelessssid"
+    name: "Update the attributes of an MR SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}"
+  - id: "meraki__get_getnetworkwirelessssidbonjourforwarding"
+    name: "List the Bonjour forwarding setting and rules for the SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/bonjourForwarding"
+  - id: "meraki__put_updatenetworkwirelessssidbonjourforwarding"
+    name: "Update the bonjour forwarding setting and rules for the SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/bonjourForwarding"
+  - id: "meraki__get_getnetworkwirelessssiddevicetypegrouppolicies"
+    name: "List the device type group policies for the SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/deviceTypeGroupPolicies"
+  - id: "meraki__put_updatenetworkwirelessssiddevicetypegrouppolicies"
+    name: "Update the device type group policies for the SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/deviceTypeGroupPolicies"
+  - id: "meraki__get_getnetworkwirelessssideapoverride"
+    name: "Return the EAP overridden parameters for an SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/eapOverride"
+  - id: "meraki__put_updatenetworkwirelessssideapoverride"
+    name: "Update the EAP overridden parameters for an SSID."
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/eapOverride"
+  - id: "meraki__get_getnetworkwirelessssidfirewalll3firewallrules"
+    name: "Return the L3 firewall rules for an SSID on an MR network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/firewall/l3FirewallRules"
+  - id: "meraki__put_updatenetworkwirelessssidfirewalll3firewallrules"
+    name: "Update the L3 firewall rules of an SSID on an MR network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/firewall/l3FirewallRules"
+  - id: "meraki__get_getnetworkwirelessssidfirewalll7firewallrules"
+    name: "Return the L7 firewall rules for an SSID on an MR network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/firewall/l7FirewallRules"
+  - id: "meraki__put_updatenetworkwirelessssidfirewalll7firewallrules"
+    name: "Update the L7 firewall rules of an SSID on an MR network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/firewall/l7FirewallRules"
+  - id: "meraki__get_getnetworkwirelessssidhotspot20"
+    name: "Return the Hotspot 2.0 settings for an SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/hotspot20"
+  - id: "meraki__put_updatenetworkwirelessssidhotspot20"
+    name: "Update the Hotspot 2.0 settings of an SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/hotspot20"
+  - id: "meraki__get_getnetworkwirelessssididentitypsks"
+    name: "List all Identity PSKs in a wireless network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/identityPsks"
+  - id: "meraki__post_createnetworkwirelessssididentitypsk"
+    name: "Create an Identity PSK"
+    method: POST
+    path: "/networks/{networkId}/wireless/ssids/{number}/identityPsks"
+  - id: "meraki__get_getnetworkwirelessssididentitypsk"
+    name: "Return an Identity PSK"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/identityPsks/{identityPskId}"
+  - id: "meraki__put_updatenetworkwirelessssididentitypsk"
+    name: "Update an Identity PSK"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/identityPsks/{identityPskId}"
+  - id: "meraki__delete_deletenetworkwirelessssididentitypsk"
+    name: "Delete an Identity PSK"
+    method: DELETE
+    path: "/networks/{networkId}/wireless/ssids/{number}/identityPsks/{identityPskId}"
+  - id: "meraki__put_updatenetworkwirelessssidopenroaming"
+    name: "Update the OpenRoaming setting for the SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/openRoaming"
+  - id: "meraki__get_getnetworkwirelessssidschedules"
+    name: "List the outage schedule for the SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/schedules"
+  - id: "meraki__put_updatenetworkwirelessssidschedules"
+    name: "Update the outage schedule for the SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/schedules"
+  - id: "meraki__get_getnetworkwirelessssidsplashsettings"
+    name: "Display the splash page settings for the given SSID"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/splash/settings"
+  - id: "meraki__put_updatenetworkwirelessssidsplashsettings"
+    name: "Modify the splash page settings for the given SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/splash/settings"
+  - id: "meraki__put_updatenetworkwirelessssidtrafficshapingrules"
+    name: "Update the traffic shaping rules for an SSID on an MR network."
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/trafficShaping/rules"
+  - id: "meraki__get_getnetworkwirelessssidtrafficshapingrules"
+    name: "Display the traffic shaping settings for a SSID on an MR network"
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/trafficShaping/rules"
+  - id: "meraki__get_getnetworkwirelessssidvpn"
+    name: "List the VPN settings for the SSID."
+    method: GET
+    path: "/networks/{networkId}/wireless/ssids/{number}/vpn"
+  - id: "meraki__put_updatenetworkwirelessssidvpn"
+    name: "Update the VPN settings for the SSID"
+    method: PUT
+    path: "/networks/{networkId}/wireless/ssids/{number}/vpn"
+  - id: "meraki__get_getnetworkwirelessusagehistory"
+    name: "Return AP usage over time for a device or network client"
+    method: GET
+    path: "/networks/{networkId}/wireless/usageHistory"
+  - id: "meraki__put_updatenetworkwirelesszigbee"
+    name: "Update Zigbee Configs for specified network"
+    method: PUT
+    path: "/networks/{networkId}/wireless/zigbee"
+  - id: "meraki__get_getorganizations"
+    name: "List the organizations that the user has privileges on"
+    method: GET
+    path: "/organizations"
+  - id: "meraki__post_createorganization"
+    name: "Create a new organization"
+    method: POST
+    path: "/organizations"
+  - id: "meraki__get_getorganization"
+    name: "Return an organization"
+    method: GET
+    path: "/organizations/{organizationId}"
+  - id: "meraki__put_updateorganization"
+    name: "Update an organization"
+    method: PUT
+    path: "/organizations/{organizationId}"
+  - id: "meraki__delete_deleteorganization"
+    name: "Delete an organization"
+    method: DELETE
+    path: "/organizations/{organizationId}"
+  - id: "meraki__post_createorganizationactionbatch"
+    name: "Create an action batch"
+    method: POST
+    path: "/organizations/{organizationId}/actionBatches"
+  - id: "meraki__get_getorganizationactionbatches"
+    name: "Return the list of action batches in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/actionBatches"
+  - id: "meraki__get_getorganizationactionbatch"
+    name: "Return an action batch"
+    method: GET
+    path: "/organizations/{organizationId}/actionBatches/{actionBatchId}"
+  - id: "meraki__delete_deleteorganizationactionbatch"
+    name: "Delete an action batch"
+    method: DELETE
+    path: "/organizations/{organizationId}/actionBatches/{actionBatchId}"
+  - id: "meraki__put_updateorganizationactionbatch"
+    name: "Update an action batch"
+    method: PUT
+    path: "/organizations/{organizationId}/actionBatches/{actionBatchId}"
+  - id: "meraki__get_getorganizationadaptivepolicyacls"
+    name: "List adaptive policy ACLs in a organization"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/acls"
+  - id: "meraki__post_createorganizationadaptivepolicyacl"
+    name: "Creates new adaptive policy ACL"
+    method: POST
+    path: "/organizations/{organizationId}/adaptivePolicy/acls"
+  - id: "meraki__get_getorganizationadaptivepolicyacl"
+    name: "Returns the adaptive policy ACL information"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/acls/{aclId}"
+  - id: "meraki__put_updateorganizationadaptivepolicyacl"
+    name: "Updates an adaptive policy ACL"
+    method: PUT
+    path: "/organizations/{organizationId}/adaptivePolicy/acls/{aclId}"
+  - id: "meraki__delete_deleteorganizationadaptivepolicyacl"
+    name: "Deletes the specified adaptive policy ACL"
+    method: DELETE
+    path: "/organizations/{organizationId}/adaptivePolicy/acls/{aclId}"
+  - id: "meraki__get_getorganizationadaptivepolicygroups"
+    name: "List adaptive policy groups in a organization"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/groups"
+  - id: "meraki__post_createorganizationadaptivepolicygroup"
+    name: "Creates a new adaptive policy group"
+    method: POST
+    path: "/organizations/{organizationId}/adaptivePolicy/groups"
+  - id: "meraki__get_getorganizationadaptivepolicygroup"
+    name: "Returns an adaptive policy group"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/groups/{id}"
+  - id: "meraki__put_updateorganizationadaptivepolicygroup"
+    name: "Updates an adaptive policy group"
+    method: PUT
+    path: "/organizations/{organizationId}/adaptivePolicy/groups/{id}"
+  - id: "meraki__delete_deleteorganizationadaptivepolicygroup"
+    name: "Deletes the specified adaptive policy group and any associated policies and references"
+    method: DELETE
+    path: "/organizations/{organizationId}/adaptivePolicy/groups/{id}"
+  - id: "meraki__get_getorganizationadaptivepolicyoverview"
+    name: "Returns adaptive policy aggregate statistics for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/overview"
+  - id: "meraki__get_getorganizationadaptivepolicypolicies"
+    name: "List adaptive policies in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/policies"
+  - id: "meraki__post_createorganizationadaptivepolicypolicy"
+    name: "Add an Adaptive Policy"
+    method: POST
+    path: "/organizations/{organizationId}/adaptivePolicy/policies"
+  - id: "meraki__get_getorganizationadaptivepolicypolicy"
+    name: "Return an adaptive policy"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/policies/{id}"
+  - id: "meraki__put_updateorganizationadaptivepolicypolicy"
+    name: "Update an Adaptive Policy"
+    method: PUT
+    path: "/organizations/{organizationId}/adaptivePolicy/policies/{id}"
+  - id: "meraki__delete_deleteorganizationadaptivepolicypolicy"
+    name: "Delete an Adaptive Policy"
+    method: DELETE
+    path: "/organizations/{organizationId}/adaptivePolicy/policies/{id}"
+  - id: "meraki__get_getorganizationadaptivepolicysettings"
+    name: "Returns global adaptive policy settings in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/adaptivePolicy/settings"
+  - id: "meraki__put_updateorganizationadaptivepolicysettings"
+    name: "Update global adaptive policy settings"
+    method: PUT
+    path: "/organizations/{organizationId}/adaptivePolicy/settings"
+  - id: "meraki__get_getorganizationadmins"
+    name: "List the dashboard administrators in this organization"
+    method: GET
+    path: "/organizations/{organizationId}/admins"
+  - id: "meraki__post_createorganizationadmin"
+    name: "Create a new dashboard administrator"
+    method: POST
+    path: "/organizations/{organizationId}/admins"
+  - id: "meraki__put_updateorganizationadmin"
+    name: "Update an administrator"
+    method: PUT
+    path: "/organizations/{organizationId}/admins/{adminId}"
+  - id: "meraki__delete_deleteorganizationadmin"
+    name: "Revoke all access for a dashboard administrator within this organization"
+    method: DELETE
+    path: "/organizations/{organizationId}/admins/{adminId}"
+  - id: "meraki__get_getorganizationalertsprofiles"
+    name: "List all organization-wide alert configurations"
+    method: GET
+    path: "/organizations/{organizationId}/alerts/profiles"
+  - id: "meraki__post_createorganizationalertsprofile"
+    name: "Create an organization-wide alert configuration"
+    method: POST
+    path: "/organizations/{organizationId}/alerts/profiles"
+  - id: "meraki__put_updateorganizationalertsprofile"
+    name: "Update an organization-wide alert config"
+    method: PUT
+    path: "/organizations/{organizationId}/alerts/profiles/{alertConfigId}"
+  - id: "meraki__delete_deleteorganizationalertsprofile"
+    name: "Removes an organization-wide alert config"
+    method: DELETE
+    path: "/organizations/{organizationId}/alerts/profiles/{alertConfigId}"
+  - id: "meraki__get_getorganizationapirestprovisioningpipelinesjobs"
+    name: "List pipeline jobs, with optional status filtering"
+    method: GET
+    path: "/organizations/{organizationId}/api/rest/provisioning/pipelines/jobs"
+  - id: "meraki__get_getorganizationapirestprovisioningpipelinesjobsoverviewsbypipeline"
+    name: "Retrieves pipeline overviews with aggregated job status counts"
+    method: GET
+    path: "/organizations/{organizationId}/api/rest/provisioning/pipelines/jobs/overviews/byPipeline"
+  - id: "meraki__get_getorganizationapirequests"
+    name: "List the API requests made by an organization"
+    method: GET
+    path: "/organizations/{organizationId}/apiRequests"
+  - id: "meraki__get_getorganizationapirequestsoverview"
+    name: "Return an aggregated overview of API requests data"
+    method: GET
+    path: "/organizations/{organizationId}/apiRequests/overview"
+  - id: "meraki__get_getorganizationapirequestsoverviewresponsecodesbyinterval"
+    name: "Tracks organizations' API requests by response code across a given time period"
+    method: GET
+    path: "/organizations/{organizationId}/apiRequests/overview/responseCodes/byInterval"
+  - id: "meraki__get_getorganizationappliancednslocalprofiles"
+    name: "Fetch the local DNS profiles used in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles"
+  - id: "meraki__post_createorganizationappliancednslocalprofile"
+    name: "Create a new local DNS profile"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles"
+  - id: "meraki__get_getorganizationappliancednslocalprofilesassignments"
+    name: "Fetch the local DNS profile assignments in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles/assignments"
+  - id: "meraki__post_bulkorganizationappliancednslocalprofilesassignmentscreate"
+    name: "Assign the local DNS profile to networks in the organization"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles/assignments/bulkCreate"
+  - id: "meraki__post_createorganizationappliancednslocalprofilesassignmentsbulkdelete"
+    name: "Unassign the local DNS profile to networks in the organization"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles/assignments/bulkDelete"
+  - id: "meraki__put_updateorganizationappliancednslocalprofile"
+    name: "Update a local DNS profile"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles/{profileId}"
+  - id: "meraki__delete_deleteorganizationappliancednslocalprofile"
+    name: "Deletes a local DNS profile"
+    method: DELETE
+    path: "/organizations/{organizationId}/appliance/dns/local/profiles/{profileId}"
+  - id: "meraki__get_getorganizationappliancednslocalrecords"
+    name: "Fetch the DNS records used in local DNS profiles"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/dns/local/records"
+  - id: "meraki__post_createorganizationappliancednslocalrecord"
+    name: "Create a new local DNS record"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/local/records"
+  - id: "meraki__put_updateorganizationappliancednslocalrecord"
+    name: "Updates a local DNS record"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/dns/local/records/{recordId}"
+  - id: "meraki__delete_deleteorganizationappliancednslocalrecord"
+    name: "Deletes a local DNS record"
+    method: DELETE
+    path: "/organizations/{organizationId}/appliance/dns/local/records/{recordId}"
+  - id: "meraki__get_getorganizationappliancednssplitprofiles"
+    name: "Fetch the split DNS profiles used in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles"
+  - id: "meraki__post_createorganizationappliancednssplitprofile"
+    name: "Create a new split DNS profile"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles"
+  - id: "meraki__get_getorganizationappliancednssplitprofilesassignments"
+    name: "Fetch the split DNS profile assignments in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles/assignments"
+  - id: "meraki__post_createorganizationappliancednssplitprofilesassignmentsbulkcreate"
+    name: "Assign the split DNS profile to networks in the organization"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles/assignments/bulkCreate"
+  - id: "meraki__post_createorganizationappliancednssplitprofilesassignmentsbulkdelete"
+    name: "Unassign the split DNS profile to networks in the organization"
+    method: POST
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles/assignments/bulkDelete"
+  - id: "meraki__put_updateorganizationappliancednssplitprofile"
+    name: "Update a split DNS profile"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles/{profileId}"
+  - id: "meraki__delete_deleteorganizationappliancednssplitprofile"
+    name: "Deletes a split DNS profile"
+    method: DELETE
+    path: "/organizations/{organizationId}/appliance/dns/split/profiles/{profileId}"
+  - id: "meraki__get_getorganizationappliancefirewallmulticastforwardingbynetwork"
+    name: "List Static Multicasting forwarding settings for MX networks"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/firewall/multicastForwarding/byNetwork"
+  - id: "meraki__get_getorganizationappliancesecurityevents"
+    name: "List the security events for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/security/events"
+  - id: "meraki__get_getorganizationappliancesecurityintrusion"
+    name: "Returns all supported intrusion settings for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/security/intrusion"
+  - id: "meraki__put_updateorganizationappliancesecurityintrusion"
+    name: "Sets supported intrusion settings for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/security/intrusion"
+  - id: "meraki__get_getorganizationappliancetrafficshapingvpnexclusionsbynetwork"
+    name: "Display VPN exclusion rules for MX networks."
+    method: GET
+    path: "/organizations/{organizationId}/appliance/trafficShaping/vpnExclusions/byNetwork"
+  - id: "meraki__get_getorganizationapplianceuplinkstatuses"
+    name: "List the uplink status of every Meraki MX and Z series appliances in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/uplink/statuses"
+  - id: "meraki__get_getorganizationapplianceuplinksnatbynetwork"
+    name: "Fetch uplink NAT settings of each network in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/uplinks/nat/byNetwork"
+  - id: "meraki__get_getorganizationapplianceuplinksstatusesoverview"
+    name: "Returns an overview of uplink statuses"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/uplinks/statuses/overview"
+  - id: "meraki__get_getorganizationapplianceuplinksusagebynetwork"
+    name: "Get the sent and received bytes for each uplink of all MX and Z networks within an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/uplinks/usage/byNetwork"
+  - id: "meraki__get_getorganizationappliancevpnsitetositeipsecpeersslas"
+    name: "Get the list of available IPsec SLA policies for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/vpn/siteToSite/ipsec/peers/slas"
+  - id: "meraki__put_updateorganizationappliancevpnsitetositeipsecpeersslas"
+    name: "Update the IPsec SLA policies for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/vpn/siteToSite/ipsec/peers/slas"
+  - id: "meraki__get_getorganizationappliancevpnstats"
+    name: "Show VPN history stat for networks in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/vpn/stats"
+  - id: "meraki__get_getorganizationappliancevpnstatuses"
+    name: "Show VPN status for networks in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/vpn/statuses"
+  - id: "meraki__get_getorganizationappliancevpnthirdpartyvpnpeers"
+    name: "Return the third party VPN peers for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/vpn/thirdPartyVPNPeers"
+  - id: "meraki__put_updateorganizationappliancevpnthirdpartyvpnpeers"
+    name: "Update the third party VPN peers for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/vpn/thirdPartyVPNPeers"
+  - id: "meraki__get_getorganizationappliancevpnvpnfirewallrules"
+    name: "Return the firewall rules for an organization's site-to-site VPN"
+    method: GET
+    path: "/organizations/{organizationId}/appliance/vpn/vpnFirewallRules"
+  - id: "meraki__put_updateorganizationappliancevpnvpnfirewallrules"
+    name: "Update the firewall rules of an organization's site-to-site VPN"
+    method: PUT
+    path: "/organizations/{organizationId}/appliance/vpn/vpnFirewallRules"
+  - id: "meraki__get_getorganizationassurancealerts"
+    name: "Return all health alerts for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts"
+  - id: "meraki__post_dismissorganizationassurancealerts"
+    name: "Dismiss health alerts"
+    method: POST
+    path: "/organizations/{organizationId}/assurance/alerts/dismiss"
+  - id: "meraki__get_getorganizationassurancealertsoverview"
+    name: "Return overview of active health alerts for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/overview"
+  - id: "meraki__get_getorganizationassurancealertsoverviewbynetwork"
+    name: "Return a Summary of Alerts grouped by network and severity"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/overview/byNetwork"
+  - id: "meraki__get_getorganizationassurancealertsoverviewbytype"
+    name: "Return a Summary of Alerts grouped by type and severity"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/overview/byType"
+  - id: "meraki__get_getorganizationassurancealertsoverviewhistorical"
+    name: "Returns historical health alert overviews"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/overview/historical"
+  - id: "meraki__post_restoreorganizationassurancealerts"
+    name: "Restore health alerts from dismissed"
+    method: POST
+    path: "/organizations/{organizationId}/assurance/alerts/restore"
+  - id: "meraki__get_getorganizationassurancealertstaxonomycategories"
+    name: "Return a list of Category Types"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/taxonomy/categories"
+  - id: "meraki__get_getorganizationassurancealertstaxonomytypes"
+    name: "Return a list of alert types"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/taxonomy/types"
+  - id: "meraki__get_getorganizationassurancealert"
+    name: "Return a singular Health Alert by its id"
+    method: GET
+    path: "/organizations/{organizationId}/assurance/alerts/{id}"
+  - id: "meraki__get_getorganizationbrandingpolicies"
+    name: "List the branding policies of an organization"
+    method: GET
+    path: "/organizations/{organizationId}/brandingPolicies"
+  - id: "meraki__post_createorganizationbrandingpolicy"
+    name: "Add a new branding policy to an organization"
+    method: POST
+    path: "/organizations/{organizationId}/brandingPolicies"
+  - id: "meraki__get_getorganizationbrandingpoliciespriorities"
+    name: "Return the branding policy IDs of an organization in priority order"
+    method: GET
+    path: "/organizations/{organizationId}/brandingPolicies/priorities"
+  - id: "meraki__put_updateorganizationbrandingpoliciespriorities"
+    name: "Update the priority ordering of an organization's branding policies."
+    method: PUT
+    path: "/organizations/{organizationId}/brandingPolicies/priorities"
+  - id: "meraki__get_getorganizationbrandingpolicy"
+    name: "Return a branding policy"
+    method: GET
+    path: "/organizations/{organizationId}/brandingPolicies/{brandingPolicyId}"
+  - id: "meraki__put_updateorganizationbrandingpolicy"
+    name: "Update a branding policy"
+    method: PUT
+    path: "/organizations/{organizationId}/brandingPolicies/{brandingPolicyId}"
+  - id: "meraki__delete_deleteorganizationbrandingpolicy"
+    name: "Delete a branding policy"
+    method: DELETE
+    path: "/organizations/{organizationId}/brandingPolicies/{brandingPolicyId}"
+  - id: "meraki__get_getorganizationcameraboundariesareasbydevice"
+    name: "Returns all configured area boundaries of cameras"
+    method: GET
+    path: "/organizations/{organizationId}/camera/boundaries/areas/byDevice"
+  - id: "meraki__get_getorganizationcameraboundarieslinesbydevice"
+    name: "Returns all configured crossingline boundaries of cameras"
+    method: GET
+    path: "/organizations/{organizationId}/camera/boundaries/lines/byDevice"
+  - id: "meraki__get_getorganizationcameracustomanalyticsartifacts"
+    name: "List Custom Analytics Artifacts"
+    method: GET
+    path: "/organizations/{organizationId}/camera/customAnalytics/artifacts"
+  - id: "meraki__post_createorganizationcameracustomanalyticsartifact"
+    name: "Create custom analytics artifact"
+    method: POST
+    path: "/organizations/{organizationId}/camera/customAnalytics/artifacts"
+  - id: "meraki__get_getorganizationcameracustomanalyticsartifact"
+    name: "Get Custom Analytics Artifact"
+    method: GET
+    path: "/organizations/{organizationId}/camera/customAnalytics/artifacts/{artifactId}"
+  - id: "meraki__delete_deleteorganizationcameracustomanalyticsartifact"
+    name: "Delete Custom Analytics Artifact"
+    method: DELETE
+    path: "/organizations/{organizationId}/camera/customAnalytics/artifacts/{artifactId}"
+  - id: "meraki__get_getorganizationcameradetectionshistorybyboundarybyinterval"
+    name: "Returns analytics data for timespans"
+    method: GET
+    path: "/organizations/{organizationId}/camera/detections/history/byBoundary/byInterval"
+  - id: "meraki__get_getorganizationcameraonboardingstatuses"
+    name: "Fetch onboarding status of cameras"
+    method: GET
+    path: "/organizations/{organizationId}/camera/onboarding/statuses"
+  - id: "meraki__put_updateorganizationcameraonboardingstatuses"
+    name: "Notify that credential handoff to camera has completed"
+    method: PUT
+    path: "/organizations/{organizationId}/camera/onboarding/statuses"
+  - id: "meraki__get_getorganizationcamerapermissions"
+    name: "List the permissions scopes for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/camera/permissions"
+  - id: "meraki__get_getorganizationcamerapermission"
+    name: "Retrieve a single permission scope"
+    method: GET
+    path: "/organizations/{organizationId}/camera/permissions/{permissionScopeId}"
+  - id: "meraki__get_getorganizationcameraroles"
+    name: "List all the roles in this organization"
+    method: GET
+    path: "/organizations/{organizationId}/camera/roles"
+  - id: "meraki__post_createorganizationcamerarole"
+    name: "Creates new role for this organization."
+    method: POST
+    path: "/organizations/{organizationId}/camera/roles"
+  - id: "meraki__get_getorganizationcamerarole"
+    name: "Retrieve a single role."
+    method: GET
+    path: "/organizations/{organizationId}/camera/roles/{roleId}"
+  - id: "meraki__delete_deleteorganizationcamerarole"
+    name: "Delete an existing role for this organization."
+    method: DELETE
+    path: "/organizations/{organizationId}/camera/roles/{roleId}"
+  - id: "meraki__put_updateorganizationcamerarole"
+    name: "Update an existing role in this organization."
+    method: PUT
+    path: "/organizations/{organizationId}/camera/roles/{roleId}"
+  - id: "meraki__get_getorganizationcampusgatewayclusters"
+    name: "Get the details of campus gateway clusters"
+    method: GET
+    path: "/organizations/{organizationId}/campusGateway/clusters"
+  - id: "meraki__get_getorganizationcampusgatewaydevicesuplinkslocaloverridesbydevice"
+    name: "Uplink overrides configured locally on Campus Gateway devices in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/campusGateway/devices/uplinks/localOverrides/byDevice"
+  - id: "meraki__get_getorganizationcellulargatewayesimsinventory"
+    name: "The eSIM inventory of a given organization."
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/esims/inventory"
+  - id: "meraki__put_updateorganizationcellulargatewayesimsinventory"
+    name: "Toggle the status of an eSIM"
+    method: PUT
+    path: "/organizations/{organizationId}/cellularGateway/esims/inventory/{id}"
+  - id: "meraki__get_getorganizationcellulargatewayesimsserviceproviders"
+    name: "Service providers customers can add accounts for."
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders"
+  - id: "meraki__get_getorganizationcellulargatewayesimsserviceprovidersaccounts"
+    name: "Inventory of service provider accounts tied to the organization."
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts"
+  - id: "meraki__post_createorganizationcellulargatewayesimsserviceprovidersaccount"
+    name: "Add a service provider account."
+    method: POST
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts"
+  - id: "meraki__get_getorganizationcellulargatewayesimsserviceprovidersaccountscommunicationplans"
+    name: "The communication plans available for a given provider."
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts/communicationPlans"
+  - id: "meraki__get_getorganizationcellulargatewayesimsserviceprovidersaccountsrateplans"
+    name: "The rate plans available for a given provider."
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts/ratePlans"
+  - id: "meraki__put_updateorganizationcellulargatewayesimsserviceprovidersaccount"
+    name: "Edit service provider account info stored in Meraki's database."
+    method: PUT
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts/{accountId}"
+  - id: "meraki__delete_deleteorganizationcellulargatewayesimsserviceprovidersaccount"
+    name: "Remove a service provider account's integration with the Dashboard."
+    method: DELETE
+    path: "/organizations/{organizationId}/cellularGateway/esims/serviceProviders/accounts/{accountId}"
+  - id: "meraki__post_createorganizationcellulargatewayesimsswap"
+    name: "Swap which profile an eSIM uses."
+    method: POST
+    path: "/organizations/{organizationId}/cellularGateway/esims/swap"
+  - id: "meraki__put_updateorganizationcellulargatewayesimsswap"
+    name: "Get the status of a profile swap."
+    method: PUT
+    path: "/organizations/{organizationId}/cellularGateway/esims/swap/{id}"
+  - id: "meraki__get_getorganizationcellulargatewayuplinkstatuses"
+    name: "List the uplink status of every Meraki MG cellular gateway in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/cellularGateway/uplink/statuses"
+  - id: "meraki__post_claimintoorganization"
+    name: "Claim a list of devices, licenses, and/or orders into an organization inventory"
+    method: POST
+    path: "/organizations/{organizationId}/claim"
+  - id: "meraki__get_getorganizationclientsbandwidthusagehistory"
+    name: "Return data usage (in megabits per second) over time for all clients in the given organization within a given time range."
+    method: GET
+    path: "/organizations/{organizationId}/clients/bandwidthUsageHistory"
+  - id: "meraki__get_getorganizationclientsoverview"
+    name: "Return summary information around client data usage (in kb) across the given organization."
+    method: GET
+    path: "/organizations/{organizationId}/clients/overview"
+  - id: "meraki__get_getorganizationclientssearch"
+    name: "Return the client details in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/clients/search"
+  - id: "meraki__post_cloneorganization"
+    name: "Create a new organization by cloning the addressed organization"
+    method: POST
+    path: "/organizations/{organizationId}/clone"
+  - id: "meraki__get_getorganizationconfigtemplates"
+    name: "List the configuration templates for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/configTemplates"
+  - id: "meraki__post_createorganizationconfigtemplate"
+    name: "Create a new configuration template"
+    method: POST
+    path: "/organizations/{organizationId}/configTemplates"
+  - id: "meraki__get_getorganizationconfigtemplate"
+    name: "Return a single configuration template"
+    method: GET
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}"
+  - id: "meraki__put_updateorganizationconfigtemplate"
+    name: "Update a configuration template"
+    method: PUT
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}"
+  - id: "meraki__delete_deleteorganizationconfigtemplate"
+    name: "Remove a configuration template"
+    method: DELETE
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}"
+  - id: "meraki__get_getorganizationconfigtemplateswitchprofiles"
+    name: "List the switch templates for your switch template configuration"
+    method: GET
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}/switch/profiles"
+  - id: "meraki__get_getorganizationconfigtemplateswitchprofileports"
+    name: "Return all the ports of a switch template"
+    method: GET
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}/switch/profiles/{profileId}/ports"
+  - id: "meraki__get_getorganizationconfigtemplateswitchprofileport"
+    name: "Return a switch template port"
+    method: GET
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}/switch/profiles/{profileId}/ports/{portId}"
+  - id: "meraki__put_updateorganizationconfigtemplateswitchprofileport"
+    name: "Update a switch template port"
+    method: PUT
+    path: "/organizations/{organizationId}/configTemplates/{configTemplateId}/switch/profiles/{profileId}/ports/{portId}"
+  - id: "meraki__get_getorganizationconfigurationchanges"
+    name: "View the Change Log for your organization"
+    method: GET
+    path: "/organizations/{organizationId}/configurationChanges"
+  - id: "meraki__get_getorganizationdevices"
+    name: "List the devices in an organization that have been assigned to a network."
+    method: GET
+    path: "/organizations/{organizationId}/devices"
+  - id: "meraki__get_getorganizationdevicesavailabilities"
+    name: "List the availability information for devices in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/devices/availabilities"
+  - id: "meraki__get_getorganizationdevicesavailabilitieschangehistory"
+    name: "List the availability history information for devices in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/devices/availabilities/changeHistory"
+  - id: "meraki__post_createorganizationdevicescontrollermigration"
+    name: "Migrate devices to another controller or management mode"
+    method: POST
+    path: "/organizations/{organizationId}/devices/controller/migrations"
+  - id: "meraki__get_getorganizationdevicescontrollermigrations"
+    name: "Retrieve device migration statuses in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/devices/controller/migrations"
+  - id: "meraki__post_bulkupdateorganizationdevicesdetails"
+    name: "Updating device details (currently only used for Catalyst devices)"
+    method: POST
+    path: "/organizations/{organizationId}/devices/details/bulkUpdate"
+  - id: "meraki__get_getorganizationdevicesoverviewbymodel"
+    name: "Lists the count for each device model"
+    method: GET
+    path: "/organizations/{organizationId}/devices/overview/byModel"
+  - id: "meraki__get_getorganizationdevicespacketcapturecaptures"
+    name: "List Packet Captures"
+    method: GET
+    path: "/organizations/{organizationId}/devices/packetCapture/captures"
+  - id: "meraki__post_createorganizationdevicespacketcapturecapture"
+    name: "Perform a packet capture on a device and store in Meraki Cloud"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/captures"
+  - id: "meraki__post_bulkorganizationdevicespacketcapturecapturescreate"
+    name: "Perform a packet capture on multiple devices and store in Meraki Cloud."
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/captures/bulkCreate"
+  - id: "meraki__post_bulkorganizationdevicespacketcapturecapturesdelete"
+    name: "BulkDelete packet captures from cloud"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/captures/bulkDelete"
+  - id: "meraki__delete_deleteorganizationdevicespacketcapturecapture"
+    name: "Delete a single packet capture from cloud using captureId"
+    method: DELETE
+    path: "/organizations/{organizationId}/devices/packetCapture/captures/{captureId}"
+  - id: "meraki__post_generateorganizationdevicespacketcapturecapturedownloadurl"
+    name: "Get presigned download URL for given packet capture id"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/captures/{captureId}/downloadUrl/generate"
+  - id: "meraki__post_stoporganizationdevicespacketcapturecapture"
+    name: "Stop a specific packet capture (not supported for Catalyst devices)"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/captures/{captureId}/stop"
+  - id: "meraki__get_getorganizationdevicespacketcaptureschedules"
+    name: "List the Packet Capture Schedules"
+    method: GET
+    path: "/organizations/{organizationId}/devices/packetCapture/schedules"
+  - id: "meraki__post_createorganizationdevicespacketcaptureschedule"
+    name: "Create a schedule for packet capture"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/schedules"
+  - id: "meraki__post_reorderorganizationdevicespacketcaptureschedules"
+    name: "Bulk update priorities of pcap schedules"
+    method: POST
+    path: "/organizations/{organizationId}/devices/packetCapture/schedules/reorder"
+  - id: "meraki__put_updateorganizationdevicespacketcaptureschedule"
+    name: "Update a schedule for packet capture"
+    method: PUT
+    path: "/organizations/{organizationId}/devices/packetCapture/schedules/{scheduleId}"
+  - id: "meraki__delete_deleteorganizationdevicespacketcaptureschedule"
+    name: "Delete schedule from cloud"
+    method: DELETE
+    path: "/organizations/{organizationId}/devices/packetCapture/schedules/{scheduleId}"
+  - id: "meraki__get_getorganizationdevicespowermodulesstatusesbydevice"
+    name: "List the most recent status information for power modules in rackmount MX and MS devices that support them"
+    method: GET
+    path: "/organizations/{organizationId}/devices/powerModules/statuses/byDevice"
+  - id: "meraki__get_getorganizationdevicesprovisioningstatuses"
+    name: "List the provisioning statuses information for devices in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/devices/provisioning/statuses"
+  - id: "meraki__get_getorganizationdevicesstatuses"
+    name: "List the status of every Meraki device in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/devices/statuses"
+  - id: "meraki__get_getorganizationdevicesstatusesoverview"
+    name: "Return an overview of current device statuses"
+    method: GET
+    path: "/organizations/{organizationId}/devices/statuses/overview"
+  - id: "meraki__get_getorganizationdevicessystemmemoryusagehistorybyinterval"
+    name: "Return the memory utilization history in kB for devices in the organization."
+    method: GET
+    path: "/organizations/{organizationId}/devices/system/memory/usage/history/byInterval"
+  - id: "meraki__get_getorganizationdevicesuplinksaddressesbydevice"
+    name: "List the current uplink addresses for devices in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/devices/uplinks/addresses/byDevice"
+  - id: "meraki__get_getorganizationdevicesuplinkslossandlatency"
+    name: "Return the uplink loss and latency for every MX in the organization from at latest 2 minutes ago"
+    method: GET
+    path: "/organizations/{organizationId}/devices/uplinksLossAndLatency"
+  - id: "meraki__get_getorganizationearlyaccessfeatures"
+    name: "List the available early access features for organization"
+    method: GET
+    path: "/organizations/{organizationId}/earlyAccess/features"
+  - id: "meraki__get_getorganizationearlyaccessfeaturesoptins"
+    name: "List the early access feature opt-ins for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/earlyAccess/features/optIns"
+  - id: "meraki__post_createorganizationearlyaccessfeaturesoptin"
+    name: "Create a new early access feature opt-in for an organization"
+    method: POST
+    path: "/organizations/{organizationId}/earlyAccess/features/optIns"
+  - id: "meraki__get_getorganizationearlyaccessfeaturesoptin"
+    name: "Show an early access feature opt-in for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/earlyAccess/features/optIns/{optInId}"
+  - id: "meraki__put_updateorganizationearlyaccessfeaturesoptin"
+    name: "Update an early access feature opt-in for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/earlyAccess/features/optIns/{optInId}"
+  - id: "meraki__delete_deleteorganizationearlyaccessfeaturesoptin"
+    name: "Delete an early access feature opt-in"
+    method: DELETE
+    path: "/organizations/{organizationId}/earlyAccess/features/optIns/{optInId}"
+  - id: "meraki__get_getorganizationfirmwareupgrades"
+    name: "Get firmware upgrade information for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/firmware/upgrades"
+  - id: "meraki__get_getorganizationfirmwareupgradesbydevice"
+    name: "Get firmware upgrade status for the filtered devices"
+    method: GET
+    path: "/organizations/{organizationId}/firmware/upgrades/byDevice"
+  - id: "meraki__get_getorganizationfloorplansautolocatedevices"
+    name: "List auto locate details for each device in your organization"
+    method: GET
+    path: "/organizations/{organizationId}/floorPlans/autoLocate/devices"
+  - id: "meraki__get_getorganizationfloorplansautolocatestatuses"
+    name: "List the status of auto locate for each floorplan in your organization"
+    method: GET
+    path: "/organizations/{organizationId}/floorPlans/autoLocate/statuses"
+  - id: "meraki__get_getorganizationinsightapplications"
+    name: "List all Insight tracked applications"
+    method: GET
+    path: "/organizations/{organizationId}/insight/applications"
+  - id: "meraki__get_getorganizationinsightmonitoredmediaservers"
+    name: "List the monitored media servers for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/insight/monitoredMediaServers"
+  - id: "meraki__post_createorganizationinsightmonitoredmediaserver"
+    name: "Add a media server to be monitored for this organization"
+    method: POST
+    path: "/organizations/{organizationId}/insight/monitoredMediaServers"
+  - id: "meraki__get_getorganizationinsightmonitoredmediaserver"
+    name: "Return a monitored media server for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/insight/monitoredMediaServers/{monitoredMediaServerId}"
+  - id: "meraki__put_updateorganizationinsightmonitoredmediaserver"
+    name: "Update a monitored media server for this organization"
+    method: PUT
+    path: "/organizations/{organizationId}/insight/monitoredMediaServers/{monitoredMediaServerId}"
+  - id: "meraki__delete_deleteorganizationinsightmonitoredmediaserver"
+    name: "Delete a monitored media server from this organization"
+    method: DELETE
+    path: "/organizations/{organizationId}/insight/monitoredMediaServers/{monitoredMediaServerId}"
+  - id: "meraki__get_getorganizationintegrationsdeployable"
+    name: "Provides a list of integrations that can be enabled for an Organization."
+    method: GET
+    path: "/organizations/{organizationId}/integrations/deployable"
+  - id: "meraki__get_getorganizationintegrationsdeployed"
+    name: "Provides a list of integrations enabled for an Organization."
+    method: GET
+    path: "/organizations/{organizationId}/integrations/deployed"
+  - id: "meraki__get_getorganizationintegrationsxdrnetworks"
+    name: "Returns the networks in the organization that have XDR enabled"
+    method: GET
+    path: "/organizations/{organizationId}/integrations/xdr/networks"
+  - id: "meraki__post_disableorganizationintegrationsxdrnetworks"
+    name: "Disable XDR on networks"
+    method: POST
+    path: "/organizations/{organizationId}/integrations/xdr/networks/disable"
+  - id: "meraki__post_enableorganizationintegrationsxdrnetworks"
+    name: "Enable XDR on networks"
+    method: POST
+    path: "/organizations/{organizationId}/integrations/xdr/networks/enable"
+  - id: "meraki__post_claimintoorganizationinventory"
+    name: "Claim a list of devices, licenses, and/or orders into an organization inventory"
+    method: POST
+    path: "/organizations/{organizationId}/inventory/claim"
+  - id: "meraki__get_getorganizationinventorydevices"
+    name: "Return the device inventory for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/inventory/devices"
+  - id: "meraki__get_getorganizationinventorydeviceseoxoverview"
+    name: "Fetch the EOX summary for an organization, including counts of devices that are end-of-sale, end-of-support, and end-of-support-soon."
+    method: GET
+    path: "/organizations/{organizationId}/inventory/devices/eox/overview"
+  - id: "meraki__post_createorganizationinventorydevicesswapsbulk"
+    name: "Swap the devices identified by devices.old with a devices.new, then perform the :afterAction on the devices.old."
+    method: POST
+    path: "/organizations/{organizationId}/inventory/devices/swaps/bulk"
+  - id: "meraki__get_getorganizationinventorydevicesswapsbulk"
+    name: "List of device swaps for a given request ID ({id})."
+    method: GET
+    path: "/organizations/{organizationId}/inventory/devices/swaps/bulk/{id}"
+  - id: "meraki__get_getorganizationinventorydevice"
+    name: "Return a single device from the inventory of an organization"
+    method: GET
+    path: "/organizations/{organizationId}/inventory/devices/{serial}"
+  - id: "meraki__post_createorganizationinventoryonboardingcloudmonitoringexportevent"
+    name: "Imports event logs related to the onboarding app into elastisearch"
+    method: POST
+    path: "/organizations/{organizationId}/inventory/onboarding/cloudMonitoring/exportEvents"
+  - id: "meraki__post_createorganizationinventoryonboardingcloudmonitoringimport"
+    name: "Commits the import operation to complete the onboarding of a device into Dashboard for monitoring."
+    method: POST
+    path: "/organizations/{organizationId}/inventory/onboarding/cloudMonitoring/imports"
+  - id: "meraki__get_getorganizationinventoryonboardingcloudmonitoringimports"
+    name: "Check the status of a committed Import operation"
+    method: GET
+    path: "/organizations/{organizationId}/inventory/onboarding/cloudMonitoring/imports"
+  - id: "meraki__get_getorganizationinventoryonboardingcloudmonitoringnetworks"
+    name: "Returns list of networks eligible for adding cloud monitored device"
+    method: GET
+    path: "/organizations/{organizationId}/inventory/onboarding/cloudMonitoring/networks"
+  - id: "meraki__post_createorganizationinventoryonboardingcloudmonitoringprepare"
+    name: "Initiates or updates an import session"
+    method: POST
+    path: "/organizations/{organizationId}/inventory/onboarding/cloudMonitoring/prepare"
+  - id: "meraki__post_claimorganizationinventoryorders"
+    name: "Claim an order by the secure unique order claim number, the order claim id"
+    method: POST
+    path: "/organizations/{organizationId}/inventory/orders/claim"
+  - id: "meraki__post_previeworganizationinventoryorders"
+    name: "Preview the results and status of an order claim by the secure order id"
+    method: POST
+    path: "/organizations/{organizationId}/inventory/orders/preview"
+  - id: "meraki__post_releasefromorganizationinventory"
+    name: "Release a list of claimed devices from an organization."
+    method: POST
+    path: "/organizations/{organizationId}/inventory/release"
+  - id: "meraki__get_getorganizationlicenses"
+    name: "List the licenses for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/licenses"
+  - id: "meraki__post_assignorganizationlicensesseats"
+    name: "Assign SM seats to a network"
+    method: POST
+    path: "/organizations/{organizationId}/licenses/assignSeats"
+  - id: "meraki__post_moveorganizationlicenses"
+    name: "Move licenses to another organization"
+    method: POST
+    path: "/organizations/{organizationId}/licenses/move"
+  - id: "meraki__post_moveorganizationlicensesseats"
+    name: "Move SM seats to another organization"
+    method: POST
+    path: "/organizations/{organizationId}/licenses/moveSeats"
+  - id: "meraki__get_getorganizationlicensesoverview"
+    name: "Return an overview of the license state for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/licenses/overview"
+  - id: "meraki__post_reneworganizationlicensesseats"
+    name: "Renew SM seats of a license"
+    method: POST
+    path: "/organizations/{organizationId}/licenses/renewSeats"
+  - id: "meraki__get_getorganizationlicense"
+    name: "Display a license"
+    method: GET
+    path: "/organizations/{organizationId}/licenses/{licenseId}"
+  - id: "meraki__put_updateorganizationlicense"
+    name: "Update a license"
+    method: PUT
+    path: "/organizations/{organizationId}/licenses/{licenseId}"
+  - id: "meraki__get_getorganizationlicensingcotermlicenses"
+    name: "List the licenses in a coterm organization"
+    method: GET
+    path: "/organizations/{organizationId}/licensing/coterm/licenses"
+  - id: "meraki__post_moveorganizationlicensingcotermlicenses"
+    name: "Moves a license to a different organization (coterm only)"
+    method: POST
+    path: "/organizations/{organizationId}/licensing/coterm/licenses/move"
+  - id: "meraki__get_getorganizationloginsecurity"
+    name: "Returns the login security settings for an organization."
+    method: GET
+    path: "/organizations/{organizationId}/loginSecurity"
+  - id: "meraki__put_updateorganizationloginsecurity"
+    name: "Update the login security settings for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/loginSecurity"
+  - id: "meraki__get_getorganizationnetworks"
+    name: "List the networks that the user has privileges on in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/networks"
+  - id: "meraki__post_createorganizationnetwork"
+    name: "Create a network"
+    method: POST
+    path: "/organizations/{organizationId}/networks"
+  - id: "meraki__post_combineorganizationnetworks"
+    name: "Combine multiple networks into a single network"
+    method: POST
+    path: "/organizations/{organizationId}/networks/combine"
+  - id: "meraki__post_createnetworkmove"
+    name: "Move networks from one organization to another"
+    method: POST
+    path: "/organizations/{organizationId}/networks/moves"
+  - id: "meraki__get_getnetworkmoves"
+    name: "Return a list of network move operations in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/networks/moves"
+  - id: "meraki__get_getorganizationopenapispec"
+    name: "Return the OpenAPI Specification of the organization's API documentation in JSON"
+    method: GET
+    path: "/organizations/{organizationId}/openapiSpec"
+  - id: "meraki__get_getorganizationpoliciesassignmentsbyclient"
+    name: "Get policies for all clients with policies"
+    method: GET
+    path: "/organizations/{organizationId}/policies/assignments/byClient"
+  - id: "meraki__get_getorganizationpoliciesglobalfirewallapplicationcategories"
+    name: "List application categories with their associated applications"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/firewall/applicationCategories"
+  - id: "meraki__get_getorganizationpoliciesglobalfirewallrulesets"
+    name: "List Organization-Wide Policy Firewall Rulesets"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets"
+  - id: "meraki__post_createorganizationpoliciesglobalfirewallruleset"
+    name: "Create an Organization-Wide Policy Firewall Ruleset"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets"
+  - id: "meraki__post_createorganizationpoliciesglobalfirewallrulesetsrule"
+    name: "Create an Organization-Wide Policy Firewall Rule"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/rules"
+  - id: "meraki__get_getorganizationpoliciesglobalfirewallrulesetsrules"
+    name: "List Organization-Wide Policy Firewall Rules"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/rules"
+  - id: "meraki__delete_deleteorganizationpoliciesglobalfirewallrulesetsrule"
+    name: "Delete an Organization-Wide Policy Firewall Rule"
+    method: DELETE
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/rules/{ruleId}"
+  - id: "meraki__put_updateorganizationpoliciesglobalfirewallrulesetsrule"
+    name: "Update an Organization-Wide Policy Firewall Rule"
+    method: PUT
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/rules/{ruleId}"
+  - id: "meraki__put_updateorganizationpoliciesglobalfirewallruleset"
+    name: "Update an Organization-Wide Policy Firewall Ruleset"
+    method: PUT
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/{rulesetId}"
+  - id: "meraki__delete_deleteorganizationpoliciesglobalfirewallruleset"
+    name: "Delete an Organization-Wide Policy Firewall Ruleset"
+    method: DELETE
+    path: "/organizations/{organizationId}/policies/global/firewall/rulesets/{rulesetId}"
+  - id: "meraki__get_getorganizationpoliciesglobalgrouppolicies"
+    name: "List Organization-Wide Policies"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/group/policies"
+  - id: "meraki__post_createorganizationpoliciesglobalgrouppolicy"
+    name: "Create an Organization-Wide Policy"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies"
+  - id: "meraki__post_assignorganizationpoliciesglobalgrouppoliciesadaptivepolicygroups"
+    name: "Assign adaptive policy groups to a policy"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies/adaptivePolicyGroups/assign"
+  - id: "meraki__get_getorganizationpoliciesglobalgrouppoliciesadaptivepolicygroupsassignments"
+    name: "List adaptive policy group assignments"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/group/policies/adaptivePolicyGroups/assignments"
+  - id: "meraki__post_removeorganizationpoliciesglobalgrouppoliciesadaptivepolicygroups"
+    name: "Remove adaptive policy groups from a policy"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies/adaptivePolicyGroups/remove"
+  - id: "meraki__post_assignorganizationpoliciesglobalgrouppoliciesappliancevlans"
+    name: "Assign VLANs to a policy"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/assign"
+  - id: "meraki__get_getorganizationpoliciesglobalgrouppoliciesappliancevlansassignments"
+    name: "List appliance VLAN policy assignments"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/assignments"
+  - id: "meraki__get_getorganizationpoliciesglobalgrouppoliciesappliancevlansassignmentsbyvlan"
+    name: "List policies by appliance VLANs"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/assignments/byVlan"
+  - id: "meraki__post_removeorganizationpoliciesglobalgrouppoliciesappliancevlans"
+    name: "Remove VLANs from a policy"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/remove"
+  - id: "meraki__get_getorganizationpoliciesglobalgrouppoliciesfirewallrulesetsassignments"
+    name: "List Organization-Wide Policy Ruleset Assignments"
+    method: GET
+    path: "/organizations/{organizationId}/policies/global/group/policies/firewall/rulesets/assignments"
+  - id: "meraki__post_createorganizationpoliciesglobalgrouppoliciesfirewallrulesetsassignment"
+    name: "Create an Organization-Wide Policy Ruleset Assignment"
+    method: POST
+    path: "/organizations/{organizationId}/policies/global/group/policies/firewall/rulesets/assignments"
+  - id: "meraki__put_updateorganizationpoliciesglobalgrouppoliciesfirewallrulesetsassignment"
+    name: "Update an Organization-Wide Policy Ruleset Assignment"
+    method: PUT
+    path: "/organizations/{organizationId}/policies/global/group/policies/firewall/rulesets/assignments/{assignmentId}"
+  - id: "meraki__delete_deleteorganizationpoliciesglobalgrouppoliciesfirewallrulesetsassignment"
+    name: "Delete an Organization-Wide Policy Ruleset Assignment"
+    method: DELETE
+    path: "/organizations/{organizationId}/policies/global/group/policies/firewall/rulesets/assignments/{assignmentId}"
+  - id: "meraki__put_updateorganizationpoliciesglobalgrouppolicy"
+    name: "Update an Organization-Wide Policy"
+    method: PUT
+    path: "/organizations/{organizationId}/policies/global/group/policies/{policyId}"
+  - id: "meraki__delete_deleteorganizationpoliciesglobalgrouppolicy"
+    name: "Delete an Organization-Wide Policy"
+    method: DELETE
+    path: "/organizations/{organizationId}/policies/global/group/policies/{policyId}"
+  - id: "meraki__get_getorganizationpolicyobjects"
+    name: "Lists Policy Objects belonging to the organization."
+    method: GET
+    path: "/organizations/{organizationId}/policyObjects"
+  - id: "meraki__post_createorganizationpolicyobject"
+    name: "Creates a new Policy Object."
+    method: POST
+    path: "/organizations/{organizationId}/policyObjects"
+  - id: "meraki__get_getorganizationpolicyobjectsgroups"
+    name: "Lists Policy Object Groups belonging to the organization."
+    method: GET
+    path: "/organizations/{organizationId}/policyObjects/groups"
+  - id: "meraki__post_createorganizationpolicyobjectsgroup"
+    name: "Creates a new Policy Object Group."
+    method: POST
+    path: "/organizations/{organizationId}/policyObjects/groups"
+  - id: "meraki__get_getorganizationpolicyobjectsgroup"
+    name: "Shows details of a Policy Object Group."
+    method: GET
+    path: "/organizations/{organizationId}/policyObjects/groups/{policyObjectGroupId}"
+  - id: "meraki__put_updateorganizationpolicyobjectsgroup"
+    name: "Updates a Policy Object Group."
+    method: PUT
+    path: "/organizations/{organizationId}/policyObjects/groups/{policyObjectGroupId}"
+  - id: "meraki__delete_deleteorganizationpolicyobjectsgroup"
+    name: "Deletes a Policy Object Group."
+    method: DELETE
+    path: "/organizations/{organizationId}/policyObjects/groups/{policyObjectGroupId}"
+  - id: "meraki__get_getorganizationpolicyobject"
+    name: "Shows details of a Policy Object."
+    method: GET
+    path: "/organizations/{organizationId}/policyObjects/{policyObjectId}"
+  - id: "meraki__put_updateorganizationpolicyobject"
+    name: "Updates a Policy Object."
+    method: PUT
+    path: "/organizations/{organizationId}/policyObjects/{policyObjectId}"
+  - id: "meraki__delete_deleteorganizationpolicyobject"
+    name: "Deletes a Policy Object."
+    method: DELETE
+    path: "/organizations/{organizationId}/policyObjects/{policyObjectId}"
+  - id: "meraki__get_getorganizationsaml"
+    name: "Returns the SAML SSO enabled settings for an organization."
+    method: GET
+    path: "/organizations/{organizationId}/saml"
+  - id: "meraki__put_updateorganizationsaml"
+    name: "Updates the SAML SSO enabled settings for an organization."
+    method: PUT
+    path: "/organizations/{organizationId}/saml"
+  - id: "meraki__get_getorganizationsamlidps"
+    name: "List the SAML IdPs in your organization."
+    method: GET
+    path: "/organizations/{organizationId}/saml/idps"
+  - id: "meraki__post_createorganizationsamlidp"
+    name: "Create a SAML IdP for your organization."
+    method: POST
+    path: "/organizations/{organizationId}/saml/idps"
+  - id: "meraki__put_updateorganizationsamlidp"
+    name: "Update a SAML IdP in your organization"
+    method: PUT
+    path: "/organizations/{organizationId}/saml/idps/{idpId}"
+  - id: "meraki__get_getorganizationsamlidp"
+    name: "Get a SAML IdP from your organization."
+    method: GET
+    path: "/organizations/{organizationId}/saml/idps/{idpId}"
+  - id: "meraki__delete_deleteorganizationsamlidp"
+    name: "Remove a SAML IdP in your organization."
+    method: DELETE
+    path: "/organizations/{organizationId}/saml/idps/{idpId}"
+  - id: "meraki__get_getorganizationsamlroles"
+    name: "List the SAML roles for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/samlRoles"
+  - id: "meraki__post_createorganizationsamlrole"
+    name: "Create a SAML role"
+    method: POST
+    path: "/organizations/{organizationId}/samlRoles"
+  - id: "meraki__get_getorganizationsamlrole"
+    name: "Return a SAML role"
+    method: GET
+    path: "/organizations/{organizationId}/samlRoles/{samlRoleId}"
+  - id: "meraki__put_updateorganizationsamlrole"
+    name: "Update a SAML role"
+    method: PUT
+    path: "/organizations/{organizationId}/samlRoles/{samlRoleId}"
+  - id: "meraki__delete_deleteorganizationsamlrole"
+    name: "Remove a SAML role"
+    method: DELETE
+    path: "/organizations/{organizationId}/samlRoles/{samlRoleId}"
+  - id: "meraki__get_getorganizationsaseconnectors"
+    name: "List SSE Connectors for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/sase/connectors"
+  - id: "meraki__post_batchorganizationsaseconnectorscreate"
+    name: "Deploy SSE Connectors for specified regions"
+    method: POST
+    path: "/organizations/{organizationId}/sase/connectors/batchCreate"
+  - id: "meraki__post_batchorganizationsaseconnectorsdelete"
+    name: "Delete SSE Connectors by ID"
+    method: POST
+    path: "/organizations/{organizationId}/sase/connectors/batchDelete"
+  - id: "meraki__get_getorganizationsasenetworkseligible"
+    name: "List of MX networks or templates that can be enrolled into Secure Access"
+    method: GET
+    path: "/organizations/{organizationId}/sase/networks/eligible"
+  - id: "meraki__get_getorganizationsaseregions"
+    name: "List regions"
+    method: GET
+    path: "/organizations/{organizationId}/sase/regions"
+  - id: "meraki__get_getorganizationsasesites"
+    name: "List of enrolled SASE sites in this organization"
+    method: GET
+    path: "/organizations/{organizationId}/sase/sites"
+  - id: "meraki__post_attachorganizationsasesites"
+    name: "Attach sites in this organization to Secure Access"
+    method: POST
+    path: "/organizations/{organizationId}/sase/sites/attach"
+  - id: "meraki__get_getorganizationsasesitesconnectivityhistorybysite"
+    name: "Get the connectivity history of SASE sites in this organization"
+    method: GET
+    path: "/organizations/{organizationId}/sase/sites/connectivity/history/bySite"
+  - id: "meraki__get_getorganizationsasesitesconnectivityoverview"
+    name: "List high-level SASE site statuses (healthy, degraded, offline)"
+    method: GET
+    path: "/organizations/{organizationId}/sase/sites/connectivity/overview"
+  - id: "meraki__delete_detachorganizationsasesites"
+    name: "Detach sites in this organization from Secure Access"
+    method: DELETE
+    path: "/organizations/{organizationId}/sase/sites/detach"
+  - id: "meraki__put_updateorganizationsasesite"
+    name: "Update the configuration for a site"
+    method: PUT
+    path: "/organizations/{organizationId}/sase/sites/{siteId}"
+  - id: "meraki__get_getorganizationsensorgatewaysconnectionslatest"
+    name: "Returns latest sensor-gateway connectivity data."
+    method: GET
+    path: "/organizations/{organizationId}/sensor/gateways/connections/latest"
+  - id: "meraki__get_getorganizationsensorreadingshistory"
+    name: "Return all reported readings from sensors in a given timespan, sorted by timestamp"
+    method: GET
+    path: "/organizations/{organizationId}/sensor/readings/history"
+  - id: "meraki__get_getorganizationsensorreadingslatest"
+    name: "Return the latest available reading for each metric from each sensor, sorted by sensor serial"
+    method: GET
+    path: "/organizations/{organizationId}/sensor/readings/latest"
+  - id: "meraki__get_getorganizationsmadminsroles"
+    name: "List the Limited Access Roles for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/sm/admins/roles"
+  - id: "meraki__post_createorganizationsmadminsrole"
+    name: "Create a Limited Access Role"
+    method: POST
+    path: "/organizations/{organizationId}/sm/admins/roles"
+  - id: "meraki__get_getorganizationsmadminsrole"
+    name: "Return a Limited Access Role"
+    method: GET
+    path: "/organizations/{organizationId}/sm/admins/roles/{roleId}"
+  - id: "meraki__put_updateorganizationsmadminsrole"
+    name: "Update a Limited Access Role"
+    method: PUT
+    path: "/organizations/{organizationId}/sm/admins/roles/{roleId}"
+  - id: "meraki__delete_deleteorganizationsmadminsrole"
+    name: "Delete a Limited Access Role"
+    method: DELETE
+    path: "/organizations/{organizationId}/sm/admins/roles/{roleId}"
+  - id: "meraki__get_getorganizationsmapnscert"
+    name: "Get the organization's APNS certificate"
+    method: GET
+    path: "/organizations/{organizationId}/sm/apnsCert"
+  - id: "meraki__put_updateorganizationsmsentrypoliciesassignments"
+    name: "Update an Organizations Sentry Policies using the provided list"
+    method: PUT
+    path: "/organizations/{organizationId}/sm/sentry/policies/assignments"
+  - id: "meraki__get_getorganizationsmsentrypoliciesassignmentsbynetwork"
+    name: "List the Sentry Policies for an organization ordered in ascending order of priority"
+    method: GET
+    path: "/organizations/{organizationId}/sm/sentry/policies/assignments/byNetwork"
+  - id: "meraki__get_getorganizationsmvppaccounts"
+    name: "List the VPP accounts in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/sm/vppAccounts"
+  - id: "meraki__get_getorganizationsmvppaccount"
+    name: "Get a hash containing the unparsed token of the VPP account with the given ID"
+    method: GET
+    path: "/organizations/{organizationId}/sm/vppAccounts/{vppAccountId}"
+  - id: "meraki__get_getorganizationsnmp"
+    name: "Return the SNMP settings for an organization"
+    method: GET
+    path: "/organizations/{organizationId}/snmp"
+  - id: "meraki__put_updateorganizationsnmp"
+    name: "Update the SNMP settings for an organization"
+    method: PUT
+    path: "/organizations/{organizationId}/snmp"
+  - id: "meraki__get_getorganizationspacesintegratestatus"
+    name: "Get the status of the Spaces integration in Meraki"
+    method: GET
+    path: "/organizations/{organizationId}/spaces/integrate/status"
+  - id: "meraki__post_removeorganizationspacesintegration"
+    name: "Remove the Spaces integration from Meraki"
+    method: POST
+    path: "/organizations/{organizationId}/spaces/integration/remove"
+  - id: "meraki__get_getorganizationsplashasset"
+    name: "Get a Splash Theme Asset"
+    method: GET
+    path: "/organizations/{organizationId}/splash/assets/{id}"
+  - id: "meraki__delete_deleteorganizationsplashasset"
+    name: "Delete a Splash Theme Asset"
+    method: DELETE
+    path: "/organizations/{organizationId}/splash/assets/{id}"
+  - id: "meraki__get_getorganizationsplashthemes"
+    name: "List Splash Themes"
+    method: GET
+    path: "/organizations/{organizationId}/splash/themes"
+  - id: "meraki__post_createorganizationsplashtheme"
+    name: "Create a Splash Theme"
+    method: POST
+    path: "/organizations/{organizationId}/splash/themes"
+  - id: "meraki__delete_deleteorganizationsplashtheme"
+    name: "Delete a Splash Theme"
+    method: DELETE
+    path: "/organizations/{organizationId}/splash/themes/{id}"
+  - id: "meraki__post_createorganizationsplashthemeasset"
+    name: "Create a Splash Theme Asset"
+    method: POST
+    path: "/organizations/{organizationId}/splash/themes/{themeIdentifier}/assets"
+  - id: "meraki__get_getorganizationsummaryswitchpowerhistory"
+    name: "Returns the total PoE power draw for all switch ports in the organization over the requested timespan (by default the last 24 hours)"
+    method: GET
+    path: "/organizations/{organizationId}/summary/switch/power/history"
+  - id: "meraki__get_getorganizationsummarytopappliancesbyutilization"
+    name: "Return the top 10 appliances sorted by utilization over given time range."
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/appliances/byUtilization"
+  - id: "meraki__get_getorganizationsummarytopapplicationsbyusage"
+    name: "Return the top applications sorted by data usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/applications/byUsage"
+  - id: "meraki__get_getorganizationsummarytopapplicationscategoriesbyusage"
+    name: "Return the top application categories sorted by data usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/applications/categories/byUsage"
+  - id: "meraki__get_getorganizationsummarytopclientsbyusage"
+    name: "Return metrics for organization's top 10 clients by data usage (in mb) over given time range."
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/clients/byUsage"
+  - id: "meraki__get_getorganizationsummarytopclientsmanufacturersbyusage"
+    name: "Return metrics for organization's top clients by data usage (in mb) over given time range, grouped by manufacturer."
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/clients/manufacturers/byUsage"
+  - id: "meraki__get_getorganizationsummarytopdevicesbyusage"
+    name: "Return metrics for organization's top 10 devices sorted by data usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/devices/byUsage"
+  - id: "meraki__get_getorganizationsummarytopdevicesmodelsbyusage"
+    name: "Return metrics for organization's top 10 device models sorted by data usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/devices/models/byUsage"
+  - id: "meraki__get_getorganizationsummarytopnetworksbystatus"
+    name: "List the client and status overview information for the networks in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/networks/byStatus"
+  - id: "meraki__get_getorganizationsummarytopssidsbyusage"
+    name: "Return metrics for organization's top 10 ssids by data usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/ssids/byUsage"
+  - id: "meraki__get_getorganizationsummarytopswitchesbyenergyusage"
+    name: "Return metrics for organization's top 10 switches by energy usage over given time range"
+    method: GET
+    path: "/organizations/{organizationId}/summary/top/switches/byEnergyUsage"
+  - id: "meraki__post_cloneorganizationswitchdevices"
+    name: "Clone port-level and some switch-level configuration settings from a source switch to one or more target switches"
+    method: POST
+    path: "/organizations/{organizationId}/switch/devices/clone"
+  - id: "meraki__get_getorganizationswitchportsbyswitch"
+    name: "List the switchports in an organization by switch"
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/bySwitch"
+  - id: "meraki__get_getorganizationswitchportsclientsoverviewbydevice"
+    name: "List the number of clients for all switchports with at least one online client in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/clients/overview/byDevice"
+  - id: "meraki__get_getorganizationswitchportsoverview"
+    name: "Returns the counts of all active ports for the requested timespan, grouped by speed"
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/overview"
+  - id: "meraki__get_getorganizationswitchportsstatusesbyswitch"
+    name: "List the switchports in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/statuses/bySwitch"
+  - id: "meraki__get_getorganizationswitchportstopologydiscoverybydevice"
+    name: "List most recently seen LLDP/CDP discovery and topology information per switch port in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/topology/discovery/byDevice"
+  - id: "meraki__get_getorganizationswitchportsusagehistorybydevicebyinterval"
+    name: "List the historical usage and traffic data of switchports in an organization."
+    method: GET
+    path: "/organizations/{organizationId}/switch/ports/usage/history/byDevice/byInterval"
+  - id: "meraki__get_getorganizationuplinksstatuses"
+    name: "List the uplink status of every Meraki MX, MG and Z series devices in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/uplinks/statuses"
+  - id: "meraki__get_getorganizationwebhooksalerttypes"
+    name: "Return a list of alert types to be used with managing webhook alerts"
+    method: GET
+    path: "/organizations/{organizationId}/webhooks/alertTypes"
+  - id: "meraki__get_getorganizationwebhookscallbacksstatus"
+    name: "Return the status of an API callback"
+    method: GET
+    path: "/organizations/{organizationId}/webhooks/callbacks/statuses/{callbackId}"
+  - id: "meraki__get_getorganizationwebhookslogs"
+    name: "Return the log of webhook POSTs sent"
+    method: GET
+    path: "/organizations/{organizationId}/webhooks/logs"
+  - id: "meraki__get_getorganizationwirelessairmarshalrules"
+    name: "Returns the current Air Marshal rules for this organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/airMarshal/rules"
+  - id: "meraki__get_getorganizationwirelessairmarshalsettingsbynetwork"
+    name: "Returns the current Air Marshal settings for this network"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/airMarshal/settings/byNetwork"
+  - id: "meraki__get_getorganizationwirelessclientsoverviewbydevice"
+    name: "List access point client count at the moment in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/clients/overview/byDevice"
+  - id: "meraki__get_getorganizationwirelessdeviceschannelutilizationbydevice"
+    name: "Get average channel utilization for all bands in a network, split by AP"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/channelUtilization/byDevice"
+  - id: "meraki__get_getorganizationwirelessdeviceschannelutilizationbynetwork"
+    name: "Get average channel utilization across all bands for all networks in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/channelUtilization/byNetwork"
+  - id: "meraki__get_getorganizationwirelessdeviceschannelutilizationhistorybydevicebyinterval"
+    name: "Get a time-series of average channel utilization for all bands, segmented by device."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/channelUtilization/history/byDevice/byInterval"
+  - id: "meraki__get_getorganizationwirelessdeviceschannelutilizationhistorybynetworkbyinterval"
+    name: "Get a time-series of average channel utilization for all bands"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/channelUtilization/history/byNetwork/byInterval"
+  - id: "meraki__get_getorganizationwirelessdevicesethernetstatuses"
+    name: "List the most recent Ethernet link speed, duplex, aggregation and power mode and status information for wireless devices."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/ethernet/statuses"
+  - id: "meraki__get_getorganizationwirelessdevicespacketlossbyclient"
+    name: "Get average packet loss for the given timespan for all clients in the organization."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/packetLoss/byClient"
+  - id: "meraki__get_getorganizationwirelessdevicespacketlossbydevice"
+    name: "Get average packet loss for the given timespan for all devices in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/packetLoss/byDevice"
+  - id: "meraki__get_getorganizationwirelessdevicespacketlossbynetwork"
+    name: "Get average packet loss for the given timespan for all networks in the organization."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/packetLoss/byNetwork"
+  - id: "meraki__get_getorganizationwirelessdevicespowermodehistory"
+    name: "Return a record of power mode changes for wireless devices in the organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/power/mode/history"
+  - id: "meraki__get_getorganizationwirelessdevicesprovisioningdeployments"
+    name: "List the zero touch deployments for wireless access points in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/provisioning/deployments"
+  - id: "meraki__post_createorganizationwirelessdevicesprovisioningdeployment"
+    name: "Create a zero touch deployment for a wireless access point"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/devices/provisioning/deployments"
+  - id: "meraki__put_updateorganizationwirelessdevicesprovisioningdeployments"
+    name: "Update a zero touch deployment"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/devices/provisioning/deployments"
+  - id: "meraki__delete_deleteorganizationwirelessdevicesprovisioningdeployment"
+    name: "Delete a zero touch deployment"
+    method: DELETE
+    path: "/organizations/{organizationId}/wireless/devices/provisioning/deployments/{deploymentId}"
+  - id: "meraki__get_getorganizationwirelessdevicesradseccertificatesauthorities"
+    name: "Query for details on the organization's RADSEC device Certificate Authority certificates (CAs)"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/radsec/certificates/authorities"
+  - id: "meraki__put_updateorganizationwirelessdevicesradseccertificatesauthorities"
+    name: "Update an organization's RADSEC device Certificate Authority (CA) state"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/devices/radsec/certificates/authorities"
+  - id: "meraki__post_createorganizationwirelessdevicesradseccertificatesauthority"
+    name: "Create an organization's RADSEC device Certificate Authority (CA)"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/devices/radsec/certificates/authorities"
+  - id: "meraki__get_getorganizationwirelessdevicesradseccertificatesauthoritiescrls"
+    name: "Query for certificate revocation list (CRL) for the organization's RADSEC device Certificate Authorities (CAs)."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/radsec/certificates/authorities/crls"
+  - id: "meraki__get_getorganizationwirelessdevicesradseccertificatesauthoritiescrlsdeltas"
+    name: "Query for all delta certificate revocation list (CRL) for the organization's RADSEC device Certificate Authority (CA) with the given id."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/radsec/certificates/authorities/crls/deltas"
+  - id: "meraki__get_getorganizationwirelessdevicessystemcpuloadhistory"
+    name: "Return the CPU Load history for a list of wireless devices in the organization."
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/system/cpu/load/history"
+  - id: "meraki__get_getorganizationwirelessdeviceswirelesscontrollersbydevice"
+    name: "List of Catalyst access points information"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/devices/wirelessControllers/byDevice"
+  - id: "meraki__get_getorganizationwirelesslocationscanningbynetwork"
+    name: "Return scanning API settings"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/location/scanning/byNetwork"
+  - id: "meraki__get_getorganizationwirelesslocationscanningreceivers"
+    name: "Return scanning API receivers"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/location/scanning/receivers"
+  - id: "meraki__post_createorganizationwirelesslocationscanningreceiver"
+    name: "Add new receiver for scanning API"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/location/scanning/receivers"
+  - id: "meraki__put_updateorganizationwirelesslocationscanningreceiver"
+    name: "Change scanning API receiver settings"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/location/scanning/receivers/{receiverId}"
+  - id: "meraki__delete_deleteorganizationwirelesslocationscanningreceiver"
+    name: "Delete a scanning API receiver"
+    method: DELETE
+    path: "/organizations/{organizationId}/wireless/location/scanning/receivers/{receiverId}"
+  - id: "meraki__get_getorganizationwirelessmqttsettings"
+    name: "Return MQTT Settings for networks"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/mqtt/settings"
+  - id: "meraki__put_updateorganizationwirelessmqttsettings"
+    name: "Add new broker config for wireless MQTT"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/mqtt/settings"
+  - id: "meraki__post_recalculateorganizationwirelessradioautorfchannels"
+    name: "Recalculates automatically assigned channels for every AP within specified the specified network(s)"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/radio/autoRf/channels/recalculate"
+  - id: "meraki__get_getorganizationwirelessradiorrmbynetwork"
+    name: "List the AutoRF settings of an organization by network"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/radio/rrm/byNetwork"
+  - id: "meraki__get_getorganizationwirelessrfprofilesassignmentsbydevice"
+    name: "List the RF profiles of an organization by device"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/rfProfiles/assignments/byDevice"
+  - id: "meraki__get_getorganizationwirelessssidsfirewallisolationallowlistentries"
+    name: "List the L2 isolation allow list MAC entry in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/ssids/firewall/isolation/allowlist/entries"
+  - id: "meraki__post_createorganizationwirelessssidsfirewallisolationallowlistentry"
+    name: "Create isolation allow list MAC entry for this organization"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/ssids/firewall/isolation/allowlist/entries"
+  - id: "meraki__delete_deleteorganizationwirelessssidsfirewallisolationallowlistentry"
+    name: "Destroy isolation allow list MAC entry for this organization"
+    method: DELETE
+    path: "/organizations/{organizationId}/wireless/ssids/firewall/isolation/allowlist/entries/{entryId}"
+  - id: "meraki__put_updateorganizationwirelessssidsfirewallisolationallowlistentry"
+    name: "Update isolation allow list MAC entry info"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/ssids/firewall/isolation/allowlist/entries/{entryId}"
+  - id: "meraki__get_getorganizationwirelessssidsopenroamingbynetwork"
+    name: "Returns an array of objects, each containing SSID OpenRoaming configs for the corresponding network"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/ssids/openRoaming/byNetwork"
+  - id: "meraki__get_getorganizationwirelessssidsstatusesbydevice"
+    name: "List status information of all BSSIDs in your organization"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/ssids/statuses/byDevice"
+  - id: "meraki__get_getorganizationwirelesszigbeebynetwork"
+    name: "Return list of Zigbee configs"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/zigbee/byNetwork"
+  - id: "meraki__get_getorganizationwirelesszigbeedevices"
+    name: "List the Zigbee wireless devices for an organization or the supplied network(s)"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/zigbee/devices"
+  - id: "meraki__put_updateorganizationwirelesszigbeedevice"
+    name: "Endpoint to update zigbee gateways"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/zigbee/devices/{id}"
+  - id: "meraki__post_createorganizationwirelesszigbeedisenrollment"
+    name: "Enqueue a job to start disenrolling door locks on zigbee configured wireless devices"
+    method: POST
+    path: "/organizations/{organizationId}/wireless/zigbee/disenrollments"
+  - id: "meraki__get_getorganizationwirelesszigbeedisenrollment"
+    name: "Return a disenrollment"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/zigbee/disenrollments/{disenrollmentId}"
+  - id: "meraki__get_getorganizationwirelesszigbeedoorlocks"
+    name: "Return the list of door locks for a network"
+    method: GET
+    path: "/organizations/{organizationId}/wireless/zigbee/doorLocks"
+  - id: "meraki__put_updateorganizationwirelesszigbeedoorlock"
+    name: "Endpoint to batch update door locks params"
+    method: PUT
+    path: "/organizations/{organizationId}/wireless/zigbee/doorLocks/{doorLockId}"
+  - id: "meraki__get_getorganizationwirelesscontrolleravailabilitieschangehistory"
+    name: "List connectivity data of wireless LAN controllers in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/availabilities/changeHistory"
+  - id: "meraki__get_getorganizationwirelesscontrollerclientsoverviewhistorybydevicebyinterval"
+    name: "List wireless client counts of wireless LAN controllers over time in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/clients/overview/history/byDevice/byInterval"
+  - id: "meraki__get_getorganizationwirelesscontrollerconnections"
+    name: "List all access points associated with wireless LAN controllers in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/connections"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl2bydevice"
+    name: "List wireless LAN controller layer 2 interfaces in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l2/byDevice"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl2statuseschangehistorybydevice"
+    name: "List wireless LAN controller layer 2 interfaces history status in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l2/statuses/changeHistory/byDevice"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl2usagehistorybyinterval"
+    name: "List wireless LAN controller layer 2 interfaces history usage in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l2/usage/history/byInterval"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl3bydevice"
+    name: "List wireless LAN controller layer 3 interfaces in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l3/byDevice"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl3statuseschangehistorybydevice"
+    name: "List wireless LAN controller layer 3 interfaces history status in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l3/statuses/changeHistory/byDevice"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesl3usagehistorybyinterval"
+    name: "List wireless LAN controller layer 3 interfaces history usage in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/l3/usage/history/byInterval"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacespacketsoverviewbydevice"
+    name: "Retrieve the packet counters for the interfaces of a Wireless LAN controller"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/packets/overview/byDevice"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesinterfacesusagehistorybyinterval"
+    name: "Retrieve the traffic for the interfaces of a Wireless LAN controller"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/interfaces/usage/history/byInterval"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesredundancyfailoverhistory"
+    name: "List the failover events of wireless LAN controllers in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/redundancy/failover/history"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicesredundancystatuses"
+    name: "List redundancy details of wireless LAN controllers in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/redundancy/statuses"
+  - id: "meraki__get_getorganizationwirelesscontrollerdevicessystemutilizationhistorybyinterval"
+    name: "List cpu utilization data of wireless LAN controllers in an organization"
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/devices/system/utilization/history/byInterval"
+  - id: "meraki__get_getorganizationwirelesscontrolleroverviewbydevice"
+    name: "List the overview information of wireless LAN controllers in an organization and it is updated every minute."
+    method: GET
+    path: "/organizations/{organizationId}/wirelessController/overview/byDevice"
