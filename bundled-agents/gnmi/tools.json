@@ -1,0 +1,24 @@
+[
+  {
+    "name": "gnmi_call",
+    "description": "Run a gNMI operation (via pygnmi) against a configured target device. In the code sandbox this is exposed as the `gnmi` helper object: gnmi.targets() (list devices — call FIRST), gnmi.capabilities(name), gnmi.get(name, paths, datatype), gnmi.subscribe(name, paths) (bounded ONCE sample, no streaming), gnmi.set(name, update/replace/delete) (WRITE — changes live config, blast 'medium'). Multi-target gRPC: address devices BY NAME. Each method returns {ok, op, data, error, blast_radius}. YANG paths use origin:path form (e.g. 'openconfig-interfaces:interfaces'). Port defaults: cisco-iosxr/nokia 57400, juniper 32767, arista 6030. Check ok/error before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "gnmi_call",
+      "description": "Run a gNMI operation against a configured target. Exposed as the `gnmi` helper object in the sandbox.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "op": { "type": "string", "enum": ["targets", "capabilities", "get", "subscribe", "set"], "description": "gNMI operation" },
+          "target": { "type": "string", "description": "Configured target name (omit for op='targets')" },
+          "paths": { "type": "array", "items": { "type": "string" }, "description": "YANG paths for get/subscribe" },
+          "datatype": { "type": "string", "description": "get only: all|config|state" },
+          "update": { "type": "array", "description": "set only: list of [path, value] pairs to update" },
+          "replace": { "type": "array", "description": "set only: list of [path, value] pairs to replace" },
+          "delete": { "type": "array", "items": { "type": "string" }, "description": "set only: list of paths to delete" }
+        },
+        "required": ["op"]
+      }
+    }
+  }
+]

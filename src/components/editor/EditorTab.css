@@ -1,0 +1,305 @@
+.editor-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+}
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-editor-tab);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.editor-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.file-name {
+  font-weight: 600;
+}
+
+.file-path {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.dirty-marker {
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-debug-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 5px;
+  border-right: 1px solid var(--border-default);
+  border-left: 1px solid var(--border-default);
+}
+
+.editor-actions .editor-debug-actions button {
+  min-width: 25px;
+  padding: 4px 6px;
+  background: var(--surface-input);
+}
+
+.editor-actions .editor-debug-actions button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.editor-actions button {
+  padding: 4px 12px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.editor-actions button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.editor-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editor-actions select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.editor-actions select:disabled {
+  opacity: 0.5;
+}
+
+.editor-buffer-tabs {
+  display: flex;
+  min-height: 32px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--surface-terminal);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.editor-buffer-tab {
+  display: inline-flex;
+  align-items: center;
+  min-width: 110px;
+  max-width: 220px;
+  border-right: 1px solid var(--border-default);
+  border-top: 2px solid transparent;
+  background: var(--surface-editor-tab);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.editor-buffer-tab-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px 6px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.editor-buffer-tab-select span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-buffer-tab:hover,
+.editor-buffer-tab:focus-within {
+  color: var(--text-primary);
+  background: var(--surface-input);
+}
+
+.editor-buffer-tab.active {
+  border-top-color: var(--border-default);
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+}
+
+.editor-buffer-tab-close {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.editor-buffer-tab-close:hover,
+.editor-buffer-tab-close:focus-visible {
+  background: var(--surface-input);
+  color: var(--text-primary);
+}
+
+.editor-buffer-tab-dirty {
+  margin-left: auto;
+  color: var(--text-primary);
+  font-size: 9px;
+}
+
+.editor-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.editor-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.editor-canvas {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-terminal-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-default);
+  background: var(--surface-terminal);
+  position: relative;
+}
+
+.editor-terminal-resize-handle {
+  height: 5px;
+  margin-top: -3px;
+  cursor: ns-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.editor-terminal-resize-handle:hover {
+  background: var(--surface-hover);
+}
+
+.editor-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: var(--surface-input);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.editor-terminal-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.editor-terminal-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.editor-terminal-tabs button:hover {
+  color: var(--text-primary);
+}
+
+.editor-terminal-tabs button.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--border-default);
+}
+
+.editor-terminal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+}
+
+.editor-terminal-close-btn:hover {
+  color: var(--text-inverse);
+}
+
+.editor-terminal-slot-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.error-banner {
+  padding: 8px 12px;
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-top: 1px solid var(--status-danger);
+  font-size: 13px;
+}
+
+.editor-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.editor-debug-status {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--surface-input);
+  text-transform: capitalize;
+}
+
+.editor-debug-status--paused {
+  background: var(--surface-input);
+}
+
+.editor-debug-status--error {
+  background: var(--status-danger-surface);
+}
+
+.zed-vim-status:empty {
+  display: none;
+}

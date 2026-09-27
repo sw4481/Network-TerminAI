@@ -1,0 +1,83 @@
+/*
+ * Plan 13 Phase 4 Task 4.2 — Topology filter tree styles.
+ */
+
+.topology-filter-tree {
+  flex: 0 0 220px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border-right: 1px solid var(--cb-border, var(--border-default));
+  background: var(--surface-2);
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.topology-filter-tree__group {
+  display: block;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.topology-filter-tree__group--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.topology-filter-tree__summary {
+  cursor: pointer;
+  padding: 4px 6px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+
+.topology-filter-tree__summary::-webkit-details-marker {
+  display: none;
+}
+
+.topology-filter-tree__summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 120ms ease-out;
+  opacity: 0.6;
+}
+
+.topology-filter-tree__group[open] > .topology-filter-tree__summary::before {
+  transform: rotate(90deg);
+}
+
+.topology-filter-tree__hint {
+  font-weight: 400;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 4px;
+}
+
+.topology-filter-tree__leaf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px 3px 22px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.topology-filter-tree__leaf:hover {
+  background: var(--surface-hover);
+  border-radius: 3px;
+}
+
+.topology-filter-tree__checkbox {
+  cursor: pointer;
+}
+
+.topology-filter-tree__empty {
+  padding: 4px 6px 4px 22px;
+  font-size: 11px;
+  opacity: 0.55;
+  font-style: italic;
+}

@@ -1,0 +1,138 @@
+.iac-ai-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  min-width: 220px;
+  border-left: 1px solid var(--border, var(--border-default));
+  background: var(--panel-bg, var(--surface-terminal));
+  padding: 8px;
+  gap: 8px;
+  overflow-y: auto;
+}
+.iac-ai-header {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, var(--text-primary));
+}
+.iac-ai-prompt {
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px;
+  background: var(--input-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
+  border: 1px solid var(--border, var(--border-default));
+  border-radius: 4px;
+}
+.iac-ai-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.iac-ai-actions button {
+  flex: 1 1 auto;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border, var(--border-default));
+  border-radius: 4px;
+  background: var(--button-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
+}
+.iac-ai-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Secondary actions (e.g. Explain) route OUT of the Studio to the agent chat
+   rather than producing a diff — separate them so the distinction is obvious. */
+.iac-ai-actions-secondary {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, var(--border-default));
+}
+.iac-ai-explain {
+  background: transparent;
+  color: var(--text-muted, var(--text-primary));
+  font-size: 11px;
+}
+.iac-ai-explain:hover:not(:disabled) {
+  color: var(--text, var(--text-primary));
+}
+.iac-ai-error {
+  color: var(--error, var(--status-danger));
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.iac-ai-hint {
+  font-size: 11px;
+  color: var(--text-muted, var(--text-muted));
+  margin: 0;
+}
+
+/* Diff overlay */
+.iac-diff-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.iac-diff-modal {
+  display: flex;
+  flex-direction: column;
+  width: 80vw;
+  height: 75vh;
+  background: var(--panel-bg, var(--surface-terminal));
+  border: 1px solid var(--border, var(--border-default));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.iac-diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, var(--border-default));
+}
+.iac-diff-title {
+  font-weight: 600;
+}
+.iac-diff-validation {
+  font-size: 12px;
+  color: var(--text-muted, var(--status-success));
+}
+.iac-diff-explanation {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--text-muted, var(--text-primary));
+}
+.iac-diff-body {
+  flex: 1;
+  min-height: 0;
+}
+.iac-diff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border, var(--border-default));
+}
+.iac-diff-actions button {
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border, var(--border-default));
+}
+.iac-diff-accept {
+  background: var(--accent, var(--surface-2));
+  color: var(--text-on-strong-accent);
+}
+.iac-diff-reject {
+  background: var(--button-bg, var(--surface-2));
+  color: var(--text, var(--text-primary));
+}

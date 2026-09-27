@@ -1,0 +1,71 @@
+# Example CCIE Terminal Configuration
+# Copy this to ~/.config/ccie-terminal/config.toml
+
+[general]
+# Restore tabs and AI chat history on app launch (default: true)
+restore_on_launch = true
+
+# Maximum scrollback size per tab (in bytes)
+# When this limit is exceeded, oldest chunks are deleted (ring buffer)
+max_scrollback_bytes = 10485760  # 10 MB default
+
+# Alternative: line-based limit (commented out - not implemented in Phase 6)
+# max_scrollback_lines = 10000
+
+[profiles.fast]
+provider = "anthropic"
+model = "claude-sonnet-4-6"
+
+[profiles.smart]
+provider = "anthropic"
+model = "claude-opus-4-7"
+
+[profiles.openai-fast]
+provider = "openai"
+model = "gpt-3.5-turbo"
+
+[profiles.openai-smart]
+provider = "openai"
+model = "gpt-4o"
+
+# Ollama profiles (local LLM, no API key needed)
+# Make sure Ollama is running: ollama serve
+# Pull models first: ollama pull llama3.3
+[profiles.ollama-local]
+provider = "ollama"
+model = "llama3.3"
+host = "http://localhost:11434"  # Default Ollama host
+
+[profiles.ollama-code]
+provider = "ollama"
+model = "codellama"
+host = "http://localhost:11434"
+
+[profiles.ollama-mistral]
+provider = "ollama"
+model = "mistral"
+host = "http://localhost:11434"
+
+# vLLM profiles (OpenAI-compatible API for self-hosted models)
+# Make sure vLLM server is running: vllm serve <model>
+# Example: vllm serve meta-llama/Llama-3.3-70B-Instruct
+[profiles.vllm-local]
+provider = "vllm"
+model = "meta-llama/Llama-3.3-70B-Instruct"
+endpoint = "http://localhost:8000/v1"  # Default vLLM endpoint
+
+[profiles.vllm-custom]
+provider = "vllm"
+model = "mistralai/Mistral-7B-Instruct-v0.2"
+endpoint = "http://localhost:8000/v1"
+
+# Google Gemini profiles
+# Get API key from https://makersuite.google.com/app/apikey
+# Set environment variable: export GOOGLE_API_KEY=your-key-here
+[profiles.google-fast]
+provider = "google"
+model = "gemini-2.0-flash"
+
+[profiles.google-smart]
+provider = "google"
+model = "gemini-1.5-pro"

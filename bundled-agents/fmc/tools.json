@@ -1,0 +1,21 @@
+[
+  {
+    "name": "fmc_api_call",
+    "description": "Call the Cisco Secure Firewall Management Center (FMC) REST API. Auth (token + default domain) is handled for you; do NOT call /auth/generatetoken. Config resources live under /api/fmc_config/v1/domain/{domainUUID}/... — use the LITERAL '{domainUUID}' and it is auto-filled; platform resources under /api/fmc_platform/v1/... Returns {status_code, data, error, blast_radius}. List rows are under data['items'] with data['paging']; page via query_params {'limit':25,'offset':0} and add {'expanded':true} for full objects. Core endpoints: /info/serverversion, /info/domain, devices/devicerecords (managed FTDs), policy/accesspolicies (+/{id}/accessrules for rules), object/networks|hosts|ports. Writes (POST/PUT/DELETE) change firewall config. Check status_code < 400 before trusting data.",
+    "type": "function",
+    "function": {
+      "name": "fmc_api_call",
+      "description": "Call the Cisco FMC REST API. Auth and default domain are handled internally; use literal {domainUUID} in paths.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE"], "description": "HTTP method" },
+          "path": { "type": "string", "description": "API path; use literal {domainUUID} for the default domain" },
+          "body": { "type": "object", "description": "Request body for POST/PUT (optional)" },
+          "query_params": { "type": "object", "description": "URL query parameters (limit/offset/expanded) (optional)" }
+        },
+        "required": ["method", "path"]
+      }
+    }
+  }
+]

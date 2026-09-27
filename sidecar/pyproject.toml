@@ -1,0 +1,85 @@
+[project]
+name = "ccie-sidecar"
+version = "0.0.1"
+description = "TerminAI Python AI sidecar"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.40.0",
+    "ollama>=0.3.0",
+    "openai>=1.0.0",
+    "google-genai>=1.65.0",
+    "pyyaml>=6.0",
+    "jsonschema>=4.21",
+    "pyang>=2.6.0",
+    "requests>=2.31.0",
+    "truststore>=0.10",
+    "cryptography==48.0.0",
+    "pyopenssl==26.2.0",
+    "proxmoxer>=2.0",
+    "mcp-for-blender>=2.0.0",
+    # pyATS/Genie ship no Windows wheels (Cisco supports Linux/macOS only), so
+    # this is a conditional dependency. On Windows the app builds+runs without
+    # it: genie_adapter falls through to the TextFSM/ntc-templates parser and
+    # unicon-based pcap capture is unavailable. See genie_adapter.py.
+    "pyats[library] >= 25.1; platform_system != 'Windows'",
+    "ntc-templates >= 7.0.0",
+    "pyshark >= 0.6",
+    "onnxruntime >= 1.18",
+    "tokenizers >= 0.20",
+    "numpy >= 1.26",
+    "pypdf >= 4.2",
+    "beautifulsoup4 >= 4.12",
+    "lxml >= 5.2",
+    "pygnmi >= 0.8",
+    # Zed Mode Phase 5 — Python Debug Adapter Protocol implementation.
+    "debugpy>=1.8,<2",
+    # DeepAgents migration dependencies (Phase 1+)
+    "deepagents>=0.6.8",
+    "langgraph>=0.2.50",
+    "langchain-core>=0.3",
+    "langchain-anthropic>=0.3",
+    "langchain-openai>=0.2",
+    "langchain-google-genai>=4.2",
+    "langchain-ollama>=0.2",
+    "langgraph-checkpoint-sqlite>=1.0",
+    # WhatsApp linked-device bridge (personal transport, unofficial API).
+    # neonize ships a prebuilt whatsmeow (Go) shared lib; segno renders the
+    # pairing QR to a PNG for the Settings UI.
+    # PINNED: 0.3.18.post0 is now rejected by WhatsApp as an outdated web
+    # client (405). 0.4.0/0.4.1 were broken in Jul 2026 with protobuf decode
+    # failures; 0.4.3.post0 is the first tested replacement candidate.
+    "neonize==0.4.3.post0",
+    "segno>=1.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "scapy>=2.5", "reportlab>=4.0"]
+build = ["hatchling>=1.27,<2", "huggingface-hub >= 0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ccie_sidecar"]
+# The dirs below are force-included (their contents are populated at build time
+# by scripts/fetch_onnx.py). Exclude them from the package glob so force-include
+# is their SOLE source — otherwise any file present at package time (a .gitkeep
+# placeholder on a clean checkout, or the full model on a populated dev tree) is
+# added twice at the same wheel path ("A second file is being added...").
+exclude = [
+  "**/.gitkeep",
+  "/src/ccie_sidecar/rag/models",
+  "/src/ccie_sidecar/troubleshoot/prompts",
+  "/src/ccie_sidecar/troubleshoot/seeds",
+]
+# Bundle ONNX weights + tokenizer assets so the embedder works offline. The
+# model dir is populated by `scripts/fetch_onnx.py` during the sidecar build.
+[tool.hatch.build.targets.wheel.force-include]
+"src/ccie_sidecar/rag/models" = "ccie_sidecar/rag/models"
+"src/ccie_sidecar/troubleshoot/prompts" = "ccie_sidecar/troubleshoot/prompts"
+"src/ccie_sidecar/troubleshoot/seeds" = "ccie_sidecar/troubleshoot/seeds"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

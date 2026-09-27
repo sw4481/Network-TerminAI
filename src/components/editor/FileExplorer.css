@@ -1,0 +1,218 @@
+.file-explorer {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  height: 100%;
+  background: var(--surface-terminal);
+  border-right: 1px solid var(--border-default);
+  overflow: hidden;
+}
+
+.file-explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-2);
+}
+
+.explorer-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.explorer-actions button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.explorer-actions button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.explorer-create-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--surface-terminal);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.explorer-create-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-input);
+  border: 1px solid var(--border-default);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.explorer-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.file-node {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.file-node:hover {
+  background: var(--surface-hover);
+}
+
+.file-node.selected {
+  background: var(--surface-selected);
+}
+
+.file-node.selected:focus,
+.file-node.selected:hover {
+  background: var(--surface-hover);
+}
+
+.file-icon {
+  margin-right: 6px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-explorer-loading,
+.file-explorer-error,
+.file-explorer-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 250px;
+  height: 100%;
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-terminal);
+}
+
+.file-explorer-error {
+  color: var(--status-danger);
+}
+
+.file-explorer-empty {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-explorer-empty button {
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.file-explorer-empty button:hover {
+  border-color: var(--border-default);
+  background: var(--surface-hover);
+}
+
+/* Git status indicators on file tree nodes. */
+.file-node.git-modified .file-name {
+  color: var(--text-primary);
+}
+
+.file-node.git-added .file-name {
+  color: var(--status-success);
+}
+
+.file-node.git-untracked .file-name {
+  color: var(--text-primary);
+}
+
+.file-node.git-deleted .file-name {
+  color: var(--status-danger);
+  text-decoration: line-through;
+}
+
+.file-node.git-renamed .file-name {
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.git-status-badge {
+  margin-left: auto;
+  margin-right: 6px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 5px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.file-node.git-deleted .git-status-badge {
+  background: var(--status-danger-surface);
+}
+
+.file-node.git-untracked .git-status-badge {
+  background: var(--surface-2);
+}
+
+.file-node.git-modified .git-status-badge {
+  background: var(--surface-2);
+}
+
+/* Scrollbar styling for dark theme */
+.file-tree::-webkit-scrollbar {
+  width: 10px;
+}
+
+.file-tree::-webkit-scrollbar-track {
+  background: var(--surface-terminal);
+}
+
+.file-tree::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 5px;
+}
+
+.file-tree::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-hover);
+}

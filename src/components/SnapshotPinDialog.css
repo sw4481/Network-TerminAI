@@ -1,0 +1,63 @@
+.snapshot-pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.snapshot-pin-dialog {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 18px 20px;
+  width: 380px;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.snapshot-pin-dialog h3 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-inverse);
+}
+
+.snapshot-pin-dialog p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.snapshot-pin-dialog input {
+  background: var(--surface-terminal);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-primary);
+}
+
+.snapshot-pin-dialog input:focus {
+  border-color: var(--focus-ring);
+  outline: none;
+}
+
+.snapshot-pin-error {
+  color: var(--status-danger);
+  font-size: 12px;
+}
+
+.snapshot-pin-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

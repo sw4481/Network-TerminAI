@@ -1,0 +1,64 @@
+.editor-settings-tab {
+  color: var(--text-primary);
+  max-width: 760px;
+}
+
+.editor-settings-tab header p,
+.editor-settings-help,
+.editor-vim-toggle small {
+  color: var(--text-primary);
+}
+
+.editor-settings-section {
+  margin-top: 24px;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-input);
+}
+
+.editor-style-picker {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 7px;
+  background: var(--surface-input);
+}
+
+.editor-style-picker button {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text-primary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.editor-style-picker button[aria-pressed="true"] {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+  background: var(--surface-input);
+}
+
+.editor-vim-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.editor-vim-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editor-vim-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.editor-settings-error {
+  margin-top: 16px;
+  color: var(--status-danger);
+}

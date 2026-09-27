@@ -1,0 +1,71 @@
+.file-context-menu {
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  box-shadow: 0 4px 8px var(--surface-2);
+  padding: 4px;
+  min-width: 180px;
+  z-index: 1000;
+  font-size: 13px;
+}
+
+.file-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 2px;
+}
+
+.file-context-menu button:hover {
+  background: var(--surface-hover);
+}
+
+.file-context-menu button.danger {
+  color: var(--status-danger);
+}
+
+.file-context-menu button.danger:hover {
+  background: var(--status-danger-surface);
+}
+
+.menu-separator {
+  height: 1px;
+  background: var(--surface-2);
+  margin: 4px 0;
+}
+
+.rename-input-container {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  align-items: center;
+}
+
+.rename-input-container input {
+  flex: 1;
+  padding: 4px 8px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 2px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.rename-input-container input:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+}
+
+.rename-input-container button {
+  width: auto;
+  padding: 4px 8px;
+  min-width: 28px;
+}

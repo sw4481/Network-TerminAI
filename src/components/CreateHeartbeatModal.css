@@ -1,0 +1,316 @@
+.create-heartbeat-modal {
+  max-width: 900px;
+}
+
+.heartbeat-input-stage,
+.heartbeat-review-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: Menlo, monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--accent);
+}
+
+.field input:disabled,
+.field textarea:disabled,
+.field select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.heartbeat-nl-input {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.heartbeat-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.examples-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.example-prompt {
+  padding: 12px 16px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.example-prompt:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.example-prompt:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.interval-input {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.interval-input input {
+  width: auto;
+}
+
+.interval-input select {
+  width: auto;
+  min-width: 100px;
+}
+
+.checks-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.checks-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.add-check-btn {
+  padding: 6px 12px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-check-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.add-check-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checks-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface-chrome);
+  border: 1px dashed var(--border-default);
+  border-radius: 6px;
+}
+
+.checks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.check-item {
+  padding: 16px;
+  background: var(--surface-chrome);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.check-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--surface-2);
+}
+
+.check-item-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.remove-check-btn {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-check-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+
+.remove-check-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.check-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.check-field input,
+.check-field textarea,
+.check-field select {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.error-message {
+  padding: 12px 16px;
+  background: var(--status-danger-surface);
+  border: 1px solid var(--status-danger);
+  border-radius: 6px;
+  color: var(--status-danger);
+  font-size: 13px;
+}
+
+.error-message strong {
+  font-weight: 600;
+}
+
+.success-message {
+  padding: 40px;
+  text-align: center;
+  color: var(--status-success);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-default);
+}
+
+button.primary,
+button.secondary {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--app-canvas);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: var(--text-on-accent-hover);
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+button.secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

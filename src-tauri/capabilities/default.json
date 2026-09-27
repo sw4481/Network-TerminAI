@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main", "editor-*", "terminal-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "opener:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-read-dir",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-rename",
+    "fs:allow-exists",
+    "fs:allow-home-read-recursive",
+    "fs:allow-home-write-recursive",
+    "clipboard-manager:allow-write-text",
+    "clipboard-manager:allow-read-text",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

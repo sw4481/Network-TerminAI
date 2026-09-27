@@ -1,0 +1,364 @@
+.heartbeat-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--app-canvas);
+  color: var(--text-primary);
+  font-family: Menlo, monospace;
+}
+
+.heartbeat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--surface-overlay);
+}
+
+.heartbeat-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.heartbeat-title h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.heartbeat-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.heartbeat-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.heartbeat-filter,
+.heartbeat-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.heartbeat-filter label,
+.heartbeat-sort label {
+  color: var(--text-secondary);
+}
+
+.heartbeat-filter select,
+.heartbeat-sort select {
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.heartbeat-filter select:hover,
+.heartbeat-sort select:hover {
+  background: var(--surface-hover);
+}
+
+.heartbeat-new-btn {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-new-btn:hover {
+  background: var(--surface-hover);
+}
+
+.heartbeat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.heartbeat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--text-secondary);
+}
+
+.heartbeat-empty p {
+  font-size: 14px;
+  margin: 0;
+}
+
+.heartbeat-empty-btn {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-empty-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* Card styles */
+.heartbeat-card {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.heartbeat-card:hover {
+  border-color: var(--border-default);
+}
+
+.heartbeat-card.expanded {
+  grid-column: 1 / -1;
+}
+
+.heartbeat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.heartbeat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.heartbeat-card-title h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.heartbeat-disabled-badge {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.heartbeat-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.heartbeat-action-btn {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.heartbeat-action-btn:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.heartbeat-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.heartbeat-action-btn.danger {
+  color: var(--status-danger);
+  border-color: var(--status-danger);
+}
+
+.heartbeat-action-btn.danger:hover:not(:disabled) {
+  background: var(--status-danger-surface);
+}
+
+.heartbeat-card-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.heartbeat-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.heartbeat-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heartbeat-meta-label {
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.heartbeat-meta-value {
+  color: var(--text-primary);
+}
+
+.heartbeat-card-footer {
+  border-top: 1px solid var(--border-default);
+  padding-top: 8px;
+}
+
+.heartbeat-expand-btn {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  width: 100%;
+  text-align: left;
+}
+
+.heartbeat-expand-btn:hover {
+  color: var(--text-primary);
+}
+
+/* Timeline styles */
+.heartbeat-timeline {
+  margin-top: 8px;
+  border-top: 1px solid var(--border-default);
+  padding-top: 12px;
+}
+
+.heartbeat-timeline-empty {
+  text-align: center;
+  padding: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.heartbeat-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.heartbeat-timeline-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--app-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.heartbeat-timeline-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+  transform: translateX(2px);
+}
+
+.heartbeat-timeline-time {
+  color: var(--text-secondary);
+}
+
+.heartbeat-timeline-duration {
+  color: var(--text-primary);
+}
+
+/* Badge styles */
+.severity-badge,
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+/* Severity badges */
+.severity-badge.severity-ok {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.severity-badge.severity-info {
+  background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1));
+  color: var(--status-info);
+}
+
+.severity-badge.severity-warning {
+  background: var(--status-warning-surface);
+  color: var(--status-warning);
+}
+
+.severity-badge.severity-critical {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+
+.severity-badge.severity-error {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+
+/* Status badges */
+.status-badge.status-running {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+}
+
+.status-badge.status-completed {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+}
+
+.status-badge.status-completed_with_errors {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+
+.status-badge.status-failed {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}

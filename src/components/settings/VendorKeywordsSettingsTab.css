@@ -1,0 +1,14 @@
+.vkw-tab { padding: 16px 20px; max-width: 720px; }
+.vkw-header h2 { margin: 0 0 4px; }
+.vkw-subtitle { color: var(--text-secondary, var(--text-primary)); font-size: 13px; margin: 0 0 16px; }
+.vkw-vendor { margin-bottom: 14px; }
+.vkw-vendor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.vkw-vendor-head label { font-weight: 600; }
+.vkw-reset { background: none; border: none; color: var(--accent, var(--text-primary)); cursor: pointer; font-size: 12px; padding: 0; }
+.vkw-tab textarea { width: 100%; font-family: var(--font-mono, monospace); font-size: 13px; padding: 6px 8px; box-sizing: border-box; resize: vertical; }
+.vkw-actions { margin-top: 20px; }
+.vkw-btn-primary { padding: 6px 18px; }
+.vkw-status { margin-top: 12px; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+.vkw-status--ok { background: var(--surface-2); }
+.vkw-status--err { background: var(--surface-2); }
+.vkw-status--info { background: color-mix(in srgb, var(--status-info) 18%, var(--surface-1)); }

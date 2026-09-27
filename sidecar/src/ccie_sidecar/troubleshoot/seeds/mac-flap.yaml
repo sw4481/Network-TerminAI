@@ -1,0 +1,51 @@
+id: mac-flap
+name: MAC address flapping between interfaces
+symptom_keywords:
+  - mac flap
+  - flapping
+  - between interfaces
+  - host moves
+  - duplicate mac
+vendor: cisco
+platform: iosxe
+description: >-
+  A MAC flap is the platform's way of telling you it is learning the same
+  MAC on two ports in alternation. The two common explanations are a Layer-2
+  loop (MAC seen via the loop in addition to its real port) and a
+  dual-attached / NIC-teamed server. This playbook collects the evidence
+  needed to decide between them without changing config.
+steps:
+  - id: check_mac
+    type: command
+    command: show mac address-table address {{mac}}
+  - id: check_logs
+    type: command
+    command: show logging | include MAC_FLAP
+  - id: check_stp
+    type: command
+    command: show spanning-tree active
+  - id: route_on_loop_signal
+    type: branch
+    expression: "stp.topology_changes_recent"
+    cases:
+      - when: true
+        next: narrate_loop
+      - when: false
+        next: check_teaming
+  - id: narrate_loop
+    type: narration
+    text: >-
+      Recent STP topology changes plus a flapping MAC strongly suggest a
+      Layer-2 loop. Inspect 'show spanning-tree' on neighbour switches for
+      blocked-port churn, verify portfast/bpduguard on access ports, and
+      confirm uplinks are not in the wrong VLAN.
+  - id: check_teaming
+    type: command
+    command: show interface {{intf}} switchport
+  - id: narrate_teaming
+    type: narration
+    text: >-
+      No recent STP topology changes, so the most likely cause is a
+      dual-attached host (NIC team / LACP misconfiguration). Bond the two
+      ports into an EtherChannel, or move the host to a single port until
+      teaming can be configured properly.

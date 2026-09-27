@@ -1,0 +1,230 @@
+/* Plan 09 — Blast-Radius confirmation modals.
+   Dark Warp-style palette consistent with Plans 06 (ChangeWindow), 07
+   (FanoutPanel), and 08 (DriftSidebar). */
+
+.br-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(var(--backdrop-rgb) / 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Menlo, "JetBrains Mono", monospace;
+  color: var(--text-primary);
+}
+
+.br-modal {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgb(var(--backdrop-rgb) / 0.6);
+  min-width: 420px;
+  max-width: 720px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.br-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.br-header .br-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.br-header .br-tier-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--surface-overlay);
+  border: 1px solid currentColor;
+}
+.br-tier-badge.tier-1 { border-color: var(--risk-tier-1); color: var(--risk-tier-1); }
+.br-tier-badge.tier-2 { border-color: var(--risk-tier-2); color: var(--risk-tier-2); }
+.br-tier-badge.tier-3 { border-color: var(--risk-tier-3); color: var(--risk-tier-3); }
+.br-tier-badge.tier-amb { border-color: var(--risk-ambiguous); color: var(--risk-ambiguous); }
+
+.br-body {
+  padding: 14px 16px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.br-body .br-cmd {
+  display: block;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 8px 0 12px 0;
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+
+.br-reasoning {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.br-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  background: var(--surface-2);
+}
+
+.br-btn {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.br-btn:hover { background: var(--accent-subtle); }
+.br-btn.primary {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+  border-color: var(--accent-subtle);
+}
+.br-btn.primary:hover { background: var(--accent-subtle); }
+.br-btn.danger {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+  border-color: var(--status-danger);
+}
+.br-btn.danger:hover { background: var(--status-danger-surface); }
+.br-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Typed confirm — invalid pulses red. */
+.br-typed-input {
+  width: 100%;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12.5px;
+  box-sizing: border-box;
+}
+.br-typed-input.invalid {
+  border-color: var(--status-danger);
+  animation: br-pulse-red 1.2s ease-in-out infinite;
+}
+@keyframes br-pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--status-danger) 45%, transparent); }
+}
+
+.br-typed-hint {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin: 6px 0 4px 0;
+}
+
+/* Impact preview pane — Plan 13 topology consumer. */
+.br-impact {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+.br-impact h4 {
+  margin: 0 0 6px 0;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+.br-impact ul { margin: 4px 0 0 18px; padding: 0; }
+.br-impact .br-impact-fallback {
+  color: var(--text-primary);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Tier-0 auto-approved toast. */
+.br-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface-2);
+  border: 1px solid var(--risk-auto);
+  color: var(--risk-auto);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: Menlo, monospace;
+  font-size: 12px;
+  z-index: 9998;
+  box-shadow: 0 8px 24px rgb(var(--backdrop-rgb) / 40%);
+  animation: br-toast-in 200ms ease-out;
+}
+@keyframes br-toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* Maintenance window radio list. */
+.br-mw-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+.br-mw-list li {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-default);
+  cursor: pointer;
+}
+.br-mw-list li:last-child { border-bottom: none; }
+.br-mw-list li.selected {
+  background: var(--surface-selected);
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+}
+.br-mw-list .br-mw-empty { color: var(--text-secondary); padding: 12px; text-align: center; }
+
+.br-override {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-default);
+}
+.br-override label { font-size: 12px; }
+.br-override textarea {
+  width: 100%;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+  margin-top: 4px;
+  resize: vertical;
+  min-height: 60px;
+}

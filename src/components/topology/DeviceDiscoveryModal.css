@@ -1,0 +1,210 @@
+/**
+ * Device Discovery Modal styles
+ */
+
+.discovery-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgb(var(--backdrop-rgb) / 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.discovery-modal {
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgb(var(--backdrop-rgb) / 0.5);
+}
+
+.discovery-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.discovery-modal__header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.discovery-modal__close {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.discovery-modal__close:hover {
+  color: var(--text-primary);
+}
+
+.discovery-modal__body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.discovery-modal__loading,
+.discovery-modal__error,
+.discovery-modal__empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.discovery-modal__error {
+  color: var(--status-danger);
+}
+
+.discovery-modal__instructions {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.discovery-modal__select-all {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.discovery-modal__select-all label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.discovery-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discovery-modal__device-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discovery-modal__password-input {
+  padding: 8px 12px;
+  margin-left: 32px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  outline: none;
+}
+
+.discovery-modal__password-input:focus {
+  border-color: var(--focus-ring);
+}
+
+.discovery-modal__password-input::placeholder {
+  color: var(--text-muted);
+}
+
+.discovery-modal__device {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.discovery-modal__device:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}
+
+.discovery-modal__device input[type="checkbox"] {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.discovery-modal__device-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.discovery-modal__device-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.discovery-modal__device-details {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Mono", monospace;
+}
+
+.discovery-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-default);
+}
+
+.discovery-modal__button {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.discovery-modal__button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.discovery-modal__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.discovery-modal__button--primary {
+  background: var(--surface-overlay);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.discovery-modal__button--primary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-default);
+}

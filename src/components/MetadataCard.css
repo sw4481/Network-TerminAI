@@ -1,0 +1,49 @@
+.metadata-card {
+  position: fixed;
+  z-index: 9000;
+  width: 280px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--surface-2);
+  color: var(--text-primary);
+  font-size: 12px;
+  user-select: none;
+}
+.metadata-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: move;
+  border-bottom: 1px solid var(--border-default);
+}
+.metadata-card__title { flex: 1; font-weight: 600; }
+.metadata-card__btn {
+  background: none; border: none; color: var(--text-primary); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 2px 4px;
+}
+.metadata-card__btn:hover { color: var(--text-primary); }
+.metadata-card__body { padding: 8px 10px; }
+.metadata-card__section { margin-bottom: 10px; }
+.metadata-card__section h4 {
+  margin: 0 0 4px; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-primary);
+}
+.metadata-card__git { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.metadata-card__git .branch { font-weight: 600; }
+.metadata-card__git .dirty-dot { color: var(--text-primary); }
+.metadata-card__ports { list-style: none; margin: 0; padding: 0; }
+.metadata-card__ports li { padding: 1px 0; }
+.metadata-card__ssh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.metadata-card .muted { color: var(--text-primary); }
+.metadata-card code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; }
+.metadata-card .badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border-default);
+}
+.metadata-card .badge--chain { color: var(--border-default); border-color: var(--border-default); }
+.metadata-card .badge--process { color: var(--border-default); border-color: var(--border-default); }
+.metadata-card__error { color: var(--status-danger); margin-bottom: 8px; }
+.metadata-card__footer { padding: 6px 10px; border-top: 1px solid var(--border-default); }
+.spin { display: inline-block; animation: metadata-spin 0.7s linear infinite; }
+@keyframes metadata-spin { to { transform: rotate(360deg); } }

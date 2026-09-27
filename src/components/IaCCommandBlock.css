@@ -1,0 +1,210 @@
+/* src/components/IaCCommandBlock.css */
+
+.iac-command-block {
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  background: var(--surface-terminal);
+  color: var(--text-primary);
+}
+
+.iac-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border-default);
+}
+
+.iac-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.iac-command {
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.iac-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.iac-badge.exit-code.success {
+  background: color-mix(in srgb, var(--status-success) 18%, var(--surface-1));
+  color: var(--status-success);
+}
+
+.iac-badge.exit-code.error {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+
+.iac-badge.resources-changed {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.iac-badge.resources-failed {
+  background: var(--status-danger-surface);
+  color: var(--status-danger);
+}
+
+.iac-badge.duration {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.iac-header-right {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.iac-action-btn {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.iac-action-btn:hover {
+  background: var(--surface-hover);
+}
+
+.iac-block-metadata {
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.iac-metadata-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.iac-block-body {
+  padding: 1rem;
+}
+
+.iac-resource-section {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+
+.iac-resource-section.color-green .iac-section-header {
+  background: var(--iac-created-surface);
+  color: var(--iac-created);
+}
+
+.iac-resource-section.color-blue .iac-section-header {
+  background: var(--iac-modified-surface);
+  color: var(--iac-modified);
+}
+
+.iac-resource-section.color-red .iac-section-header {
+  background: var(--iac-destroyed-surface);
+  color: var(--iac-destroyed);
+}
+
+.iac-resource-section.color-gray .iac-section-header {
+  background: var(--iac-skipped-surface);
+  color: var(--iac-skipped);
+}
+
+.iac-section-header {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 13px;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iac-section-toggle {
+  font-size: 10px;
+}
+
+.iac-section-body {
+  padding: 0.75rem;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.iac-resource-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.iac-resource-icon {
+  min-width: 1rem;
+  text-align: center;
+}
+
+.iac-resource-name {
+  flex: 1;
+}
+
+.iac-resource-id {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.iac-resource-error {
+  color: var(--status-danger);
+  font-size: 11px;
+}
+
+.iac-command-block.loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--status-info);
+}
+
+.iac-output-section {
+  margin-top: 8px;
+}
+
+.iac-output-pre {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono, 'SF Mono', Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* Output section uses a <button> for the toggle (controlled, always visible). */
+.iac-output-section .iac-section-header {
+  width: 100%;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  text-align: left;
+  font-family: inherit;
+}
+
+.iac-output-section .iac-section-header:hover {
+  background: var(--surface-hover);
+}

@@ -1,0 +1,24 @@
+{
+  "device_id": "XE-C",
+  "platform": "iosxe",
+  "parsed": {
+    "mode": "pvst",
+    "pvst": {
+      "Vlan0020": {
+        "bridge_id": "32768.00bb.1122.3344",
+        "root_id": "32768.00bb.1122.3344",
+        "bridge_priority": 32788,
+        "root_priority": 32788,
+        "root_cost": 0,
+        "timers": {"hello_time": 2, "max_age": 20, "forward_delay": 15},
+        "topology_change_count": 0,
+        "interfaces": {
+          "FastEthernet0/1": {"role": "Designated", "state": "Forwarding", "path_cost": 19}
+        }
+      }
+    }
+  },
+  "adjacency_evidence": [
+    {"local_interface": "FastEthernet0/1", "remote_device": "UNCONNECTED-DOMAIN", "remote_interface": "FastEthernet0/1"}
+  ]
+}

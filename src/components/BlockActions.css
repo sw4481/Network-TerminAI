@@ -1,0 +1,41 @@
+.block-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.block-header:hover .block-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.action-btn.bookmarked {
+  color: var(--text-primary);
+}
+
+/* Keep the share button visibly active while its popover is open so the
+ * row doesn't fade out underneath it (the row is opacity:0 by default
+ * and only fades in on .block-header:hover). */
+.action-btn.active {
+  background: var(--surface-selected);
+  color: var(--text-primary);
+}
+.block-actions:has(.action-btn.active) {
+  opacity: 1;
+}

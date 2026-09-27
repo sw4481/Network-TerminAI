@@ -1,0 +1,58 @@
+/*
+ * Plan 13 Phase 3 Task 3.3 — SaveNeighborModal styles.
+ *
+ * The bulk of the visual treatment (overlay, content card, header,
+ * `.field`, `.button-row`, `.error-message`, `.success-message`) is
+ * inherited from the global `.modal-*` rules in `App.css`. This stub
+ * only adds the few bespoke classes the modal introduces:
+ *
+ *   - `.save-neighbor-form`     — form container (mirrors
+ *                                 `.save-session-form` for spacing).
+ *   - `.save-neighbor-kind`     — radio cluster for "Save as SSH"
+ *                                 / "Save as NETCONF".
+ *   - `.field-legend`           — label-style title above the radios.
+ *   - `.radio-row`              — single radio + its caption row.
+ *   - `.save-neighbor-checkbox` — the lone "Verify host key" checkbox
+ *                                 row (NETCONF-only).
+ */
+
+.save-neighbor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.save-neighbor-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.save-neighbor-kind .field-legend {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, var(--text-primary));
+}
+
+.save-neighbor-kind .radio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.save-neighbor-kind .radio-row input[type="radio"] {
+  cursor: pointer;
+}
+
+.save-neighbor-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.save-neighbor-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
