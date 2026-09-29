@@ -99,26 +99,23 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
     }
   }, [focusedPaneId, paneId, setFocusedPane]);
 
-  // Focus the pane's xterm textarea. Works for BOTH terminal paths: the
-  // registry path renders a `.terminal-slot` whose xterm creates a
-  // `.xterm-helper-textarea`; the legacy path wraps xterm in `.xterm-container`.
-  // Querying the textarea directly (it's what xterm focuses) covers both.
-  const focusPaneTextarea = () => {
+  const focusPaneTerminal = useCallback(() => {
+    if (terminalRegistry.focus(terminalId)) return;
     const textarea =
       (containerRef.current?.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement | null) ??
       (containerRef.current?.querySelector('.xterm textarea') as HTMLTextAreaElement | null) ??
       (containerRef.current?.querySelector('.xterm-container textarea') as HTMLTextAreaElement | null);
     textarea?.focus();
-  };
+  }, [terminalId]);
 
   // Focus xterm when this pane becomes focused
   useEffect(() => {
     if (isFocused) {
       // Small delay to ensure xterm is mounted
-      const timer = setTimeout(focusPaneTextarea, 100);
+      const timer = setTimeout(focusPaneTerminal, 100);
       return () => clearTimeout(timer);
     }
-  }, [isFocused, paneId]);
+  }, [focusPaneTerminal, isFocused, paneId]);
 
   // Search belongs to the focused terminal surface, not the browser/WebView.
   useEffect(() => {
@@ -138,7 +135,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
   const handleClick = () => {
     setFocusedPane(paneId);
     // setTimeout to ensure xterm is rendered before focusing.
-    setTimeout(focusPaneTextarea, 0);
+    setTimeout(focusPaneTerminal, 0);
   };
 
   const handleReconnect = useCallback(() => {
@@ -147,7 +144,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
 
   const handleUseLocalShell = useCallback(() => {
     useLocalShell(terminalId);
-    setTimeout(focusPaneTextarea, 0);
+    setTimeout(focusPaneTerminal, 0);
   }, [terminalId]);
 
   // While a saved SSH command is disconnected, an unmodified Enter on the

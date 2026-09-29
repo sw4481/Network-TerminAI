@@ -130,18 +130,30 @@ export function searchHandleFor(terminalId: string): TerminalSearchHandle | null
   return registry.get(terminalId)?.search ?? null;
 }
 
+function refresh(entry: TerminalEntry): void {
+  const rows = entry.xterm.rows ?? 24;
+  entry.xterm.refresh(0, Math.max(0, rows - 1));
+}
+
+export function focus(terminalId: string): boolean {
+  const entry = registry.get(terminalId);
+  if (!entry || entry.disposed) return false;
+  entry.xterm.focus();
+  return true;
+}
+
 export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry {
   const existing = registry.get(terminalId);
   if (existing) return existing;
 
-  // Resolve CDN xterm constructors (same shape as usePty.ts:84-87).
+  // Resolve the bundled xterm constructors (same shape as usePty.ts:84-87).
   const XTerm = (window as any).Terminal;
   const FitAddonCtor = (window as any).FitAddon?.FitAddon || (window as any).FitAddon;
   const WebLinksCtor = (window as any).WebLinksAddon?.WebLinksAddon || (window as any).WebLinksAddon;
   const ClipboardCtor = (window as any).ClipboardAddon?.ClipboardAddon || (window as any).ClipboardAddon;
   const SearchAddonCtor = (window as any).SearchAddon?.SearchAddon || (window as any).SearchAddon;
   if (!XTerm || !FitAddonCtor || !SearchAddonCtor) {
-    throw new Error('terminalRegistry: xterm not loaded from CDN yet');
+    throw new Error('terminalRegistry: xterm not loaded');
   }
 
   const el = document.createElement('div');
@@ -215,11 +227,28 @@ export function attach(terminalId: string, slot: HTMLDivElement): void {
   if (!entry.opened) {
     entry.xterm.open(entry.el);
     entry.opened = true;
+    // Tauri's packaged CSP requires the nonce on xterm's runtime styles.
+    const styleNonce = document.querySelector<HTMLStyleElement>('style[nonce]')?.nonce;
+    if (styleNonce) {
+      for (const style of entry.el.querySelectorAll('style')) {
+        const css = style.textContent;
+        style.nonce = styleNonce;
+        style.textContent = css;
+      }
+    }
   }
   try {
     entry.fitAddon.fit();
-    const rows = entry.xterm.rows ?? 24;
-    entry.xterm.refresh(0, Math.max(0, rows - 1));
+    refresh(entry);
+    requestAnimationFrame(() => {
+      if (entry.disposed) return;
+      try {
+        entry.fitAddon.fit();
+        refresh(entry);
+      } catch {
+        /* fit can throw if the slot has zero size mid-layout; harmless */
+      }
+    });
   } catch {
     /* fit can throw if the slot has zero size mid-layout; harmless */
   }
@@ -244,8 +273,7 @@ export function applyAppearanceSettings(settings: AppearanceSettingsV1): void {
     if (!metricsChanged) continue;
     try {
       entry.fitAddon.fit();
-      const rows = entry.xterm.rows ?? 24;
-      entry.xterm.refresh(0, Math.max(0, rows - 1));
+      refresh(entry);
       if (entry.ptyTabId) {
         ptyResize(entry.ptyTabId, entry.xterm.cols, entry.xterm.rows).catch(() => {});
       }
@@ -604,6 +632,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   const ro = new ResizeObserver(() => {
     try {
       entry.fitAddon.fit();
+      refresh(entry);
       if (ptyTabId) ptyResize(ptyTabId, xterm.cols, xterm.rows).catch(() => {});
     } catch { /* zero-size mid-layout */ }
   });

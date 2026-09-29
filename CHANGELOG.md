@@ -5,6 +5,13 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2026-09-29
+
+### Fixed
+
+- Show the blinking terminal cursor at the correct cell in the packaged macOS app by allowing xterm's generated styles through Tauri's CSP.
+- Bundle the xterm runtime and add-ons locally, and focus the owning terminal when selecting a pane.
+
 ## [1.1.2] - 2026-09-26
 
 ### Fixed

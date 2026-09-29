@@ -1,5 +1,10 @@
-import ReactDOM from "react-dom/client";
 import "@xterm/xterm/css/xterm.css";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import { ClipboardAddon } from "@xterm/addon-clipboard";
+import { SearchAddon } from "@xterm/addon-search";
+import ReactDOM from "react-dom/client";
 import App from "./App";
 import { DetachedEditorWindow } from "./components/editor/DetachedEditorWindow";
 import { DetachedTerminalWindow } from "./components/DetachedTerminalWindow";
@@ -10,9 +15,17 @@ import {
   applyMirroredThemeBeforeRender,
 } from "./theme/AppearanceProvider";
 
-// Restore the tiny theme-id mirror before the xterm CDN wait loop. The
+// Restore the tiny theme-id mirror before rendering. The
 // provider reconciles this first-paint hint against app_flags after mounting.
 applyMirroredThemeBeforeRender();
+
+Object.assign(window, {
+  Terminal,
+  FitAddon: { FitAddon },
+  WebLinksAddon: { WebLinksAddon },
+  ClipboardAddon: { ClipboardAddon },
+  SearchAddon: { SearchAddon },
+});
 
 async function init() {
   const detachedEditor =
@@ -23,20 +36,7 @@ async function init() {
     "terminal-detached";
 
   if (!detachedEditor) {
-    // The main app owns terminal panes and waits for xterm's CDN bundle.
-    // Detached editor windows do not need xterm and render immediately.
-    let attempts = 0;
-    while (!(window as any).Terminal && attempts < 50) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      attempts++;
-    }
-
-    if (!(window as any).Terminal) {
-      console.error("Failed to load xterm from CDN");
-      return;
-    }
-
-    console.log("xterm loaded from CDN successfully");
+    console.log("xterm loaded locally");
   }
   const root = document.getElementById("root");
   if (!root) {
