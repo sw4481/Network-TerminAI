@@ -11,7 +11,8 @@ export type TabType =
   | "troubleshoot"
   | "troubleshoot-editor"
   | "subnet"
-  | "heartbeat";
+  | "heartbeat"
+  | "kanban";
 
 export type Tab = {
   id: string;

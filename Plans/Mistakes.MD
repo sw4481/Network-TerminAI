@@ -472,3 +472,50 @@
 - What the issue/mistake was: I ran a small cleanup script with `python`, but this shell has no `python` executable on PATH.
 - RCA of the Issue: I ignored the repository's existing `uv run --project sidecar python ...` pattern and assumed a generic interpreter alias existed.
 - How you fixed it: The failed command made no changes. I kept the working code as-is and will use the managed sidecar interpreter or direct Edit calls for follow-up Python snippets.
+
+# Mistake: applied a Kanban patch against outdated local context
+
+- What the issue/mistake was: Several Kanban patch applications failed because their expected transition, test, regex, and catalog snippets did not match the current file.
+- RCA of the Issue: I grouped edits using remembered formatting instead of reading the current rustfmt output before each patch.
+- How you fixed it: Failed patches made no code changes. I re-read the target sections and applied the required edits in smaller patches; I left the last optional nested-catalog adjustment unapplied.
+
+# Mistake: formatted unrelated AI command code
+
+- What the issue/mistake was: Running rustfmt on `commands/ai.rs` changed unrelated formatting in the existing large module.
+- RCA of the Issue: I applied file-wide formatting instead of limiting formatting checks to the new Kanban module.
+- How you fixed it: I restored the unrelated hunks and kept only the required visibility change for the topolograph binding.
+# Mistake: first nested catalog namespacing draft mutated a temporary copy
+
+- What the issue/mistake was: The first collision fix passed a cloned catalog object to the namespacing helper, which would have left the real catalog unchanged.
+- RCA of the Issue: I moved the helper call into place before reconciling its ownership with the existing mutable map borrow.
+- How you fixed it: I changed the helper to mutate the catalog map directly and added an assertion for both outer and nested function names before running the focused Rust test.
+
+# Mistake: test app build attempted updater signing
+
+- What the issue/mistake was: The first packaged Kanban test build reached updater artifact signing and failed because the environment had no configured private signing key.
+- RCA of the Issue: I did not check the Tauri bundle configuration before packaging; `createUpdaterArtifacts` is enabled for release builds, but a local UI test app does not need updater artifacts.
+- How you fixed it: Disable updater artifact creation for the test-only build and set the test app identifier at compile time as well as bundle time.
+
+# Mistake: Kanban redesign test used stale accessibility assumptions
+
+- What the issue/mistake was: The first UI test runs could not find board lanes and task fields using the old accessible names after the redesign.
+- RCA of the Issue: I assumed a labelled `<section>` would expose a region role and kept lowercase/status and task-detail selectors from the old form.
+- How you fixed it: I added explicit lane regions and button labels, updated the test to use the visible capitalized lane and form labels, and reran the focused UI test successfully.
+
+# Mistake: described Kanban context as a live terminal attachment
+
+- What the issue/mistake was: I told the user to attach a terminal pane for the Kanban smoke test, but the UI only accepts pasted context and does not offer a live pane selector.
+- RCA of the Issue: I inferred live attachment from the plan wording without checking the actual form or tracing the terminal context through the agent request. The Rust code sent a string as a capability object, so Sidecar ignored it.
+- How you fixed it: I corrected the instructions, changed Kanban to include pasted terminal text in the task prompt as reference-only context, and removed the invalid capability parameter.
+
+# Mistake: Kanban stylesheet used literal colors
+
+- What the issue/mistake was: The repository's structural-color check rejected hard-coded colors in the new Kanban stylesheet.
+- RCA of the Issue: I used literal lane and modal colors without checking the repository's semantic token requirement.
+- How you fixed it: Replaced the literals with the existing status, inverse-text, and backdrop tokens, then reran the check.
+
+# Mistake: chose the wrong foreground token for the Kanban action button
+
+- What the issue/mistake was: The Kanban action button used `text-inverse`, which failed the theme contrast check against the accent background.
+- RCA of the Issue: I selected a general inverse token instead of the repository's purpose-built `text-on-strong-accent` token.
+- How you fixed it: Switched the button to `text-on-strong-accent` and reran the theme contrast check.

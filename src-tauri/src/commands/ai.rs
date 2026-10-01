@@ -105,7 +105,7 @@ where
     }
 }
 
-fn resolve_topolograph_runtime_binding(
+pub(crate) fn resolve_topolograph_runtime_binding(
     state: &AppState,
     agent_id: &str,
 ) -> Result<Option<serde_json::Value>, String> {
