@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform Rust warnings and strict CI failures in the terminal and AI command paths.
 - Fanout stress-test synchronization under concurrent worker load.
 
+## [1.1.4] - 2026-10-01
+
+### Fixed
+
+- Include the TerminAI PyATS client in supported portable sidecar builds and report a clear error when sandbox initialization cannot load it.
+- Use the checkout's Python environment for debug sidecars so stale bundled interpreters do not hide source changes.
+
 ## [Unreleased]
 
 ### Planned

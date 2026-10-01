@@ -152,6 +152,14 @@ else
     uv pip install --quiet --python "$PY" --no-deps "${wheel_paths[0]}"
 fi
 
+# The PyATS wrapper is tracked outside the sidecar wheel. Bundle it on
+# supported platforms so installed apps do not depend on a development tree.
+if [[ "$TARGET" != *windows* ]]; then
+    echo ">> installing TerminAI PyATS client wrapper"
+    uv pip install --quiet --python "$PY" --no-deps ../pyats_cli
+    "$PY" -c "import terminai_pyats"
+fi
+
 CURRENT_STAGE="prune bundled python"
 echo ">> pruning to shrink the bundle"
 # Remove pyc caches, test dirs, doc dirs that ship in some wheels.

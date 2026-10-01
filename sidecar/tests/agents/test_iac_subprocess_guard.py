@@ -10,6 +10,8 @@ bypass actually happened.
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from ccie_sidecar.agents.iac_subprocess_guard import is_mutating_iac_command
 from ccie_sidecar.agents.code_exec import _build_sandbox_globals, _execute_code_with_timeout
 
@@ -83,7 +85,8 @@ def test_sandbox_allows_readonly_and_noniac():
 
 def test_guard_scoped_to_iac_agents_only():
     # meraki/pyats sandboxes must be unguarded — `import os` gives the real module.
-    for pkg in ("meraki", "pyats", None):
-        g = _build_sandbox_globals(pkg, {})
-        r = _run(g, "import os\nprint(type(os).__name__)")
-        assert "module" in (r.get("output", "") or ""), f"{pkg} should be unguarded"
+    with patch("ccie_sidecar.pyats.bridge.build_pyats_client", return_value=object()):
+        for pkg in ("meraki", "pyats", None):
+            g = _build_sandbox_globals(pkg, {})
+            r = _run(g, "import os\nprint(type(os).__name__)")
+            assert "module" in (r.get("output", "") or ""), f"{pkg} should be unguarded"

@@ -534,10 +534,16 @@ def _build_sandbox_globals(
         try:
             from ccie_sidecar.pyats.bridge import build_pyats_client
             client = build_pyats_client()
-            if client is not None:
-                globals_dict["pyats"] = client
-        except Exception:
-            pass
+        except Exception as exc:
+            raise RuntimeError(
+                f"Unable to initialize the PyATS client ({type(exc).__name__})."
+            ) from exc
+        if client is None:
+            raise RuntimeError(
+                "PyATS client unavailable. Install the TerminAI PyATS wrapper "
+                "and configure a valid PyATS testbed."
+            )
+        globals_dict["pyats"] = client
 
     # Bind the Stealthwatch client when this is the stealthwatch agent. Reads
     # creds from sessions.db (same as Settings → Stealthwatch) and injects the
