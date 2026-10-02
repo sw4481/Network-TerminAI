@@ -32,9 +32,10 @@ BUNDLE="$(cd "$(dirname "$BUNDLE")" && pwd)/$(basename "$BUNDLE")"
 
 work_dir="$(mktemp -d)"
 mounted_path=""
+mounted_device=""
 cleanup() {
-  if [[ -n "$mounted_path" ]]; then
-    hdiutil detach "$mounted_path" -quiet || true
+  if [[ -n "$mounted_device" ]]; then
+    hdiutil detach "$mounted_device" -quiet || true
   fi
   rm -rf "$work_dir"
 }
@@ -59,7 +60,11 @@ case "$PLATFORM" in
     else
       mounted_path="$work_dir/mount"
       mkdir -p "$mounted_path"
-      hdiutil attach -nobrowse -readonly -mountpoint "$mounted_path" "$BUNDLE" >/dev/null
+      attach_output="$(hdiutil attach -nobrowse -readonly -mountpoint "$mounted_path" "$BUNDLE")"
+      mounted_device="$(awk -v mount_path="$mounted_path" 'index($0, mount_path) { print $1; exit }' <<< "$attach_output")"
+      if [[ -z "$mounted_device" ]]; then
+        fatal "could not identify mounted macOS disk device"
+      fi
       app_path="$(find "$mounted_path" -maxdepth 2 -type d -name '*.app' -print -quit)"
     fi
     if [[ -z "$app_path" ]]; then
