@@ -39,6 +39,7 @@ pub mod git;
 pub mod guardrails;
 pub mod heartbeat;
 pub mod iac;
+pub mod kanban;
 pub mod logging;
 pub mod lsp;
 pub mod macos_icon;
@@ -959,6 +960,12 @@ pub fn run() {
             heartbeat::commands::heartbeat_suggestion_dismiss,
             heartbeat::commands::heartbeat_export,
             heartbeat::commands::heartbeat_import,
+            kanban::kanban_list,
+            kanban::kanban_create,
+            kanban::kanban_get,
+            kanban::kanban_stop,
+            kanban::kanban_retry,
+            kanban::kanban_approve,
         ])
         .setup(|app| {
             // Set the Dock icon at runtime so the TerminAI icon shows in dev too
@@ -977,6 +984,7 @@ pub fn run() {
             }
 
             let terminal_agent = app.state::<AppState>().terminal_agent.clone();
+            crate::kanban::KanbanScheduler::start(app.handle().clone());
             let gateway_url = crate::terminal_agent::gateway::start(
                 app.handle().clone(),
                 terminal_agent,

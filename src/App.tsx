@@ -27,6 +27,7 @@ const TroubleshootTab = lazy(() => import("./components/troubleshoot/Troubleshoo
 const TroubleshootEditorTab = lazy(() => import("./components/troubleshoot/TroubleshootEditorTab").then(m => ({ default: m.TroubleshootEditorTab })));
 const SubnetTab = lazy(() => import("./components/subnet/SubnetTab").then(m => ({ default: m.SubnetTab })));
 const HeartbeatTab = lazy(() => import("./components/HeartbeatTab").then(m => ({ default: m.HeartbeatTab })));
+const KanbanTab = lazy(() => import("./components/KanbanTab").then(m => ({ default: m.KanbanTab })));
 const ExecutionDetailDrawer = lazy(() => import("./components/ExecutionDetailDrawer").then(m => ({ default: m.ExecutionDetailDrawer })));
 import { PaneContainer } from "./components/PaneContainer";
 import { SavedSSHConnectionsModal } from "./components/SavedSSHConnectionsModal";
@@ -141,6 +142,7 @@ export default function App() {
   // Persist the live session (tabs + scrollback) on a debounce.
   useSessionSave();
   const ensureHeartbeatTab = useTabs((s) => s.ensureHeartbeatTab);
+  const ensureKanbanTab = useTabs((s) => s.ensureKanbanTab);
   const { layoutsByTab, loadLayoutForTab, initializeLayout } = usePanesStore();
   const focusedPaneId = usePanesStore((s) => s.focusedPaneId);
 
@@ -296,6 +298,10 @@ export default function App() {
       ensureHeartbeatTab();
     }
   }, [tabs, ensureHeartbeatTab]);
+
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.tab_type === "kanban")) ensureKanbanTab();
+  }, [tabs, ensureKanbanTab]);
 
   const handleOpenRecordings = useCallback(() => {
     const existing = useTabs.getState().tabs.find(
@@ -1460,6 +1466,13 @@ export default function App() {
                     }}
                   >
                     <HeartbeatTab />
+                  </div>
+                ))}
+              {tabs
+                .filter((t) => t.tab_type === "kanban")
+                .map((tab) => (
+                  <div key={tab.id} style={{ height: "100%", display: tab.id === activeTabId ? "block" : "none" }}>
+                    <KanbanTab />
                   </div>
                 ))}
               </div>

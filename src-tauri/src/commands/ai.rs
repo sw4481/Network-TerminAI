@@ -105,7 +105,7 @@ where
     }
 }
 
-fn resolve_topolograph_runtime_binding(
+pub(crate) fn resolve_topolograph_runtime_binding(
     state: &AppState,
     agent_id: &str,
 ) -> Result<Option<serde_json::Value>, String> {
@@ -116,11 +116,7 @@ fn resolve_topolograph_runtime_binding(
     )
 }
 
-fn should_retrieve_attached_tool_vault(
-    _agent_id: &str,
-    tool_id: &str,
-    vault_entry: &str,
-) -> bool {
+fn should_retrieve_attached_tool_vault(_agent_id: &str, tool_id: &str, vault_entry: &str) -> bool {
     !vault_entry.is_empty() && tool_id != "topolograph"
 }
 
@@ -148,20 +144,28 @@ fn append_soul_files_from_dir(
         Err(_) => return system_prompt,
     };
     paths.sort_by_key(|path| {
-        let name = path.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         (name != "SOUL.md", name.to_string())
     });
 
     let mut prompt = system_prompt;
     for path in paths {
-        let Ok(mut content) = std::fs::read_to_string(&path) else { continue };
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else { continue };
+        let Ok(mut content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
         content = content.trim().to_string();
         if content.is_empty() {
             continue;
         }
         if content.chars().count() > SOUL_FILE_CHAR_CAP {
-            content = content.chars().take(SOUL_FILE_CHAR_CAP).collect::<String>() + "\n…(truncated)";
+            content =
+                content.chars().take(SOUL_FILE_CHAR_CAP).collect::<String>() + "\n…(truncated)";
         }
         prompt.push_str("\n\n---\n");
         prompt.push_str(name);
@@ -639,7 +643,8 @@ pub async fn agent_react_run(
     }
 
     // 2. Load tool catalog from first attached tool
-    let (catalog, vault_entry, vault_secrets) = if let Some(tool_def) = agent.attached_tools.first() {
+    let (catalog, vault_entry, vault_secrets) = if let Some(tool_def) = agent.attached_tools.first()
+    {
         let catalog_json = std::fs::read_to_string(&tool_def.catalog)
             .map_err(|e| format!("Failed to read tool catalog {}: {}", tool_def.catalog, e))?;
         let catalog: serde_json::Value = serde_json::from_str(&catalog_json)
@@ -1002,11 +1007,7 @@ pub async fn agent_react_code_run(
     // 2. Get vault secrets (for code execution sandbox)
     let vault_secrets = if !agent.attached_tools.is_empty() {
         let tool_def = &agent.attached_tools[0];
-        if should_retrieve_attached_tool_vault(
-            &agent.id,
-            &tool_def.id,
-            &tool_def.vault_entry,
-        ) {
+        if should_retrieve_attached_tool_vault(&agent.id, &tool_def.id, &tool_def.vault_entry) {
             tracing::info!("Retrieving vault secrets for: {}", tool_def.vault_entry);
             match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
                 Ok(secrets) => {
@@ -1912,9 +1913,11 @@ mod tests {
         std::fs::write(dir.path().join("SOUL.md"), "identity").unwrap();
         std::fs::write(dir.path().join("AGENT.md"), "ignored").unwrap();
 
-        let prompt = append_soul_files_from_dir("network-architect", "base".to_string(), dir.path());
+        let prompt =
+            append_soul_files_from_dir("network-architect", "base".to_string(), dir.path());
 
-        assert!(prompt.contains("base\n\n---\nSOUL.md\n---\nidentity\n\n---\nSOUL-SKILLS.md\n---\nskills"));
+        assert!(prompt
+            .contains("base\n\n---\nSOUL.md\n---\nidentity\n\n---\nSOUL-SKILLS.md\n---\nskills"));
         assert!(!prompt.contains("ignored"));
     }
 
@@ -1940,9 +1943,7 @@ mod tests {
             "meraki",
             "meraki_default",
         ));
-        assert!(!should_retrieve_attached_tool_vault(
-            "meraki", "meraki", "",
-        ));
+        assert!(!should_retrieve_attached_tool_vault("meraki", "meraki", "",));
     }
 
     #[test]

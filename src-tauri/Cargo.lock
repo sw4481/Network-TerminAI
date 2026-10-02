@@ -925,7 +925,7 @@ dependencies = [
 
 [[package]]
 name = "ccie-terminal"
-version = "1.1.4"
+version = "1.1.5"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",

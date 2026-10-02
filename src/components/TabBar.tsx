@@ -111,6 +111,7 @@ export function TabBar({
         const isTroubleshootEditor = t.tab_type === "troubleshoot-editor";
         // Heartbeat is a permanent tab — no close button.
         const isHeartbeat = t.tab_type === "heartbeat";
+        const isKanban = t.tab_type === "kanban";
         const isRecording = !!activeRecordings[t.id];
         const isTerminalTab =
           !isApi &&
@@ -122,7 +123,9 @@ export function TabBar({
           !isRecordingPlayer &&
           !isTroubleshoot &&
           !isTroubleshootEditor &&
-          !isHeartbeat;
+          !isHeartbeat &&
+          !isKanban;
+        const isTabCloseable = !isHeartbeat && !isKanban;
         const layout = layoutsByTab.get(t.id);
         const canDetach =
           isTerminalTab && (!layout || getAllLeafPanes(layout).length === 1);
@@ -263,7 +266,7 @@ export function TabBar({
                 ↗
               </button>
             )}
-            {!isHeartbeat && (
+            {isTabCloseable && (
               <button
                 className="tab-close"
                 onClick={async (e) => {

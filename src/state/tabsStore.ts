@@ -14,6 +14,7 @@ type Store = {
    * already exists or if there are no tabs yet. Does NOT change the active tab.
    */
   ensureHeartbeatTab: () => void;
+  ensureKanbanTab: () => void;
   removeTab: (id: string, recordClosed?: boolean) => void;
   setActive: (id: string | null) => void;
   startBlock: (tabId: string, b: CommandBlockState) => void;
@@ -66,6 +67,17 @@ export const useTabs = create<Store>((set) => ({
       // Insert as the SECOND tab, after the first tab. Keep active tab unchanged.
       const tabs = [s.tabs[0], heartbeat, ...s.tabs.slice(1)];
       return { tabs };
+    }),
+  ensureKanbanTab: () =>
+    set((s) => {
+      if (s.tabs.length === 0 || s.tabs.some((t) => t.tab_type === "kanban")) return {};
+      const kanban: Tab = {
+        id: crypto.randomUUID(), title: "Kanban", shell_cmd: "", cwd: "/",
+        created_at: Math.floor(Date.now() / 1000), tab_type: "kanban",
+      };
+      const heartbeatIndex = s.tabs.findIndex((t) => t.tab_type === "heartbeat");
+      const index = heartbeatIndex >= 0 ? heartbeatIndex + 1 : 1;
+      return { tabs: [...s.tabs.slice(0, index), kanban, ...s.tabs.slice(index)] };
     }),
   removeTab: (id, recordClosed = true) =>
     set((s) => {

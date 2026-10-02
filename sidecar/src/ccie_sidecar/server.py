@@ -2000,6 +2000,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 message = params.get("message")
                 system_prompt = params.get("system_prompt")
                 tools_raw = params.get("tools")
+                attachments_raw = params.get("attachments")
                 vault_entry = params.get("vault_entry")
                 vault_secrets = params.get("vault_secrets") or {}
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
@@ -2045,22 +2046,28 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         ))
                     else:
                         # Legacy: expects catalog as JSON string
-                        catalog_json_str = json.dumps(tools_raw) if isinstance(tools_raw, list) else tools_raw
+                        if isinstance(attachments_raw, list) and attachments_raw:
+                            attached_tools = []
+                            for attachment in attachments_raw:
+                                catalog = attachment.get("catalog", [])
+                                attached_tools.append({
+                                    **attachment,
+                                    "catalog": json.dumps(catalog) if isinstance(catalog, list) else catalog,
+                                })
+                        else:
+                            catalog_json_str = json.dumps(tools_raw) if isinstance(tools_raw, list) else tools_raw
+                            attached_tools = [{
+                                "catalog": catalog_json_str,
+                                "vault_entry": vault_entry,
+                                "vault_secrets": vault_secrets,
+                                "default_blast_radius_allowed": params.get("blast_radius_allowed")
+                                or agent_cfg.get("default_blast_radius_allowed", "low"),
+                            }]
 
                         agent_def = {
                             "id": agent_id,
                             "system_prompt": system_prompt or agent_cfg.get("system_prompt", ""),
-                            "attached_tools": [{
-                                "catalog": catalog_json_str,  # JSON string for legacy
-                                "vault_entry": vault_entry,
-                                "vault_secrets": vault_secrets,
-                                # An optional caller override (used by the WhatsApp
-                                # full-trust bridge, which has no interactive UI to
-                                # grant approvals) raises the auto-approve ceiling so
-                                # no HITL request is ever emitted headlessly.
-                                "default_blast_radius_allowed": params.get("blast_radius_allowed")
-                                or agent_cfg.get("default_blast_radius_allowed", "low"),
-                            }],
+                            "attached_tools": attached_tools,
                         }
 
                         asyncio.run(react_loop(
@@ -2163,6 +2170,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                 system_prompt = params.get("system_prompt")
                 tool_id = params.get("tool_id")
                 vault_secrets = params.get("vault_secrets") or {}
+                attachments_raw = params.get("attachments")
                 engine = params.get("engine")  # "deepagents" | "legacy" | None
                 history = params.get("history") or []
                 stream_output = bool(params.get("stream_output", False))
@@ -2187,6 +2195,8 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             tool_id=tool_id,
                             topolograph_runtime=topolograph_runtime,
                         )
+                        if isinstance(attachments_raw, list) and attachments_raw:
+                            agent_def["attached_tools"] = attachments_raw
 
                         asyncio.run(deepagents_react_code_loop(
                             agent_def=agent_def,
@@ -2214,6 +2224,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             "system_prompt": system_prompt or "",
                             "tool_id": tool_id,
                             "vault_secrets": vault_secrets,
+                            "attached_tools": attachments_raw or [],
                         }
 
                         asyncio.run(react_code_loop(
