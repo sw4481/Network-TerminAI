@@ -36,6 +36,19 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 
 #[cfg(windows)]
+fn is_windows_powershell(shell: &str) -> bool {
+    matches!(
+        shell.to_ascii_lowercase().as_str(),
+        "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe"
+    )
+}
+
+#[cfg(not(windows))]
+fn is_windows_powershell(_shell: &str) -> bool {
+    false
+}
+
+#[cfg(windows)]
 fn powershell_integration_path() -> Option<String> {
     crate::shell_integration::install()
         .ok()
@@ -166,9 +179,7 @@ impl PtyHandle {
     /// Kernel-observed foreground process identity with true argv boundaries.
     /// Used when a security decision must not depend on a space-joined command.
     #[cfg(target_os = "macos")]
-    pub fn foreground_process_identity(
-        &self,
-    ) -> Option<(libc::pid_t, String, Vec<String>)> {
+    pub fn foreground_process_identity(&self) -> Option<(libc::pid_t, String, Vec<String>)> {
         let pgid = self.foreground_process_group_id()?;
         let (executable, argv) = proc_args_macos(pgid)?;
         Some((pgid, executable, argv))
@@ -323,13 +334,7 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
             opts.shell
         );
         cmd.arg("-il");
-    } else if opts.args.is_empty()
-        && cfg!(windows)
-        && matches!(
-            opts.shell.to_ascii_lowercase().as_str(),
-            "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe"
-        )
-    {
+    } else if opts.args.is_empty() && is_windows_powershell(&opts.shell) {
         cmd.arg("-NoLogo");
         cmd.arg("-NoExit");
         cmd.arg("-ExecutionPolicy");
