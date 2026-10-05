@@ -1,6 +1,8 @@
 import { getAllLeafPanes, type PaneNode } from "../state/panesStore";
 import type { TerminalConnectionState } from "../state/terminalConnectionStore";
 
+const canVerifySavedSshBinding = () => navigator.platform.toLowerCase().includes("mac");
+
 export type TerminalAttachment = {
   backendPtyId: string;
   terminalId: string;
@@ -47,7 +49,7 @@ export function resolveTerminalAttachment(args: {
   const backendPtyId = args.backendPtyIdFor(pane.terminalId);
   if (!backendPtyId) throw new Error("The focused terminal has no active backend PTY.");
 
-  if (!connection) {
+  if (!connection || !canVerifySavedSshBinding()) {
     return {
       backendPtyId,
       terminalId: pane.terminalId,

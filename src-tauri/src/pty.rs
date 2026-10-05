@@ -37,13 +37,9 @@ use tokio::sync::mpsc;
 
 #[cfg(windows)]
 fn powershell_integration_path() -> Option<String> {
-    dirs::config_dir().map(|dir| {
-        dir.join("ccie-terminal")
-            .join("shell-integration")
-            .join("ccie-terminal.ps1")
-            .to_string_lossy()
-            .into_owned()
-    })
+    crate::shell_integration::install()
+        .ok()
+        .map(|paths| paths.powershell.to_string_lossy().into_owned())
 }
 
 /// Configuration options for spawning a new PTY session.

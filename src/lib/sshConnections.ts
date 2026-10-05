@@ -170,11 +170,14 @@ function quoteShellArgument(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
-export function buildSshCommand(connection: Pick<SshConnection, "host" | "user" | "port" | "identity_file">): string {
+export function buildSshCommand(
+  connection: Pick<SshConnection, "host" | "user" | "port" | "identity_file">,
+  sshBinary = navigator.platform.toLowerCase().includes("win") ? "ssh" : "/usr/bin/ssh",
+): string {
   // Always pin the effective port. Omitting `-p 22` would let a matching
   // Host stanza in ~/.ssh/config silently redirect a saved device record.
   const parts = [
-    "/usr/bin/ssh",
+    sshBinary,
     "-p",
     String(connection.port ?? 22),
     "-o",

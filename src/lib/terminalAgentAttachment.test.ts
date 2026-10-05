@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PaneNode } from "../state/panesStore";
 import type { TerminalConnectionState } from "../state/terminalConnectionStore";
 import {
@@ -33,6 +33,10 @@ const connectedSsh: TerminalConnectionState = {
   error: null,
 };
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("parseTerminalAttachmentRequest", () => {
   it("keeps ordinary questions detached by default", () => {
     expect(parseTerminalAttachmentRequest("Why is RADIUS down?", false)).toEqual({
@@ -57,7 +61,8 @@ describe("parseTerminalAttachmentRequest", () => {
 });
 
 describe("resolveTerminalAttachment", () => {
-  it("locks the focused split pane backend PTY and non-secret saved identity", () => {
+  it("locks the focused split pane backend PTY and non-secret saved identity on macOS", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "MacIntel" });
     const attachment = resolveTerminalAttachment({
       agentId: "network-architect",
       requested: true,
@@ -75,6 +80,25 @@ describe("resolveTerminalAttachment", () => {
       displayName: "Access switch 7",
       vendor: "cisco",
       platform: "iosxe",
+    });
+  });
+
+  it("falls back to manual attachment when saved SSH binding cannot be verified", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+
+    const attachment = resolveTerminalAttachment({
+      agentId: "network-architect",
+      requested: true,
+      focusedPaneId: "pane-right",
+      layout: splitLayout,
+      connectionsByTerminalId: { "pty-right": connectedSsh },
+      backendPtyIdFor: () => "backend-right",
+    });
+
+    expect(attachment).toEqual({
+      backendPtyId: "backend-right",
+      terminalId: "pty-right",
+      source: "manual_ssh",
     });
   });
 

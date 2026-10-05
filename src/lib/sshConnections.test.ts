@@ -52,12 +52,12 @@ describe("typed SSH command wrappers", () => {
       user: "netops",
       port: 2222,
       identity_file: "/keys/lab_ed25519",
-    })).toBe("/usr/bin/ssh -p 2222 -o HostName=router.example -i /keys/lab_ed25519 -- netops@router.example");
+    }, "/usr/bin/ssh")).toBe("/usr/bin/ssh -p 2222 -o HostName=router.example -i /keys/lab_ed25519 -- netops@router.example");
     expect(buildSshCommand({
       host: "router.example",
       user: "net ops",
       port: 22,
       identity_file: "/keys/lab key",
-    })).toBe("/usr/bin/ssh -p 22 -o HostName=router.example -i '/keys/lab key' -- 'net ops@router.example'");
+    }, "ssh")).toBe("ssh -p 22 -o HostName=router.example -i '/keys/lab key' -- 'net ops@router.example'");
   });
 });
