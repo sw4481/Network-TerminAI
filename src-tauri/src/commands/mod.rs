@@ -196,13 +196,9 @@ pub fn sidecar_spawn_target() -> (String, Vec<String>) {
 /// - `<exe_dir>/python/bin/python3` (Linux AppImage, Windows)
 /// - `<exe_dir>/../Resources/python/bin/python3` (macOS .app bundle)
 fn bundled_python_path() -> Option<std::path::PathBuf> {
-    // Dev escape hatch: when CCIE_FORCE_VENV is set, never use a bundled
-    // interpreter — always fall back to sidecar/.venv. This prevents a stale
-    // `target/{debug,release}/python/` tree (left by a past build_sidecar.sh
-    // run) from silently shadowing live edits to sidecar/src. Without this,
-    // every sidecar change is ignored until the bundle is manually deleted,
-    // surfacing as "unknown method" RPC errors or a dead heartbeat chip.
-    if std::env::var_os("CCIE_FORCE_VENV").is_some() {
+    // Debug builds and CCIE_FORCE_VENV use sidecar/.venv to prevent stale
+    // target/{debug,release}/python trees from shadowing source packages.
+    if cfg!(debug_assertions) || std::env::var_os("CCIE_FORCE_VENV").is_some() {
         return None;
     }
 
@@ -4411,6 +4407,203 @@ pub fn vendor_keywords_set(state: State<'_, AppState>, keywords: String) -> Resu
     .map_err(|e| format!("Failed to save vendor keywords: {}", e))?;
 
     Ok(())
+}
+
+const PROMPT_LIBRARY_FLAG_KEY: &str = "ccie_prompt_library";
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptTemplate {
+    id: String,
+    title: String,
+    category: String,
+    body: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptLibrary {
+    schema_version: u8,
+    revision: i64,
+    prompts: Vec<PromptTemplate>,
+}
+
+impl Default for PromptLibrary {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            revision: 0,
+            prompts: Vec::new(),
+        }
+    }
+}
+
+fn normalize_prompt_library(mut library: PromptLibrary) -> Result<PromptLibrary, String> {
+    if library.schema_version != 1 {
+        return Err("Unsupported prompt library schema".to_string());
+    }
+    if library.prompts.len() > 100 {
+        return Err("Prompt library is limited to 100 prompts".to_string());
+    }
+
+    let mut ids = std::collections::HashSet::new();
+    for prompt in &mut library.prompts {
+        prompt.id = prompt.id.trim().to_string();
+        prompt.title = prompt.title.trim().to_string();
+        prompt.category = prompt.category.trim().to_string();
+        prompt.body = prompt.body.trim().to_string();
+
+        if prompt.id.is_empty() || prompt.title.is_empty() || prompt.body.is_empty() {
+            return Err("Prompt id, title, and body are required".to_string());
+        }
+        if !ids.insert(prompt.id.clone()) {
+            return Err("Prompt ids must be unique".to_string());
+        }
+        if prompt.title.chars().count() > 120 {
+            return Err("Prompt title is limited to 120 characters".to_string());
+        }
+        if prompt.category.chars().count() > 80 {
+            return Err("Prompt category is limited to 80 characters".to_string());
+        }
+        if prompt.body.chars().count() > 20_000 {
+            return Err("Prompt body is limited to 20000 characters".to_string());
+        }
+    }
+
+    library.revision += 1;
+    Ok(library)
+}
+
+fn ensure_app_flags_table(db: &rusqlite::Connection) -> Result<(), String> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS app_flags (\
+            key TEXT PRIMARY KEY,\
+            value TEXT NOT NULL,\
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))\
+        );",
+    )
+    .map_err(|e| format!("Failed to ensure app_flags: {}", e))
+}
+
+fn prompt_library_get_impl(db: &rusqlite::Connection) -> Result<PromptLibrary, String> {
+    ensure_app_flags_table(db)?;
+    let value: Option<String> = db
+        .query_row(
+            "SELECT value FROM app_flags WHERE key = ?1",
+            rusqlite::params![PROMPT_LIBRARY_FLAG_KEY],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to read prompt library: {}", e))?;
+
+    match value {
+        Some(raw) => serde_json::from_str(&raw).map_err(|e| format!("Invalid prompt library: {}", e)),
+        None => Ok(PromptLibrary::default()),
+    }
+}
+
+fn prompt_library_set_impl(
+    db: &rusqlite::Connection,
+    library: PromptLibrary,
+) -> Result<PromptLibrary, String> {
+    ensure_app_flags_table(db)?;
+    let current = prompt_library_get_impl(db)?;
+    if library.revision != current.revision {
+        return Err("Prompt library changed elsewhere; reload and try again".to_string());
+    }
+    let library = normalize_prompt_library(library)?;
+    let value = serde_json::to_string(&library)
+        .map_err(|e| format!("Failed to encode prompt library: {}", e))?;
+    db.execute(
+        "INSERT OR REPLACE INTO app_flags(key, value) VALUES (?1, ?2)",
+        rusqlite::params![PROMPT_LIBRARY_FLAG_KEY, value],
+    )
+    .map_err(|e| format!("Failed to save prompt library: {}", e))?;
+    Ok(library)
+}
+
+#[tauri::command]
+pub fn prompt_library_get(state: State<'_, AppState>) -> Result<PromptLibrary, String> {
+    let db = state.db.lock();
+    prompt_library_get_impl(&db)
+}
+
+#[tauri::command]
+pub fn prompt_library_set(
+    state: State<'_, AppState>,
+    library: PromptLibrary,
+) -> Result<PromptLibrary, String> {
+    let db = state.db.lock();
+    prompt_library_set_impl(&db, library)
+}
+
+#[cfg(test)]
+mod prompt_library_tests {
+    use super::*;
+
+    fn prompt(id: &str) -> PromptTemplate {
+        PromptTemplate {
+            id: id.to_string(),
+            title: "Title".to_string(),
+            category: "General".to_string(),
+            body: "Body".to_string(),
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[test]
+    fn prompt_library_missing_row_returns_default() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        let library = prompt_library_get_impl(&db).unwrap();
+        assert_eq!(library.schema_version, 1);
+        assert!(library.prompts.is_empty());
+    }
+
+    #[test]
+    fn prompt_library_round_trips() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        let saved = prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p1")],
+        }).unwrap();
+        let loaded = prompt_library_get_impl(&db).unwrap();
+        assert_eq!(saved.revision, 1);
+        assert_eq!(loaded.prompts[0].id, "p1");
+    }
+
+    #[test]
+    fn prompt_library_rejects_bad_input() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 2,
+            revision: 0,
+            prompts: vec![],
+        }).is_err());
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("same"), prompt("same")],
+        }).is_err());
+    }
+
+    #[test]
+    fn prompt_library_rejects_stale_revision() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p1")],
+        }).unwrap();
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p2")],
+        }).is_err());
+    }
 }
 
 /// Git / CI defaults for the IaC Studio push flow. Stored as one JSON blob in

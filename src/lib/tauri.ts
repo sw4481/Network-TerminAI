@@ -1913,6 +1913,33 @@ export const vendorKeywordsSet = (keywords: string) =>
 export const vendorKeywordDefaults = () =>
   invoke<{ vendors: VendorKeywordDefault[] }>("vendor_keyword_defaults");
 
+export type PromptTemplate = {
+  id: string;
+  title: string;
+  category: string;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type PromptLibrary = {
+  schemaVersion: 1;
+  revision: number;
+  prompts: PromptTemplate[];
+};
+
+export const emptyPromptLibrary = (): PromptLibrary => ({
+  schemaVersion: 1,
+  revision: 0,
+  prompts: [],
+});
+
+export const promptLibraryGet = () =>
+  invoke<PromptLibrary>("prompt_library_get");
+
+export const promptLibrarySet = (library: PromptLibrary) =>
+  invoke<PromptLibrary>("prompt_library_set", { library });
+
 // Git / CI defaults for the IaC Studio push flow. Persisted as one JSON blob in
 // app_flags under `ccie_git_config`; the Push-to-Git modal prefills from it.
 // GitHub credentials are backend-only and deliberately absent from this type.

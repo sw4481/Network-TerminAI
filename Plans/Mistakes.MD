@@ -15,6 +15,7 @@
 - What the issue/mistake was: The first commit command stopped after `git add` reported that `Plans` was ignored, even though the tracked `Plans/Mistakes.MD` and the other requested files had been staged.
 - RCA of the Issue: I included an ignore-matched path in a batch add without first accounting for this repository's tracked-file exception behavior, then relied only on the command exit code rather than the resulting index state.
 - How you fixed it: I inspected the index, confirmed all five requested files were staged, recorded this attempt, and restaged the tracked log with `git add -u` before committing.
+- Recurrence: I repeated this during the prompt-library feature commit by batching `Plans/Mistakes.MD` with ordinary paths. I stopped, recorded the recurrence, and staged tracked ignored files with `git add -u -- Plans/Mistakes.MD` separately.
 
 # Mistake: assumed the uv project environment exposed a pytest executable
 
@@ -278,6 +279,24 @@
 - RCA of the Issue: I optimized two independent self-review checks into one command without validating that its output modes are compatible.
 - How you fixed it: The command was read-only. I reran the whitespace and committed-file checks separately: `git show --check --format=fuller HEAD` and `git show --format='' --name-only HEAD` both succeeded.
 
+# Mistake: prompt-library draft shipped with impure updater and stale overwrite risk
+
+- What the issue/mistake was: The first prompt-library implementation called `window.confirm()` inside a React state updater, omitted disclosure ARIA state, registered an effect callback with missing dependencies, and allowed stale whole-library saves from two mounted managers to overwrite newer prompt edits.
+- RCA of the Issue: I optimized for the smallest shared component and did not re-check React purity/accessibility/concurrency rules before review.
+- How you fixed it: Moved confirmation outside the state updater, added `aria-expanded`/`aria-controls`, wrapped the load callback in `useCallback`, and added backend revision conflict protection with a focused Rust regression.
+
+# Mistake: used an unmatched zsh glob while probing project run skills
+
+- What the issue/mistake was: The first `/run` project-skill probe used `.claude/skills/*/SKILL.md`; zsh rejected the unmatched glob because this repo has no local skill directory.
+- RCA of the Issue: I copied the skill recipe literally into zsh without guarding for `nomatch`, despite prior mistakes documenting unmatched-glob failures.
+- How you fixed it: Re-ran the probe with `find` behind an explicit directory check, then activated the already-running TerminAI process instead of launching a duplicate.
+
+# Mistake: ran Vitest files through Bun's native test runner
+
+- What the issue/mistake was: I ran `bun test src/components/PromptLibraryManager.test.tsx src/components/AgentPanel.test.tsx`, which used Bun's native test runner and failed because `vi.hoisted` is a Vitest API.
+- RCA of the Issue: I selected the shortest-looking command instead of using the repository's Vitest runner for Vitest-authored tests.
+- How you fixed it: Re-ran the same focused tests with `bunx vitest run src/components/PromptLibraryManager.test.tsx src/components/AgentPanel.test.tsx`; all 11 tests passed.
+
 # Local Mistakes Log
 
 ## 2026-09-10: Instruction-read command used an invalid path
@@ -519,3 +538,135 @@
 - What the issue/mistake was: The Kanban action button used `text-inverse`, which failed the theme contrast check against the accent background.
 - RCA of the Issue: I selected a general inverse token instead of the repository's purpose-built `text-on-strong-accent` token.
 - How you fixed it: Switched the button to `text-on-strong-accent` and reran the theme contrast check.
+
+# Mistake: diagnostic read emitted a local agent prompt line
+
+- What the issue/mistake was: A file inspection command printed a line from a local agent prompt that contained an environment identifier.
+- RCA of the Issue: I used a line-range read across the prompt body instead of extracting only the needed frontmatter metadata.
+- How you fixed it: Stopped reading prompt bodies, excluded the identifier from further output, and switched to parsing only agent IDs, catalog references, and tool names.
+
+# Mistake: runtime interpreter probe used an unquoted workspace path
+
+- What the issue/mistake was: A diagnostic command failed because the shell split the workspace path at its space.
+- RCA of the Issue: I passed an absolute path without quoting or escaping it.
+- How you fixed it: Reran the probe using a path relative to the repository root.
+
+# Mistake: portable smoke-test path was assumed to be repository-rooted
+
+- What the issue/mistake was: I referenced the portable-sidecar smoke script from the repository root, but it lives under sidecar/scripts/.
+- RCA of the Issue: I searched for the invocation but did not follow the path used by build_sidecar.sh.
+- How you fixed it: Located the script at its invoked path and continued from there.
+
+# Mistake: first PyATS fix patch used stale surrounding context
+
+- What the issue/mistake was: The first multi-file patch did not apply because its context did not match the current Rust comment and sidecar build script.
+- RCA of the Issue: I grouped edits before checking the exact current insertion point in each file.
+- How you fixed it: I inspected the live file context and applied the changes as separate, narrow patches.
+
+# Mistake: release patch used stale sidecar build-script context
+
+- What the issue/mistake was: The first attempt to port the PyATS fix to the clean release checkout used an insertion context from the older checkout, so the patch did not apply.
+- RCA of the Issue: I checked that the target function names existed but did not inspect the exact adjacent build-script lines before applying the combined patch.
+- How you fixed it: I stopped after the patch was rejected, inspected the current release-branch context, and will apply the change using the exact live lines.
+
+# Mistake: concurrent broad suites shared the sidecar runtime
+
+- What the issue/mistake was: The full Python and Rust test suites were started concurrently; both exercise the sidecar runtime and stalled instead of producing complete results.
+- RCA of the Issue: I parallelized suites that launch sidecar processes and may share runtime resources, so their results were not isolated.
+- How you fixed it: I stopped both broad runs, verified the Rust sidecar heartbeat test in isolation, and will rerun the suites serially.
+
+# Mistake: sanitizer report introduced trailing Markdown spaces
+
+- What the issue/mistake was: The refreshed release sanitizer report used trailing spaces for Markdown hard breaks, so `git diff --check` rejected it.
+- RCA of the Issue: I formatted the report with an unnecessary hard-break convention and did not run the whitespace check before presenting the diff.
+- How you fixed it: I removed the trailing spaces and reran `git diff --check`.
+
+# Mistake: direct heartbeat test streamed a configured device label
+
+- What the issue/mistake was: The direct heartbeat test's execution logger emitted one configured device label in tool output.
+- RCA of the Issue: I ran the executor without capturing its verbose execution log stream, then noticed that the logger includes snippets from code.
+- How you fixed it: I limited follow-up inspection to parsed status and PyATS verb names and did not retain or repeat the label.
+
+# Mistake: compatibility build started with an isolated empty Cargo target
+
+- What the issue/mistake was: The first compatibility-build command omitted the existing Cargo target directory, so Cargo began recompiling dependencies in the temporary worktree.
+- RCA of the Issue: I did not pass the known local target directory explicitly when building from a detached worktree.
+- How you fixed it: I stopped the build before it produced an app and will rerun it with `CARGO_TARGET_DIR` set to the existing release checkout's target directory.
+
+# Mistake: Actions status parser command had invalid shell quoting
+
+- What the issue/mistake was: Read-only Python commands intended to parse the public GitHub Actions page first failed because embedded single quotes ended the shell string, then returned no matches because the regex backslash was over-escaped.
+- RCA of the Issue: I did not validate the shell quoting and regex string as passed through the command tool.
+- How you fixed it: I am simplifying the pattern to avoid backslashes and conflicting quotes, then rerunning the status check; no repository or GitHub state was changed by these failed checks.
+
+# Mistake: build log wrapper used zsh's read-only status variable
+
+- What the issue/mistake was: The build log wrapper completed Cargo and then failed when assigning to `status`, so it did not report Cargo's actual result.
+- RCA of the Issue: `status` is a read-only special variable in zsh.
+- How you fixed it: Reran the command with a `build_rc` variable and captured the build output before inspecting it.
+
+# Mistake: isolated release worktree lacked the packaged Whisper model
+
+- What the issue/mistake was: Cargo's Tauri build script stopped because `resources/models/ggml-base.en.bin` was absent in the detached worktree.
+- RCA of the Issue: The source checkout has only a placeholder at that path, while the actual model is fetched during Tauri's frontend build step.
+- How you fixed it: Copied the model from the already-installed release bundle into the temporary worktree only; the source checkout and user database were unchanged.
+
+# Mistake: Tauri resource directory was omitted from the detached worktree
+
+- What the issue/mistake was: The next Cargo build stopped because the configured `../sidecar/dist/python` resource directory was absent.
+- RCA of the Issue: The release build depends on a generated, ignored directory that is not present in a fresh Git worktree.
+- How you fixed it: Created the empty directory in the temporary worktree; the compatibility app will reuse the packaged Python runtime from the installed release bundle.
+
+# Mistake: compatibility executable was built without the frontend assets
+
+- What the issue/mistake was: The compatibility process and sidecar started, but macOS reported no app window.
+- RCA of the Issue: I bypassed the Tauri release CLI with a direct Cargo build. That initial build lacked `frontendDist`; adding the assets alone still left the window absent because the production Tauri build configuration had not been applied.
+- How you fixed it: Ran the project Tauri release build with the exact release frontend and bundled Python runtime, copied its app bundle to the separate compatibility path, and ad-hoc signed and verified that local bundle. macOS then reported the app frontmost with one window.
+
+# Mistake: read-only migration query used the wrong history table
+
+- What the issue/mistake was: My first read-only SQLite query looked for `_sqlx_migrations`, but this app records migrations in `refinery_schema_history`.
+- RCA of the Issue: I assumed the migration framework's table name instead of checking the live database schema first.
+- How you fixed it: Listed the database tables and queried `refinery_schema_history`; it confirms migrations 92 (`kanban`), 91, and 90. The failed query made no database changes.
+
+# Mistake: compared commits using a cross-repository path as a revision
+
+- What the issue/mistake was: A read-only `git diff` treated the Network-TerminAI filesystem path as a revision prefix and failed with `bad revision`.
+- RCA of the Issue: I used Git's revision syntax for a second repository instead of running the comparison from that repository or using `git -C`.
+- How you fixed it: Inspected each repository's commit and parent separately and will transfer only the Kanban feature patch into a clean branch; no Git history or worktree state was changed by the failed comparison.
+
+# Mistake: assumed the Kanban patch would apply to public main without context changes
+
+- What the issue/mistake was: The patch check found that the Tauri startup hunk in `src-tauri/src/lib.rs` no longer matches public main.
+- RCA of the Issue: The Kanban commit was authored on a separate checkout and the public startup code has moved since that base.
+- How you fixed it: I stopped before applying the patch, isolated the only reported conflict, and am adapting that registration to the current Tauri startup block while keeping the other feature files unchanged.
+
+# Mistake: ran the Rust format check from the repository root
+
+- What the issue/mistake was: `cargo fmt -- --check` ran from the repository root, which has no Cargo manifest, so the combined verification command stopped before preflight and diff checks.
+- RCA of the Issue: The Rust crate manifest is under `src-tauri/`, but I ran formatting with the frontend checks from the repository root.
+- How you fixed it: I am rerunning `cargo fmt -- --check` from `src-tauri/` and the release preflight and diff checks from the repository root as separate commands; nothing was modified by the failed check.
+
+# Mistake: shadowed the exec tool namespace in a read-only check
+
+- What the issue/mistake was: A small JavaScript inspection wrapper declared a local variable named `tools`, shadowing the injected tool namespace and failing before any commands ran.
+- RCA of the Issue: I reused the namespace name for a Promise result variable.
+- How you fixed it: I will use a distinct result variable name and rerun the read-only lookups; no command was launched and no repository state changed.
+
+# Mistake: imported Kanban runner explicitly dropped a Tauri state handle
+
+- What the issue/mistake was: Clippy rejected `drop(state)` because `tauri::State` does not implement `Drop`.
+- RCA of the Issue: The imported code used explicit drop to end the borrowed state before an async call instead of limiting the handle's scope.
+- How you fixed it: Cloned the needed values inside a lexical block so the handle's borrow ends naturally before awaiting; the focused and full Rust suites had passed before this lint-only correction and will be rerun.
+
+# Mistake: invoked pytest for stdlib unittest release checks
+
+- What the issue/mistake was: The release test command used `python3 -m pytest`, but the system Python has no pytest module and the release tests use `unittest`.
+- RCA of the Issue: I did not inspect the release test files before choosing the runner.
+- How you fixed it: I am switching to `python3 -m unittest discover -s scripts/tests`; the failed pytest command made no source changes.
+
+# Mistake: sanitizer report used trailing-space Markdown hard breaks
+
+- What the issue/mistake was: `git diff --check` found trailing spaces on three sanitizer report metadata lines.
+- RCA of the Issue: I used Markdown hard-break whitespace for metadata formatting.
+- How you fixed it: Replaced those lines with a plain list without trailing spaces; no source content was affected.

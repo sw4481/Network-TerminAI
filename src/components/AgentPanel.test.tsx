@@ -39,6 +39,21 @@ function mockInvoke(command: string) {
   }
   if (command === "dictation_start") return Promise.resolve(null);
   if (command === "dictation_stop") return Promise.resolve("interface status");
+  if (command === "prompt_library_get") {
+    return Promise.resolve({
+      schemaVersion: 1,
+      revision: 0,
+      prompts: [{
+        id: "p1",
+        title: "Explain interfaces",
+        category: "Troubleshooting",
+        body: "Explain this output.",
+        createdAt: 1,
+        updatedAt: 1,
+      }],
+    });
+  }
+  if (command === "prompt_library_set") return Promise.resolve(null);
   return Promise.resolve(null);
 }
 
@@ -71,6 +86,17 @@ describe("AgentPanel", () => {
 
     expect(within(prepackaged).getByRole("option", { name: "Topolograph" })).toBeInTheDocument();
     expect(within(userAgents).queryByRole("option", { name: "Topolograph" })).not.toBeInTheDocument();
+  });
+
+  it("inserts a saved prompt into the draft", async () => {
+    const user = userEvent.setup();
+    render(<AgentPanel tabId="tab-prompts" isOpen onToggle={() => {}} />);
+
+    await user.click(screen.getByRole("button", { name: /Prompts/ }));
+    await screen.findByText("Explain interfaces");
+    await user.click(screen.getByRole("button", { name: "Use prompt Explain interfaces" }));
+
+    expect(screen.getByRole("textbox")).toHaveValue("Explain this output.");
   });
 
   it("dictates into the draft and stops without submitting it", async () => {

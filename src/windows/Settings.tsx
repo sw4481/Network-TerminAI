@@ -39,6 +39,7 @@ import SettingsBrowserTab from "../components/SettingsBrowserTab";
 import EditorSettingsTab from "../components/settings/EditorSettingsTab";
 import { AppearanceSettingsTab } from "../components/settings/AppearanceSettingsTab";
 import { TopolographSettingsTab } from "../components/settings/TopolographSettingsTab";
+import { PromptLibraryManager } from "../components/PromptLibraryManager";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
 // import { useSessionsStore } from "../state/sessionsStore";
 
@@ -100,7 +101,7 @@ const PROVIDER_MODELS: Record<AIProvider, string[]> = {
 
 export function Settings({ isOpen, onClose }: SettingsProps) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "zabbix" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates" | "topolograph"
+    "general" | "appearance" | "editor" | "mcp" | "skills" | "agents" | "prompts" | "rag" | "ftp" | "tftp" | "pyats" | "proxmox" | "stealthwatch" | "ise" | "cml" | "catalyst_center" | "splunk" | "aci" | "gnmi" | "fmc" | "thousandeyes" | "meraki" | "secure_endpoint" | "cisco_xdr" | "mist" | "grafana" | "zabbix" | "prometheus" | "netbox" | "sketchfab" | "whatsapp" | "terminal" | "browser" | "vendorKeywords" | "gitci" | "updates" | "topolograph"
   >("general");
   const [mcpServers, setMcpServers] = useState<McpServer[]>([]);
   const [showImport, setShowImport] = useState(false);
@@ -513,212 +514,52 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
         <div className="settings-body">
           <div className="settings-tabs">
-            <button
-              className={activeTab === "general" ? "active" : ""}
-              onClick={() => setActiveTab("general")}
-            >
-              General
-            </button>
-            <button
-              className={activeTab === "appearance" ? "active" : ""}
-              onClick={() => setActiveTab("appearance")}
-            >
-              Appearance
-            </button>
-            <button
-              className={activeTab === "editor" ? "active" : ""}
-              onClick={() => setActiveTab("editor")}
-            >
-              Editor
-            </button>
-            <button
-              className={activeTab === "mcp" ? "active" : ""}
-              onClick={() => setActiveTab("mcp")}
-            >
-              MCP Servers
-            </button>
-            <button
-              className={activeTab === "skills" ? "active" : ""}
-              onClick={() => setActiveTab("skills")}
-            >
-              Skills
-            </button>
-            <button
-              className={activeTab === "agents" ? "active" : ""}
-              onClick={() => setActiveTab("agents")}
-            >
-              Agents
-            </button>
-            <button
-              className={activeTab === "rag" ? "active" : ""}
-              onClick={() => setActiveTab("rag")}
-            >
-              RAG
-            </button>
-            <button
-              className={activeTab === "ftp" ? "active" : ""}
-              onClick={() => setActiveTab("ftp")}
-            >
-              FTP Server
-            </button>
-            <button
-              className={activeTab === "tftp" ? "active" : ""}
-              onClick={() => setActiveTab("tftp")}
-            >
-              TFTP Server
-            </button>
-            <button
-              className={activeTab === "gitci" ? "active" : ""}
-              onClick={() => setActiveTab("gitci")}
-            >
-              Git / CI
-            </button>
-            <button
-              className={activeTab === "updates" ? "active" : ""}
-              onClick={() => setActiveTab("updates")}
-            >
-              Updates
-            </button>
-            <button
-              className={activeTab === "pyats" ? "active" : ""}
-              onClick={() => setActiveTab("pyats")}
-            >
-              pyATS
-            </button>
+            <div className="settings-tab-group">App</div>
+            <button className={activeTab === "general" ? "active" : ""} onClick={() => setActiveTab("general")}>General</button>
+            <button className={activeTab === "appearance" ? "active" : ""} onClick={() => setActiveTab("appearance")}>Appearance</button>
+            <button className={activeTab === "editor" ? "active" : ""} onClick={() => setActiveTab("editor")}>Editor</button>
+            <button className={activeTab === "terminal" ? "active" : ""} onClick={() => setActiveTab("terminal")}>Terminal</button>
+            <button className={activeTab === "browser" ? "active" : ""} onClick={() => setActiveTab("browser")}>Browser</button>
+            <button className={activeTab === "updates" ? "active" : ""} onClick={() => setActiveTab("updates")}>Updates</button>
+
+            <div className="settings-tab-group">AI</div>
+            <button className={activeTab === "agents" ? "active" : ""} onClick={() => setActiveTab("agents")}>Agents</button>
+            <button className={activeTab === "prompts" ? "active" : ""} onClick={() => setActiveTab("prompts")}>Prompts</button>
+            <button className={activeTab === "skills" ? "active" : ""} onClick={() => setActiveTab("skills")}>Skills</button>
+            <button className={activeTab === "rag" ? "active" : ""} onClick={() => setActiveTab("rag")}>RAG</button>
+            <button className={activeTab === "mcp" ? "active" : ""} onClick={() => setActiveTab("mcp")}>MCP Servers</button>
+            <button className={activeTab === "vendorKeywords" ? "active" : ""} onClick={() => setActiveTab("vendorKeywords")}>Vendor Keywords</button>
+
+            <div className="settings-tab-group">Local Services</div>
+            <button className={activeTab === "ftp" ? "active" : ""} onClick={() => setActiveTab("ftp")}>FTP Server</button>
+            <button className={activeTab === "tftp" ? "active" : ""} onClick={() => setActiveTab("tftp")}>TFTP Server</button>
+            <button className={activeTab === "gitci" ? "active" : ""} onClick={() => setActiveTab("gitci")}>Git / CI</button>
+
+            <div className="settings-tab-group">Network Platforms</div>
+            <button className={activeTab === "pyats" ? "active" : ""} onClick={() => setActiveTab("pyats")}>pyATS</button>
             <button className={activeTab === "topolograph" ? "active" : ""} onClick={() => setActiveTab("topolograph")}>Topolograph</button>
-            <button
-              className={activeTab === "proxmox" ? "active" : ""}
-              onClick={() => setActiveTab("proxmox")}
-            >
-              Proxmox
-            </button>
-            <button
-              className={activeTab === "stealthwatch" ? "active" : ""}
-              onClick={() => setActiveTab("stealthwatch")}
-            >
-              Stealthwatch
-            </button>
-            <button
-              className={activeTab === "ise" ? "active" : ""}
-              onClick={() => setActiveTab("ise")}
-            >
-              ISE
-            </button>
-            <button
-              className={activeTab === "vendorKeywords" ? "active" : ""}
-              onClick={() => setActiveTab("vendorKeywords")}
-            >
-              Vendor Keywords
-            </button>
-            <button
-              className={activeTab === "cml" ? "active" : ""}
-              onClick={() => setActiveTab("cml")}
-            >
-              CML
-            </button>
-            <button
-              className={activeTab === "catalyst_center" ? "active" : ""}
-              onClick={() => setActiveTab("catalyst_center")}
-            >
-              Catalyst Center
-            </button>
-            <button
-              className={activeTab === "splunk" ? "active" : ""}
-              onClick={() => setActiveTab("splunk")}
-            >
-              Splunk
-            </button>
-            <button
-              className={activeTab === "aci" ? "active" : ""}
-              onClick={() => setActiveTab("aci")}
-            >
-              ACI
-            </button>
-            <button
-              className={activeTab === "gnmi" ? "active" : ""}
-              onClick={() => setActiveTab("gnmi")}
-            >
-              gNMI
-            </button>
-            <button
-              className={activeTab === "fmc" ? "active" : ""}
-              onClick={() => setActiveTab("fmc")}
-            >
-              FMC
-            </button>
-            <button
-              className={activeTab === "thousandeyes" ? "active" : ""}
-              onClick={() => setActiveTab("thousandeyes")}
-            >
-              ThousandEyes
-            </button>
-            <button
-              className={activeTab === "meraki" ? "active" : ""}
-              onClick={() => setActiveTab("meraki")}
-            >
-              Meraki
-            </button>
-            <button
-              className={activeTab === "secure_endpoint" ? "active" : ""}
-              onClick={() => setActiveTab("secure_endpoint")}
-            >
-              Secure Endpoint
-            </button>
-            <button
-              className={activeTab === "cisco_xdr" ? "active" : ""}
-              onClick={() => setActiveTab("cisco_xdr")}
-            >
-              Cisco XDR
-            </button>
-            <button
-              className={activeTab === "mist" ? "active" : ""}
-              onClick={() => setActiveTab("mist")}
-            >
-              Juniper Mist
-            </button>
-            <button
-              className={activeTab === "grafana" ? "active" : ""}
-              onClick={() => setActiveTab("grafana")}
-            >
-              Grafana
-            </button>
+            <button className={activeTab === "proxmox" ? "active" : ""} onClick={() => setActiveTab("proxmox")}>Proxmox</button>
+            <button className={activeTab === "stealthwatch" ? "active" : ""} onClick={() => setActiveTab("stealthwatch")}>Stealthwatch</button>
+            <button className={activeTab === "ise" ? "active" : ""} onClick={() => setActiveTab("ise")}>ISE</button>
+            <button className={activeTab === "cml" ? "active" : ""} onClick={() => setActiveTab("cml")}>CML</button>
+            <button className={activeTab === "catalyst_center" ? "active" : ""} onClick={() => setActiveTab("catalyst_center")}>Catalyst Center</button>
+            <button className={activeTab === "splunk" ? "active" : ""} onClick={() => setActiveTab("splunk")}>Splunk</button>
+            <button className={activeTab === "aci" ? "active" : ""} onClick={() => setActiveTab("aci")}>ACI</button>
+            <button className={activeTab === "gnmi" ? "active" : ""} onClick={() => setActiveTab("gnmi")}>gNMI</button>
+            <button className={activeTab === "fmc" ? "active" : ""} onClick={() => setActiveTab("fmc")}>FMC</button>
+            <button className={activeTab === "thousandeyes" ? "active" : ""} onClick={() => setActiveTab("thousandeyes")}>ThousandEyes</button>
+            <button className={activeTab === "meraki" ? "active" : ""} onClick={() => setActiveTab("meraki")}>Meraki</button>
+            <button className={activeTab === "secure_endpoint" ? "active" : ""} onClick={() => setActiveTab("secure_endpoint")}>Secure Endpoint</button>
+            <button className={activeTab === "cisco_xdr" ? "active" : ""} onClick={() => setActiveTab("cisco_xdr")}>Cisco XDR</button>
+            <button className={activeTab === "mist" ? "active" : ""} onClick={() => setActiveTab("mist")}>Juniper Mist</button>
+
+            <div className="settings-tab-group">Observability & Tools</div>
+            <button className={activeTab === "grafana" ? "active" : ""} onClick={() => setActiveTab("grafana")}>Grafana</button>
             <button className={activeTab === "zabbix" ? "active" : ""} onClick={() => setActiveTab("zabbix")}>Zabbix</button>
-            <button
-              className={activeTab === "prometheus" ? "active" : ""}
-              onClick={() => setActiveTab("prometheus")}
-            >
-              Prometheus
-            </button>
-            <button
-              className={activeTab === "netbox" ? "active" : ""}
-              onClick={() => setActiveTab("netbox")}
-            >
-              NetBox
-            </button>
-            <button
-              className={activeTab === "sketchfab" ? "active" : ""}
-              onClick={() => setActiveTab("sketchfab")}
-            >
-              Sketchfab
-            </button>
-            <button
-              className={activeTab === "whatsapp" ? "active" : ""}
-              onClick={() => setActiveTab("whatsapp")}
-            >
-              WhatsApp
-            </button>
-            <button
-              className={activeTab === "terminal" ? "active" : ""}
-              onClick={() => setActiveTab("terminal")}
-            >
-              Terminal
-            </button>
-            <button
-              className={activeTab === "browser" ? "active" : ""}
-              onClick={() => setActiveTab("browser")}
-            >
-              Browser
-            </button>
+            <button className={activeTab === "prometheus" ? "active" : ""} onClick={() => setActiveTab("prometheus")}>Prometheus</button>
+            <button className={activeTab === "netbox" ? "active" : ""} onClick={() => setActiveTab("netbox")}>NetBox</button>
+            <button className={activeTab === "sketchfab" ? "active" : ""} onClick={() => setActiveTab("sketchfab")}>Sketchfab</button>
+            <button className={activeTab === "whatsapp" ? "active" : ""} onClick={() => setActiveTab("whatsapp")}>WhatsApp</button>
           </div>
 
           <div className="settings-content">
@@ -1234,6 +1075,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             )}
           </div>
         )}
+
+        {activeTab === "prompts" && <PromptLibraryManager />}
 
         {activeTab === "rag" && <RagSettingsTab />}
 

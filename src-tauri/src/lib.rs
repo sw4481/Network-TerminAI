@@ -553,6 +553,8 @@ pub fn run() {
             commands::context_graph_set_enabled,
             commands::context_graph_get_staleness,
             commands::context_graph_set_staleness,
+            commands::prompt_library_get,
+            commands::prompt_library_set,
             commands::vendor_keywords_get,
             commands::vendor_keywords_set,
             commands::vendor_keyword_defaults,
