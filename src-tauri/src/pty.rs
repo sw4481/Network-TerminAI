@@ -37,10 +37,10 @@ use tokio::sync::mpsc;
 
 #[cfg(windows)]
 fn is_windows_powershell(shell: &str) -> bool {
-    matches!(
-        shell.to_ascii_lowercase().as_str(),
-        "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe"
-    )
+    shell.eq_ignore_ascii_case("powershell")
+        || shell.eq_ignore_ascii_case("powershell.exe")
+        || shell.eq_ignore_ascii_case("pwsh")
+        || shell.eq_ignore_ascii_case("pwsh.exe")
 }
 
 #[cfg(not(windows))]
