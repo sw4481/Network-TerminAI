@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, type RefObject } from "react";
 import type * as Monaco from "monaco-editor";
+import "monaco-editor/min/vs/editor/editor.main.css";
 import { useLspClient } from "../../hooks/useLspClient";
 import { registerCompletionProvider } from "./lsp/CompletionProvider";
 import { registerHoverProvider } from "./lsp/HoverProvider";

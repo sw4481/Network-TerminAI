@@ -3,6 +3,7 @@ export const SETTINGS_TABS = [
   { id: "agentComputers", label: "Agent Computers", category: "AI & Agents" },
   { id: "agents", label: "Agents", category: "AI & Agents" },
   { id: "networkArchitect", label: "Network Architect", category: "AI & Agents" },
+  { id: "prompts", label: "Prompts", category: "AI & Agents" },
   { id: "rag", label: "RAG", category: "AI & Agents" },
   { id: "skills", label: "Skills", category: "AI & Agents" },
   { id: "vendorKeywords", label: "Vendor Keywords", category: "AI & Agents" },

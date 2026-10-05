@@ -876,6 +876,47 @@ html, body, #root {
   background: var(--status-danger-surface);
 }
 
+.prompt-library.compact {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-input);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.prompt-library-form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.prompt-library.compact .tab-header,
+.prompt-library.compact .form-group {
+  margin-bottom: 6px;
+}
+
+.prompt-library.compact .form-group label,
+.prompt-library-category {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.prompt-library.compact input,
+.prompt-library.compact textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.prompt-library .server-actions {
+  gap: 6px;
+}
+
+.prompt-library-preview {
+  white-space: pre-wrap;
+}
+
 .agent-input {
   flex: 0 0 auto;
   display: flex;

@@ -41,6 +41,7 @@ import EditorSettingsTab from "../components/settings/EditorSettingsTab";
 import { AppearanceSettingsTab } from "../components/settings/AppearanceSettingsTab";
 import { TopolographSettingsTab } from "../components/settings/TopolographSettingsTab";
 import NetworkArchitectSettingsTab from "../components/settings/NetworkArchitectSettingsTab";
+import { PromptLibraryManager } from "../components/PromptLibraryManager";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
 import { getSettingsTabGroups, type SettingsTabId } from "./settingsTabs";
 // import { useSessionsStore } from "../state/sessionsStore";
@@ -1048,6 +1049,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             )}
           </div>
         )}
+
+        {activeTab === "prompts" && <PromptLibraryManager />}
 
         {activeTab === "rag" && <RagSettingsTab />}
 

@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
+import { Fragment, useId, useState, useRef, useEffect, FormEvent, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useChatStore, chatKey } from "../state/chatStore";
@@ -46,6 +46,7 @@ import { CodeBlock } from "./CodeBlock";
 import { ChatHistoryBrowser } from "./ChatHistoryBrowser";
 import { AgentSourcesBadge } from "./AgentSourcesBadge";
 import { AgentSourcesDrawer } from "./AgentSourcesDrawer";
+import { PromptLibraryManager } from "./PromptLibraryManager";
 import { useAiChatPreferences } from "../hooks/useAiChatPreferences";
 import {
   AgentWorkingIndicator,
@@ -155,6 +156,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const [terminalPlan, setTerminalPlan] = useState<TerminalInvestigationPlan | null>(null);
   const [terminalActions, setTerminalActions] = useState<TerminalActionState[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [promptsOpen, setPromptsOpen] = useState(false);
+  const promptsPanelId = useId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamedGenerationRef = useRef<Record<string, boolean>>({});
@@ -1109,6 +1112,17 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     }
   };
 
+  const handleUsePrompt = (body: string) => {
+    const next = !input.trim()
+      ? body
+      : window.confirm("Append this saved prompt to your current draft? Cancel replaces it.")
+        ? `${input.trimEnd()}\n\n${body}`
+        : body;
+    setInput(next);
+    setPromptsOpen(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
   const handleRetry = async () => {
     if (!tabId || !bucketKey) return;
     clearError(bucketKey);
@@ -1198,6 +1212,16 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 <button
                   type="button"
                   className="chat-clear-btn"
+                  onClick={() => setPromptsOpen((open) => !open)}
+                  title="Create, edit, and reuse saved prompts"
+                  aria-expanded={promptsOpen}
+                  aria-controls={promptsOpen ? promptsPanelId : undefined}
+                >
+                  📝 Prompts
+                </button>
+                <button
+                  type="button"
+                  className="chat-clear-btn"
                   onClick={() => setHistoryOpen(true)}
                   title="Browse all past conversations"
                 >
@@ -1276,6 +1300,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 );
               })()}
             </select>
+            {promptsOpen && <div id={promptsPanelId}><PromptLibraryManager compact onUse={handleUsePrompt} /></div>}
           </div>
 
           <div className="agent-messages">

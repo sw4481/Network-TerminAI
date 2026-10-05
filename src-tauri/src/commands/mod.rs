@@ -880,7 +880,12 @@ pub fn terminal_detached_window_close(app: AppHandle, window_id: String) -> Resu
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_SSH_BINARY: &str = "/usr/bin/ssh";
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(target_os = "windows")]
+const FALLBACK_SSH_BINARY: &str = "ssh";
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+const FALLBACK_SSH_BINARY: &str = "/usr/bin/ssh";
+
 fn shell_quote(value: &str) -> String {
     if value
         .chars()
@@ -891,8 +896,8 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
-#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_argv(
+    binary: &str,
     host: &str,
     user: Option<&str>,
     port: Option<i64>,
@@ -903,7 +908,7 @@ fn build_saved_ssh_argv(
         .map(|value| format!("{value}@{host}"))
         .unwrap_or_else(|| host.to_string());
     let mut parts = vec![
-        SYSTEM_SSH_BINARY.to_string(),
+        binary.to_string(),
         "-p".to_string(),
         port.unwrap_or(22).to_string(),
         "-o".to_string(),
@@ -921,7 +926,6 @@ fn build_saved_ssh_argv(
     parts
 }
 
-#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_command(argv: &[String]) -> String {
     argv.iter()
         .map(|argument| shell_quote(argument))
@@ -945,8 +949,42 @@ pub async fn terminal_launch_saved_ssh(
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (state, tab_id, connection_id);
-        Err("saved SSH terminal verification is not supported on this OS".into())
+        let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+        let saved: Option<(String, Option<String>, Option<i64>, Option<String>)> = state
+            .db
+            .lock()
+            .query_row(
+                "SELECT host, user, port, identity_file FROM ssh_connections WHERE id = ?1",
+                rusqlite::params![&connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let (host, user, port, identity_file) =
+            saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
+        let argv = build_saved_ssh_argv(
+            FALLBACK_SSH_BINARY,
+            &host,
+            user.as_deref(),
+            port,
+            identity_file.as_deref(),
+        );
+        let command = build_saved_ssh_command(&argv);
+        state
+            .terminal_agent
+            .revoke_for_pty(&validated_tab_id, "user takeover");
+        state
+            .terminal_agent
+            .cancel_saved_ssh_launch_and_write(&validated_tab_id, || {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(&validated_tab_id)
+                    .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
+                handle
+                    .write(format!("\u{3}{command}\r").as_bytes())
+                    .map_err(|error| error.to_string())
+            })?;
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -964,8 +1002,13 @@ pub async fn terminal_launch_saved_ssh(
             .map_err(|error| error.to_string())?;
         let (host, user, port, identity_file) =
             saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
-        let expected_argv =
-            build_saved_ssh_argv(&host, user.as_deref(), port, identity_file.as_deref());
+        let expected_argv = build_saved_ssh_argv(
+            SYSTEM_SSH_BINARY,
+            &host,
+            user.as_deref(),
+            port,
+            identity_file.as_deref(),
+        );
         let command = build_saved_ssh_command(&expected_argv);
         state
             .terminal_agent
@@ -4513,6 +4556,203 @@ pub fn vendor_keywords_set(state: State<'_, AppState>, keywords: String) -> Resu
     .map_err(|e| format!("Failed to save vendor keywords: {}", e))?;
 
     Ok(())
+}
+
+const PROMPT_LIBRARY_FLAG_KEY: &str = "ccie_prompt_library";
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptTemplate {
+    id: String,
+    title: String,
+    category: String,
+    body: String,
+    created_at: i64,
+    updated_at: i64,
+}
+
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PromptLibrary {
+    schema_version: u8,
+    revision: i64,
+    prompts: Vec<PromptTemplate>,
+}
+
+impl Default for PromptLibrary {
+    fn default() -> Self {
+        Self {
+            schema_version: 1,
+            revision: 0,
+            prompts: Vec::new(),
+        }
+    }
+}
+
+fn normalize_prompt_library(mut library: PromptLibrary) -> Result<PromptLibrary, String> {
+    if library.schema_version != 1 {
+        return Err("Unsupported prompt library schema".to_string());
+    }
+    if library.prompts.len() > 100 {
+        return Err("Prompt library is limited to 100 prompts".to_string());
+    }
+
+    let mut ids = std::collections::HashSet::new();
+    for prompt in &mut library.prompts {
+        prompt.id = prompt.id.trim().to_string();
+        prompt.title = prompt.title.trim().to_string();
+        prompt.category = prompt.category.trim().to_string();
+        prompt.body = prompt.body.trim().to_string();
+
+        if prompt.id.is_empty() || prompt.title.is_empty() || prompt.body.is_empty() {
+            return Err("Prompt id, title, and body are required".to_string());
+        }
+        if !ids.insert(prompt.id.clone()) {
+            return Err("Prompt ids must be unique".to_string());
+        }
+        if prompt.title.chars().count() > 120 {
+            return Err("Prompt title is limited to 120 characters".to_string());
+        }
+        if prompt.category.chars().count() > 80 {
+            return Err("Prompt category is limited to 80 characters".to_string());
+        }
+        if prompt.body.chars().count() > 20_000 {
+            return Err("Prompt body is limited to 20000 characters".to_string());
+        }
+    }
+
+    library.revision += 1;
+    Ok(library)
+}
+
+fn ensure_app_flags_table(db: &rusqlite::Connection) -> Result<(), String> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS app_flags (\
+            key TEXT PRIMARY KEY,\
+            value TEXT NOT NULL,\
+            updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))\
+        );",
+    )
+    .map_err(|e| format!("Failed to ensure app_flags: {}", e))
+}
+
+fn prompt_library_get_impl(db: &rusqlite::Connection) -> Result<PromptLibrary, String> {
+    ensure_app_flags_table(db)?;
+    let value: Option<String> = db
+        .query_row(
+            "SELECT value FROM app_flags WHERE key = ?1",
+            rusqlite::params![PROMPT_LIBRARY_FLAG_KEY],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to read prompt library: {}", e))?;
+
+    match value {
+        Some(raw) => serde_json::from_str(&raw).map_err(|e| format!("Invalid prompt library: {}", e)),
+        None => Ok(PromptLibrary::default()),
+    }
+}
+
+fn prompt_library_set_impl(
+    db: &rusqlite::Connection,
+    library: PromptLibrary,
+) -> Result<PromptLibrary, String> {
+    ensure_app_flags_table(db)?;
+    let current = prompt_library_get_impl(db)?;
+    if library.revision != current.revision {
+        return Err("Prompt library changed elsewhere; reload and try again".to_string());
+    }
+    let library = normalize_prompt_library(library)?;
+    let value = serde_json::to_string(&library)
+        .map_err(|e| format!("Failed to encode prompt library: {}", e))?;
+    db.execute(
+        "INSERT OR REPLACE INTO app_flags(key, value) VALUES (?1, ?2)",
+        rusqlite::params![PROMPT_LIBRARY_FLAG_KEY, value],
+    )
+    .map_err(|e| format!("Failed to save prompt library: {}", e))?;
+    Ok(library)
+}
+
+#[tauri::command]
+pub fn prompt_library_get(state: State<'_, AppState>) -> Result<PromptLibrary, String> {
+    let db = state.db.lock();
+    prompt_library_get_impl(&db)
+}
+
+#[tauri::command]
+pub fn prompt_library_set(
+    state: State<'_, AppState>,
+    library: PromptLibrary,
+) -> Result<PromptLibrary, String> {
+    let db = state.db.lock();
+    prompt_library_set_impl(&db, library)
+}
+
+#[cfg(test)]
+mod prompt_library_tests {
+    use super::*;
+
+    fn prompt(id: &str) -> PromptTemplate {
+        PromptTemplate {
+            id: id.to_string(),
+            title: "Title".to_string(),
+            category: "General".to_string(),
+            body: "Body".to_string(),
+            created_at: 1,
+            updated_at: 1,
+        }
+    }
+
+    #[test]
+    fn prompt_library_missing_row_returns_default() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        let library = prompt_library_get_impl(&db).unwrap();
+        assert_eq!(library.schema_version, 1);
+        assert!(library.prompts.is_empty());
+    }
+
+    #[test]
+    fn prompt_library_round_trips() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        let saved = prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p1")],
+        }).unwrap();
+        let loaded = prompt_library_get_impl(&db).unwrap();
+        assert_eq!(saved.revision, 1);
+        assert_eq!(loaded.prompts[0].id, "p1");
+    }
+
+    #[test]
+    fn prompt_library_rejects_bad_input() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 2,
+            revision: 0,
+            prompts: vec![],
+        }).is_err());
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("same"), prompt("same")],
+        }).is_err());
+    }
+
+    #[test]
+    fn prompt_library_rejects_stale_revision() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p1")],
+        }).unwrap();
+        assert!(prompt_library_set_impl(&db, PromptLibrary {
+            schema_version: 1,
+            revision: 0,
+            prompts: vec![prompt("p2")],
+        }).is_err());
+    }
 }
 
 /// Git / CI defaults for the IaC Studio push flow. Stored as one JSON blob in
@@ -8876,6 +9116,7 @@ mod tests {
     #[test]
     fn saved_ssh_launch_is_built_only_from_inventory_fields() {
         let argv = build_saved_ssh_argv(
+            SYSTEM_SSH_BINARY,
             "switch.example",
             Some("admin"),
             Some(2222),

@@ -375,7 +375,16 @@ fn parse_osc7_path(body: &str) -> Option<String> {
     if decoded.is_empty() {
         None
     } else {
-        Some(decoded)
+        Some(normalize_osc7_path(decoded))
+    }
+}
+
+fn normalize_osc7_path(path: String) -> String {
+    let bytes = path.as_bytes();
+    if bytes.len() >= 3 && bytes[0] == b'/' && bytes[1].is_ascii_alphabetic() && bytes[2] == b':' {
+        path[1..].to_string()
+    } else {
+        path
     }
 }
 
@@ -437,6 +446,14 @@ mod tests {
         assert_eq!(
             cwds("\x1b]7;file://h/tmp/has%20space\x07"),
             vec!["/tmp/has space".to_string()]
+        );
+    }
+
+    #[test]
+    fn osc7_windows_drive_path() {
+        assert_eq!(
+            cwds("\x1b]7;file://localhost/C:/Users/Shaun\x07"),
+            vec!["C:/Users/Shaun".to_string()]
         );
     }
 

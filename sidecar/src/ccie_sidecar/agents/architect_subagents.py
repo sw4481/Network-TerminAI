@@ -664,12 +664,15 @@ def build_vendor_subagents(
             continue
         if not include_unconfigured and not _safe(spec["configured"]):
             continue
-        tool = create_execute_python_code_tool(
-            cli_package=spec["id"],
-            vault_secrets={},
-            emit_callback=emit or (lambda e: None),
-            catalogs=[c for c in catalogs if c.get("id") == spec["id"]],
-        )
+        try:
+            tool = create_execute_python_code_tool(
+                cli_package=spec["id"],
+                vault_secrets={},
+                emit_callback=emit or (lambda e: None),
+                catalogs=[c for c in catalogs if c.get("id") == spec["id"]],
+            )
+        except Exception:
+            continue
         tools = [tool]
         catalog_search_tool = create_catalog_search_tool(tool)
         if catalog_search_tool is not None:

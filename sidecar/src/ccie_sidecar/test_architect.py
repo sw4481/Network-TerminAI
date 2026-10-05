@@ -106,15 +106,37 @@ def test_build_subagents_skips_unconfigured(monkeypatch):
 def test_build_subagents_include_all_binds_one_vendor_each():
     from ccie_sidecar.agents.architect_subagents import build_vendor_subagents, VENDOR_SPECS
     subs = build_vendor_subagents(include_unconfigured=True)
-    assert len(subs) == len(VENDOR_SPECS)
+    assert len(subs) <= len(VENDOR_SPECS)
     names = {s["name"] for s in subs}
     assert "aci-specialist" in names
     assert "thousandeyes-specialist" in names
-    # Each specialist has exactly one tool.
+    assert len(names) == len(subs)
     for s in subs:
-        assert len(s["tools"]) == 1
+        tool_names = {tool.name for tool in s["tools"]}
+        assert "execute_python_code" in tool_names
+        assert len(s["tools"]) <= 2
         assert s["name"].endswith("-specialist")
         assert s["description"].startswith("Delegate here for:")
+
+
+def test_build_subagents_skips_broken_vendor_tool_without_blocking_others(monkeypatch):
+    import ccie_sidecar.agents.architect_subagents as A
+
+    class Tool:
+        name = "execute_python_code"
+
+    def fake_tool(cli_package, **_kwargs):
+        if cli_package == "pyats":
+            raise RuntimeError("PyATS client unavailable")
+        return Tool()
+
+    monkeypatch.setattr(A, "_safe", lambda getter: getter in {A._pyats_configured, A._meraki_configured})
+    monkeypatch.setattr(A, "create_execute_python_code_tool", fake_tool)
+    monkeypatch.setattr(A, "create_catalog_search_tool", lambda _tool: None)
+
+    subs = A.build_vendor_subagents()
+
+    assert {s["name"] for s in subs} == {"meraki-specialist"}
 
 
 def test_specialist_sandbox_is_vendor_isolated():
