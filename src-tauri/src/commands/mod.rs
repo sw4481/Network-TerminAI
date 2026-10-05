@@ -873,7 +873,12 @@ pub fn terminal_detached_window_close(app: AppHandle, window_id: String) -> Resu
 #[cfg(any(target_os = "macos", test))]
 const SYSTEM_SSH_BINARY: &str = "/usr/bin/ssh";
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(target_os = "windows")]
+const FALLBACK_SSH_BINARY: &str = "ssh";
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+const FALLBACK_SSH_BINARY: &str = "/usr/bin/ssh";
+
 fn shell_quote(value: &str) -> String {
     if value
         .chars()
@@ -884,8 +889,8 @@ fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\"'\"'"))
 }
 
-#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_argv(
+    binary: &str,
     host: &str,
     user: Option<&str>,
     port: Option<i64>,
@@ -896,7 +901,7 @@ fn build_saved_ssh_argv(
         .map(|value| format!("{value}@{host}"))
         .unwrap_or_else(|| host.to_string());
     let mut parts = vec![
-        SYSTEM_SSH_BINARY.to_string(),
+        binary.to_string(),
         "-p".to_string(),
         port.unwrap_or(22).to_string(),
         "-o".to_string(),
@@ -914,7 +919,6 @@ fn build_saved_ssh_argv(
     parts
 }
 
-#[cfg(any(target_os = "macos", test))]
 fn build_saved_ssh_command(argv: &[String]) -> String {
     argv.iter()
         .map(|argument| shell_quote(argument))
@@ -938,8 +942,42 @@ pub async fn terminal_launch_saved_ssh(
 ) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
-        let _ = (state, tab_id, connection_id);
-        Err("saved SSH terminal verification is not supported on this OS".into())
+        let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+        let saved: Option<(String, Option<String>, Option<i64>, Option<String>)> = state
+            .db
+            .lock()
+            .query_row(
+                "SELECT host, user, port, identity_file FROM ssh_connections WHERE id = ?1",
+                rusqlite::params![&connection_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let (host, user, port, identity_file) =
+            saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
+        let argv = build_saved_ssh_argv(
+            FALLBACK_SSH_BINARY,
+            &host,
+            user.as_deref(),
+            port,
+            identity_file.as_deref(),
+        );
+        let command = build_saved_ssh_command(&argv);
+        state
+            .terminal_agent
+            .revoke_for_pty(&validated_tab_id, "user takeover");
+        state
+            .terminal_agent
+            .cancel_saved_ssh_launch_and_write(&validated_tab_id, || {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(&validated_tab_id)
+                    .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
+                handle
+                    .write(format!("\u{3}{command}\r").as_bytes())
+                    .map_err(|error| error.to_string())
+            })?;
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
@@ -957,8 +995,13 @@ pub async fn terminal_launch_saved_ssh(
             .map_err(|error| error.to_string())?;
         let (host, user, port, identity_file) =
             saved.ok_or_else(|| "saved SSH connection no longer exists".to_string())?;
-        let expected_argv =
-            build_saved_ssh_argv(&host, user.as_deref(), port, identity_file.as_deref());
+        let expected_argv = build_saved_ssh_argv(
+            SYSTEM_SSH_BINARY,
+            &host,
+            user.as_deref(),
+            port,
+            identity_file.as_deref(),
+        );
         let command = build_saved_ssh_command(&expected_argv);
         state
             .terminal_agent
@@ -8278,6 +8321,7 @@ mod tests {
     #[test]
     fn saved_ssh_launch_is_built_only_from_inventory_fields() {
         let argv = build_saved_ssh_argv(
+            SYSTEM_SSH_BINARY,
             "switch.example",
             Some("admin"),
             Some(2222),

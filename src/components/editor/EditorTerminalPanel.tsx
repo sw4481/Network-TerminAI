@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { TerminalSlot } from "../TerminalSlot";
 import * as terminalRegistry from "../../lib/terminalRegistry";
+import { defaultShell } from "../../lib/defaultShell";
 
 export type EditorTerminalMode = "opencode" | "shell";
 
@@ -33,6 +34,7 @@ export function EditorTerminalPanel({
 }: EditorTerminalPanelProps) {
   const opencodeId = `editor-term-${tabId}`;
   const shellId = `editor-shell-${tabId}`;
+  const shell = defaultShell();
   const opencodeLaunched = useRef(false);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
 
@@ -117,7 +119,7 @@ export function EditorTerminalPanel({
         {mode === "opencode" ? (
           <TerminalSlot
             terminalId={opencodeId}
-            shell="/bin/zsh"
+            shell={shell}
             cwd={cwd ?? ""}
             skipTabRegistration
             onRegistered={handleOpencodeReady}
@@ -125,7 +127,7 @@ export function EditorTerminalPanel({
         ) : (
           <TerminalSlot
             terminalId={shellId}
-            shell="/bin/zsh"
+            shell={shell}
             cwd={cwd ?? ""}
             skipTabRegistration
           />

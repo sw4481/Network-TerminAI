@@ -35,6 +35,17 @@ use std::io::{Read, Write};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+#[cfg(windows)]
+fn powershell_integration_path() -> Option<String> {
+    dirs::config_dir().map(|dir| {
+        dir.join("ccie-terminal")
+            .join("shell-integration")
+            .join("ccie-terminal.ps1")
+            .to_string_lossy()
+            .into_owned()
+    })
+}
+
 /// Configuration options for spawning a new PTY session.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PtyOptions {
@@ -316,6 +327,22 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
             opts.shell
         );
         cmd.arg("-il");
+    } else if opts.args.is_empty()
+        && cfg!(windows)
+        && matches!(
+            opts.shell.to_ascii_lowercase().as_str(),
+            "powershell" | "powershell.exe" | "pwsh" | "pwsh.exe"
+        )
+    {
+        cmd.arg("-NoLogo");
+        cmd.arg("-NoExit");
+        cmd.arg("-ExecutionPolicy");
+        cmd.arg("Bypass");
+        #[cfg(windows)]
+        if let Some(path) = powershell_integration_path() {
+            cmd.arg("-File");
+            cmd.arg(path);
+        }
     } else {
         tracing::info!("Using provided args for shell: {:?}", opts.args);
         for a in &opts.args {

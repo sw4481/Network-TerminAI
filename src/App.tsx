@@ -70,6 +70,7 @@ import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
 import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach } from "./lib/tauri";
 import { buildSshCommand } from "./lib/sshConnections";
 import { AgentNotifier } from "./lib/agentNotifications";
+import { defaultShell } from "./lib/defaultShell";
 import "./App.css";
 
 const AGENT_MIN = 220;
@@ -87,11 +88,6 @@ function loadWidth(key: string, fallback: number, min: number, max: number): num
 
 // Lazy load Terminal
 const Terminal = lazy(() => import("./components/Terminal").then(module => ({ default: module.Terminal })));
-
-function defaultShell() {
-  if (navigator.platform.toLowerCase().includes("win")) return "powershell.exe";
-  return "/bin/zsh";
-}
 
 type TermSlot = {
   /** Stable React key — never reused. */

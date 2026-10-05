@@ -6,10 +6,12 @@ use std::path::PathBuf;
 
 const ZSH: &str = include_str!("../../shell-integration/ccie-terminal.zsh");
 const BASH: &str = include_str!("../../shell-integration/ccie-terminal.bash");
+const POWERSHELL: &str = include_str!("../../shell-integration/ccie-terminal.ps1");
 
 pub struct IntegrationPaths {
     pub zsh: PathBuf,
     pub bash: PathBuf,
+    pub powershell: PathBuf,
 }
 
 pub fn install() -> Result<IntegrationPaths> {
@@ -20,7 +22,9 @@ pub fn install() -> Result<IntegrationPaths> {
     std::fs::create_dir_all(&dir).context("create shell-integration dir")?;
     let zsh = dir.join("ccie-terminal.zsh");
     let bash = dir.join("ccie-terminal.bash");
+    let powershell = dir.join("ccie-terminal.ps1");
     std::fs::write(&zsh, ZSH).context("write zsh integration")?;
     std::fs::write(&bash, BASH).context("write bash integration")?;
-    Ok(IntegrationPaths { zsh, bash })
+    std::fs::write(&powershell, POWERSHELL).context("write powershell integration")?;
+    Ok(IntegrationPaths { zsh, bash, powershell })
 }

@@ -108,6 +108,14 @@ if [[ ${#wheel_paths[@]} -ne 1 || ! -f "${wheel_paths[0]}" ]]; then
 fi
 uv pip install --quiet --python "$PY" --no-deps "${wheel_paths[0]}"
 
+# The PyATS wrapper is tracked outside the sidecar wheel. Bundle it on
+# supported platforms so installed apps do not depend on a development tree.
+if [[ "$TARGET" != *windows* ]]; then
+    echo ">> installing TerminAI PyATS client wrapper"
+    uv pip install --quiet --python "$PY" --no-deps ../pyats_cli
+    "$PY" -c "import terminai_pyats"
+fi
+
 echo ">> pruning to shrink the bundle"
 # Remove pyc caches, test dirs, doc dirs that ship in some wheels.
 find "$DIST_DIR/python" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

@@ -599,6 +599,12 @@
 - RCA of the Issue: I did not validate the shell quoting and regex string as passed through the command tool.
 - How you fixed it: I am simplifying the pattern to avoid backslashes and conflicting quotes, then rerunning the status check; no repository or GitHub state was changed by these failed checks.
 
+# Mistake: repeated invalid Bun cwd flag placement
+
+- What the issue/mistake was: I retried the frontend build with the same invalid `bun --cwd ... run build` argument ordering after Bun had already printed the correct `bun run --cwd ... build` shape.
+- RCA of the Issue: I assumed Bun's global `--cwd` worked before `run` and did not adapt to the CLI help text after the first failure.
+- How you fixed it: I reran the frontend validation as `bun run --cwd '/Users/shaunwhi/CCIE Terminal' build:relaxed`; the relaxed project build passed. Full `build` remains blocked by unrelated repo-wide TypeScript/test typing debt.
+
 # Mistake: build log wrapper used zsh's read-only status variable
 
 - What the issue/mistake was: The build log wrapper completed Cargo and then failed when assigning to `status`, so it did not report Cargo's actual result.
@@ -670,3 +676,15 @@
 - What the issue/mistake was: `git diff --check` found trailing spaces on three sanitizer report metadata lines.
 - RCA of the Issue: I used Markdown hard-break whitespace for metadata formatting.
 - How you fixed it: Replaced those lines with a plain list without trailing spaces; no source content was affected.
+
+# Mistake: passed two Cargo test filters as positional arguments
+
+- What the issue/mistake was: I invoked `cargo test` with two test-name filters, so Cargo rejected the second filter as an unexpected argument.
+- RCA of the Issue: I treated Cargo's test filter like a list of patterns instead of its single-filter CLI contract.
+- How you fixed it: Reran the two focused Rust tests as separate `cargo test` commands; both passed and the failed command changed no source state.
+
+# Mistake: repeated ignored Plans path in a batch stage
+
+- What the issue/mistake was: I batched `Plans/Mistakes.MD` into `git add` again, and Git stopped on the ignored `Plans` path before staging the intended release files.
+- RCA of the Issue: I failed to apply the existing repository lesson that tracked ignored files need a separate update-style stage command.
+- How you fixed it: I recorded this recurrence and will stage normal paths separately from `git add -u -- Plans/Mistakes.MD`.
