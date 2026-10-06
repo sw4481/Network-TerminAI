@@ -222,6 +222,7 @@ export function MonacoEditor({
     if (editorRef.current) return;
 
     applyMonacoTheme(monaco, resolvedTheme);
+    const isWindows = /^win/i.test(navigator.platform);
 
     const editorDisposables: Monaco.IDisposable[] = [];
     const registry = getMonacoModelRegistry(monaco);
@@ -254,6 +255,7 @@ export function MonacoEditor({
       lineNumbers: settings.lineNumbers ? "on" : "off",
       renderWhitespace: settings.renderWhitespace ? "all" : "selection",
       columnSelection: settings.columnSelection,
+      cursorBlinking: isWindows ? "solid" : "blink",
       readOnly,
       scrollbar: { vertical: "auto", horizontal: "auto" },
       });
@@ -261,6 +263,18 @@ export function MonacoEditor({
       modelLeaseRef.current = null;
       modelLease.release();
       throw error;
+    }
+    if (isWindows) {
+      // Vim restores blink on insert; keep the Windows fallback without forcing
+      // CSS visibility, so Monaco still hides the caret on blur/composition.
+      editorDisposables.push(editor.onDidChangeConfiguration((event) => {
+        if (
+          event.hasChanged(monaco.editor.EditorOption.cursorBlinking) &&
+          editor.getRawOptions().cursorBlinking !== "solid"
+        ) {
+          editor.updateOptions({ cursorBlinking: "solid" });
+        }
+      }));
     }
     paneModelControllerRef.current = new MonacoPaneModelController(
       editor,

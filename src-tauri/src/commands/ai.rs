@@ -605,7 +605,11 @@ fn validate_terminal_attachment(
                     .platform
                     .get_or_insert_with(|| "generic".to_string());
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(target_os = "windows")]
+            {
+                return Err("manual SSH terminal execution is unavailable on Windows: the existing terminal's authenticated input ownership cannot be verified safely. Run the diagnostic manually and share its redacted output in chat.".into());
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             {
                 return Err("manual SSH terminal verification is not supported on this OS".into());
             }

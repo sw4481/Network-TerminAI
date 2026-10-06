@@ -36,9 +36,16 @@ function global:prompt {
   [Console]::Write("$esc]133;B$bel")
 }
 
-Set-PSReadLineOption -AddToHistoryHandler {
-  param([string]$command)
-  $script:__ccieLastCommand = $command
-  __ccie_command_start $command
-  return $true
+# Older PSReadLine versions invoke AddToHistoryHandler for imported history,
+# not just executed input. Track only the command returned by the line editor.
+if (-not $script:__ccieOriginalReadLine) {
+  $script:__ccieOriginalReadLine = (Get-Command PSConsoleHostReadLine).ScriptBlock
+}
+function global:PSConsoleHostReadLine {
+  $command = & $script:__ccieOriginalReadLine
+  if (-not [string]::IsNullOrWhiteSpace($command)) {
+    $script:__ccieLastCommand = $command
+    __ccie_command_start $command
+  }
+  return $command
 }

@@ -91,12 +91,13 @@ export function has(terminalId: string): boolean {
  * Run `command` in the terminal identified by `terminalId`, waiting for its
  * PTY if the spawn hasn't resolved yet. If the PTY is already live, writes
  * immediately; otherwise the command is parked and delivered when wireSession's
- * spawn resolves. A trailing newline is added so the shell executes the line.
+ * spawn resolves. Adds Enter (CR on Windows, LF on Unix) to execute the line.
  */
 export function runWhenReady(terminalId: string, command: string): void {
   const entry = registry.get(terminalId);
   if (entry && entry.ptyTabId && !entry.disposed) {
-    ptyWrite(entry.ptyTabId, new TextEncoder().encode(command + '\n')).catch((err) => {
+    const enter = normalizeTerminalPlatform() === 'windows' ? '\r' : '\n';
+    ptyWrite(entry.ptyTabId, new TextEncoder().encode(command + enter)).catch((err) => {
       console.error('[terminalRegistry] runWhenReady write failed:', err);
     });
     return;
@@ -515,9 +516,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
     const parked = pendingCommands.get(terminalId);
     if (parked !== undefined) {
       pendingCommands.delete(terminalId);
-      ptyWrite(id, new TextEncoder().encode(parked + '\n')).catch((err) => {
-        console.error('[terminalRegistry] parked command write failed:', err);
-      });
+      runWhenReady(terminalId, parked);
     }
 
     // Now that ptyTabId is set, workflow events can be handled correctly

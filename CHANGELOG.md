@@ -5,6 +5,22 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.8] - 2026-10-06
+
+### Fixed
+
+- Stop imported PowerShell history from appearing as running commands and correct command elapsed-time calculations.
+- Submit OpenCode launches with the Windows Enter sequence while preserving Unix terminal behavior.
+- Add a Windows-only solid editor-caret fallback, including Vim insert mode, without forcing caret visibility during blur or composition.
+- Include bundled agent definitions and API catalogs in the Python sidecar wheel and resolve installed assets relative to the package.
+- Explain the Windows manual-SSH attachment safety limitation with actionable diagnostic guidance.
+
+### Known limitations
+
+- Native Windows/WebView2 verification of the editor-caret mitigation is still pending.
+- Meraki catalog packaging is repaired, but the original Windows Network Architect configuration/eligibility failure still requires live verification.
+- Agent execution in manually attached Windows SSH terminals remains unsupported; run diagnostics manually and share redacted output in chat.
+
 ## [1.1.7] - 2026-10-05
 
 ### Added

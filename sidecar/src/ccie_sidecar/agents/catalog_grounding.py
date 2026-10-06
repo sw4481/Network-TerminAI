@@ -1016,7 +1016,9 @@ def catalog_prompt_hint(index: CatalogIndex | None) -> str:
 
 
 def _default_bundled_agents_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / "bundled-agents"
+    from ccie_sidecar.agent import _bundled_agents_dir
+
+    return _bundled_agents_dir()
 
 
 def _read_agent_catalogs(agent_dir: Path) -> list[dict[str, Any]]:

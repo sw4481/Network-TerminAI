@@ -25,6 +25,119 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BUNDLED = REPO_ROOT / "bundled-agents"
 
 
+def test_sidecar_wheel_includes_bundled_agent_catalogs():
+    import tomllib
+
+    manifest = tomllib.loads((REPO_ROOT / "sidecar" / "pyproject.toml").read_text())
+    included = manifest["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
+
+    assert included.get("../bundled-agents") == "ccie_sidecar/bundled-agents"
+
+
+@pytest.mark.parametrize("layout", ["Lib/site-packages", "lib/python3.12/site-packages"])
+def test_relocated_sidecar_loads_meraki_catalog_without_development_tree(
+    monkeypatch, tmp_path, layout,
+):
+    import shutil
+    from ccie_sidecar import agent as agent_loader
+    from ccie_sidecar.agents import catalog_grounding
+
+    package = tmp_path / "python" / layout / "ccie_sidecar"
+    bundled = package / "bundled-agents"
+    shutil.copytree(BUNDLED / "meraki", bundled / "meraki")
+    monkeypatch.setattr(agent_loader, "__file__", str(package / "agent.py"))
+    monkeypatch.setattr(catalog_grounding, "__file__", str(package / "agents" / "catalog_grounding.py"))
+    monkeypatch.setattr(agent_loader, "_agents_dir", lambda: tmp_path / "user-agents")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "empty-home"))
+
+    assert agent_loader._bundled_agents_dir() == bundled
+    assert agent_loader.load_agent("meraki") is not None
+    catalogs = catalog_grounding.resolve_agent_catalogs({"agent_id": "network-architect"})
+    index = CatalogIndex(catalogs)
+    matches = index.search("list organization networks", catalog_id="meraki")["matches"]
+    assert any(match.get("path") == "/organizations/{organizationId}/networks" for match in matches)
+
+
+def test_windows_meraki_settings_bind_architect_without_optional_sdk_or_pyats(
+    monkeypatch, tmp_path,
+):
+    import builtins
+    import sqlite3
+    import sys
+    from types import SimpleNamespace
+    from ccie_sidecar import meraki, meraki_config
+    from ccie_sidecar.agents import architect_subagents as architect, code_exec, graph_helper
+    from ccie_sidecar.server import build_deepagents_agent_definition
+    from ccie_sidecar.agents.catalog_grounding import resolve_agent_catalogs
+    from ccie_sidecar.agents.deepagents_tools import create_catalog_search_tool
+
+    # Match Rust meraki_save_config's columns, but use a disposable synthetic key.
+    appdata = tmp_path / "AppData" / "Roaming"
+    database = appdata / "ccie-terminal" / "sessions.db"
+    database.parent.mkdir(parents=True)
+    with sqlite3.connect(database) as conn:
+        conn.execute("CREATE TABLE meraki_config (id INTEGER PRIMARY KEY, api_key TEXT, org_id TEXT)")
+        conn.execute("INSERT INTO meraki_config VALUES (1, 'synthetic-test-key', '')")
+    monkeypatch.setattr(meraki_config, "os", SimpleNamespace(name="nt", environ={"APPDATA": str(appdata)}))
+    assert meraki_config._db_path() == database
+    assert architect._meraki_configured() is True
+
+    original_import = builtins.__import__
+
+    def without_optional_packages(name, *args, **kwargs):
+        if name.split(".")[0] in {"meraki", "terminai_meraki", "pyats", "genie"}:
+            raise ModuleNotFoundError(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_optional_packages)
+    monkeypatch.setitem(sys.modules, "meraki_api", None)
+    calls = []
+
+    class FakeSession:
+        headers = {}
+
+        def request(self, method, url, **kwargs):
+            calls.append((method, url))
+            data = ([{"id": "123", "name": "ShaunsOrg"}] if url.endswith("/organizations")
+                    else [{"id": "L_1", "name": "Synthetic network"}])
+            return SimpleNamespace(status_code=200, json=lambda: data, headers={})
+
+    monkeypatch.setattr(meraki.requests, "Session", FakeSession)
+    monkeypatch.setattr(architect, "VENDOR_SPECS", [
+        {"id": "meraki", "display": "Cisco Meraki", "when": "Meraki", "configured": architect._meraki_configured},
+        {"id": "pyats", "display": "pyATS", "when": "CLI", "configured": lambda: True},
+    ])
+
+    # Isolate unrelated global helpers; use the real Meraki installer/client.
+    def sandbox(cli_package, *args, **kwargs):
+        globals_dict = {"json": json}
+        if cli_package == "meraki":
+            meraki.install_meraki(globals_dict)
+        elif cli_package == "pyats":
+            raise ModuleNotFoundError("pyats")
+        return globals_dict
+
+    monkeypatch.setattr(code_exec, "_build_sandbox_globals", sandbox)
+    monkeypatch.setattr(code_exec, "_build_env_overrides", lambda _secrets: {})
+    monkeypatch.setattr(graph_helper, "memory_first_preamble", lambda: "")
+    definition = build_deepagents_agent_definition(
+        agent_id="network-architect", system_prompt="", tools=[], vault_secrets={},
+    )
+    catalogs = resolve_agent_catalogs(definition)
+    tool, ids = architect.build_architect_direct_tool(catalogs=catalogs)
+    search = create_catalog_search_tool(tool)
+    assert "meraki" in ids
+    assert "meraki_api_call" in tool.description
+    assert search is not None
+    assert search.invoke({"query": "list organizations", "catalog_id": "meraki"})["matches"]
+    result = tool.invoke({"code": "print(json.loads(meraki_api_call('GET', '/organizations'))['data'])"})
+    assert "ShaunsOrg" in result
+    assert search.invoke({"query": "list organization networks", "catalog_id": "meraki"})["matches"]
+    result = tool.invoke({"code": "print(json.loads(meraki_api_call('GET', '/organizations/123/networks'))['data'])"})
+    assert "Synthetic network" in result
+    assert len(calls) == 2
+
+
 def _catalog(catalog_id: str) -> dict:
     return {
         "id": catalog_id,

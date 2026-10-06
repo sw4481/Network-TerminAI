@@ -52,7 +52,7 @@ export function PaneActivityIndicator({ paneId }: PaneActivityIndicatorProps) {
   // Calculate duration if command is running
   let duration: string | null = null;
   if (activeCommand && activeCommand.exitCode === null) {
-    const elapsed = Math.floor((Date.now() - activeCommand.startTime) / 1000);
+    const elapsed = Math.floor(Date.now() / 1000 - activeCommand.startTime);
     if (elapsed < 60) {
       duration = `${elapsed}s`;
     } else if (elapsed < 3600) {
@@ -117,7 +117,7 @@ function getTooltipText(activity: PaneActivity): string {
     lines.push(`Exit code: ${activeCommand.exitCode}`);
   }
 
-  const elapsed = Math.floor((Date.now() - activeCommand.startTime) / 1000);
+  const elapsed = Math.floor(Date.now() / 1000 - activeCommand.startTime);
   lines.push(`Duration: ${elapsed}s`);
 
   if (activeCommand.outputPreview.length > 0) {

@@ -60,10 +60,12 @@ def _agents_dir() -> Path:
 
 
 def _bundled_agents_dir() -> Path:
-    """Get bundled agents directory (shipped with TerminAI)."""
-    # Find the bundled-agents directory relative to this file
-    # sidecar/src/ccie_sidecar/agent.py -> ../../../bundled-agents
-    return Path(__file__).parent.parent.parent.parent / "bundled-agents"
+    """Find wheel-bundled agents, with the source-tree fallback for development."""
+    package_dir = Path(__file__).resolve().parent
+    bundled = package_dir / "bundled-agents"
+    if bundled.is_dir():
+        return bundled
+    return package_dir.parents[2] / "bundled-agents"
 
 
 # Per-file cap for soul files, mirroring netclaw's 20k-char limit, so a verbose
