@@ -116,11 +116,7 @@ pub(crate) fn resolve_topolograph_runtime_binding(
     )
 }
 
-fn should_retrieve_attached_tool_vault(
-    _agent_id: &str,
-    tool_id: &str,
-    vault_entry: &str,
-) -> bool {
+fn should_retrieve_attached_tool_vault(_agent_id: &str, tool_id: &str, vault_entry: &str) -> bool {
     !vault_entry.is_empty() && tool_id != "topolograph"
 }
 
@@ -546,7 +542,11 @@ fn validate_terminal_attachment(
                     .platform
                     .get_or_insert_with(|| "generic".to_string());
             }
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(target_os = "windows")]
+            {
+                return Err("manual SSH terminal execution is unavailable on Windows: the existing terminal's authenticated input ownership cannot be verified safely. Run the diagnostic manually and share its redacted output in chat.".into());
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
             {
                 return Err("manual SSH terminal verification is not supported on this OS".into());
             }
@@ -584,7 +584,8 @@ pub async fn agent_react_run(
     }
 
     // 2. Load tool catalog from first attached tool
-    let (catalog, vault_entry, vault_secrets) = if let Some(tool_def) = agent.attached_tools.first() {
+    let (catalog, vault_entry, vault_secrets) = if let Some(tool_def) = agent.attached_tools.first()
+    {
         let catalog_json = std::fs::read_to_string(&tool_def.catalog)
             .map_err(|e| format!("Failed to read tool catalog {}: {}", tool_def.catalog, e))?;
         let catalog: serde_json::Value = serde_json::from_str(&catalog_json)
@@ -947,11 +948,7 @@ pub async fn agent_react_code_run(
     // 2. Get vault secrets (for code execution sandbox)
     let vault_secrets = if !agent.attached_tools.is_empty() {
         let tool_def = &agent.attached_tools[0];
-        if should_retrieve_attached_tool_vault(
-            &agent.id,
-            &tool_def.id,
-            &tool_def.vault_entry,
-        ) {
+        if should_retrieve_attached_tool_vault(&agent.id, &tool_def.id, &tool_def.vault_entry) {
             tracing::info!("Retrieving vault secrets for: {}", tool_def.vault_entry);
             match _retrieve_vault_secrets(&state, &tool_def.vault_entry).await {
                 Ok(secrets) => {
@@ -1872,9 +1869,7 @@ mod tests {
             "meraki",
             "meraki_default",
         ));
-        assert!(!should_retrieve_attached_tool_vault(
-            "meraki", "meraki", "",
-        ));
+        assert!(!should_retrieve_attached_tool_vault("meraki", "meraki", "",));
     }
 
     #[test]

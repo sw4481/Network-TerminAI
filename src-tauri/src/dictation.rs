@@ -16,6 +16,12 @@ struct DictationSession {
     _stream: cpal::Stream,
 }
 
+impl Default for DictationService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DictationService {
     pub fn new() -> Self {
         Self {
@@ -33,7 +39,9 @@ impl DictationService {
         let device = host
             .default_input_device()
             .ok_or_else(|| "No microphone is available.".to_string())?;
-        let config = device.default_input_config().map_err(|error| error.to_string())?;
+        let config = device
+            .default_input_config()
+            .map_err(|error| error.to_string())?;
         let sample_rate = config.sample_rate();
         let channels = config.channels();
         let stream_config = config.config();
@@ -43,13 +51,13 @@ impl DictationService {
 
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device.build_input_stream(
-                stream_config.clone(),
+                stream_config,
                 move |data: &[f32], _| writer.lock().extend_from_slice(data),
                 err_fn,
                 None,
             ),
             cpal::SampleFormat::I16 => device.build_input_stream(
-                stream_config.clone(),
+                stream_config,
                 move |data: &[i16], _| {
                     writer
                         .lock()
@@ -59,7 +67,7 @@ impl DictationService {
                 None,
             ),
             cpal::SampleFormat::U16 => device.build_input_stream(
-                stream_config.clone(),
+                stream_config,
                 move |data: &[u16], _| {
                     writer.lock().extend(
                         data.iter()
@@ -148,7 +156,9 @@ fn transcribe(audio: &[f32], bundled_model: Option<PathBuf>) -> Result<String, S
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);
-    state.full(params, audio).map_err(|error| error.to_string())?;
+    state
+        .full(params, audio)
+        .map_err(|error| error.to_string())?;
 
     let mut text = String::new();
     for index in 0..state.full_n_segments() {

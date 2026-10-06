@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a packaged Python, ccie_sidecar origin, heartbeat, and ping protocol."""
+"""Validate packaged Python, sidecar/catalog origins, heartbeat, and ping."""
 
 from __future__ import annotations
 
@@ -33,7 +33,12 @@ def main() -> int:
 
     origin_probe = (
         "import ccie_sidecar, json; "
-        "print(json.dumps({'module': ccie_sidecar.__file__}))"
+        "from ccie_sidecar.agent import _bundled_agents_dir; "
+        "from ccie_sidecar.agents.catalog_grounding import load_catalogs_for_agent; "
+        "bundled = _bundled_agents_dir(); "
+        "catalogs = load_catalogs_for_agent('meraki', user_agents_dir=bundled / 'missing-user-agents'); "
+        "print(json.dumps({'module': ccie_sidecar.__file__, "
+        "'bundled_agents': str(bundled), 'meraki_catalog': bool(catalogs)}))"
     )
     try:
         origin = subprocess.run(
@@ -43,16 +48,22 @@ def main() -> int:
             text=True,
             timeout=30,
         )
-        module_path = Path(json.loads(origin.stdout)["module"]).resolve()
+        origins = json.loads(origin.stdout)
+        module_path = Path(origins["module"]).resolve()
+        bundled_path = Path(origins["bundled_agents"]).resolve()
     except (subprocess.SubprocessError, KeyError, json.JSONDecodeError, OSError) as exc:
         return fail(f"cannot import ccie_sidecar with bundled Python: {exc}")
 
     try:
         module_path.relative_to(expected_root)
+        bundled_path.relative_to(expected_root)
     except ValueError:
         return fail(
-            f"ccie_sidecar resolved outside the bundle: {module_path} (root {expected_root})"
+            f"sidecar or catalogs resolved outside the bundle: {module_path}, "
+            f"{bundled_path} (root {expected_root})"
         )
+    if not origins["meraki_catalog"]:
+        return fail("bundled Meraki agent catalog is missing or unreadable")
 
     request_id = "portable-sidecar-smoke"
     request = json.dumps({"id": request_id, "method": "ping", "params": {}}) + "\n"

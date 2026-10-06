@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock tauri PTY calls.
 const ptySpawn = vi.fn(async (_arg?: any) => 'pty-1');
@@ -77,6 +77,10 @@ beforeEach(() => {
   ptyResize.mockClear();
   terminalLaunchSavedSsh.mockClear();
   installFakeXterm();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 const OPTS = { shell: '/bin/zsh', cwd: '/home' };
@@ -394,6 +398,45 @@ describe('getSelection', () => {
 });
 
 describe('runWhenReady (run-in-terminal delivery)', () => {
+  it.each([
+    ['Win32', 'powershell.exe', 'opencode\r'],
+    ['MacIntel', '/bin/zsh', 'opencode\n'],
+  ])('submits OpenCode from the PTY-ready callback on %s', async (platform, shell, expected) => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    reg.getOrCreate('editor-term-launch', {
+      ...OPTS,
+      shell,
+      skipTabRegistration: true,
+      onPtyReady: () => reg.runWhenReady('editor-term-launch', 'opencode'),
+    });
+    await Promise.resolve();
+
+    // Windows console input maps LF to Ctrl+J, not Enter. PSReadLine's
+    // Windows AcceptLine binding needs CR; Unix keeps its existing LF path.
+    expect(ptyWrite).toHaveBeenCalledTimes(1);
+    expect(ptyWrite.mock.calls[0][0]).toBe('pty-1');
+    expect(writtenText(ptyWrite.mock.calls[0])).toBe(expected);
+  });
+
+  it.each([
+    ['Win32', 'powershell.exe', 'opencode\r'],
+    ['MacIntel', '/bin/zsh', 'opencode\n'],
+  ])('submits a queued launch after spawn resolves on %s', async (platform, shell, expected) => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    let resolveSpawn!: (id: string) => void;
+    ptySpawn.mockImplementationOnce(() => new Promise<string>((resolve) => { resolveSpawn = resolve; }));
+    reg.getOrCreate('queued-launch', { ...OPTS, shell });
+    reg.runWhenReady('queued-launch', 'opencode');
+    expect(ptyWrite).not.toHaveBeenCalled();
+
+    resolveSpawn('pty-queued');
+    await Promise.resolve();
+
+    expect(ptyWrite).toHaveBeenCalledTimes(1);
+    expect(ptyWrite.mock.calls[0][0]).toBe('pty-queued');
+    expect(writtenText(ptyWrite.mock.calls[0])).toBe(expected);
+  });
+
   it('writes immediately with a trailing newline when the PTY is already live', async () => {
     reg.getOrCreate('t1', OPTS);
     await Promise.resolve(); // let ptySpawn resolve so ptyTabId is set

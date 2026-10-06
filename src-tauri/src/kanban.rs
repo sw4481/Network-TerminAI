@@ -547,12 +547,15 @@ fn event_activity(
 }
 
 async fn execute_run(app: &tauri::AppHandle, run: RunStart) {
-    let state = app.state::<AppState>();
-    let db = state.db.clone();
-    let bridge = state.agent.clone();
-    let agents = state.agents_loader.clone();
-    let task = run.task.clone();
-    drop(state);
+    let (db, bridge, agents, task) = {
+        let state = app.state::<AppState>();
+        (
+            state.db.clone(),
+            state.agent.clone(),
+            state.agents_loader.clone(),
+            run.task.clone(),
+        )
+    };
     let result = run_agent(app, &db, &bridge, &agents, &task, &run).await;
     let conn = db.lock();
     let status_now: String = conn

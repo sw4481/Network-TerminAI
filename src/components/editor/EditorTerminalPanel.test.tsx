@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 
 const runWhenReady = vi.fn((_id?: any, _cmd?: any) => {});
@@ -9,10 +9,11 @@ vi.mock("../../lib/terminalRegistry", () => ({
 // Stub TerminalSlot: expose a button that invokes onRegistered so we can
 // simulate the PTY becoming ready (potentially more than once, e.g. remount).
 vi.mock("../TerminalSlot", () => ({
-  TerminalSlot: ({ terminalId, onRegistered }: any) => (
+  TerminalSlot: ({ terminalId, shell, onRegistered }: any) => (
     <button
       data-testid="fake-slot"
       data-term-id={terminalId}
+      data-shell={shell}
       onClick={() => onRegistered?.("pty-1")}
     >
       slot
@@ -26,7 +27,31 @@ beforeEach(() => {
   runWhenReady.mockClear();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("EditorTerminalPanel", () => {
+  it.each([
+    ["Win32", "powershell.exe"],
+    ["MacIntel", "/bin/zsh"],
+  ])("launches OpenCode in the default shell on %s", (platform, shell) => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+    const { getByTestId } = render(
+      <EditorTerminalPanel
+        tabId="platform-launch"
+        cwd="/proj"
+        mode="opencode"
+        onModeChange={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    const slot = getByTestId("fake-slot");
+    expect(slot.getAttribute("data-shell")).toBe(shell);
+    fireEvent.click(slot);
+    expect(runWhenReady).toHaveBeenCalledWith("editor-term-platform-launch", "opencode");
+  });
+
   it("uses a stable per-tab opencode terminal id", () => {
     const { getByTestId } = render(
       <EditorTerminalPanel

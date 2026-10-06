@@ -1,12 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { PaneActivityIndicator } from './PaneActivityIndicator';
 import { usePaneActivityStore } from '../state/paneActivityStore';
 
 describe('PaneActivityIndicator', () => {
   beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 9, 6, 12));
     usePaneActivityStore.setState({ activities: new Map() });
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it('renders nothing when no activity', () => {
     const { container } = render(<PaneActivityIndicator paneId="pane-1" />);
@@ -19,7 +21,7 @@ describe('PaneActivityIndicator', () => {
       tabId: 'tab-1',
       activeCommand: {
         cmd: 'sleep 60',
-        startTime: Date.now() - 10000, // 10s ago
+        startTime: Math.floor(Date.now() / 1000) - 10, // 10s ago
         exitCode: null,
         outputPreview: [],
       },
@@ -40,7 +42,7 @@ describe('PaneActivityIndicator', () => {
       tabId: 'tab-1',
       activeCommand: {
         cmd: 'npm run build',
-        startTime: Date.now() - 45000, // 45s ago
+        startTime: Math.floor(Date.now() / 1000) - 45, // backend Unix seconds
         exitCode: null,
         outputPreview: [],
       },
@@ -53,6 +55,8 @@ describe('PaneActivityIndicator', () => {
     render(<PaneActivityIndicator paneId="pane-1" />);
     expect(screen.getByText('npm run build')).toBeInTheDocument();
     expect(screen.getByText('45s')).toBeInTheDocument();
+    expect(screen.getByText('npm run build').closest('.pane-badge'))
+      .toHaveAttribute('title', expect.stringContaining('Duration: 45s'));
   });
 
   it('truncates long command names', () => {
@@ -61,7 +65,7 @@ describe('PaneActivityIndicator', () => {
       tabId: 'tab-1',
       activeCommand: {
         cmd: 'this is a very long command that should be truncated for display',
-        startTime: Date.now(),
+        startTime: Math.floor(Date.now() / 1000),
         exitCode: null,
         outputPreview: [],
       },
@@ -82,7 +86,7 @@ describe('PaneActivityIndicator', () => {
       tabId: 'tab-1',
       activeCommand: {
         cmd: 'pytest',
-        startTime: Date.now() - 60000,
+        startTime: Math.floor(Date.now() / 1000) - 60,
         exitCode: 1,
         outputPreview: ['FAILED tests/test_auth.py::test_login'],
       },

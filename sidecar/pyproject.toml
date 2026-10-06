@@ -76,6 +76,8 @@ exclude = [
 # Bundle ONNX weights + tokenizer assets so the embedder works offline. The
 # model dir is populated by `scripts/fetch_onnx.py` during the sidecar build.
 [tool.hatch.build.targets.wheel.force-include]
+# Agent definitions and API allowlists must travel with the installed sidecar.
+"../bundled-agents" = "ccie_sidecar/bundled-agents"
 "src/ccie_sidecar/rag/models" = "ccie_sidecar/rag/models"
 "src/ccie_sidecar/troubleshoot/prompts" = "ccie_sidecar/troubleshoot/prompts"
 "src/ccie_sidecar/troubleshoot/seeds" = "ccie_sidecar/troubleshoot/seeds"
