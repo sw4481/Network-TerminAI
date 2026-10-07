@@ -15,6 +15,12 @@ export async function reconnectSavedSsh(terminalId: string): Promise<boolean> {
   if (!current || current.lifecycle === "reconnecting" || current.lifecycle === "connecting") {
     return false;
   }
+  if (current.managed) {
+    store.setLifecycle(terminalId, "error", {
+      error: "Open a saved connection in a new terminal; this SSH PTY has no local shell.",
+    });
+    return false;
+  }
   store.setLifecycle(terminalId, "reconnecting", { exitStatus: null, error: null });
 
   try {
@@ -69,6 +75,7 @@ export async function reconnectSavedSsh(terminalId: string): Promise<boolean> {
 export function useLocalShell(terminalId: string): void {
   const store = useTerminalConnectionStore.getState();
   const connection = store.get(terminalId);
+  if (connection?.managed) return; // Direct ssh.exe PTY cannot become a local shell.
   if (connection) {
     useSshPasswordStore.getState().clearPasswordContext(connection.backend_pty_id);
   }

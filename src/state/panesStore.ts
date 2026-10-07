@@ -1,5 +1,8 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
+import { isManagedSshTab } from '../lib/sessionRestore';
+import { useTabs } from './tabsStore';
+import { useTerminalConnectionStore } from './terminalConnectionStore';
 
 export type PaneDirection = 'horizontal' | 'vertical';
 
@@ -246,6 +249,12 @@ export const usePanesStore = create<PanesState>((set, get) => ({
       const targetPane = findPaneById(layout, paneId);
 
       if (targetPane) {
+        // A managed SSH child can only be closed via the tab's verified PTY kill.
+        if (targetPane.type === 'leaf' && targetPane.terminalId === tabId &&
+            isManagedSshTab(
+              useTabs.getState().tabs.find((tab) => tab.id === tabId)?.shell_cmd ?? '',
+              useTerminalConnectionStore.getState().get(tabId)?.managed,
+            )) return layout;
         newLayout = removePaneFromTree(layout, paneId);
 
         if (newLayout) {

@@ -5,6 +5,20 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.9] - 2026-10-06
+
+### Fixed
+
+- Keep Kanban General and Network Architect tasks from decrypting unused merged-catalog vault secrets, while preserving dedicated-agent credential errors.
+- Restore Windows editor cursor paint with Windows-only CSP style overrides and the exact Tauri IPC origin, without relaxing script policy or changing macOS behavior.
+- Add explicitly launched, visible managed Windows SSH connections with a shared human/agent PTY and authentication, lifecycle, close, history, and lease-generation protection.
+
+### Known limitations
+
+- Native Windows/WebView2, IME, and live SSH acceptance remain unverified.
+- Existing unmanaged or manually launched SSH sessions are not adopted; select a saved profile to explicitly open a new managed Windows SSH connection.
+- Detaching managed live SSH terminals or their disconnected history remains unsupported.
+
 ## [1.1.8] - 2026-10-06
 
 ### Fixed

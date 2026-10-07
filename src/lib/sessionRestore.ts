@@ -1,4 +1,16 @@
 import type { SessionSnapshot } from "./tauri";
+import { defaultShell } from "./defaultShell";
+
+/** Must match the non-executable provenance marker persisted by the Windows backend. */
+export const MANAGED_SSH_SHELL_MARKER = "terminai:managed-ssh-disconnected";
+
+export function isManagedSshTab(shell: string, managed?: boolean): boolean {
+  return shell === MANAGED_SSH_SHELL_MARKER || managed === true;
+}
+
+export function reopenedTabShell(managed?: boolean): string {
+  return managed ? MANAGED_SSH_SHELL_MARKER : defaultShell();
+}
 
 export type RestoreTab = {
   id: string;
@@ -7,6 +19,7 @@ export type RestoreTab = {
   cwd: string;
   created_at: number;
   replayBytes: number[];
+  managed: boolean;
 };
 
 export type RestorePlan = {
@@ -33,6 +46,8 @@ export function planRestore(snapshot: SessionSnapshot | null): RestorePlan {
       cwd: t.cwd,
       created_at: t.created_at,
       replayBytes: t.scrollback,
+      // Persisted by the Windows backend as provenance, never as a shell to run.
+      managed: t.shell_cmd === MANAGED_SSH_SHELL_MARKER,
     }));
   if (tabs.length === 0) return { tabs: [], activeTabId: null };
   const savedActiveIsTerminal = tabs.some((t) => t.id === snapshot.active_tab_id);

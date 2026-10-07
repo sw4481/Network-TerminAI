@@ -314,6 +314,41 @@ async fn cancel(
     Ok(Json(serde_json::json!({ "cancelled": true })))
 }
 
+#[cfg(target_os = "windows")]
+fn write_bound_pty(
+    state: &AppState,
+    backend_pty_id: &str,
+    target: &super::TerminalAttachment,
+    expected_identity: &super::ManagedSshIdentity,
+    bytes: &[u8],
+) -> Result<(), String> {
+    let ptys = state.ptys.lock();
+    let handle = ptys
+        .get(backend_pty_id)
+        .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
+    if !handle.is_managed_ssh() || !handle.is_alive() {
+        return Err("managed SSH child is not active in the visible PTY".into());
+    }
+    let child_pid = handle
+        .pid()
+        .ok_or_else(|| "managed SSH child identity is unavailable".to_string())?;
+    if target.source != "saved_ssh"
+        || !expected_identity.matches_child(handle.generation(), child_pid)
+        || !state
+            .terminal_agent
+            .authenticated_managed_ssh(backend_pty_id, handle.generation(), child_pid)
+            .is_some_and(|(connection_id, identity)| {
+                Some(connection_id.as_str()) == target.connection_id.as_deref()
+                    && &identity == expected_identity
+            })
+    {
+        return Err(
+            "managed SSH authentication or PTY generation no longer matches this lease".into(),
+        );
+    }
+    handle.write(bytes).map_err(|error| error.to_string())
+}
+
 async fn execute_command(
     state: &AppState,
     capability: &str,
@@ -323,17 +358,34 @@ async fn execute_command(
     vendor: &str,
     timeout_seconds: Option<u64>,
 ) -> Result<CommandResult, GatewayError> {
+    #[cfg(target_os = "windows")]
+    let target = state.terminal_agent.target(capability, now())?;
+    #[cfg(target_os = "windows")]
+    let expected_identity = state
+        .terminal_agent
+        .managed_lease_identity(capability, now())?;
     let mut receiver =
         state
             .terminal_agent
             .begin_capture_and_write(capability, backend_pty_id, now(), || {
-                let ptys = state.ptys.lock();
-                let handle = ptys
-                    .get(backend_pty_id)
-                    .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
-                handle
-                    .write(format!("{command}\r").as_bytes())
-                    .map_err(|error| error.to_string())
+                #[cfg(target_os = "windows")]
+                return write_bound_pty(
+                    state,
+                    backend_pty_id,
+                    &target,
+                    &expected_identity,
+                    format!("{command}\r").as_bytes(),
+                );
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let ptys = state.ptys.lock();
+                    let handle = ptys
+                        .get(backend_pty_id)
+                        .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
+                    handle
+                        .write(format!("{command}\r").as_bytes())
+                        .map_err(|error| error.to_string())
+                }
             })?;
 
     let timeout_seconds = timeout_seconds
@@ -379,11 +431,22 @@ async fn execute_command(
                         backend_pty_id,
                         now(),
                         || {
-                            let ptys = state.ptys.lock();
-                            let handle = ptys
-                                .get(backend_pty_id)
-                                .ok_or_else(|| "attached PTY is no longer connected".to_string())?;
-                            handle.write(b" ").map_err(|error| error.to_string())
+                            #[cfg(target_os = "windows")]
+                            return write_bound_pty(
+                                state,
+                                backend_pty_id,
+                                &target,
+                                &expected_identity,
+                                b" ",
+                            );
+                            #[cfg(not(target_os = "windows"))]
+                            {
+                                let ptys = state.ptys.lock();
+                                let handle = ptys.get(backend_pty_id).ok_or_else(|| {
+                                    "attached PTY is no longer connected".to_string()
+                                })?;
+                                handle.write(b" ").map_err(|error| error.to_string())
+                            }
                         },
                     );
                     if let Err(error) = pager_write {

@@ -78,6 +78,7 @@ struct Lease {
     agent_id: String,
     turn_id: String,
     target: TerminalAttachment,
+    managed_identity: Option<ManagedSshIdentity>,
     expires_at: i64,
     revoked_reason: Option<String>,
     plan: Option<InvestigationPlan>,
@@ -92,12 +93,37 @@ struct SavedSshBinding {
     process_group_id: i32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManagedSshIdentity {
+    generation: String,
+    child_pid: u32,
+    takeover_epoch: u64,
+}
+
+#[cfg(target_os = "windows")]
+impl ManagedSshIdentity {
+    pub(crate) fn matches_child(&self, generation: &str, child_pid: u32) -> bool {
+        self.generation == generation && self.child_pid == child_pid
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ManagedSshBinding {
+    connection_id: String,
+    generation: String,
+    child_pid: u32,
+    takeover_epoch: u64,
+    pending_nonce: Option<String>,
+    authenticated: bool,
+}
+
 #[derive(Debug)]
 pub struct TerminalAgentManager {
     leases: Mutex<HashMap<String, Lease>>,
     captures: Mutex<HashMap<String, mpsc::UnboundedSender<CaptureSignal>>>,
     saved_ssh_launches: Mutex<HashMap<String, String>>,
     saved_ssh_bindings: Mutex<HashMap<String, SavedSshBinding>>,
+    managed_ssh_bindings: Mutex<HashMap<String, ManagedSshBinding>>,
     gateway_base_url: RwLock<Option<String>>,
 }
 
@@ -114,6 +140,7 @@ impl Default for TerminalAgentManager {
             captures: Mutex::new(HashMap::new()),
             saved_ssh_launches: Mutex::new(HashMap::new()),
             saved_ssh_bindings: Mutex::new(HashMap::new()),
+            managed_ssh_bindings: Mutex::new(HashMap::new()),
             gateway_base_url: RwLock::new(None),
         }
     }
@@ -128,6 +155,30 @@ impl TerminalAgentManager {
         now: i64,
         ttl_seconds: i64,
     ) -> Result<LeaseGrant, String> {
+        self.issue_with_identity(agent_id, turn_id, target, None, now, ttl_seconds)
+    }
+
+    pub fn issue_managed_ssh(
+        &self,
+        agent_id: &str,
+        turn_id: &str,
+        target: TerminalAttachment,
+        identity: ManagedSshIdentity,
+        now: i64,
+        ttl_seconds: i64,
+    ) -> Result<LeaseGrant, String> {
+        self.issue_with_identity(agent_id, turn_id, target, Some(identity), now, ttl_seconds)
+    }
+
+    fn issue_with_identity(
+        &self,
+        agent_id: &str,
+        turn_id: &str,
+        target: TerminalAttachment,
+        managed_identity: Option<ManagedSshIdentity>,
+        now: i64,
+        ttl_seconds: i64,
+    ) -> Result<LeaseGrant, String> {
         if agent_id != "network-architect" {
             return Err("terminal capability is restricted to Network Architect".to_string());
         }
@@ -137,13 +188,30 @@ impl TerminalAgentManager {
         let capability = Uuid::new_v4().to_string();
         let lease_id = Uuid::new_v4().to_string();
         let expires_at = now.saturating_add(ttl_seconds.max(1));
-        self.leases.lock().insert(
+        let mut leases = self.leases.lock();
+        if let Some(ref expected) = managed_identity {
+            let bindings = self.managed_ssh_bindings.lock();
+            let current = bindings.get(&target.backend_pty_id).ok_or_else(|| {
+                "managed SSH PTY was disconnected before lease issuance".to_string()
+            })?;
+            if !current.authenticated
+                || current.pending_nonce.is_some()
+                || current.connection_id != target.connection_id.as_deref().unwrap_or("")
+                || current.generation != expected.generation
+                || current.child_pid != expected.child_pid
+                || current.takeover_epoch != expected.takeover_epoch
+            {
+                return Err("managed SSH PTY changed before lease issuance".into());
+            }
+        }
+        leases.insert(
             capability.clone(),
             Lease {
                 lease_id: lease_id.clone(),
                 agent_id: agent_id.to_string(),
                 turn_id: turn_id.to_string(),
                 target: target.clone(),
+                managed_identity,
                 expires_at,
                 revoked_reason: None,
                 plan: None,
@@ -177,7 +245,22 @@ impl TerminalAgentManager {
 
     pub(crate) fn target(&self, capability: &str, now: i64) -> Result<TerminalAttachment, String> {
         let mut leases = self.leases.lock();
-        Ok(active_lease_mut(&mut leases, capability, now)?.target.clone())
+        Ok(active_lease_mut(&mut leases, capability, now)?
+            .target
+            .clone())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn managed_lease_identity(
+        &self,
+        capability: &str,
+        now: i64,
+    ) -> Result<ManagedSshIdentity, String> {
+        let mut leases = self.leases.lock();
+        active_lease_mut(&mut leases, capability, now)?
+            .managed_identity
+            .clone()
+            .ok_or_else(|| "terminal lease has no managed SSH process identity".to_string())
     }
 
     pub fn begin_investigation(
@@ -190,7 +273,9 @@ impl TerminalAgentManager {
             || plan.steps.is_empty()
             || plan.success_criteria.is_empty()
         {
-            return Err("investigation plan requires objective, steps, and success criteria".into());
+            return Err(
+                "investigation plan requires objective, steps, and success criteria".into(),
+            );
         }
         let mut leases = self.leases.lock();
         let lease = active_lease_mut(&mut leases, capability, now)?;
@@ -326,7 +411,9 @@ impl TerminalAgentManager {
         let lease = active_lease_mut(&mut leases, capability, now)?;
         let expected = fix_digest(&lease.target, batch)?;
         if lease.pending_fix_digest.as_deref() != Some(digest) || expected != digest {
-            return Err("fix approval does not match the exact reviewed target and commands".into());
+            return Err(
+                "fix approval does not match the exact reviewed target and commands".into(),
+            );
         }
         lease.approved_fix = Some(batch.clone());
         Ok(())
@@ -450,10 +537,69 @@ impl TerminalAgentManager {
         self.captures.lock().remove(backend_pty_id);
     }
 
+    /// Exit events can arrive after the PTY id is reused. Serialize the binding
+    /// generation check and lease cleanup with replacement and lease issuance.
+    pub fn on_managed_pty_exit(&self, backend_pty_id: &str, generation: &str) -> bool {
+        let mut leases = self.leases.lock();
+        let mut bindings = self.managed_ssh_bindings.lock();
+        if !bindings
+            .get(backend_pty_id)
+            .is_some_and(|binding| binding.generation == generation)
+        {
+            return false;
+        }
+        bindings.remove(backend_pty_id);
+        for lease in leases.values_mut() {
+            if lease.target.backend_pty_id == backend_pty_id
+                && lease
+                    .managed_identity
+                    .as_ref()
+                    .is_some_and(|identity| identity.generation == generation)
+                && lease.revoked_reason.is_none()
+            {
+                lease.revoked_reason = Some("PTY disconnected".to_string());
+            }
+        }
+        self.captures.lock().remove(backend_pty_id);
+        true
+    }
+
+    pub fn on_managed_pty_event(
+        &self,
+        backend_pty_id: &str,
+        generation: &str,
+        event: &crate::pty::PtyEvent,
+    ) -> bool {
+        if matches!(event, crate::pty::PtyEvent::Exit { .. }) {
+            self.on_managed_pty_exit(backend_pty_id, generation);
+            return true; // an unauthenticated child still needs a visible Exit
+        }
+        let bindings = self.managed_ssh_bindings.lock();
+        match bindings.get(backend_pty_id) {
+            Some(binding) if binding.generation != generation => return false,
+            None => return true, // failed authentication still leaves a visible terminal
+            _ => {}
+        }
+        let signal = match event {
+            crate::pty::PtyEvent::Output { bytes } => Some(CaptureSignal::Output(bytes.clone())),
+            crate::pty::PtyEvent::CommandEnd { exit_code } => {
+                Some(CaptureSignal::CommandEnd(*exit_code))
+            }
+            _ => None,
+        };
+        if let Some(signal) = signal {
+            if let Some(sender) = self.captures.lock().get(backend_pty_id) {
+                let _ = sender.send(signal);
+            }
+        }
+        true
+    }
+
     pub fn on_pty_event(&self, backend_pty_id: &str, event: &crate::pty::PtyEvent) {
         if matches!(event, crate::pty::PtyEvent::Exit { .. }) {
             self.revoke_for_pty(backend_pty_id, "PTY disconnected");
             self.clear_saved_ssh_binding(backend_pty_id);
+            self.clear_managed_ssh(backend_pty_id);
             return;
         }
         let signal = match event {
@@ -477,7 +623,13 @@ impl TerminalAgentManager {
 
     pub fn revoke_for_pty(&self, backend_pty_id: &str, reason: &str) {
         self.saved_ssh_launches.lock().remove(backend_pty_id);
-        for lease in self.leases.lock().values_mut() {
+        let mut leases = self.leases.lock();
+        // Lease issuance holds leases -> managed binding in the same order. A
+        // takeover before issue cannot produce a valid lease for that child.
+        if let Some(binding) = self.managed_ssh_bindings.lock().get_mut(backend_pty_id) {
+            binding.takeover_epoch = binding.takeover_epoch.wrapping_add(1);
+        }
+        for lease in leases.values_mut() {
             if lease.target.backend_pty_id == backend_pty_id && lease.revoked_reason.is_none() {
                 lease.revoked_reason = Some(reason.to_string());
             }
@@ -536,12 +688,7 @@ impl TerminalAgentManager {
         self.captures.lock().clear();
     }
 
-    pub fn bind_saved_ssh(
-        &self,
-        backend_pty_id: &str,
-        connection_id: &str,
-        process_group_id: i32,
-    ) {
+    pub fn bind_saved_ssh(&self, backend_pty_id: &str, connection_id: &str, process_group_id: i32) {
         self.saved_ssh_bindings.lock().insert(
             backend_pty_id.to_string(),
             SavedSshBinding {
@@ -619,6 +766,105 @@ impl TerminalAgentManager {
 
     pub fn clear_saved_ssh_binding(&self, backend_pty_id: &str) {
         self.saved_ssh_bindings.lock().remove(backend_pty_id);
+    }
+
+    pub fn begin_managed_ssh(
+        &self,
+        backend_pty_id: &str,
+        connection_id: &str,
+        generation: &str,
+        child_pid: u32,
+        nonce: &str,
+    ) {
+        self.managed_ssh_bindings.lock().insert(
+            backend_pty_id.to_string(),
+            ManagedSshBinding {
+                connection_id: connection_id.to_string(),
+                generation: generation.to_string(),
+                child_pid,
+                takeover_epoch: 0,
+                pending_nonce: Some(nonce.to_string()),
+                authenticated: false,
+            },
+        );
+    }
+
+    pub fn complete_managed_ssh(
+        &self,
+        backend_pty_id: &str,
+        generation: &str,
+        child_pid: u32,
+        nonce: &str,
+    ) -> Result<(), String> {
+        let mut bindings = self.managed_ssh_bindings.lock();
+        let binding = bindings
+            .get_mut(backend_pty_id)
+            .filter(|binding| binding.generation == generation && binding.child_pid == child_pid)
+            .ok_or_else(|| "managed SSH PTY generation is no longer active".to_string())?;
+        if binding.pending_nonce.as_deref() != Some(nonce) {
+            return Err("managed SSH authentication callback was not verified".into());
+        }
+        binding.pending_nonce = None;
+        binding.authenticated = true;
+        Ok(())
+    }
+
+    pub fn authenticated_managed_ssh(
+        &self,
+        backend_pty_id: &str,
+        generation: &str,
+        child_pid: u32,
+    ) -> Option<(String, ManagedSshIdentity)> {
+        self.managed_ssh_bindings
+            .lock()
+            .get(backend_pty_id)
+            .filter(|binding| {
+                binding.authenticated
+                    && binding.pending_nonce.is_none()
+                    && binding.generation == generation
+                    && binding.child_pid == child_pid
+            })
+            .map(|binding| {
+                (
+                    binding.connection_id.clone(),
+                    ManagedSshIdentity {
+                        generation: binding.generation.clone(),
+                        child_pid: binding.child_pid,
+                        takeover_epoch: binding.takeover_epoch,
+                    },
+                )
+            })
+    }
+
+    pub fn managed_ssh_binding(
+        &self,
+        backend_pty_id: &str,
+        generation: &str,
+        child_pid: u32,
+    ) -> Option<String> {
+        self.managed_ssh_bindings
+            .lock()
+            .get(backend_pty_id)
+            .filter(|binding| {
+                binding.authenticated
+                    && binding.generation == generation
+                    && binding.child_pid == child_pid
+            })
+            .map(|binding| binding.connection_id.clone())
+    }
+
+    pub fn clear_managed_ssh(&self, backend_pty_id: &str) {
+        self.managed_ssh_bindings.lock().remove(backend_pty_id);
+    }
+
+    pub fn clear_managed_ssh_generation(&self, backend_pty_id: &str, generation: &str) {
+        let mut bindings = self.managed_ssh_bindings.lock();
+        if bindings
+            .get(backend_pty_id)
+            .is_some_and(|binding| binding.generation == generation)
+        {
+            bindings.remove(backend_pty_id);
+        }
     }
 }
 
@@ -702,7 +948,9 @@ fn reject_credentials(command: &str) -> Result<(), String> {
         || lower.starts_with("snmp-server community ")
         || lower.starts_with("snmp-server host ")
         || lower.starts_with("snmp-server user ")
-        || credential_markers.iter().any(|marker| padded.contains(marker))
+        || credential_markers
+            .iter()
+            .any(|marker| padded.contains(marker))
         || (padded.contains(" radius ") && padded.contains(" key "))
         || (padded.contains(" tacacs ") && padded.contains(" key "))
     {
@@ -737,16 +985,17 @@ mod capture_tests {
 
         manager.on_pty_event(
             "other-pty",
-            &PtyEvent::Output { bytes: b"wrong device".to_vec() },
+            &PtyEvent::Output {
+                bytes: b"wrong device".to_vec(),
+            },
         );
         manager.on_pty_event(
             "ios-pty-1",
-            &PtyEvent::Output { bytes: b"RADIUS server ISE-1 DOWN\r\n".to_vec() },
+            &PtyEvent::Output {
+                bytes: b"RADIUS server ISE-1 DOWN\r\n".to_vec(),
+            },
         );
-        manager.on_pty_event(
-            "ios-pty-1",
-            &PtyEvent::CommandEnd { exit_code: Some(0) },
-        );
+        manager.on_pty_event("ios-pty-1", &PtyEvent::CommandEnd { exit_code: Some(0) });
 
         match capture.recv().await.unwrap() {
             CaptureSignal::Output(bytes) => {
@@ -760,7 +1009,6 @@ mod capture_tests {
         ));
     }
 
-
     #[tokio::test]
     async fn revocation_terminates_the_active_capture() {
         let manager = TerminalAgentManager::default();
@@ -769,6 +1017,96 @@ mod capture_tests {
         manager.revoke_for_pty("ios-pty-1", "user takeover");
 
         assert!(capture.recv().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn stale_exit_cannot_close_replacement_capture() {
+        let manager = TerminalAgentManager::default();
+        manager.begin_managed_ssh("pty-1", "connection-1", "old", 4100, "old");
+        manager.begin_managed_ssh("pty-1", "connection-1", "new", 4200, "new");
+        let mut capture = manager.begin_capture("pty-1").unwrap();
+        assert!(!manager.on_managed_pty_exit("pty-1", "old"));
+        assert!(!manager.on_managed_pty_event(
+            "pty-1",
+            "old",
+            &PtyEvent::Output {
+                bytes: b"stale".to_vec()
+            }
+        ));
+        assert!(manager.on_managed_pty_event(
+            "pty-1",
+            "new",
+            &PtyEvent::Output {
+                bytes: b"current".to_vec()
+            }
+        ));
+        assert!(
+            matches!(capture.try_recv(), Ok(CaptureSignal::Output(bytes)) if bytes == b"current")
+        );
+    }
+
+    #[test]
+    fn managed_lease_replacement_and_same_child_takeover_never_reach_write() {
+        let manager = TerminalAgentManager::default();
+        let target = TerminalAttachment {
+            backend_pty_id: "pty-1".into(),
+            terminal_id: "terminal-1".into(),
+            source: "saved_ssh".into(),
+            connection_id: Some("connection-1".into()),
+            display_name: None,
+            vendor: None,
+            platform: None,
+        };
+        manager.begin_managed_ssh("pty-1", "connection-1", "old", 4100, "old-nonce");
+        manager
+            .complete_managed_ssh("pty-1", "old", 4100, "old-nonce")
+            .unwrap();
+        let (_, validated) = manager
+            .authenticated_managed_ssh("pty-1", "old", 4100)
+            .unwrap();
+        let lease = manager
+            .issue_managed_ssh(
+                "network-architect",
+                "turn",
+                target.clone(),
+                validated.clone(),
+                100,
+                60,
+            )
+            .unwrap();
+        manager.revoke_for_pty("pty-1", "user takeover");
+        assert!(manager
+            .issue_managed_ssh(
+                "network-architect",
+                "late",
+                target.clone(),
+                validated.clone(),
+                101,
+                60
+            )
+            .is_err());
+        manager.clear_managed_ssh("pty-1");
+        manager.begin_managed_ssh("pty-1", "connection-1", "new", 4200, "new-nonce");
+        manager
+            .complete_managed_ssh("pty-1", "new", 4200, "new-nonce")
+            .unwrap();
+        assert!(manager
+            .issue_managed_ssh("network-architect", "late", target, validated, 102, 60)
+            .is_err());
+        let mut writes = 0;
+        assert!(manager
+            .begin_capture_and_write(&lease.capability, "pty-1", 102, || {
+                writes += 1;
+                Ok(())
+            })
+            .is_err());
+        assert!(manager
+            .write_if_active(&lease.capability, "pty-1", 102, || {
+                writes += 1;
+                Ok(())
+            })
+            .is_err());
+        assert_eq!(writes, 0);
     }
 
     #[test]
@@ -806,6 +1144,93 @@ mod capture_tests {
             })
             .is_err());
         assert!(!wrote);
+    }
+
+    #[test]
+    fn managed_ssh_generation_and_takeover_guard_each_write_boundary() {
+        let manager = TerminalAgentManager::default();
+        manager.begin_managed_ssh(
+            "ios-pty-1",
+            "connection-1",
+            "generation-a",
+            4100,
+            "secret-a",
+        );
+        let target = TerminalAttachment {
+            backend_pty_id: "ios-pty-1".into(),
+            terminal_id: "terminal-1".into(),
+            source: "saved_ssh".into(),
+            connection_id: Some("connection-1".into()),
+            display_name: None,
+            vendor: Some("cisco".into()),
+            platform: Some("iosxe".into()),
+        };
+        let grant = manager
+            .issue("network-architect", "turn-1", target, 100, 60)
+            .unwrap();
+        let mut writes = 0;
+        let verified_write = || {
+            if manager
+                .managed_ssh_binding("ios-pty-1", "generation-a", 4100)
+                .as_deref()
+                != Some("connection-1")
+            {
+                return Err("unverified SSH child".into());
+            }
+            writes += 1;
+            Ok(())
+        };
+        assert!(manager
+            .begin_capture_and_write(&grant.capability, "ios-pty-1", 101, verified_write)
+            .is_err());
+        assert_eq!(writes, 0);
+        manager
+            .complete_managed_ssh("ios-pty-1", "generation-a", 4100, "secret-a")
+            .unwrap();
+        manager
+            .begin_capture_and_write(&grant.capability, "ios-pty-1", 101, || {
+                if manager
+                    .managed_ssh_binding("ios-pty-1", "generation-a", 4100)
+                    .is_none()
+                {
+                    return Err("unverified SSH child".into());
+                }
+                writes += 1;
+                Ok(())
+            })
+            .unwrap();
+        manager.end_capture("ios-pty-1");
+        manager.begin_managed_ssh(
+            "ios-pty-1",
+            "connection-2",
+            "generation-b",
+            4101,
+            "secret-b",
+        );
+        assert!(manager
+            .write_if_active(&grant.capability, "ios-pty-1", 102, || {
+                if manager
+                    .managed_ssh_binding("ios-pty-1", "generation-a", 4100)
+                    .is_none()
+                {
+                    return Err("stale SSH child".into());
+                }
+                writes += 1;
+                Ok(())
+            })
+            .is_err());
+        manager.revoke_for_pty("ios-pty-1", "user takeover");
+        assert!(manager
+            .write_if_active(&grant.capability, "ios-pty-1", 103, || {
+                writes += 1;
+                Ok(())
+            })
+            .is_err());
+        assert_eq!(writes, 1);
+        manager.on_pty_event("ios-pty-1", &PtyEvent::Exit { code: Some(0) });
+        assert!(manager
+            .managed_ssh_binding("ios-pty-1", "generation-b", 4101)
+            .is_none());
     }
 
     #[test]

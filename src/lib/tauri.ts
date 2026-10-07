@@ -146,6 +146,7 @@ export async function ptySpawn(opts: {
   rows: number;
   onEvent: (e: PtyEvent) => void;
   preferredTabId?: string;
+  managedConnectionId?: string;
 }): Promise<string> {
   const channel = new Channel<PtyEvent>();
   channel.onmessage = opts.onEvent;
@@ -157,6 +158,7 @@ export async function ptySpawn(opts: {
     rows: opts.rows,
     onEvent: channel,
     preferredTabId: opts.preferredTabId ?? null,
+    managedConnectionId: opts.managedConnectionId ?? null,
   });
 }
 

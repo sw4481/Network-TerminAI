@@ -22,6 +22,7 @@ import {
   normalizeTerminalPlatform,
 } from './terminalClipboard';
 import type { SshConnectEventDetail } from './sshConnections';
+import { MANAGED_SSH_SHELL_MARKER } from './sessionRestore';
 import { useTerminalConnectionStore } from '../state/terminalConnectionStore';
 import {
   TerminalSyntaxHighlighter,
@@ -38,6 +39,8 @@ export interface CreateOpts {
   skipTabRegistration?: boolean;
   /** Restore: reuse this saved tab id so scrollback/pane_layouts line up. */
   preferredTabId?: string;
+  /** Windows only: backend launches app-owned ssh.exe directly in this visible PTY. */
+  managedConnectionId?: string;
   /** Restore: raw scrollback bytes to replay above the fresh shell. */
   replayBytes?: number[];
   /** Attach to an existing PTY from another Tauri webview. */
@@ -95,6 +98,7 @@ export function has(terminalId: string): boolean {
  */
 export function runWhenReady(terminalId: string, command: string): void {
   const entry = registry.get(terminalId);
+  if (entry?.xterm.options.disableStdin) return;
   if (entry && entry.ptyTabId && !entry.disposed) {
     const enter = normalizeTerminalPlatform() === 'windows' ? '\r' : '\n';
     ptyWrite(entry.ptyTabId, new TextEncoder().encode(command + enter)).catch((err) => {
@@ -213,8 +217,13 @@ export function getOrCreate(terminalId: string, opts: CreateOpts): TerminalEntry
     syntaxHighlighter.refreshVisible();
   });
 
-  // Wire input/output/resize + spawn the PTY (Task 3 fills wireSession).
-  wireSession(entry, terminalId, opts);
+  // A persisted managed SSH marker is provenance, not an executable shell.
+  // Keep its scrollback visible and read-only until the user opens a new connection.
+  if (opts.shell === MANAGED_SSH_SHELL_MARKER) {
+    xterm.options.disableStdin = true;
+  } else {
+    wireSession(entry, terminalId, opts);
+  }
 
   return entry;
 }
@@ -270,7 +279,9 @@ export function applyAppearanceSettings(settings: AppearanceSettingsV1): void {
 
   for (const entry of registry.values()) {
     if (entry.disposed) continue;
+    const readOnly = entry.xterm.options.disableStdin;
     applyTerminalOptions(entry.xterm, nextOptions);
+    if (readOnly) entry.xterm.options.disableStdin = true;
     if (!metricsChanged) continue;
     try {
       entry.fitAddon.fit();
@@ -281,6 +292,20 @@ export function applyAppearanceSettings(settings: AppearanceSettingsV1): void {
     } catch {
       /* detached or zero-size terminals safely retain their existing session */
     }
+  }
+}
+
+// Managed close must finish backend termination before discarding the retry UI.
+export async function disposeManaged(terminalId: string): Promise<void> {
+  const entry = registry.get(terminalId);
+  const ptyId = entry
+    ? await entry._ptySpawnPromise?.catch(() => terminalId) ?? entry.ptyTabId ?? terminalId
+    : terminalId;
+  await ptyKill(ptyId);
+  if (entry) {
+    entry._ptySpawnPromise = undefined;
+    entry.ptyTabId = null;
+    dispose(terminalId);
   }
 }
 
@@ -319,13 +344,17 @@ export function dispose(terminalId: string): void {
   }
   entry.el.remove();
   registry.delete(terminalId);
+  pendingCommands.delete(terminalId);
+  useSshPasswordStore.getState().clearPasswordContext(terminalId);
   useTerminalConnectionStore.getState().clear(terminalId);
 }
 
 // Full PTY event wiring, ported from usePty.ts (lines 70-370).
 function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts): void {
   const { xterm } = entry;
-  let ptyTabId: string | null = null;
+  // The preferred id is minted before a managed SSH spawn; its password
+  // prompt can arrive before the spawn IPC promise resolves.
+  let ptyTabId: string | null = opts.managedConnectionId ? opts.preferredTabId ?? null : null;
   let lastOutput = '';
   let inRemote = false;
   let passwordSent = false;
@@ -334,6 +363,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   let blockStartTime = 0;
   let outputBuffer = '';
   let currentShellCommand: string | null = null;
+  let managedExited = false;
 
   const terminalPlatform = normalizeTerminalPlatform();
   xterm.attachCustomKeyEventHandler((e: KeyboardEvent): boolean => {
@@ -349,7 +379,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   });
 
   const onEvent = (e: PtyEvent) => {
-    if (entry.disposed) return;
+    if (entry.disposed || managedExited) return;
     switch (e.type) {
       case 'output': {
         // Port from usePty.ts:177-250 (write bytes; SSH-exit detect; password autofill)
@@ -372,8 +402,8 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
           }
         }
 
-        // Detect password prompts and auto-fill if we have a stored password
-        if (ptyTabId) {
+        // Managed SSH input is remote-controlled; never auto-send saved credentials.
+        if (ptyTabId && !opts.managedConnectionId) {
           const lowerOutput = lastOutput.toLowerCase();
           const hasPasswordPrompt =
             lowerOutput.includes('password:') ||
@@ -463,7 +493,36 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         entry.syntaxHighlighter.exitAlternateScreen();
         break;
       }
+      case 'managed_ssh_authenticated': {
+        if (opts.managedConnectionId) useSshPasswordStore.getState().clearPasswordContext(terminalId);
+        const bound = useTerminalConnectionStore.getState().get(terminalId);
+        if (bound?.managed && bound.connection_id === e.connection_id) {
+          useTerminalConnectionStore.getState().setLifecycle(terminalId, 'connected', { error: null });
+        }
+        break;
+      }
+      case 'managed_ssh_auth_failed': {
+        if (opts.managedConnectionId) useSshPasswordStore.getState().clearPasswordContext(terminalId);
+        if (useTerminalConnectionStore.getState().get(terminalId)?.managed) {
+          useTerminalConnectionStore.getState().setLifecycle(terminalId, 'error', {
+            error: 'SSH login could not be verified. Agent attachment is unavailable; choose a saved connection to open a new terminal.',
+          });
+        }
+        break;
+      }
       case 'exit': {
+        if (opts.managedConnectionId) {
+          managedExited = true;
+          useSshPasswordStore.getState().clearPasswordContext(terminalId);
+          if (useTerminalConnectionStore.getState().get(terminalId)?.lifecycle !== 'error') {
+            useTerminalConnectionStore.getState().setLifecycle(terminalId, 'disconnected');
+          }
+          ptyTabId = null;
+          entry.ptyTabId = null;
+          pendingCommands.delete(terminalId);
+          xterm.options.disableStdin = true;
+          break; // Keep the scrollback, error banner and explicit tab close visible.
+        }
         if (ptyTabId) useTabs.getState().removeTab(ptyTabId);
         dispose(terminalId); // shell exit = explicit dispose trigger
         break;
@@ -486,11 +545,12 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         rows: xterm.rows ?? 24,
         onEvent,
         preferredTabId: opts.preferredTabId,
+        managedConnectionId: opts.managedConnectionId,
       });
   entry._ptySpawnPromise = promise;
 
   promise.then((id: string) => {
-    if (entry.disposed) return;
+    if (entry.disposed || managedExited) return;
     ptyTabId = id;
     entry.ptyTabId = id;
     opts.onPtyReady?.(id);
@@ -507,6 +567,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
     }
 
     xterm.onData((data: string) => {
+      if (entry.disposed || (opts.managedConnectionId && managedExited)) return;
       const bytes = new TextEncoder().encode(data);
       ptyWrite(id, bytes).catch(() => {});
     });
@@ -521,6 +582,16 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
 
     // Now that ptyTabId is set, workflow events can be handled correctly
     console.log(`[terminalRegistry] PTY ${id} ready, workflow events will now work`);
+  }).catch((err) => {
+    if (entry.disposed) return;
+    if (opts.managedConnectionId) {
+      ptyTabId = null;
+      xterm.options.disableStdin = true;
+      pendingCommands.delete(terminalId);
+      useSshPasswordStore.getState().clearPasswordContext(terminalId);
+      useTerminalConnectionStore.getState().setLifecycle(terminalId, 'error', { error: String(err) });
+    }
+    console.error('[terminalRegistry] PTY spawn failed:', err);
   });
 
   // (4) Handle workflow execution custom events (workflow picker dispatches these).
@@ -581,7 +652,7 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   //      enabled that component never mounts, so the event was dropped and
   //      "Connect" did nothing. Route it to the targeted PTY here instead.
   const handleSshConnect = (e: CustomEvent<SshConnectEventDetail>) => {
-    if (!ptyTabId) return;
+    if (!ptyTabId || opts.managedConnectionId) return;
     const acceptedPtyId = ptyTabId;
     // Match the resolved target against BOTH ids (see workflow handler). A
     // null target (older callers) falls through so a single terminal still

@@ -512,7 +512,15 @@ fn now_seconds() -> i64 {
 fn validate_terminal_attachment(
     state: &AppState,
     mut attachment: crate::terminal_agent::TerminalAttachment,
-) -> Result<crate::terminal_agent::TerminalAttachment, String> {
+) -> Result<
+    (
+        crate::terminal_agent::TerminalAttachment,
+        Option<crate::terminal_agent::ManagedSshIdentity>,
+    ),
+    String,
+> {
+    #[cfg(target_os = "windows")]
+    let mut managed_identity = None;
     if state.pane_manager.get_focused_pane_id().as_deref()
         != Some(attachment.backend_pty_id.as_str())
     {
@@ -534,26 +542,56 @@ fn validate_terminal_attachment(
                 .connection_id
                 .as_deref()
                 .ok_or_else(|| "saved SSH attachment requires a connection identity".to_string())?;
-            let (live_process_group_id, foreground) =
-                foreground_identity.as_ref().ok_or_else(|| {
-                    "could not verify the saved terminal foreground process".to_string()
-                })?;
-            let executable = foreground
-                .split_whitespace()
-                .next()
-                .and_then(|value| value.rsplit('/').next())
-                .unwrap_or("");
-            if executable != "ssh" {
-                return Err(
-                    "saved terminal attachment requires a verified foreground ssh process".into(),
-                );
-            }
-            let connection_id = state
-                .terminal_agent
-                .saved_ssh_binding(&attachment.backend_pty_id, *live_process_group_id)
-                .ok_or_else(|| {
-                    "saved SSH attachment is not bound to this PTY process generation".to_string()
-                })?;
+            #[cfg(target_os = "windows")]
+            let connection_id = {
+                let ptys = state.ptys.lock();
+                let handle = ptys
+                    .get(&attachment.backend_pty_id)
+                    .ok_or_else(|| "attached terminal PTY is no longer active".to_string())?;
+                if !handle.is_managed_ssh() || !handle.is_alive() {
+                    return Err("managed SSH child is not active in the visible PTY".into());
+                }
+                let child_pid = handle
+                    .pid()
+                    .ok_or_else(|| "managed SSH child identity is unavailable".to_string())?;
+                let (connection_id, identity) = state
+                    .terminal_agent
+                    .authenticated_managed_ssh(
+                        &attachment.backend_pty_id,
+                        handle.generation(),
+                        child_pid,
+                    )
+                    .ok_or_else(|| {
+                        "managed SSH authentication and PTY ownership are not verified".to_string()
+                    })?;
+                managed_identity = Some(identity);
+                connection_id
+            };
+            #[cfg(not(target_os = "windows"))]
+            let connection_id = {
+                let (live_process_group_id, foreground) =
+                    foreground_identity.as_ref().ok_or_else(|| {
+                        "could not verify the saved terminal foreground process".to_string()
+                    })?;
+                let executable = foreground
+                    .split_whitespace()
+                    .next()
+                    .and_then(|value| value.rsplit('/').next())
+                    .unwrap_or("");
+                if executable != "ssh" {
+                    return Err(
+                        "saved terminal attachment requires a verified foreground ssh process"
+                            .into(),
+                    );
+                }
+                state
+                    .terminal_agent
+                    .saved_ssh_binding(&attachment.backend_pty_id, *live_process_group_id)
+                    .ok_or_else(|| {
+                        "saved SSH attachment is not bound to this PTY process generation"
+                            .to_string()
+                    })?
+            };
             if requested_connection_id != connection_id {
                 return Err("saved SSH attachment does not match the backend PTY binding".into());
             }
@@ -616,7 +654,10 @@ fn validate_terminal_attachment(
         }
         _ => return Err("unsupported terminal attachment source".into()),
     }
-    Ok(attachment)
+    #[cfg(target_os = "windows")]
+    return Ok((attachment, managed_identity));
+    #[cfg(not(target_os = "windows"))]
+    Ok((attachment, None))
 }
 
 /// Run a ReACT agent loop with attached tools (Meraki CLI, etc.)
@@ -1070,12 +1111,25 @@ pub async fn agent_react_code_run(
         if agent_id != "network-architect" {
             return Err("terminal attachment is restricted to Network Architect".into());
         }
-        let attachment = validate_terminal_attachment(&state, attachment)?;
+        let (attachment, managed_identity) = validate_terminal_attachment(&state, attachment)?;
         let turn_id = uuid::Uuid::new_v4().to_string();
-        let grant =
+        #[cfg(target_os = "windows")]
+        let grant = state.terminal_agent.issue_managed_ssh(
+            &agent_id,
+            &turn_id,
+            attachment,
+            managed_identity
+                .ok_or_else(|| "managed SSH process identity was not verified".to_string())?,
+            now_seconds(),
+            30 * 60,
+        )?;
+        #[cfg(not(target_os = "windows"))]
+        let grant = {
+            let _ = managed_identity;
             state
                 .terminal_agent
-                .issue(&agent_id, &turn_id, attachment, now_seconds(), 30 * 60)?;
+                .issue(&agent_id, &turn_id, attachment, now_seconds(), 30 * 60)?
+        };
         let base_url = state
             .terminal_agent
             .gateway_base_url()

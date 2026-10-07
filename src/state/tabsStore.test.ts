@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useTabs } from "./tabsStore";
 import { useClosedTabs } from "./closedTabsStore";
 import type { Tab } from "../lib/types";
+import { MANAGED_SSH_SHELL_MARKER } from "../lib/sessionRestore";
 
 const tabA: Tab = {
   id: "a",
@@ -51,6 +52,18 @@ it("removeTab records terminal tabs to the closed-tabs stack", () => {
   const items = useClosedTabs.getState().items;
   expect(items.length).toBe(1);
   expect(items[0]).toMatchObject({ id: "x", title: "SSH r1", cwd: "/cfg" });
+});
+
+it("preserves managed SSH provenance for explicit Recently Closed reopen", () => {
+  useClosedTabs.setState({ items: [] });
+  useTabs.setState({
+    tabs: [{ ...tabA, id: "managed", title: "Core", shell_cmd: MANAGED_SSH_SHELL_MARKER }],
+    activeTabId: "managed",
+  });
+  useTabs.getState().removeTab("managed");
+  expect(useClosedTabs.getState().popMostRecent()).toMatchObject({
+    id: "managed", title: "Core", managed: true,
+  });
 });
 
 it("removeTab does NOT record non-terminal tabs", () => {

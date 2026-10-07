@@ -2,12 +2,15 @@ import { memo, useCallback, useRef, Fragment } from 'react';
 import { Pane } from './Pane';
 import { PaneHandle } from './PaneHandle';
 import { PaneNode, usePanesStore } from '../state/panesStore';
+import { MANAGED_SSH_SHELL_MARKER } from '../lib/sessionRestore';
+import { defaultShell } from '../lib/defaultShell';
 import './PaneContainer.css';
 
 type PaneContainerProps = {
   node: PaneNode;
   shell: string;
   cwd: string;
+  managedRootTerminalId?: string;
   // Threaded down from the root call so leaves can show a close × only
   // when more than one leaf exists in the layout.
   canCloseLeaves?: boolean;
@@ -22,6 +25,7 @@ export const PaneContainer = memo(function PaneContainer({
   node,
   shell,
   cwd,
+  managedRootTerminalId,
   canCloseLeaves,
 }: PaneContainerProps) {
   // First call (no flag yet) computes the leaf count for the whole subtree.
@@ -69,7 +73,7 @@ export const PaneContainer = memo(function PaneContainer({
       <Pane
         paneId={node.id}
         terminalId={node.terminalId}
-        shell={shell}
+        shell={shell === MANAGED_SSH_SHELL_MARKER && managedRootTerminalId !== node.terminalId ? defaultShell() : shell}
         cwd={cwd}
         canClose={effectiveCanClose}
       />
@@ -96,6 +100,7 @@ export const PaneContainer = memo(function PaneContainer({
               node={child}
               shell={shell}
               cwd={cwd}
+              managedRootTerminalId={managedRootTerminalId}
               canCloseLeaves={effectiveCanClose}
             />
           </div>

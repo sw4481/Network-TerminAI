@@ -68,6 +68,7 @@ vi.mock('../hooks/useBlockShortcuts', () => ({
 
 import { Pane } from './Pane';
 import { useTerminalConnectionStore } from '../state/terminalConnectionStore';
+import { MANAGED_SSH_SHELL_MARKER } from '../lib/sessionRestore';
 
 describe('Pane activity indicator wiring', () => {
   beforeEach(() => {
@@ -91,6 +92,19 @@ describe('Pane activity indicator wiring', () => {
     expect(badgePaneIds).toContain('tab-xyz-pty');
     expect(indicatorPaneIds).not.toContain('pane-abc');
     expect(badgePaneIds).not.toContain('pane-abc');
+  });
+});
+
+describe('managed SSH root close affordance', () => {
+  it('hides the root close button but keeps a local split pane closeable', () => {
+    const { getByTestId, queryByTestId } = render(
+      <>
+        <Pane paneId="managed-root" terminalId="managed-tab" shell={MANAGED_SSH_SHELL_MARKER} cwd="/" canClose />
+        <Pane paneId="local-child" terminalId="local-pty" shell="/bin/zsh" cwd="/" canClose />
+      </>,
+    );
+    expect(queryByTestId('pane-close-managed-root')).toBeNull();
+    expect(getByTestId('pane-close-local-child')).not.toBeNull();
   });
 });
 

@@ -15,6 +15,8 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { TabBar } from "./TabBar";
 import { useTabs } from "../state/tabsStore";
 import { useEditorStore } from "../state/editorStore";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
+import { MANAGED_SSH_SHELL_MARKER } from "../lib/sessionRestore";
 
 // Mock the Tauri IPC wrappers so we can assert on them.
 vi.mock("../lib/tauri", () => ({
@@ -30,6 +32,7 @@ import { ptyKill, tabCloseApi, tabCloseEditor } from "../lib/tauri";
 // legacy ptyKill. Mock the registry so we can assert on dispose.
 vi.mock("../lib/terminalRegistry", () => ({
   dispose: vi.fn(),
+  disposeManaged: vi.fn().mockResolvedValue(undefined),
   // tab-dot derivation resolves each pane's terminalId → spawned PTY id;
   // return null so the mock falls back to the raw id (fine for these tests).
   ptyTabIdFor: vi.fn(() => null),
@@ -44,6 +47,7 @@ function resetStore() {
       blocks: {},
     });
     useEditorStore.getState().resetAll();
+    useTerminalConnectionStore.setState({ byTerminalId: {}, terminalIdByBackendPtyId: {} });
   });
 }
 
@@ -77,6 +81,32 @@ describe("TabBar — regression + tab types", () => {
     render(<TabBar onNew={() => {}} onDetach={onDetach} />);
     fireEvent.click(screen.getByLabelText("Detach zsh"));
     expect(onDetach).toHaveBeenCalledWith(tab);
+  });
+
+  it('does not offer detach for live managed SSH or disconnected managed history', () => {
+    const history = {
+      id: 'managed-history', title: 'History', shell_cmd: MANAGED_SSH_SHELL_MARKER,
+      cwd: '/', created_at: 0, tab_type: 'terminal' as const,
+    };
+    const live = { ...history, id: 'managed-live', title: 'Live', shell_cmd: 'powershell.exe' };
+    act(() => {
+      useTabs.setState({ tabs: [history, live], activeTabId: history.id, blocks: {} });
+      useTerminalConnectionStore.getState().bind({
+        terminalId: live.id, backendPtyId: live.id,
+        connectionId: 'connection-1', displayName: live.title, vendor: 'cisco',
+        platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: false,
+        syntaxProfile: 'auto', sshCommand: '', managed: true,
+      });
+    });
+    const onDetach = vi.fn();
+    render(<TabBar onNew={() => {}} onDetach={onDetach} />);
+    for (const tab of [history, live]) {
+      const node = screen.getByTestId(`tab-${tab.id}`);
+      expect(node.getAttribute('draggable')).toBe('false');
+      expect(node.querySelector('.tab-detach')).toBeNull();
+      expect(node.querySelector('.tab-close')).not.toBeNull();
+    }
+    expect(onDetach).not.toHaveBeenCalled();
   });
 
   it("does NOT render '+ API' button when onNewApi prop is absent", () => {
@@ -121,6 +151,32 @@ describe("TabBar — regression + tab types", () => {
     expect(terminalRegistry.dispose).toHaveBeenCalledWith("t1");
     expect(ptyKill).not.toHaveBeenCalled();
     expect(tabCloseApi).not.toHaveBeenCalled();
+  });
+
+  it('keeps managed SSH tab visible and reports failure until PTY close succeeds', async () => {
+    const tab = {
+      id: 'managed-close', title: 'Core', shell_cmd: MANAGED_SSH_SHELL_MARKER,
+      cwd: '/', created_at: 0, tab_type: 'terminal' as const,
+    };
+    act(() => {
+      useTabs.setState({ tabs: [tab], activeTabId: tab.id, blocks: {} });
+      useTerminalConnectionStore.getState().bind({
+        terminalId: tab.id, backendPtyId: tab.id,
+        connectionId: 'connection-1', displayName: tab.title, vendor: 'cisco',
+        platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: false,
+        syntaxProfile: 'auto', sshCommand: '', managed: true,
+      });
+    });
+    vi.mocked(terminalRegistry.disposeManaged).mockRejectedValueOnce(new Error('synthetic kill failure'));
+    render(<TabBar onNew={() => {}} />);
+    const close = screen.getByTestId(`tab-${tab.id}`).querySelector('.tab-close') as HTMLButtonElement;
+    await act(async () => { fireEvent.click(close); });
+    expect(screen.getByTestId(`tab-${tab.id}`)).not.toBeNull();
+    expect(useTerminalConnectionStore.getState().get(tab.id)?.lifecycle).toBe('error');
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    await act(async () => { fireEvent.click(close); });
+    expect(screen.queryByTestId(`tab-${tab.id}`)).toBeNull();
+    expect(terminalRegistry.disposeManaged).toHaveBeenCalledTimes(2);
   });
 
   it("closing an API tab calls tabCloseApi (not ptyKill) — regression guard", async () => {

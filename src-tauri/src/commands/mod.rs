@@ -24,12 +24,16 @@ pub mod sftp;
 pub mod sidecar_status;
 pub mod ssh;
 pub mod ssh_import;
-pub mod structured;
 pub mod stp;
-pub mod topology;
+pub mod structured;
 pub mod topolograph;
+pub mod topology;
 pub mod troubleshoot;
 pub mod vault;
+#[cfg(any(target_os = "windows", test))]
+mod windows_ssh;
+#[cfg(target_os = "windows")]
+use windows_ssh::prepare_managed_ssh;
 
 use crate::validation;
 use rusqlite::OptionalExtension;
@@ -289,6 +293,8 @@ pub struct PtyEventEnvelope {
 
 pub struct AppState {
     pub ptys: Arc<Mutex<HashMap<String, PtyHandle>>>,
+    /// Serializes check, spawn and registration so two restores cannot claim one tab id.
+    pty_spawn_lock: Arc<tokio::sync::Mutex<()>>,
     /// Capability-scoped Network Architect access to explicitly attached PTYs.
     pub terminal_agent: Arc<crate::terminal_agent::TerminalAgentManager>,
     pub db: Arc<Mutex<rusqlite::Connection>>,
@@ -487,6 +493,7 @@ impl AppState {
         let github_auth_manager = Arc::new(crate::git::GitHubAuthManager::production());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
+            pty_spawn_lock: Arc::new(tokio::sync::Mutex::new(())),
             terminal_agent: Arc::new(crate::terminal_agent::TerminalAgentManager::default()),
             db: db_arc.clone(),
             agent,
@@ -615,6 +622,46 @@ impl AppState {
     }
 }
 
+// Persist provenance only; this is not executable and never replaces the actual PTY child.
+#[cfg(any(target_os = "windows", test))]
+const WINDOWS_MANAGED_SSH_SHELL_MARKER: &str = "terminai:managed-ssh-disconnected";
+
+#[cfg(any(target_os = "windows", test))]
+fn persisted_windows_spawn_shell(managed: bool, shell: &str) -> &str {
+    if managed {
+        WINDOWS_MANAGED_SSH_SHELL_MARKER
+    } else {
+        shell
+    }
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn persist_windows_managed_shell_marker(db: &rusqlite::Connection, id: &str) -> Result<(), String> {
+    db.execute(
+        "UPDATE tabs SET shell_cmd = ?1 WHERE id = ?2",
+        rusqlite::params![WINDOWS_MANAGED_SSH_SHELL_MARKER, id],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+// Check and insert must share the same PTY-map lock. A rejected handle remains
+// owned by the caller, which must kill it rather than leaving an untracked child.
+fn insert_pty_if_absent<T>(
+    ptys: &Mutex<HashMap<String, T>>,
+    id: String,
+    handle: T,
+) -> Result<(), T> {
+    let mut ptys = ptys.lock();
+    match ptys.entry(id) {
+        std::collections::hash_map::Entry::Occupied(_) => Err(handle),
+        std::collections::hash_map::Entry::Vacant(slot) => {
+            slot.insert(handle);
+            Ok(())
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn pty_spawn(
     app: tauri::AppHandle,
@@ -626,30 +673,61 @@ pub async fn pty_spawn(
     rows: u16,
     on_event: Channel<PtyEvent>,
     preferred_tab_id: Option<String>,
+    managed_connection_id: Option<String>,
 ) -> Result<String, String> {
-    tracing::info!(
-        shell = %shell,
-        args = ?args,
-        cwd = %cwd,
-        cols = cols,
-        rows = rows,
-        "Spawning PTY"
-    );
+    let managed_request = managed_connection_id.is_some();
+    #[cfg(not(target_os = "windows"))]
+    if managed_request {
+        return Err("managed SSH PTY is only available on Windows".into());
+    }
+    #[cfg(target_os = "windows")]
+    let (shell, args, cwd, managed) = if let Some(connection_id) = managed_connection_id {
+        let launch = prepare_managed_ssh(state.inner(), &connection_id)?;
+        (
+            launch.binary.clone(),
+            launch.argv.clone(),
+            launch.cwd.clone(),
+            Some(launch),
+        )
+    } else {
+        (shell, args, cwd, None)
+    };
+    if !managed_request {
+        tracing::info!(shell = %shell, args = ?args, cwd = %cwd, cols, rows, "Spawning PTY");
+    }
 
+    // ponytail: one spawn lock serializes all tabs; use per-tab reservations if spawn throughput matters.
+    let _spawn_guard = state.pty_spawn_lock.lock().await;
+    #[cfg(target_os = "windows")]
+    let persisted_shell = persisted_windows_spawn_shell(managed_request, &shell);
+    #[cfg(not(target_os = "windows"))]
+    let persisted_shell = &shell;
+    if let Some(ref id) = preferred_tab_id {
+        if state.ptys.lock().contains_key(id) {
+            return Err(
+                "terminal PTY is already active; close it before reusing its tab id".into(),
+            );
+        }
+    }
     let tab = {
         let db = state.db.lock();
-        match preferred_tab_id.as_deref() {
-            Some(id) => {
-                session::create_tab_with_id(&db, id, &shell, &shell, &cwd).map_err(|e| {
+        let tab = match preferred_tab_id.as_deref() {
+            Some(id) => session::create_tab_with_id(&db, id, &shell, persisted_shell, &cwd)
+                .map_err(|e| {
                     tracing::error!(error = %e, "Failed to reuse tab id");
                     e.to_string()
-                })?
-            }
-            None => session::create_tab(&db, &shell, &shell, &cwd).map_err(|e| {
+                })?,
+            None => session::create_tab(&db, &shell, persisted_shell, &cwd).map_err(|e| {
                 tracing::error!(error = %e, "Failed to create tab in database");
                 e.to_string()
             })?,
+        };
+        #[cfg(target_os = "windows")]
+        if managed_request {
+            // create_tab_with_id keeps an old row's shell_cmd on conflict.
+            persist_windows_managed_shell_marker(&db, &tab.id)?;
         }
+        tab
     };
 
     let (tx, mut rx) = mpsc::channel::<PtyEvent>(256);
@@ -666,28 +744,99 @@ pub async fn pty_spawn(
         .ok()
         .map(|p| p.to_string_lossy().into_owned());
 
-    let handle = spawn_pty(
-        PtyOptions {
-            shell,
-            args,
-            cwd,
-            cols,
-            rows,
-            pane_id: Some(tab.id.clone()),
-            claude_config_dir,
-        },
-        tx,
-    )
-    .await
-    .map_err(|e| {
+    let options = PtyOptions {
+        shell,
+        args,
+        cwd,
+        cols,
+        rows,
+        pane_id: Some(tab.id.clone()),
+        claude_config_dir,
+    };
+    #[cfg(target_os = "windows")]
+    let handle = if let Some(ref launch) = managed {
+        crate::pty::spawn_managed_ssh_pty(options, tx.clone(), &launch.nonce).await
+    } else {
+        spawn_pty(options, tx.clone()).await
+    };
+    #[cfg(not(target_os = "windows"))]
+    let handle = spawn_pty(options, tx.clone()).await;
+    let handle = handle.map_err(|e| {
         tracing::error!(error = %e, tab_id = %tab.id, "Failed to spawn PTY");
         e.to_string()
     })?;
 
-    // Reusing a persisted tab id creates a new PTY generation. Never let a
-    // saved-device identity survive across that boundary.
+    // A tab id cannot alias an existing live PTY: that would let stale output,
+    // callback or exit events operate on the replacement's identity.
+    let generation = handle.generation().to_string();
+    #[cfg(target_os = "windows")]
+    let is_managed = handle.is_managed_ssh();
+    #[cfg(target_os = "windows")]
+    let managed_pid = if managed.is_some() {
+        let pid = handle
+            .pid()
+            .ok_or_else(|| "managed SSH process identity is unavailable".to_string());
+        if pid.is_err() {
+            let _ = handle.kill();
+        }
+        Some(pid?)
+    } else {
+        None
+    };
+    // No PTY lock while revoking: gateway writes take lease -> PTY -> binding.
+    // The spawn guard prevents a second spawn from clearing this new binding.
+    state
+        .terminal_agent
+        .revoke_for_pty(&tab.id, "PTY generation replaced");
     state.terminal_agent.clear_saved_ssh_binding(&tab.id);
-    state.ptys.lock().insert(tab.id.clone(), handle);
+    state.terminal_agent.clear_managed_ssh(&tab.id);
+    if let Err(unused) = insert_pty_if_absent(&state.ptys, tab.id.clone(), handle) {
+        let _ = unused.kill();
+        return Err("terminal PTY is already active; close it before reusing its tab id".into());
+    }
+    #[cfg(target_os = "windows")]
+    if let Some(launch) = managed {
+        let child_pid =
+            managed_pid.ok_or_else(|| "managed SSH child identity is unavailable".to_string())?;
+        state.terminal_agent.begin_managed_ssh(
+            &tab.id,
+            &launch.connection_id,
+            &generation,
+            child_pid,
+            &launch.nonce,
+        );
+        let manager = state.terminal_agent.clone();
+        let ptys = state.ptys.clone();
+        let auth_tab_id = tab.id.clone();
+        let auth_generation = generation.clone();
+        let connection_id = launch.connection_id.clone();
+        let tx_auth = tx.clone();
+        tokio::spawn(async move {
+            let result = launch.await_authentication().await;
+            if let Ok(nonce) = result {
+                let live = {
+                    let ptys = ptys.lock();
+                    ptys.get(&auth_tab_id).is_some_and(|handle| {
+                        handle.is_alive()
+                            && handle.pid() == Some(child_pid)
+                            && handle.generation() == auth_generation
+                    })
+                };
+                if live
+                    && manager
+                        .complete_managed_ssh(&auth_tab_id, &auth_generation, child_pid, &nonce)
+                        .is_ok()
+                {
+                    let _ = tx_auth
+                        .send(PtyEvent::ManagedSshAuthenticated { connection_id })
+                        .await;
+                    return;
+                }
+            }
+            manager.clear_managed_ssh_generation(&auth_tab_id, &auth_generation);
+            let _ = tx_auth.send(PtyEvent::ManagedSshAuthFailed).await;
+        });
+    }
     tracing::info!(tab_id = %tab.id, "PTY spawned successfully");
 
     // Register pane with context manager (using tab_id as pane_id for now)
@@ -698,10 +847,32 @@ pub async fn pty_spawn(
     let emit_tab_id = tab_id.clone();
     let pane_ctx_tab_id = tab_id.clone();
     let pane_ctx_app = app.clone();
+    let event_ptys = state.ptys.clone();
+    let spawn_gate = state.pty_spawn_lock.clone();
     tokio::spawn(async move {
         let mut current_block: Option<String> = None;
         tracing::info!(tab_id = %emit_tab_id, "Event loop started for tab");
         while let Some(ev) = rx.recv().await {
+            // Keep the generation check through persistence and delivery atomic
+            // with replacement. Never hold the PTY-map lock across manager calls.
+            let _event_guard = spawn_gate.lock().await;
+            let current = event_ptys.lock().get(&emit_tab_id).is_some_and(|handle| {
+                handle.generation() == generation
+                    && (!matches!(&ev, PtyEvent::ManagedSshAuthenticated { .. })
+                        || handle.is_alive())
+            });
+            if !current {
+                continue;
+            }
+            #[cfg(target_os = "windows")]
+            if is_managed {
+                if !terminal_agent.on_managed_pty_event(&emit_tab_id, &generation, &ev) {
+                    continue;
+                }
+            } else {
+                terminal_agent.on_pty_event(&emit_tab_id, &ev);
+            }
+            #[cfg(not(target_os = "windows"))]
             terminal_agent.on_pty_event(&emit_tab_id, &ev);
             // Forward PTY events to PaneContextManager for Phase 2 tracking.
             // NOTE: Using tab_id as pane_id temporarily until pane mapping is added.
@@ -732,7 +903,9 @@ pub async fn pty_spawn(
                     crate::command_parser::ParseEvent::Output(bytes.clone()),
                     false,
                 )),
-                PtyEvent::Exit { .. } => None,
+                PtyEvent::ManagedSshAuthenticated { .. }
+                | PtyEvent::ManagedSshAuthFailed
+                | PtyEvent::Exit { .. } => None,
             } {
                 pane_manager.handle_event(&pane_ctx_tab_id, &emit_tab_id, parse_ev);
 
@@ -810,7 +983,9 @@ pub async fn pty_spawn(
                     // Alt-screen transitions carry no payload to persist; they
                     // are forwarded as-is so the frontend can react if needed.
                     PtyEvent::EnterAltScreen | PtyEvent::ExitAltScreen => {}
-                    PtyEvent::Exit { .. } => {}
+                    PtyEvent::ManagedSshAuthenticated { .. }
+                    | PtyEvent::ManagedSshAuthFailed
+                    | PtyEvent::Exit { .. } => {}
                 }
                 drop(db);
                 let _ = pane_ctx_app.emit(
@@ -980,6 +1155,11 @@ pub async fn terminal_launch_saved_ssh(
                 let handle = ptys
                     .get(&validated_tab_id)
                     .ok_or_else(|| "terminal PTY is no longer active".to_string())?;
+                if handle.is_managed_ssh() {
+                    return Err(
+                        "managed SSH PTY has no local shell; open a new terminal instead".into(),
+                    );
+                }
                 handle
                     .write(format!("\u{3}{command}\r").as_bytes())
                     .map_err(|error| error.to_string())
@@ -1107,10 +1287,78 @@ pub fn pty_resize(
     h.resize(cols, rows).map_err(|e| e.to_string())
 }
 
+#[cfg(any(target_os = "windows", test))]
+async fn wait_for_managed_exit(
+    confirmed: impl Fn() -> bool,
+    alive: impl Fn() -> bool,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
+    tokio::time::timeout(timeout, async {
+        loop {
+            if confirmed() {
+                return Ok(());
+            }
+            if !alive() {
+                // A successful waiter stores confirmation before clearing alive.
+                if confirmed() {
+                    return Ok(());
+                }
+                return Err("managed SSH child wait failed; tab remains tracked".into());
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .map_err(|_| {
+        "managed SSH child exit was not confirmed before timeout; tab remains tracked".to_string()
+    })?
+}
+
+#[cfg(any(target_os = "windows", test))]
+async fn finish_managed_kill(
+    kill_result: Result<(), String>,
+    confirmed: impl Fn() -> bool,
+    alive: impl Fn() -> bool,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
+    // portable-pty 0.9.0's Windows killer can report Err after TerminateProcess
+    // succeeds. The waiter's successful child.wait() is the termination proof.
+    wait_for_managed_exit(confirmed, alive, timeout)
+        .await
+        .map_err(|wait_error| match kill_result {
+            Ok(()) => wait_error,
+            Err(kill_error) => format!("{wait_error}; termination request: {kill_error}"),
+        })
+}
+
+#[cfg(any(target_os = "windows", test))]
+async fn confirm_managed_ssh_termination(
+    handle: &PtyHandle,
+    timeout: std::time::Duration,
+) -> Result<(), String> {
+    if handle.exit_confirmed() {
+        return Ok(());
+    }
+    if !handle.is_alive() {
+        if handle.exit_confirmed() {
+            return Ok(());
+        }
+        return Err("managed SSH child exit could not be confirmed; tab remains tracked".into());
+    }
+    finish_managed_kill(
+        handle.kill().map_err(|error| error.to_string()),
+        || handle.exit_confirmed(),
+        || handle.is_alive(),
+        timeout,
+    )
+    .await
+}
+
 #[tauri::command]
-pub fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String> {
+pub async fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String> {
     // Validate tab_id
     let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+    let _spawn_guard = state.pty_spawn_lock.lock().await;
 
     state
         .terminal_agent
@@ -1118,18 +1366,46 @@ pub fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String
     state
         .terminal_agent
         .clear_saved_ssh_binding(&validated_tab_id);
+    state.terminal_agent.clear_managed_ssh(&validated_tab_id);
     let h = state.ptys.lock().remove(&validated_tab_id);
+    #[cfg(target_os = "windows")]
+    let mut h = h;
+    #[cfg(target_os = "windows")]
+    if let Some(handle) = h.as_ref().filter(|handle| handle.is_managed_ssh()) {
+        // ponytail: this global gate blocks other tabs for at most five seconds;
+        // per-tab lifecycle reservations are the upgrade if close throughput matters.
+        if let Err(error) =
+            confirm_managed_ssh_termination(handle, std::time::Duration::from_secs(5)).await
+        {
+            if let Some(handle) = h.take() {
+                state.ptys.lock().insert(validated_tab_id.clone(), handle);
+            }
+            return Err(error);
+        }
+    }
+    let closed = {
+        let db = state.db.lock();
+        session::close_tab(&db, &validated_tab_id).map_err(|e| e.to_string())
+    };
+    drop(_spawn_guard);
     if let Some(h) = h {
+        #[cfg(target_os = "windows")]
+        if h.is_managed_ssh() {
+            return closed;
+        }
         let _ = h.kill();
     }
-    let db = state.db.lock();
-    session::close_tab(&db, &validated_tab_id).map_err(|e| e.to_string())
+    closed
 }
 
 #[tauri::command]
 pub fn list_tabs(state: State<'_, AppState>) -> Result<Vec<session::Tab>, String> {
     let db = state.db.lock();
     session::list_open_tabs(&db).map_err(|e| e.to_string())
+}
+
+fn pipe_target_available(managed_ssh: bool, alive: bool) -> bool {
+    !managed_ssh || alive
 }
 
 /// Tabs that are valid **pipe targets** right now — terminal tabs in the
@@ -1143,7 +1419,10 @@ pub fn list_tabs(state: State<'_, AppState>) -> Result<Vec<session::Tab>, String
 pub fn list_pipe_targets(state: State<'_, AppState>) -> Result<Vec<session::Tab>, String> {
     let live: std::collections::HashSet<String> = {
         let ptys = state.ptys.lock();
-        ptys.keys().cloned().collect()
+        ptys.iter()
+            .filter(|(_, handle)| pipe_target_available(handle.is_managed_ssh(), handle.is_alive()))
+            .map(|(id, _)| id.clone())
+            .collect()
     };
     let db = state.db.lock();
     let all = session::list_open_tabs(&db).map_err(|e| e.to_string())?;
@@ -3754,7 +4033,9 @@ pub fn network_architect_soul_save(
     let metadata = fs::symlink_metadata(&path)
         .map_err(|_| format!("Network Architect SOUL file not found: {file_name}"))?;
     if !metadata.file_type().is_file() {
-        return Err(format!("Network Architect SOUL file is not editable: {file_name}"));
+        return Err(format!(
+            "Network Architect SOUL file is not editable: {file_name}"
+        ));
     }
 
     save_network_architect_soul_file(&path, &content)?;
@@ -4648,7 +4929,9 @@ fn prompt_library_get_impl(db: &rusqlite::Connection) -> Result<PromptLibrary, S
         .map_err(|e| format!("Failed to read prompt library: {}", e))?;
 
     match value {
-        Some(raw) => serde_json::from_str(&raw).map_err(|e| format!("Invalid prompt library: {}", e)),
+        Some(raw) => {
+            serde_json::from_str(&raw).map_err(|e| format!("Invalid prompt library: {}", e))
+        }
         None => Ok(PromptLibrary::default()),
     }
 }
@@ -4714,11 +4997,15 @@ mod prompt_library_tests {
     #[test]
     fn prompt_library_round_trips() {
         let db = rusqlite::Connection::open_in_memory().unwrap();
-        let saved = prompt_library_set_impl(&db, PromptLibrary {
-            schema_version: 1,
-            revision: 0,
-            prompts: vec![prompt("p1")],
-        }).unwrap();
+        let saved = prompt_library_set_impl(
+            &db,
+            PromptLibrary {
+                schema_version: 1,
+                revision: 0,
+                prompts: vec![prompt("p1")],
+            },
+        )
+        .unwrap();
         let loaded = prompt_library_get_impl(&db).unwrap();
         assert_eq!(saved.revision, 1);
         assert_eq!(loaded.prompts[0].id, "p1");
@@ -4727,31 +5014,47 @@ mod prompt_library_tests {
     #[test]
     fn prompt_library_rejects_bad_input() {
         let db = rusqlite::Connection::open_in_memory().unwrap();
-        assert!(prompt_library_set_impl(&db, PromptLibrary {
-            schema_version: 2,
-            revision: 0,
-            prompts: vec![],
-        }).is_err());
-        assert!(prompt_library_set_impl(&db, PromptLibrary {
-            schema_version: 1,
-            revision: 0,
-            prompts: vec![prompt("same"), prompt("same")],
-        }).is_err());
+        assert!(prompt_library_set_impl(
+            &db,
+            PromptLibrary {
+                schema_version: 2,
+                revision: 0,
+                prompts: vec![],
+            }
+        )
+        .is_err());
+        assert!(prompt_library_set_impl(
+            &db,
+            PromptLibrary {
+                schema_version: 1,
+                revision: 0,
+                prompts: vec![prompt("same"), prompt("same")],
+            }
+        )
+        .is_err());
     }
 
     #[test]
     fn prompt_library_rejects_stale_revision() {
         let db = rusqlite::Connection::open_in_memory().unwrap();
-        prompt_library_set_impl(&db, PromptLibrary {
-            schema_version: 1,
-            revision: 0,
-            prompts: vec![prompt("p1")],
-        }).unwrap();
-        assert!(prompt_library_set_impl(&db, PromptLibrary {
-            schema_version: 1,
-            revision: 0,
-            prompts: vec![prompt("p2")],
-        }).is_err());
+        prompt_library_set_impl(
+            &db,
+            PromptLibrary {
+                schema_version: 1,
+                revision: 0,
+                prompts: vec![prompt("p1")],
+            },
+        )
+        .unwrap();
+        assert!(prompt_library_set_impl(
+            &db,
+            PromptLibrary {
+                schema_version: 1,
+                revision: 0,
+                prompts: vec![prompt("p2")],
+            }
+        )
+        .is_err());
     }
 }
 
@@ -5054,7 +5357,9 @@ fn proxmox_base_url(config: &ProxmoxConfig) -> Result<String, String> {
             .chars()
             .any(|c| c.is_ascii_whitespace() || matches!(c, '@' | '/' | '?' | '#' | '\\'))
     {
-        return Err("Proxmox host must be a bare hostname or IP; put the port in the Port field.".into());
+        return Err(
+            "Proxmox host must be a bare hostname or IP; put the port in the Port field.".into(),
+        );
     }
     Ok(format!("https://{}:{}/api2/json", host, config.port))
 }
@@ -5103,22 +5408,30 @@ fn proxmox_task_status_path(node: &str, upid: &str) -> Result<String, String> {
     if upid.contains('/') || upid.contains('?') || upid.contains('#') {
         return Err("Invalid Proxmox task id.".into());
     }
-    Ok(format!("/nodes/{}/tasks/{}/status", proxmox_node_segment(node)?, upid))
+    Ok(format!(
+        "/nodes/{}/tasks/{}/status",
+        proxmox_node_segment(node)?,
+        upid
+    ))
 }
 
-fn proxmox_password_headers_from_ticket(ticket: &serde_json::Value) -> Result<reqwest::header::HeaderMap, String> {
+fn proxmox_password_headers_from_ticket(
+    ticket: &serde_json::Value,
+) -> Result<reqwest::header::HeaderMap, String> {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue, COOKIE};
 
     let Some(cookie) = ticket
         .get("data")
         .and_then(|data| data.get("ticket"))
-        .and_then(|value| value.as_str()) else {
+        .and_then(|value| value.as_str())
+    else {
         return Err("Proxmox did not return an auth ticket.".into());
     };
     let Some(csrf) = ticket
         .get("data")
         .and_then(|data| data.get("CSRFPreventionToken"))
-        .and_then(|value| value.as_str()) else {
+        .and_then(|value| value.as_str())
+    else {
         return Err("Proxmox did not return a CSRF token.".into());
     };
 
@@ -5135,7 +5448,9 @@ fn proxmox_password_headers_from_ticket(ticket: &serde_json::Value) -> Result<re
     Ok(headers)
 }
 
-async fn proxmox_client(config: &ProxmoxConfig) -> Result<(reqwest::Client, String, reqwest::header::HeaderMap), String> {
+async fn proxmox_client(
+    config: &ProxmoxConfig,
+) -> Result<(reqwest::Client, String, reqwest::header::HeaderMap), String> {
     use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 
     let base_url = proxmox_base_url(config)?;
@@ -5154,7 +5469,10 @@ async fn proxmox_client(config: &ProxmoxConfig) -> Result<(reqwest::Client, Stri
     } else {
         let ticket: serde_json::Value = client
             .post(format!("{}/access/ticket", base_url))
-            .form(&[("username", config.user.as_str()), ("password", config.password.as_str())])
+            .form(&[
+                ("username", config.user.as_str()),
+                ("password", config.password.as_str()),
+            ])
             .send()
             .await
             .map_err(|e| e.to_string())?
@@ -5194,12 +5512,19 @@ async fn proxmox_request_data(
     Ok(body.get("data").cloned().unwrap_or(serde_json::Value::Null))
 }
 
-async fn proxmox_get_data(client: &reqwest::Client, base_url: &str, headers: &reqwest::header::HeaderMap, path: &str) -> Result<Vec<serde_json::Value>, String> {
-    Ok(proxmox_request_data(client, base_url, headers, reqwest::Method::GET, path, None)
-        .await?
-        .as_array()
-        .cloned()
-        .unwrap_or_default())
+async fn proxmox_get_data(
+    client: &reqwest::Client,
+    base_url: &str,
+    headers: &reqwest::header::HeaderMap,
+    path: &str,
+) -> Result<Vec<serde_json::Value>, String> {
+    Ok(
+        proxmox_request_data(client, base_url, headers, reqwest::Method::GET, path, None)
+            .await?
+            .as_array()
+            .cloned()
+            .unwrap_or_default(),
+    )
 }
 
 async fn proxmox_nodes(config: &ProxmoxConfig) -> Result<Vec<serde_json::Value>, String> {
@@ -5218,12 +5543,18 @@ async fn proxmox_wait_task(
     let end = Instant::now() + timeout;
     while Instant::now() < end {
         let path = proxmox_task_status_path(node, upid)?;
-        let status = proxmox_request_data(client, base_url, headers, reqwest::Method::GET, &path, None).await?;
+        let status =
+            proxmox_request_data(client, base_url, headers, reqwest::Method::GET, &path, None)
+                .await?;
         if status.get("status").and_then(|value| value.as_str()) == Some("stopped") {
             return if status.get("exitstatus").and_then(|value| value.as_str()) == Some("OK") {
                 Ok(())
             } else {
-                Err(status.get("exitstatus").and_then(|value| value.as_str()).unwrap_or("task failed").to_string())
+                Err(status
+                    .get("exitstatus")
+                    .and_then(|value| value.as_str())
+                    .unwrap_or("task failed")
+                    .to_string())
             };
         }
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -5231,18 +5562,41 @@ async fn proxmox_wait_task(
     Err("task timed out".into())
 }
 
-async fn proxmox_lxc_action(config: &ProxmoxConfig, node: &str, vmid: &str, action: &str) -> Result<(), String> {
+async fn proxmox_lxc_action(
+    config: &ProxmoxConfig,
+    node: &str,
+    vmid: &str,
+    action: &str,
+) -> Result<(), String> {
     let (client, base_url, headers) = proxmox_client(config).await?;
     let path = proxmox_lxc_status_path(node, vmid, action)?;
-    let upid = proxmox_request_data(&client, &base_url, &headers, reqwest::Method::POST, &path, None)
-        .await?
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| format!("Proxmox did not return a {} task.", action))?;
-    proxmox_wait_task(&client, &base_url, &headers, node, &upid, PROXMOX_LXC_ACTION_TIMEOUT).await
+    let upid = proxmox_request_data(
+        &client,
+        &base_url,
+        &headers,
+        reqwest::Method::POST,
+        &path,
+        None,
+    )
+    .await?
+    .as_str()
+    .map(str::to_string)
+    .ok_or_else(|| format!("Proxmox did not return a {} task.", action))?;
+    proxmox_wait_task(
+        &client,
+        &base_url,
+        &headers,
+        node,
+        &upid,
+        PROXMOX_LXC_ACTION_TIMEOUT,
+    )
+    .await
 }
 
-async fn proxmox_clone_lxc(config: &ProxmoxConfig, computer: &AgentComputerEntry) -> Result<AgentComputerEntry, String> {
+async fn proxmox_clone_lxc(
+    config: &ProxmoxConfig,
+    computer: &AgentComputerEntry,
+) -> Result<AgentComputerEntry, String> {
     let (client, base_url, headers) = proxmox_client(config).await?;
     let template_vmid = computer.template_vmid.trim();
     if template_vmid.is_empty() {
@@ -5261,19 +5615,37 @@ async fn proxmox_clone_lxc(config: &ProxmoxConfig, computer: &AgentComputerEntry
     .as_str()
     .map(str::to_string)
     .ok_or_else(|| "Proxmox did not return a clone task.".to_string())?;
-    proxmox_wait_task(&client, &base_url, &headers, &computer.node, &upid, PROXMOX_LXC_CLONE_TIMEOUT).await?;
+    proxmox_wait_task(
+        &client,
+        &base_url,
+        &headers,
+        &computer.node,
+        &upid,
+        PROXMOX_LXC_CLONE_TIMEOUT,
+    )
+    .await?;
     proxmox_lxc_action(config, &computer.node, &computer.vmid, "start").await?;
     Ok(AgentComputerEntry {
-        name: if computer.name.is_empty() { format!("agent-{}", computer.vmid) } else { computer.name.clone() },
+        name: if computer.name.is_empty() {
+            format!("agent-{}", computer.vmid)
+        } else {
+            computer.name.clone()
+        },
         node: computer.node.clone(),
         vmid: computer.vmid.clone(),
         template_vmid: template_vmid.to_string(),
         base_url: format!("pct://{}/{}", computer.node, computer.vmid),
-        token: if computer.token.is_empty() { "pct".into() } else { computer.token.clone() },
+        token: if computer.token.is_empty() {
+            "pct".into()
+        } else {
+            computer.token.clone()
+        },
     })
 }
 
-async fn proxmox_list_inventory_from_config(config: &ProxmoxConfig) -> Result<ProxmoxInventory, String> {
+async fn proxmox_list_inventory_from_config(
+    config: &ProxmoxConfig,
+) -> Result<ProxmoxInventory, String> {
     let (client, base_url, headers) = proxmox_client(config).await?;
     let nodes_raw = proxmox_get_data(&client, &base_url, &headers, "/nodes").await?;
     let nodes: Vec<ProxmoxInventoryNode> = nodes_raw
@@ -5281,7 +5653,10 @@ async fn proxmox_list_inventory_from_config(config: &ProxmoxConfig) -> Result<Pr
         .filter_map(|node| {
             Some(ProxmoxInventoryNode {
                 node: node.get("node")?.as_str()?.to_string(),
-                status: node.get("status").and_then(|value| value.as_str()).map(str::to_string),
+                status: node
+                    .get("status")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string),
             })
         })
         .collect();
@@ -5290,18 +5665,36 @@ async fn proxmox_list_inventory_from_config(config: &ProxmoxConfig) -> Result<Pr
         if node.status.as_deref() != Some("online") {
             continue;
         }
-        let Ok(containers) = proxmox_get_data(&client, &base_url, &headers, &format!("/nodes/{}/lxc", node.node)).await else {
+        let Ok(containers) = proxmox_get_data(
+            &client,
+            &base_url,
+            &headers,
+            &format!("/nodes/{}/lxc", node.node),
+        )
+        .await
+        else {
             continue;
         };
         for ct in containers {
-            if ct.get("template").and_then(|value| value.as_i64()).unwrap_or(0) != 1 {
+            if ct
+                .get("template")
+                .and_then(|value| value.as_i64())
+                .unwrap_or(0)
+                != 1
+            {
                 continue;
             }
             let Some(vmid) = ct.get("vmid") else { continue };
             templates.push(ProxmoxTemplate {
                 node: node.node.clone(),
-                vmid: vmid.as_str().map(str::to_string).unwrap_or_else(|| vmid.to_string()),
-                name: ct.get("name").and_then(|value| value.as_str()).map(str::to_string),
+                vmid: vmid
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| vmid.to_string()),
+                name: ct
+                    .get("name")
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string),
             });
         }
     }
@@ -5309,12 +5702,16 @@ async fn proxmox_list_inventory_from_config(config: &ProxmoxConfig) -> Result<Pr
 }
 
 #[tauri::command]
-pub async fn proxmox_list_inventory(state: State<'_, AppState>) -> Result<ProxmoxInventory, String> {
+pub async fn proxmox_list_inventory(
+    state: State<'_, AppState>,
+) -> Result<ProxmoxInventory, String> {
     let config = {
         let db = state.db.lock();
         read_proxmox_config_from_db(&db)?
     }
-    .ok_or_else(|| "Proxmox is not configured. Set host/credentials in Settings → Proxmox.".to_string())?;
+    .ok_or_else(|| {
+        "Proxmox is not configured. Set host/credentials in Settings → Proxmox.".to_string()
+    })?;
     proxmox_list_inventory_from_config(&config).await
 }
 
@@ -5336,13 +5733,25 @@ async fn proxmox_test_connection_direct(config: &ProxmoxConfig) -> ProxmoxTestRe
     };
     let names: Vec<String> = nodes
         .iter()
-        .filter_map(|node| node.get("node").and_then(|value| value.as_str()).map(str::to_string))
+        .filter_map(|node| {
+            node.get("node")
+                .and_then(|value| value.as_str())
+                .map(str::to_string)
+        })
         .collect();
     let online = nodes
         .iter()
         .filter(|node| node.get("status").and_then(|value| value.as_str()) == Some("online"))
         .count();
-    let mut message = format!("Connected. {} node(s): {}.", names.len(), if names.is_empty() { "none".into() } else { names.join(", ") });
+    let mut message = format!(
+        "Connected. {} node(s): {}.",
+        names.len(),
+        if names.is_empty() {
+            "none".into()
+        } else {
+            names.join(", ")
+        }
+    );
     if online > 0 {
         message.push_str(&format!(" {} online.", online));
     }
@@ -5395,8 +5804,9 @@ pub fn agent_computers_get_config(
         .optional()
         .map_err(|e| e.to_string())?;
     match value {
-        Some(raw) => serde_json::from_str(&raw)
-            .map_err(|e| format!("Invalid Agent Computers config: {}", e)),
+        Some(raw) => {
+            serde_json::from_str(&raw).map_err(|e| format!("Invalid Agent Computers config: {}", e))
+        }
         None => Ok(AgentComputerConfig::default()),
     }
 }
@@ -5453,8 +5863,8 @@ fn agent_computer_saved_entry(
         .optional()
         .map_err(|e| e.to_string())?;
     let Some(raw) = value else { return Ok(None) };
-    let config: AgentComputerConfig = serde_json::from_str(&raw)
-        .map_err(|e| format!("Invalid Agent Computers config: {}", e))?;
+    let config: AgentComputerConfig =
+        serde_json::from_str(&raw).map_err(|e| format!("Invalid Agent Computers config: {}", e))?;
     Ok(config.computers.into_iter().find(|saved| {
         saved.name == computer.name && saved.node == computer.node && saved.vmid == computer.vmid
     }))
@@ -5480,7 +5890,10 @@ pub async fn agent_computer_test(
         .build()
         .map_err(|e| e.to_string())?;
     let res = client
-        .get(format!("{}/health", computer.base_url.trim_end_matches('/')))
+        .get(format!(
+            "{}/health",
+            computer.base_url.trim_end_matches('/')
+        ))
         .bearer_auth(computer.token)
         .send()
         .await
@@ -5506,11 +5919,15 @@ async fn agent_computer_lxc(
         read_proxmox_config_from_db(&db)?
     };
 
-    if matches!(method, "agent_computer.provision" | "agent_computer.start_lxc" | "agent_computer.stop_lxc") {
+    if matches!(
+        method,
+        "agent_computer.provision" | "agent_computer.start_lxc" | "agent_computer.stop_lxc"
+    ) {
         let Some(config) = proxmox_config else {
             return Ok(AgentComputerResult {
                 ok: false,
-                message: "Proxmox is not configured. Set host/credentials in Settings → Proxmox.".into(),
+                message: "Proxmox is not configured. Set host/credentials in Settings → Proxmox."
+                    .into(),
                 computer: None,
             });
         };
@@ -5524,17 +5941,45 @@ async fn agent_computer_lxc(
 
         return match method {
             "agent_computer.provision" => match proxmox_clone_lxc(&config, &computer).await {
-                Ok(generated) => Ok(AgentComputerResult { ok: true, message: "Provisioned".into(), computer: Some(generated) }),
-                Err(message) => Ok(AgentComputerResult { ok: false, message, computer: None }),
+                Ok(generated) => Ok(AgentComputerResult {
+                    ok: true,
+                    message: "Provisioned".into(),
+                    computer: Some(generated),
+                }),
+                Err(message) => Ok(AgentComputerResult {
+                    ok: false,
+                    message,
+                    computer: None,
+                }),
             },
-            "agent_computer.start_lxc" => match proxmox_lxc_action(&config, &computer.node, &computer.vmid, "start").await {
-                Ok(()) => Ok(AgentComputerResult { ok: true, message: "Started".into(), computer: None }),
-                Err(message) => Ok(AgentComputerResult { ok: false, message, computer: None }),
-            },
-            "agent_computer.stop_lxc" => match proxmox_lxc_action(&config, &computer.node, &computer.vmid, "stop").await {
-                Ok(()) => Ok(AgentComputerResult { ok: true, message: "Stopped".into(), computer: None }),
-                Err(message) => Ok(AgentComputerResult { ok: false, message, computer: None }),
-            },
+            "agent_computer.start_lxc" => {
+                match proxmox_lxc_action(&config, &computer.node, &computer.vmid, "start").await {
+                    Ok(()) => Ok(AgentComputerResult {
+                        ok: true,
+                        message: "Started".into(),
+                        computer: None,
+                    }),
+                    Err(message) => Ok(AgentComputerResult {
+                        ok: false,
+                        message,
+                        computer: None,
+                    }),
+                }
+            }
+            "agent_computer.stop_lxc" => {
+                match proxmox_lxc_action(&config, &computer.node, &computer.vmid, "stop").await {
+                    Ok(()) => Ok(AgentComputerResult {
+                        ok: true,
+                        message: "Stopped".into(),
+                        computer: None,
+                    }),
+                    Err(message) => Ok(AgentComputerResult {
+                        ok: false,
+                        message,
+                        computer: None,
+                    }),
+                }
+            }
             _ => unreachable!(),
         };
     }
@@ -5585,7 +6030,11 @@ pub async fn agent_computer_start(
 ) -> Result<AgentComputerResult, String> {
     match agent_computer_saved_entry(&state, &computer)? {
         Some(saved) => agent_computer_lxc(state, saved, "agent_computer.start_lxc").await,
-        None => Ok(AgentComputerResult { ok: false, message: "Save this Agent Computer before starting it.".into(), computer: None }),
+        None => Ok(AgentComputerResult {
+            ok: false,
+            message: "Save this Agent Computer before starting it.".into(),
+            computer: None,
+        }),
     }
 }
 
@@ -5596,7 +6045,11 @@ pub async fn agent_computer_stop(
 ) -> Result<AgentComputerResult, String> {
     match agent_computer_saved_entry(&state, &computer)? {
         Some(saved) => agent_computer_lxc(state, saved, "agent_computer.stop_lxc").await,
-        None => Ok(AgentComputerResult { ok: false, message: "Save this Agent Computer before stopping it.".into(), computer: None }),
+        None => Ok(AgentComputerResult {
+            ok: false,
+            message: "Save this Agent Computer before stopping it.".into(),
+            computer: None,
+        }),
     }
 }
 
@@ -8918,6 +9371,269 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn concurrent_duplicate_spawn_has_one_owner_and_no_untracked_child() {
+        let gate = Arc::new(tokio::sync::Mutex::new(()));
+        let ptys = Arc::new(Mutex::new(HashMap::<String, u32>::new()));
+        let children = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let barrier = Arc::new(tokio::sync::Barrier::new(2));
+        let mut tasks = Vec::new();
+        for candidate in [1, 2] {
+            let (gate, ptys, children, barrier) = (
+                gate.clone(),
+                ptys.clone(),
+                children.clone(),
+                barrier.clone(),
+            );
+            tasks.push(tokio::spawn(async move {
+                barrier.wait().await;
+                let _spawn_guard = gate.lock().await;
+                if ptys.lock().contains_key("shared-tab") {
+                    return false;
+                }
+                children.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                tokio::task::yield_now().await; // competing spawn before registration
+                insert_pty_if_absent(&ptys, "shared-tab".into(), candidate).is_ok()
+            }));
+        }
+        let outcomes = futures::future::join_all(tasks).await;
+        assert_eq!(
+            outcomes
+                .into_iter()
+                .filter(|result| *result.as_ref().unwrap())
+                .count(),
+            1
+        );
+        assert_eq!(ptys.lock().len(), 1);
+        assert_eq!(children.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn duplicate_insertion_returns_unused_child_without_overwriting_owner() {
+        let ptys = Arc::new(Mutex::new(HashMap::new()));
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let unused = std::thread::scope(|scope| {
+            let threads = [1, 2].map(|candidate| {
+                let (ptys, barrier) = (ptys.clone(), barrier.clone());
+                scope.spawn(move || {
+                    barrier.wait();
+                    insert_pty_if_absent(&ptys, "shared-tab".into(), candidate).err()
+                })
+            });
+            threads
+                .into_iter()
+                .map(|thread| thread.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+        assert_eq!(ptys.lock().len(), 1);
+        assert_eq!(unused.iter().filter(|child| child.is_some()).count(), 1);
+        assert_ne!(
+            *ptys.lock().get("shared-tab").unwrap(),
+            unused.into_iter().flatten().next().unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn output_checked_before_replacement_cannot_reach_new_tab() {
+        let gate = Arc::new(tokio::sync::Mutex::new(()));
+        let ptys = Arc::new(Mutex::new(HashMap::from([("tab".to_string(), "old")])));
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let (checked_tx, checked_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
+        let event = {
+            let (gate, ptys, sent) = (gate.clone(), ptys.clone(), sent.clone());
+            tokio::spawn(async move {
+                let _event_guard = gate.lock().await;
+                let current = ptys.lock().get("tab") == Some(&"old");
+                checked_tx.send(()).unwrap();
+                finish_rx.await.unwrap(); // replacement attempts after validation
+                if current {
+                    sent.lock().push("old-output");
+                }
+            })
+        };
+        checked_rx.await.unwrap();
+        let replace = {
+            let (gate, ptys) = (gate.clone(), ptys.clone());
+            tokio::spawn(async move {
+                let _spawn_guard = gate.lock().await;
+                ptys.lock().insert("tab".into(), "new");
+            })
+        };
+        finish_tx.send(()).unwrap();
+        event.await.unwrap();
+        replace.await.unwrap();
+        assert_eq!(*sent.lock(), vec!["old-output"]);
+        let _event_guard = gate.lock().await;
+        if ptys.lock().get("tab") == Some(&"old") {
+            sent.lock().push("stale-output");
+        }
+        assert_eq!(*sent.lock(), vec!["old-output"]);
+    }
+
+    #[tokio::test]
+    async fn close_during_pending_spawn_removes_registered_child() {
+        let gate = Arc::new(tokio::sync::Mutex::new(()));
+        let ptys = Arc::new(Mutex::new(HashMap::<String, u32>::new()));
+        let (checked_tx, checked_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
+        let spawn = {
+            let (gate, ptys) = (gate.clone(), ptys.clone());
+            tokio::spawn(async move {
+                let _spawn_guard = gate.lock().await;
+                assert!(!ptys.lock().contains_key("tab"));
+                checked_tx.send(()).unwrap();
+                finish_rx.await.unwrap(); // close requested while child is not registered
+                insert_pty_if_absent(&ptys, "tab".into(), 4100).unwrap();
+            })
+        };
+        checked_rx.await.unwrap();
+        let close = {
+            let (gate, ptys) = (gate.clone(), ptys.clone());
+            tokio::spawn(async move {
+                let _spawn_guard = gate.lock().await;
+                let removed = ptys.lock().remove("tab");
+                removed
+            })
+        };
+        finish_tx.send(()).unwrap();
+        spawn.await.unwrap();
+        assert_eq!(close.await.unwrap(), Some(4100));
+        assert!(ptys.lock().is_empty());
+    }
+
+    #[tokio::test]
+    async fn managed_close_requires_confirmed_wait_not_only_a_kill_request() {
+        let failed = wait_for_managed_exit(|| false, || false, std::time::Duration::from_secs(1))
+            .await
+            .unwrap_err();
+        assert!(failed.contains("wait failed"));
+        let pending =
+            wait_for_managed_exit(|| false, || true, std::time::Duration::from_millis(25))
+                .await
+                .unwrap_err();
+        assert!(pending.contains("timeout"));
+        assert!(
+            wait_for_managed_exit(|| true, || false, std::time::Duration::from_secs(1))
+                .await
+                .is_ok()
+        );
+        let checks = std::cell::Cell::new(0);
+        assert!(wait_for_managed_exit(
+            || {
+                checks.set(checks.get() + 1);
+                checks.get() == 2
+            },
+            || false,
+            std::time::Duration::from_secs(1),
+        )
+        .await
+        .is_ok());
+        assert_eq!(checks.get(), 2);
+    }
+
+    #[tokio::test]
+    async fn managed_close_trusts_confirmed_exit_over_false_windows_kill_error() {
+        let timeout = std::time::Duration::from_secs(1);
+        assert!(finish_managed_kill(
+            Err("reported kill failure".into()),
+            || true,
+            || false,
+            timeout
+        )
+        .await
+        .is_ok());
+        let failure =
+            finish_managed_kill(Err("real kill failure".into()), || false, || false, timeout)
+                .await
+                .unwrap_err();
+        assert!(failure.contains("wait failed"));
+        assert!(failure.contains("real kill failure"));
+        let pending = finish_managed_kill(
+            Err("kill result unknown".into()),
+            || false,
+            || true,
+            std::time::Duration::from_millis(25),
+        )
+        .await
+        .unwrap_err();
+        assert!(pending.contains("timeout"));
+        assert!(pending.contains("kill result unknown"));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn managed_close_waits_for_controlled_local_child_exit() {
+        let (tx, _rx) = mpsc::channel(16);
+        let handle = spawn_pty(
+            PtyOptions {
+                shell: "/bin/sleep".into(),
+                args: vec!["30".into()],
+                cwd: std::env::temp_dir().to_string_lossy().into_owned(),
+                cols: 80,
+                rows: 24,
+                pane_id: None,
+                claude_config_dir: None,
+            },
+            tx,
+        )
+        .await
+        .unwrap();
+        assert!(handle.is_alive());
+        confirm_managed_ssh_termination(&handle, std::time::Duration::from_secs(5))
+            .await
+            .unwrap();
+        assert!(handle.exit_confirmed());
+        assert!(!handle.is_alive());
+    }
+
+    #[test]
+    fn pipe_targets_exclude_only_dead_managed_ssh_handles() {
+        let handles = HashMap::from([
+            ("managed-dead", (true, false)),
+            ("managed-live", (true, true)),
+            ("ordinary-dead", (false, false)),
+            ("ordinary-live", (false, true)),
+        ]);
+        let visible: std::collections::HashSet<_> = handles
+            .iter()
+            .filter(|(_, status)| pipe_target_available(status.0, status.1))
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            visible,
+            std::collections::HashSet::from(["managed-live", "ordinary-dead", "ordinary-live"])
+        );
+    }
+
+    #[test]
+    fn managed_ssh_restore_marker_is_not_an_executable() {
+        assert_eq!(
+            WINDOWS_MANAGED_SSH_SHELL_MARKER,
+            "terminai:managed-ssh-disconnected"
+        );
+        assert_eq!(
+            persisted_windows_spawn_shell(true, r"C:\Windows\System32\OpenSSH\ssh.exe"),
+            WINDOWS_MANAGED_SSH_SHELL_MARKER
+        );
+        assert_eq!(persisted_windows_spawn_shell(false, "pwsh.exe"), "pwsh.exe");
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE tabs (id TEXT PRIMARY KEY, shell_cmd TEXT NOT NULL);
+            INSERT INTO tabs VALUES ('reopened-tab', 'pwsh.exe');",
+        )
+        .unwrap();
+        persist_windows_managed_shell_marker(&db, "reopened-tab").unwrap();
+        let restored: String = db
+            .query_row(
+                "SELECT shell_cmd FROM tabs WHERE id = 'reopened-tab'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(restored, WINDOWS_MANAGED_SSH_SHELL_MARKER);
+    }
+
+    #[tokio::test]
     async fn anthropic_model_refresh_uses_live_models_api() {
         use wiremock::matchers::{header, method, path, query_param};
         use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -8945,7 +9661,10 @@ mod tests {
     fn debug_builds_use_live_sidecar_venv() {
         assert!(!should_use_bundled_python());
         let (python, _) = sidecar_spawn_target();
-        assert!(python.ends_with("sidecar/.venv/bin/python") || python.ends_with("sidecar/.venv/Scripts/python.exe"));
+        assert!(
+            python.ends_with("sidecar/.venv/bin/python")
+                || python.ends_with("sidecar/.venv/Scripts/python.exe")
+        );
         assert!(!python.contains("src-tauri/sidecar/.venv"));
     }
 
@@ -9107,7 +9826,10 @@ mod tests {
         let env: serde_json::Value = serde_json::from_str(&row.3).unwrap();
         assert_eq!(row.0, "Blender MCP");
         assert_eq!(row.1, "stdio");
-        assert_eq!(command["args"], serde_json::json!(["-m", "blender_mcp.server"]));
+        assert_eq!(
+            command["args"],
+            serde_json::json!(["-m", "blender_mcp.server"])
+        );
         assert_eq!(env["BLENDER_HOST"], "localhost");
         assert_eq!(env["BLENDER_PORT"], "9876");
         assert_eq!(row.4, 1);

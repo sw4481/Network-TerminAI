@@ -32,7 +32,10 @@ use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokio::sync::mpsc;
 
 #[cfg(windows)]
@@ -105,6 +108,10 @@ pub enum PtyEvent {
     EnterAltScreen,
     /// The alternate screen was restored (`\e[?1049l`); the TUI has exited.
     ExitAltScreen,
+    /// Backend-authenticated app-owned Windows SSH child (not terminal text).
+    ManagedSshAuthenticated { connection_id: String },
+    /// The post-authentication callback did not complete; attachment stays blocked.
+    ManagedSshAuthFailed,
     /// Shell process exited
     Exit { code: Option<i32> },
 }
@@ -142,9 +149,31 @@ pub struct PtyHandle {
     /// OS process id of the spawned shell (Phase 3E — used for port/ssh
     /// metadata gathering). `None` if the platform did not report one.
     pid: Option<u32>,
+    generation: String,
+    alive: Arc<AtomicBool>,
+    #[cfg(any(target_os = "windows", test))]
+    exit_confirmed: Arc<AtomicBool>,
+    managed_ssh: bool,
 }
 
 impl PtyHandle {
+    pub fn generation(&self) -> &str {
+        &self.generation
+    }
+
+    pub fn is_alive(&self) -> bool {
+        self.alive.load(Ordering::Acquire)
+    }
+
+    #[cfg(any(target_os = "windows", test))]
+    pub fn exit_confirmed(&self) -> bool {
+        self.exit_confirmed.load(Ordering::Acquire)
+    }
+
+    pub fn is_managed_ssh(&self) -> bool {
+        self.managed_ssh
+    }
+
     /// The OS process id of the spawned shell, if known.
     pub fn pid(&self) -> Option<u32> {
         self.pid
@@ -265,6 +294,15 @@ impl PtyHandle {
     }
 }
 
+#[cfg(any(target_os = "windows", test))]
+fn finish_child_wait(alive: &AtomicBool, exit_confirmed: &AtomicBool, succeeded: bool) {
+    if succeeded {
+        exit_confirmed.store(true, Ordering::Release);
+    }
+    // A failed wait is not proof of termination, but also cannot prove liveness.
+    alive.store(false, Ordering::Release);
+}
+
 /// Spawn a new PTY session with the given options.
 ///
 /// Creates a PTY master/slave pair, spawns the specified shell, and starts
@@ -313,6 +351,23 @@ impl PtyHandle {
 /// }
 /// ```
 pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<PtyHandle> {
+    spawn_pty_inner(opts, tx, None)
+}
+
+#[cfg(windows)]
+pub async fn spawn_managed_ssh_pty(
+    opts: PtyOptions,
+    tx: mpsc::Sender<PtyEvent>,
+    auth_nonce: &str,
+) -> Result<PtyHandle> {
+    spawn_pty_inner(opts, tx, Some(auth_nonce))
+}
+
+fn spawn_pty_inner(
+    opts: PtyOptions,
+    tx: mpsc::Sender<PtyEvent>,
+    auth_nonce: Option<&str>,
+) -> Result<PtyHandle> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -345,13 +400,22 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
             cmd.arg(path);
         }
     } else {
-        tracing::info!("Using provided args for shell: {:?}", opts.args);
+        if auth_nonce.is_none() {
+            tracing::info!("Using provided args for shell: {:?}", opts.args);
+        }
         for a in &opts.args {
             cmd.arg(a);
         }
     }
 
     cmd.cwd(&opts.cwd);
+    // This value is inherited only by the directly spawned ssh.exe and its
+    // fixed LocalCommand. It must never appear in argv, terminal output or logs.
+    if let Some(nonce) = auth_nonce {
+        cmd.env("CCIE_SSH_AUTH", nonce);
+        #[cfg(windows)]
+        cmd.env("COMSPEC", std::path::Path::new(&opts.cwd).join("cmd.exe"));
+    }
     // Set TERM to ensure proper terminal behavior
     cmd.env("TERM", "xterm-256color");
     // Enable shell integration for command block detection
@@ -369,6 +433,10 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
 
     let child = pair.slave.spawn_command(cmd).context("spawn shell")?;
     let pid = child.process_id();
+    let generation = uuid::Uuid::new_v4().to_string();
+    let alive = Arc::new(AtomicBool::new(true));
+    #[cfg(any(target_os = "windows", test))]
+    let exit_confirmed = Arc::new(AtomicBool::new(false));
 
     // Drop the slave end in the parent so the PTY closes when the child exits.
     drop(pair.slave);
@@ -434,9 +502,17 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
     // Waiter thread: when the child exits, emit a final Exit event.
     // The waiter thread owns the child directly - no Arc/Mutex needed.
     let tx_wait = tx.clone();
+    let alive_wait = alive.clone();
+    #[cfg(any(target_os = "windows", test))]
+    let exit_confirmed_wait = exit_confirmed.clone();
     std::thread::spawn(move || {
         let mut child = child; // take ownership
-        let exit = child.wait().ok().map(|s| if s.success() { 0 } else { 1 });
+        let waited = child.wait();
+        #[cfg(any(target_os = "windows", test))]
+        finish_child_wait(&alive_wait, &exit_confirmed_wait, waited.is_ok());
+        #[cfg(not(any(target_os = "windows", test)))]
+        alive_wait.store(false, Ordering::Release);
+        let exit = waited.ok().map(|s| if s.success() { 0 } else { 1 });
         let _ = tx_wait.blocking_send(PtyEvent::Exit { code: exit });
     });
 
@@ -446,6 +522,11 @@ pub async fn spawn_pty(opts: PtyOptions, tx: mpsc::Sender<PtyEvent>) -> Result<P
         killer,
         tap_slot,
         pid,
+        generation,
+        alive,
+        #[cfg(any(target_os = "windows", test))]
+        exit_confirmed,
+        managed_ssh: auth_nonce.is_some(),
     })
 }
 
@@ -567,6 +648,17 @@ mod tests {
         // happens via spawn() modifications in a future task when
         // we understand the PTY architecture better.
         let _manager = crate::pane_context::PaneContextManager::new();
+    }
+
+    #[test]
+    fn unknown_child_wait_is_not_confirmed_termination() {
+        let alive = AtomicBool::new(true);
+        let confirmed = AtomicBool::new(false);
+        finish_child_wait(&alive, &confirmed, false);
+        assert!(!alive.load(Ordering::Acquire));
+        assert!(!confirmed.load(Ordering::Acquire));
+        finish_child_wait(&alive, &confirmed, true);
+        assert!(confirmed.load(Ordering::Acquire));
     }
 
     #[tokio::test]

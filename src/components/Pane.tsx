@@ -24,6 +24,7 @@ import {
 } from '../lib/terminalClipboard';
 import { chooseAndExportTerminalScrollback } from '../lib/terminalExport';
 import { reconnectSavedSsh, useLocalShell } from '../lib/sshReconnect';
+import { isManagedSshTab } from '../lib/sessionRestore';
 import './Pane.css';
 
 type PaneProps = {
@@ -49,6 +50,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
   const updatePaneTerminalId = usePanesStore((s) => s.updatePaneTerminalId);
   const closePane = usePanesStore((s) => s.closePane);
   const terminalConnection = useTerminalConnectionStore((s) => s.byTerminalId[terminalId] ?? null);
+  const isManagedRoot = isManagedSshTab(shell, terminalConnection?.managed);
 
   // Blocks mode: per-pane toggle between the raw terminal and the structured
   // command-block list. Lives here (not in TerminalSlot) so toggling it can
@@ -139,8 +141,12 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
   };
 
   const handleReconnect = useCallback(() => {
+    if (terminalConnection?.managed) {
+      window.dispatchEvent(new Event('ccie:open-managed-ssh'));
+      return;
+    }
     void reconnectSavedSsh(terminalId);
-  }, [terminalId]);
+  }, [terminalId, terminalConnection?.managed]);
 
   const handleUseLocalShell = useCallback(() => {
     useLocalShell(terminalId);
@@ -202,6 +208,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
 
   const handleClosePane = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isManagedRoot) return;
     if (ENABLE_TERMINAL_REGISTRY) {
       terminalRegistry.dispose(terminalId);
     } else if (terminalId && !terminalId.startsWith('pending-')) {
@@ -417,7 +424,7 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
       <PaneActivityIndicator paneId={terminalId} />
       <AgentActivityBadge paneId={terminalId} />
 
-      {canClose && (
+      {canClose && !isManagedRoot && (
         <button
           className="pane-close"
           onClick={handleClosePane}
@@ -481,14 +488,14 @@ export const Pane = memo(function Pane({ paneId, terminalId, shell, cwd, canClos
             onClick={(event) => { event.stopPropagation(); handleReconnect(); }}
             disabled={terminalConnection.lifecycle === 'reconnecting'}
           >
-            {terminalConnection.lifecycle === 'reconnecting' ? 'Reconnecting…' : 'Reconnect'}
+            {terminalConnection.managed ? 'Connect in new terminal…' : terminalConnection.lifecycle === 'reconnecting' ? 'Reconnecting…' : 'Reconnect'}
           </button>
-          <button
+          {!terminalConnection.managed && <button
             type="button"
             onClick={(event) => { event.stopPropagation(); handleUseLocalShell(); }}
           >
             Use local shell
-          </button>
+          </button>}
         </div>
       )}
 

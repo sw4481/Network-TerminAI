@@ -10,7 +10,7 @@ export function handleSavedSshCommandStart(
 ): boolean {
   const store = useTerminalConnectionStore.getState();
   const connection = store.get(terminalOrBackendId);
-  if (!connection) return false;
+  if (!connection || connection.managed) return false;
   if (normalizeTrackedSshCommand(command) !== normalizeTrackedSshCommand(connection.ssh_command)) {
     return false;
   }
@@ -26,7 +26,7 @@ export function handleSavedSshCommandEnd(
   if (!completedCommand) return false;
   const store = useTerminalConnectionStore.getState();
   const connection = store.get(terminalOrBackendId);
-  if (!connection) return false;
+  if (!connection || connection.managed) return false;
   if (
     normalizeTrackedSshCommand(completedCommand) !==
     normalizeTrackedSshCommand(connection.ssh_command)

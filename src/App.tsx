@@ -53,7 +53,8 @@ import { useMetadataStore } from "./state/metadataStore";
 import { useForegroundAgentStore } from "./state/foregroundAgentStore";
 import { useTabs } from "./state/tabsStore";
 import type { Tab } from "./lib/types";
-import { useClosedTabs } from "./state/closedTabsStore";
+import { useClosedTabs, type ClosedTab } from "./state/closedTabsStore";
+import { MANAGED_SSH_SHELL_MARKER, isManagedSshTab, reopenedTabShell } from "./lib/sessionRestore";
 import { useIacStateStore } from "./state/iacStateStore";
 import { useIacStudioStore } from "./state/iacStudioStore";
 import { useBlocksStore } from "./state/blocksStore";
@@ -68,10 +69,23 @@ import { useKeyboardShortcut } from "./hooks/useKeyboardShortcut";
 import { usePaneSplit } from "./hooks/usePaneSplit";
 import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
 import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach } from "./lib/tauri";
-import { buildSshCommand } from "./lib/sshConnections";
+import { buildSshCommand, type SshConnection } from "./lib/sshConnections";
+import { normalizeTerminalPlatform } from "./lib/terminalClipboard";
+import { useSshPasswordStore } from "./state/sshPasswordStore";
+import { useTerminalConnectionStore } from "./state/terminalConnectionStore";
 import { AgentNotifier } from "./lib/agentNotifications";
 import { defaultShell } from "./lib/defaultShell";
 import "./App.css";
+
+function bindDisconnectedManagedTab(id: string, title: string): void {
+  useTerminalConnectionStore.getState().bind({
+    terminalId: id, backendPtyId: id, connectionId: '',
+    displayName: title, vendor: 'generic', platform: 'generic',
+    accentColor: null, syntaxHighlightingEnabled: false,
+    syntaxProfile: 'auto', sshCommand: '', managed: true,
+    lifecycle: 'disconnected',
+  });
+}
 
 const AGENT_MIN = 220;
 const AGENT_MAX = 900;
@@ -336,24 +350,36 @@ export default function App() {
   // Falls back to a bare LegacyTerminal slot only if the xterm CDN isn't ready
   // yet (getOrCreate throws) — never leave the terminal column blank.
   const seedTerminalTab = useCallback(
-    async (opts: { cwd?: string; pendingCommand?: string } = {}): Promise<void> => {
+    async (opts: { cwd?: string; pendingCommand?: string; managed?: { connection: SshConnection } } = {}): Promise<void> => {
       const id = crypto.randomUUID();
       const shell = defaultShell();
       const cwd = opts.cwd || "/";
       try {
         const terminalRegistry = await import("./lib/terminalRegistry");
+        if (opts.managed) {
+          const { connection } = opts.managed;
+          useTerminalConnectionStore.getState().bind({
+            terminalId: id, backendPtyId: id, connectionId: connection.id,
+            displayName: connection.name, vendor: connection.vendor, platform: connection.platform,
+            accentColor: connection.accent_color,
+            syntaxHighlightingEnabled: connection.syntax_highlighting_enabled,
+            syntaxProfile: connection.syntax_profile,
+            sshCommand: '', managed: true, lifecycle: 'connecting',
+          });
+        }
         // skipTabRegistration: we addTab ourselves below with the right values;
         // the registry's own spawn-resolve addTab would race with default ones.
         terminalRegistry.getOrCreate(id, {
           shell,
           cwd,
           preferredTabId: id,
+          managedConnectionId: opts.managed?.connection.id,
           skipTabRegistration: true,
         });
         addTab({
           id,
-          title: shell.split("/").pop() ?? shell,
-          shell_cmd: shell,
+          title: opts.managed?.connection.name ?? shell.split("/").pop() ?? shell,
+          shell_cmd: opts.managed ? MANAGED_SSH_SHELL_MARKER : shell,
           cwd,
           created_at: Math.floor(Date.now() / 1000),
           tab_type: "terminal",
@@ -364,6 +390,12 @@ export default function App() {
           terminalRegistry.runWhenReady(id, opts.pendingCommand);
         }
       } catch (e) {
+        if (opts.managed) {
+          useSshPasswordStore.getState().clearPasswordContext(id);
+          useTerminalConnectionStore.getState().clear(id);
+          window.alert(`Managed SSH terminal could not be opened: ${e}`);
+          return; // Never fall back to a local shell for managed SSH.
+        }
         // xterm CDN not loaded yet — fall back to the legacy slot so boot is
         // never blank. This slot mis-keys scrollback (the bug above) but only
         // triggers in the rare pre-CDN window.
@@ -415,6 +447,7 @@ export default function App() {
             replayBytes: t.replayBytes,
             skipTabRegistration: true,
           });
+          if (t.managed) bindDisconnectedManagedTab(t.id, t.title);
           addTab({
             id: t.id,
             title: t.title,
@@ -457,7 +490,7 @@ export default function App() {
   // Mirrors the boot-restore path: pre-create the registry entry with the saved
   // id + replayed scrollback, register the tab, then seed the pane layout so the
   // render routes through the registry entry (id reuse → replay attaches).
-  const reopenClosedTab = useCallback(async (tabId: string, title: string, cwd: string) => {
+  const reopenClosedTab = useCallback(async ({ id: tabId, title, cwd, managed }: ClosedTab) => {
     if (useTabs.getState().tabs.some((t) => t.id === tabId)) {
       useTabs.getState().setActive(tabId);
       return;
@@ -466,14 +499,24 @@ export default function App() {
     const { tabScrollback } = await import("./lib/tauri");
     let replayBytes: number[] = [];
     try { replayBytes = await tabScrollback(tabId); } catch { /* no history */ }
+    const shell = reopenedTabShell(managed);
     terminalRegistry.getOrCreate(tabId, {
-      shell: defaultShell(), cwd, preferredTabId: tabId, replayBytes,
+      shell, cwd, preferredTabId: tabId, replayBytes,
     });
-    addTab({ id: tabId, title, shell_cmd: defaultShell(), cwd, created_at: Math.floor(Date.now() / 1000), tab_type: "terminal" });
+    if (managed) bindDisconnectedManagedTab(tabId, title);
+    addTab({ id: tabId, title, shell_cmd: shell, cwd, created_at: Math.floor(Date.now() / 1000), tab_type: "terminal" });
     await usePanesStore.getState().loadLayoutForTab(tabId);
     setTermSlots((prev) => [...prev, { spawnKey: "reopen-" + tabId, tabId }]);
     useClosedTabs.getState().removeById(tabId);
   }, [addTab]);
+
+  // Reconnect an app-owned Windows SSH child only via another explicit saved
+  // connection selection; never send a local ssh command into its remote PTY.
+  useEffect(() => {
+    const open = () => setSshModalOpen(true);
+    window.addEventListener('ccie:open-managed-ssh', open);
+    return () => window.removeEventListener('ccie:open-managed-ssh', open);
+  }, []);
 
   // Listen for menu events
   useEffect(() => {
@@ -808,7 +851,7 @@ export default function App() {
     // Recently-closed tab reopen (native accelerator ⌘⇧O + View menu).
     unlistens.push(listen('menu:reopen_closed_tab', () => {
       const t = useClosedTabs.getState().popMostRecent();
-      if (t) reopenClosedTab(t.id, t.title, t.cwd);
+      if (t) reopenClosedTab(t);
     }));
     unlistens.push(listen('menu:reopen_closed_pick', () => setRecentlyClosedOpen(true)));
 
@@ -1110,6 +1153,7 @@ export default function App() {
 
   const handleDetachTab = useCallback(async (tab: Tab) => {
     if (tab.tab_type && tab.tab_type !== "terminal") return;
+    if (isManagedSshTab(tab.shell_cmd, useTerminalConnectionStore.getState().get(tab.id)?.managed)) return;
     try {
       const { ptyTabIdFor } = await import("./lib/terminalRegistry");
       const ptyId = ptyTabIdFor(tab.id) ?? tab.id;
@@ -1288,7 +1332,8 @@ export default function App() {
                       key={`pane-${slot.spawnKey}`}
                       style={{ height: "100%", display: visible ? "block" : "none" }}
                     >
-                      <PaneContainer node={layout} shell={shell} cwd={cwd} />
+                      <PaneContainer node={layout} shell={shell} cwd={cwd}
+                        managedRootTerminalId={shell === MANAGED_SSH_SHELL_MARKER ? tab?.id : undefined} />
                     </div>
                   );
                 } else {
@@ -1564,10 +1609,15 @@ export default function App() {
       {sshModalOpen && (
         <SavedSSHConnectionsModal
           onConnect={(connection, password) => {
-            const cmd = buildSshCommand(connection);
-
             // Close modal first
             setSshModalOpen(false);
+            if (normalizeTerminalPlatform() === 'windows') {
+              // Explicitly open a fresh visible ConPTY with ssh.exe as its only
+              // child. Preserve the old terminal/manual SSH session untouched.
+              void seedTerminalTab({ managed: { connection } });
+              return;
+            }
+            const cmd = buildSshCommand(connection);
 
             // Resolve the target PTY: the focused pane's terminalId for the
             // active tab (falls back to the tab id for single-pane tabs). The
@@ -1657,7 +1707,7 @@ export default function App() {
       <RecentlyClosedModal
         open={recentlyClosedOpen}
         onClose={() => setRecentlyClosedOpen(false)}
-        onPick={(t) => reopenClosedTab(t.id, t.title, t.cwd)}
+        onPick={(t) => reopenClosedTab(t)}
       />
       <BlastRadiusHost />
       <StateDrawer />
