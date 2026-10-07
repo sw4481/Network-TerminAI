@@ -1,7 +1,13 @@
+import asyncio
 import json
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
+from langchain_core.messages import AIMessage
+from langchain_core.tools import ToolException
+from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode
 
 from ccie_sidecar.agents.terminal_agent_tools import (
     TerminalGatewayClient,
@@ -26,10 +32,200 @@ def context():
     }
 
 
+def tool_executor(emit, transport):
+    graph = StateGraph(MessagesState)
+    graph.add_node("tools", ToolNode(build_terminal_tools(context(), emit, transport=transport)))
+    graph.add_edge(START, "tools")
+    return graph.compile()
+
+
+def observe_diagnostic_entries(monkeypatch, plan_entered, expected):
+    entered = threading.Event()
+    entry_lock = threading.Lock()
+    count = 0
+    original = TerminalGatewayClient.run_diagnostic
+
+    def observed(self, *args, **kwargs):
+        nonlocal count
+        assert plan_entered.wait(5)
+        with entry_lock:
+            count += 1
+            if count == expected:
+                entered.set()
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(TerminalGatewayClient, "run_diagnostic", observed)
+    return entered
+
+
 def test_diagnostics_fail_before_visible_investigation_plan():
     client = TerminalGatewayClient(context(), lambda _event: None, transport=lambda *_: {})
-    with pytest.raises(ValueError, match="investigation plan"):
+    with pytest.raises(ToolException, match="investigation plan"):
         client.run_diagnostic("step-1", "show aaa servers", "Inspect AAA state")
+
+
+def test_tool_node_queues_parallel_diagnostics_until_gateway_plan_is_visible(monkeypatch):
+    plan_entered = threading.Event()
+    release_plan = threading.Event()
+    all_diagnostics_entered = observe_diagnostic_entries(monkeypatch, plan_entered, 3)
+    calls = []
+    events = []
+
+    def transport(path, payload):
+        calls.append(path)
+        if path == "/plan/begin":
+            plan_entered.set()
+            assert release_plan.wait(10)
+        if path == "/diagnostic":
+            return {"command": payload["command"], "output": "complete", "timed_out": False}
+        return {"ok": True}
+
+    node = tool_executor(events.append, transport)
+    turn = {"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_begin_investigation",
+        "args": {"objective": "Inspect AAA", "hypotheses": [], "steps": ["Inspect"],
+                 "success_criteria": ["Find cause"]},
+        "id": "plan-1",
+    }, *[{
+        "name": "terminal_run_diagnostic",
+        "args": {"plan_step_id": "step-1", "command": f"show aaa status {index}",
+                 "purpose": "Inspect AAA state"},
+        "id": f"diagnostic-{index}",
+    } for index in range(3)]])]}
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        turn_future = pool.submit(asyncio.run, node.ainvoke(turn))
+        try:
+            assert plan_entered.wait(5)
+            assert all_diagnostics_entered.wait(5)
+            assert calls == ["/plan/begin"]
+            assert events == []
+        finally:
+            release_plan.set()
+        results = turn_future.result(timeout=10)["messages"][1:]
+
+    assert len(results) == 4
+    assert [result.tool_call_id for result in results] == [
+        "plan-1", "diagnostic-0", "diagnostic-1", "diagnostic-2",
+    ]
+    assert all(result.status == "success" for result in results)
+    assert all("complete" in result.content for result in results[1:])
+    assert calls == ["/plan/begin", "/diagnostic", "/diagnostic", "/diagnostic"]
+    assert [event["type"] for event in events] == [
+        "terminal_investigation_plan",
+        "terminal_command_start", "terminal_command_result",
+        "terminal_command_start", "terminal_command_result",
+        "terminal_command_start", "terminal_command_result",
+    ]
+
+
+def test_tool_node_reports_early_diagnostic_error_then_allows_retry_after_plan():
+    calls = []
+    events = []
+
+    def transport(path, payload):
+        calls.append(path)
+        return {"output": "ready", "timed_out": False} if path == "/diagnostic" else {"ok": True}
+
+    node = tool_executor(events.append, transport)
+    diagnostic = {"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_run_diagnostic",
+        "args": {"plan_step_id": "step-1", "command": "show aaa servers",
+                 "purpose": "Inspect AAA state"},
+        "id": "diagnostic-early",
+    }])]}
+    early = asyncio.run(node.ainvoke(diagnostic))["messages"][-1]
+    assert early.status == "error"
+    assert early.tool_call_id == "diagnostic-early"
+    assert "investigation plan first" in early.content
+    assert calls == []
+    assert events == []
+
+    plan = {"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_begin_investigation",
+        "args": {"objective": "Inspect AAA", "hypotheses": [], "steps": ["Inspect"],
+                 "success_criteria": ["Find cause"]},
+        "id": "plan-retry",
+    }])]}
+    assert node.invoke(plan)["messages"][-1].status == "success"
+    retry = asyncio.run(node.ainvoke(diagnostic))["messages"][-1]
+    assert retry.status == "success"
+    assert "ready" in retry.content
+    assert calls == ["/plan/begin", "/diagnostic"]
+    assert [event["type"] for event in events] == [
+        "terminal_investigation_plan", "terminal_command_start", "terminal_command_result",
+    ]
+
+
+def test_failed_gateway_plan_never_unblocks_diagnostics_or_emits_a_plan(monkeypatch):
+    plan_entered = threading.Event()
+    release_plan = threading.Event()
+    diagnostic_entered = observe_diagnostic_entries(monkeypatch, plan_entered, 1)
+    calls = []
+    events = []
+
+    def transport(path, _payload):
+        calls.append(path)
+        if path == "/plan/begin":
+            plan_entered.set()
+            assert release_plan.wait(10)
+            raise ValueError("terminal gateway rejected plan")
+        pytest.fail(f"unexpected gateway request: {path}")
+
+    node = tool_executor(events.append, transport)
+    plan = {"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_begin_investigation",
+        "args": {"objective": "Inspect AAA", "hypotheses": [], "steps": ["Inspect"],
+                 "success_criteria": ["Find cause"]},
+        "id": "plan-failed",
+    }])]}
+    diagnostic = {"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_run_diagnostic",
+        "args": {"plan_step_id": "step-1", "command": "show aaa servers",
+                 "purpose": "Inspect AAA state"},
+        "id": "diagnostic-after-failed-plan",
+    }])]}
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        plan_future = pool.submit(asyncio.run, node.ainvoke(plan))
+        try:
+            assert plan_entered.wait(5)
+            diagnostic_future = pool.submit(asyncio.run, node.ainvoke(diagnostic))
+            assert diagnostic_entered.wait(5)
+            assert calls == ["/plan/begin"]
+            assert events == []
+        finally:
+            release_plan.set()
+        with pytest.raises(ValueError, match="terminal gateway rejected plan"):
+            plan_future.result(timeout=10)
+        rejected = diagnostic_future.result(timeout=10)["messages"][-1]
+
+    assert rejected.status == "error"
+    assert "investigation plan first" in rejected.content
+    assert calls == ["/plan/begin"]
+    assert events == []
+
+
+def test_tool_node_still_propagates_unrelated_gateway_errors():
+    def transport(path, _payload):
+        if path == "/diagnostic":
+            raise ValueError("terminal gateway unavailable")
+        return {"ok": True}
+
+    node = tool_executor(lambda _event: None, transport)
+    assert node.invoke({"messages": [AIMessage(content="", tool_calls=[{
+        "name": "terminal_begin_investigation",
+        "args": {"objective": "Inspect AAA", "hypotheses": [], "steps": ["Inspect"],
+                 "success_criteria": ["Find cause"]},
+        "id": "plan-ok",
+    }])]} )["messages"][-1].status == "success"
+    with pytest.raises(ValueError, match="terminal gateway unavailable"):
+        node.invoke({"messages": [AIMessage(content="", tool_calls=[{
+            "name": "terminal_run_diagnostic",
+            "args": {"plan_step_id": "step-1", "command": "show aaa servers",
+                     "purpose": "Inspect AAA state"},
+            "id": "diagnostic-gateway-failed",
+        }])]})
 
 
 def test_plan_and_many_distinct_diagnostics_emit_structured_events():

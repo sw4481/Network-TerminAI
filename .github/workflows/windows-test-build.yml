@@ -75,6 +75,23 @@ jobs:
           uv sync --frozen --extra dev
           .venv/Scripts/python.exe -c "import ccie_sidecar"
 
+      - name: Run terminal investigation regressions on Windows
+        working-directory: sidecar
+        shell: bash
+        env:
+          LANGSMITH_TRACING: "false"
+          LANGCHAIN_TRACING_V2: "false"
+        run: |
+          .venv/Scripts/python.exe -I - <<'PY'
+          import os
+          import tempfile
+          from pathlib import Path
+          with tempfile.TemporaryDirectory(prefix="terminai-terminal-test-") as home:
+              os.environ.update({"HOME": home, "USERPROFILE": home, "CCIE_DB_PATH": str(Path(home) / "sessions.db")})
+              import pytest
+              raise SystemExit(pytest.main(["-q", "tests/agents/test_terminal_agent_tools.py"]))
+          PY
+
       - name: Build portable sidecar from the frozen lock
         working-directory: sidecar
         shell: bash
