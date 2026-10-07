@@ -80,7 +80,9 @@ const MAX_DB_BACKUPS: usize = 3;
 /// No-ops (no backup) when the DB is empty/new or already fully migrated.
 fn backup_before_pending_migrations(conn: &mut Connection, path: &Path) -> Result<()> {
     // Nothing to protect if the file doesn't exist yet or is empty (fresh DB).
-    let is_empty = std::fs::metadata(path).map(|m| m.len() == 0).unwrap_or(true);
+    let is_empty = std::fs::metadata(path)
+        .map(|m| m.len() == 0)
+        .unwrap_or(true);
     if is_empty {
         return Ok(());
     }
@@ -157,9 +159,7 @@ fn prune_old_backups(path: &Path, file_name: &str) {
 /// (V0039 needs `vec0`). The Phase 1 helper [`crate::rag::vec::enable_vec_extension`]
 /// should be invoked first.
 pub fn apply_migrations(conn: &mut Connection) -> Result<()> {
-    migrations::runner()
-        .run(conn)
-        .context("run migrations")?;
+    migrations::runner().run(conn).context("run migrations")?;
     Ok(())
 }
 
@@ -246,6 +246,42 @@ mod tests {
     }
 
     #[test]
+    fn migration_93_preserves_existing_ai_config_and_adds_nullable_step_limit() {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("steps.db");
+        {
+            let conn = open_and_migrate_to(&db_path, 92).unwrap();
+            conn.execute(
+                "INSERT INTO ai_config (id, provider, model) VALUES (1, 'anthropic', 'existing-model')",
+                [],
+            )
+            .unwrap();
+        }
+        let conn = open_and_migrate(&db_path).unwrap();
+        let row: (String, Option<i64>) = conn
+            .query_row(
+                "SELECT model, max_agent_steps FROM ai_config WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(row, ("existing-model".to_string(), None));
+        conn.execute(
+            "UPDATE ai_config SET max_agent_steps = 500 WHERE id = 1",
+            [],
+        )
+        .unwrap();
+        let limit: Option<i64> = conn
+            .query_row(
+                "SELECT max_agent_steps FROM ai_config WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(limit, Some(500));
+    }
+
+    #[test]
     fn test_profile_insert() {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
@@ -283,7 +319,10 @@ mod tests {
         let fk: i64 = conn
             .query_row("PRAGMA foreign_keys", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(fk, 1, "foreign_keys pragma must be ON after open_and_migrate");
+        assert_eq!(
+            fk, 1,
+            "foreign_keys pragma must be ON after open_and_migrate"
+        );
     }
 
     /// Auto-update safety net: opening a DB that is behind the embedded
@@ -313,7 +352,11 @@ mod tests {
                     .unwrap_or(false)
             })
             .collect();
-        assert_eq!(backups.len(), 1, "expected exactly one pre-migration backup");
+        assert_eq!(
+            backups.len(),
+            1,
+            "expected exactly one pre-migration backup"
+        );
     }
 
     /// A fully up-to-date DB must NOT produce a backup on open (avoids copying

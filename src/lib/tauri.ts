@@ -1810,6 +1810,7 @@ export type AIProviderConfig = {
   model: string;
   apiKey?: string;
   baseUrl?: string;
+  maxAgentSteps?: number | null;
 };
 
 export const aiSaveConfig = (config: AIProviderConfig) =>

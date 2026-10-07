@@ -5,6 +5,23 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.10] - 2026-10-07
+
+### Added
+
+- Add a global maximum-agent-steps setting to General LLM settings, accepting 1–500 steps or a blank value to preserve each execution engine's existing default.
+- Apply the configured budget to DeepAgents graph steps and legacy agent iterations, including configured budgets retained across approval pauses.
+
+### Fixed
+
+- Preserve managed Windows SSH connection identity when attaching Network Architect to the focused saved connection.
+- Serialize attached-terminal investigation-plan publication with diagnostic execution and recover safely from expected missing-plan tool errors.
+
+### Known limitations
+
+- DeepAgents counts graph steps, not terminal commands; larger limits do not change execution timeouts or approval requirements.
+- Attached-terminal input was confirmed in the Windows test build; full investigation completion with a custom step limit remains operator-pending.
+
 ## [1.1.9] - 2026-10-06
 
 ### Fixed

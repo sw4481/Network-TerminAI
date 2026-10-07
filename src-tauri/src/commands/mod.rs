@@ -4621,43 +4621,50 @@ pub struct AIProviderConfig {
     model: String,
     api_key: Option<String>,
     base_url: Option<String>,
+    max_agent_steps: Option<i64>,
 }
 
-#[tauri::command]
-pub fn ai_save_config(state: State<'_, AppState>, config: AIProviderConfig) -> Result<(), String> {
-    let db = state.db.lock();
-
-    // Save to database
+fn save_ai_config(db: &rusqlite::Connection, config: &AIProviderConfig) -> Result<(), String> {
+    if config
+        .max_agent_steps
+        .is_some_and(|steps| !(1..=500).contains(&steps))
+    {
+        return Err("Maximum agent steps must be a whole number from 1 to 500".into());
+    }
     db.execute(
-        "INSERT OR REPLACE INTO ai_config (id, provider, model, api_key, base_url) VALUES (1, ?1, ?2, ?3, ?4)",
-        rusqlite::params![&config.provider, &config.model, &config.api_key, &config.base_url],
+        "INSERT OR REPLACE INTO ai_config (id, provider, model, api_key, base_url, max_agent_steps) VALUES (1, ?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![&config.provider, &config.model, &config.api_key, &config.base_url, config.max_agent_steps],
     )
     .map_err(|e| format!("Failed to save AI config: {}", e))?;
-
     Ok(())
 }
 
 #[tauri::command]
-pub fn ai_get_config(state: State<'_, AppState>) -> Result<Option<AIProviderConfig>, String> {
-    let db = state.db.lock();
+pub fn ai_save_config(state: State<'_, AppState>, config: AIProviderConfig) -> Result<(), String> {
+    save_ai_config(&state.db.lock(), &config)
+}
 
+fn read_ai_config(db: &rusqlite::Connection) -> Result<Option<AIProviderConfig>, String> {
     let mut stmt = db
-        .prepare("SELECT provider, model, api_key, base_url FROM ai_config WHERE id = 1")
+        .prepare("SELECT provider, model, api_key, base_url, max_agent_steps FROM ai_config WHERE id = 1")
         .map_err(|e| format!("Failed to query AI config: {}", e))?;
 
-    let config = stmt
-        .query_row([], |row| {
-            Ok(AIProviderConfig {
-                provider: row.get(0)?,
-                model: row.get(1)?,
-                api_key: row.get(2)?,
-                base_url: row.get(3)?,
-            })
+    stmt.query_row([], |row| {
+        Ok(AIProviderConfig {
+            provider: row.get(0)?,
+            model: row.get(1)?,
+            api_key: row.get(2)?,
+            base_url: row.get(3)?,
+            max_agent_steps: row.get(4)?,
         })
-        .optional()
-        .map_err(|e| format!("Failed to read AI config: {}", e))?;
+    })
+    .optional()
+    .map_err(|e| format!("Failed to read AI config: {}", e))
+}
 
-    Ok(config)
+#[tauri::command]
+pub fn ai_get_config(state: State<'_, AppState>) -> Result<Option<AIProviderConfig>, String> {
+    read_ai_config(&state.db.lock())
 }
 
 /// Master feature flag for the context-graph work (agent graph helper,
@@ -9369,6 +9376,77 @@ pub mod workflows_seed;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ai_config_step_limit_round_trips_and_can_be_cleared() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE ai_config (
+            id INTEGER PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL,
+            api_key TEXT, base_url TEXT, max_agent_steps INTEGER
+        )",
+        )
+        .unwrap();
+        let mut config: AIProviderConfig = serde_json::from_value(serde_json::json!({
+            "provider": "anthropic", "model": "test-model", "maxAgentSteps": 1
+        }))
+        .unwrap();
+        for limit in [Some(1), Some(500), None] {
+            config.max_agent_steps = limit;
+            save_ai_config(&db, &config).unwrap();
+            let saved = read_ai_config(&db).unwrap().unwrap();
+            assert_eq!(saved.max_agent_steps, limit);
+            assert_eq!(saved.provider, "anthropic");
+            assert_eq!(saved.model, "test-model");
+            assert_eq!(
+                serde_json::to_value(saved).unwrap()["maxAgentSteps"],
+                serde_json::json!(limit)
+            );
+        }
+        let old_config: AIProviderConfig = serde_json::from_value(serde_json::json!({
+            "provider": "openai", "model": "legacy-model"
+        }))
+        .unwrap();
+        save_ai_config(&db, &old_config).unwrap();
+        assert_eq!(read_ai_config(&db).unwrap().unwrap().max_agent_steps, None);
+    }
+
+    #[test]
+    fn ai_config_rejects_invalid_steps_without_replacing_the_existing_row() {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(
+            "CREATE TABLE ai_config (
+            id INTEGER PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL,
+            api_key TEXT, base_url TEXT, max_agent_steps INTEGER
+        )",
+        )
+        .unwrap();
+        let mut config: AIProviderConfig = serde_json::from_value(serde_json::json!({
+            "provider": "anthropic", "model": "original", "maxAgentSteps": 37
+        }))
+        .unwrap();
+        save_ai_config(&db, &config).unwrap();
+        config.model = "must-not-be-saved".into();
+        for limit in [0, -1, 501, i64::MAX] {
+            config.max_agent_steps = Some(limit);
+            assert!(save_ai_config(&db, &config).is_err());
+            let saved = read_ai_config(&db).unwrap().unwrap();
+            assert_eq!(
+                (saved.model.as_str(), saved.max_agent_steps),
+                ("original", Some(37))
+            );
+        }
+        for invalid in [
+            serde_json::json!(1.5),
+            serde_json::json!("10"),
+            serde_json::json!(true),
+        ] {
+            let value = serde_json::json!({
+                "provider": "anthropic", "model": "invalid", "maxAgentSteps": invalid
+            });
+            assert!(serde_json::from_value::<AIProviderConfig>(value).is_err());
+        }
+    }
 
     #[tokio::test]
     async fn concurrent_duplicate_spawn_has_one_owner_and_no_untracked_child() {

@@ -2303,6 +2303,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             edited_action=edited_action,
                             on_event=emit_event,
                             stream_output=stream_output,
+                            config=state.config,
                         ))
                     if not resume_outcome.get("interrupted"):
                         from ccie_sidecar.agents.terminal_agent_tools import (

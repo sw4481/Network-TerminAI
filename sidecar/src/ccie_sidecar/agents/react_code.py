@@ -643,7 +643,7 @@ async def react_code_loop(
         print(f"[react_code_loop] vault_secrets keys: {list(vault_secrets.keys())}", file=sys.stderr)
 
         # Get LLM configuration
-        from ccie_sidecar.agent import get_saved_config
+        from ccie_sidecar.agent import AgentStepBudget, get_saved_config
 
         config = get_saved_config()
         if not config:
@@ -653,6 +653,7 @@ async def react_code_loop(
             })
             return
 
+        max_steps = AgentStepBudget(config).limit(MAX_STEPS)
         provider = config.get("provider", "anthropic")
         model = config.get("model", "claude-sonnet-4-6")
         api_key = config.get("api_key")
@@ -931,7 +932,7 @@ Use print() to output results — only printed output is visible to you."""
         messages = build_history_messages(ctx, user_msg)
 
         # ReACT loop
-        for step in range(1, MAX_STEPS + 1):
+        for step in range(1, max_steps + 1):
             # Call LLM
             try:
                 response = _call_llm_with_tools(
@@ -1163,7 +1164,7 @@ Use print() to output results — only printed output is visible to you."""
         # Max steps reached
         on_event({
             "type": "error",
-            "message": f"Maximum steps ({MAX_STEPS}) reached",
+            "message": f"Maximum steps ({max_steps}) reached",
         })
 
     except Exception as e:

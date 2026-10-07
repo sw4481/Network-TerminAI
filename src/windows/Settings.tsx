@@ -114,6 +114,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const [aiModel, setAIModel] = useState<string>("claude-sonnet-4-20250514");
   const [apiKey, setAPIKey] = useState<string>("");
   const [baseURL, setBaseURL] = useState<string>("");
+  const [maxAgentSteps, setMaxAgentSteps] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -309,6 +310,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
   const loadAIConfig = async () => {
     try {
       const config = await aiGetConfig();
+      setMaxAgentSteps(config?.maxAgentSteps == null ? "" : String(config.maxAgentSteps));
       if (config) {
         setAIProvider(config.provider as AIProvider);
         setAIModel(config.model);
@@ -661,8 +663,26 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
               </div>
             )}
 
+            <div className="form-group">
+              <label htmlFor="max-agent-steps">Maximum agent steps</label>
+              <input
+                id="max-agent-steps"
+                type="text"
+                inputMode="numeric"
+                value={maxAgentSteps}
+                onChange={(e) => setMaxAgentSteps(e.target.value)}
+                aria-describedby="max-agent-steps-hint"
+                style={{ maxWidth: "140px" }}
+              />
+              <small id="max-agent-steps-hint" className="hint">
+                Global for all agents, including model overrides. DeepAgents counts graph steps;
+                blank preserves engine defaults (60 graph steps, Legacy 12/16 iterations).
+                Changes apply on the next turn. Enter a whole number from 1 to 500.
+              </small>
+            </div>
+
             {saveStatus && (
-              <div style={{
+              <div role={saveStatus.type === "error" ? "alert" : undefined} style={{
                 padding: "12px",
                 marginBottom: "16px",
                 borderRadius: "4px",
@@ -677,6 +697,11 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
 
             <div className="form-actions">
               <button className="primary" onClick={async () => {
+                const steps = maxAgentSteps.trim();
+                if (steps && (!/^\d+$/.test(steps) || Number(steps) < 1 || Number(steps) > 500)) {
+                  setSaveStatus({ type: "error", message: "Maximum agent steps must be a whole number from 1 to 500." });
+                  return;
+                }
                 console.log("Save button clicked", { aiProvider, aiModel, apiKey: apiKey ? "***" : "", baseURL });
                 setSaveStatus({ type: "success", message: "Saving..." });
                 try {
@@ -690,6 +715,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                     // requests to the wrong endpoint. Send undefined so the
                     // backend uses the provider's correct default URL.
                     baseUrl: providerUsesBaseUrl(aiProvider) ? baseURL || undefined : undefined,
+                    maxAgentSteps: steps ? Number(steps) : null,
                   });
                   setSaveStatus({ type: "success", message: "✓ Configuration saved successfully!" });
                   setTimeout(() => setSaveStatus(null), 3000);

@@ -349,12 +349,13 @@ async def deepagents_code_exec_loop(
         - final: { type: "final", response: str }
         - error: { type: "error", message: str }
     """
-    from ccie_sidecar.agent import get_saved_config
+    from ccie_sidecar.agent import AgentStepBudget, get_saved_config
     from langgraph.store.memory import InMemoryStore
 
     try:
         # 1. Load provider config
         config = get_saved_config() or {}
+        budget = AgentStepBudget(config)
 
         # Allow agent model_override
         if agent_def.get("model_override"):
@@ -429,10 +430,7 @@ async def deepagents_code_exec_loop(
         await run_and_stream_code_exec(
             graph=graph,
             input_data=input_data,
-            config={
-                "configurable": {"thread_id": "default"},
-                "recursion_limit": RECURSION_LIMIT,
-            },
+            config=budget.graph_config("default", RECURSION_LIMIT),
             on_event=wrapped_on_event,
         )
 
@@ -475,13 +473,14 @@ async def deepagents_react_loop(
         - final: { type: "final", response: str }
         - error: { type: "error", message: str }
     """
-    from ccie_sidecar.agent import get_saved_config
+    from ccie_sidecar.agent import AgentStepBudget, get_saved_config
     from ccie_sidecar.agents.deepagents_tools import convert_meraki_catalog_to_langchain_tools
     from langgraph.store.memory import InMemoryStore
 
     try:
         # 1. Load provider config
         config = get_saved_config() or {}
+        budget = AgentStepBudget(config)
 
         if agent_def.get("model_override"):
             override = agent_def["model_override"]
@@ -588,10 +587,7 @@ async def deepagents_react_loop(
         await run_and_stream(
             graph=graph,
             input_data=input_data,
-            config={
-                "configurable": {"thread_id": "default"},
-                "recursion_limit": RECURSION_LIMIT,
-            },
+            config=budget.graph_config("default", RECURSION_LIMIT),
             on_event=on_event,
             stream_output=stream_output,
         )
@@ -637,7 +633,7 @@ async def deepagents_react_code_loop(
         - final
         - error
     """
-    from ccie_sidecar.agent import get_saved_config
+    from ccie_sidecar.agent import AgentStepBudget, get_saved_config
     from langgraph.store.memory import InMemoryStore
 
     recovery_telemetries: list[ModelRecoveryTelemetry] = []
@@ -654,6 +650,7 @@ async def deepagents_react_code_loop(
     try:
         # 1. Load provider config
         config = get_saved_config() or {}
+        budget = AgentStepBudget(config)
 
         if agent_def.get("model_override"):
             override = agent_def["model_override"]
@@ -926,10 +923,7 @@ async def deepagents_react_code_loop(
         outcome = await run_and_stream(
             graph=graph,
             input_data=input_data,
-            config={
-                "configurable": {"thread_id": graph_thread_id},
-                "recursion_limit": RECURSION_LIMIT,
-            },
+            config=budget.graph_config(graph_thread_id, RECURSION_LIMIT),
             on_event=wrapped_on_event,
             stream_output=stream_output,
             continue_on_step_limit=continue_on_step_limit,
