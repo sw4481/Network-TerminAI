@@ -2,6 +2,7 @@
 import io
 import json
 import sqlite3
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -19,17 +20,28 @@ def test_step_budget_accepts_only_configured_integer_in_range(saved, expected):
     assert agent.AgentStepBudget(config).limit(60) == expected
 
 
+@pytest.mark.parametrize("loader_system", ["native", "Linux"])
 @pytest.mark.parametrize("new_schema,stored,expected", [
     (False, None, None), (True, None, None), (True, 1, 1),
     (True, 500, 500), (True, 0, None), (True, 501, None),
     (True, "not-an-integer", None), (True, 2.5, None),
 ])
 def test_saved_config_reads_optional_budget_from_actual_sqlite(
-    tmp_path, monkeypatch, new_schema, stored, expected,
+    tmp_path, monkeypatch, loader_system, new_schema, stored, expected,
 ):
     """Pre-migration databases still load the existing provider settings."""
     monkeypatch.setattr(agent.Path, "home", lambda: tmp_path)
-    db_dir = tmp_path / "Library" / "Application Support" / "ccie-terminal"
+    if loader_system == "Linux":
+        monkeypatch.setattr(agent, "os", SimpleNamespace(
+            name="posix", uname=lambda: SimpleNamespace(sysname="Linux"),
+        ))
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    if agent.os.name == "nt":
+        db_dir = tmp_path / "ccie-terminal"
+    elif agent.os.uname().sysname == "Darwin":
+        db_dir = tmp_path / "Library" / "Application Support" / "ccie-terminal"
+    else:
+        db_dir = tmp_path / ".config" / "ccie-terminal"
     db_dir.mkdir(parents=True)
     with sqlite3.connect(db_dir / "sessions.db") as conn:
         extra = ", max_agent_steps INTEGER" if new_schema else ""
