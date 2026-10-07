@@ -911,3 +911,21 @@
 - What the issue/mistake was: The public transplant worker included a nonexistent `docs/RELEASING.md` in a read-only consumer search, producing an exit-2 result after valid matches.
 - RCA of the Issue: Assumed a conventional documentation name rather than using the already identified release procedure.
 - How you fixed it: Used the existing release preflight and changed-Rust formatting scripts already read. No source changes or findings were lost; this records the worker's report.
+
+# Mistake: public patch-fidelity probe assumed development hunk offsets
+
+- What the issue/mistake was: The transplant worker's in-memory fidelity check asserted at an AI-command hunk even though Git had applied the reviewed patch cleanly.
+- RCA of the Issue: Used development patch line numbers as public-base positions despite the seven known committed-base differences, instead of Git's context matching.
+- How you fixed it: Replaced the offset-based probe with actual Git patch application in a disposable baseline fixture and comparison of formatted expected contents. No public worktree source changed and no functional gate failed; this records the worker's reported recovery.
+
+# Mistake: managed SSH validator failed Windows strict Clippy
+
+- What the issue/mistake was: Public CI 37568910095 rejected the v1.1.9 candidate for unused `foreground_identity` and an overwritten initial `managed_identity` assignment in `commands/ai.rs`; Windows test compilation did not run.
+- RCA of the Issue: The foreground-process probe is consumed only by the non-Windows path, while every successful Windows branch assigns its managed identity. Native macOS checks did not compile these Windows-specific warning paths.
+- How you fixed it: The Rust resolver gated the Unix probe to non-Windows and used definite initialization for the Windows identity in both source trees. Authentication, focus, pinned ownership, lease, and gateway checks remain unchanged; no lint suppression or release-gate change. Rust and final scope reviewers approved with zero findings. Parent strict all-targets Clippy passed in both candidates; development library 608 passed / 6 ignored, public library 622 passed / 6 ignored, and both terminal-agent contract suites passed 12/12. Formatting, whitespace, release preflight, and graph refresh passed. Native Windows acceptance remains unverified; the release tag remains blocked until corrected Windows CI succeeds.
+
+# Mistake: verification tooling attempted ineffective edit and out-of-range read
+
+- What the issue/mistake was: The resolver attempted a no-op Edit, which the tool rejected; the parent requested release-validator lines starting at 330 in a 152-line file.
+- RCA of the Issue: The proposed replacement did not change content, and the read offset assumed a file length not established by evidence.
+- How you fixed it: The resolver applied the actual minimal replacements; the parent read the short validator normally. Neither failed operation changed source or weakened verification.
