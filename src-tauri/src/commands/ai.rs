@@ -520,12 +520,13 @@ fn validate_terminal_attachment(
     String,
 > {
     #[cfg(target_os = "windows")]
-    let mut managed_identity = None;
+    let managed_identity;
     if state.pane_manager.get_focused_pane_id().as_deref()
         != Some(attachment.backend_pty_id.as_str())
     {
         return Err("terminal attachment no longer matches the focused PTY".into());
     }
+    #[cfg(not(target_os = "windows"))]
     let foreground_identity = {
         let ptys = state.ptys.lock();
         let handle = ptys
