@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PaneNode } from "../state/panesStore";
 import type { TerminalConnectionState } from "../state/terminalConnectionStore";
 import {
@@ -32,6 +32,10 @@ const connectedSsh: TerminalConnectionState = {
   exit_status: null,
   error: null,
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("parseTerminalAttachmentRequest", () => {
   it("keeps ordinary questions detached by default", () => {
@@ -78,6 +82,29 @@ describe("resolveTerminalAttachment", () => {
     });
   });
 
+  it("keeps the focused managed Windows SSH binding and backend PTY identity", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+    const backendPtyIdFor = vi.fn((id: string) => id === "pty-right" ? "backend-right" : "backend-left");
+
+    expect(resolveTerminalAttachment({
+      agentId: "network-architect",
+      requested: true,
+      focusedPaneId: "pane-right",
+      layout: splitLayout,
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: true } },
+      backendPtyIdFor,
+    })).toEqual({
+      backendPtyId: "backend-right",
+      terminalId: "pty-right",
+      source: "saved_ssh",
+      connectionId: "ssh-connection-7",
+      displayName: "Access switch 7",
+      vendor: "cisco",
+      platform: "iosxe",
+    });
+    expect(backendPtyIdFor).toHaveBeenCalledExactlyOnceWith("pty-right");
+  });
+
   it("never grants terminal authority to another agent", () => {
     expect(resolveTerminalAttachment({
       agentId: "ise",
@@ -89,26 +116,30 @@ describe("resolveTerminalAttachment", () => {
     })).toBeNull();
   });
 
-  it("rejects a disconnected saved SSH session before send", () => {
-    expect(() => resolveTerminalAttachment({
-      agentId: "network-architect",
-      requested: true,
-      focusedPaneId: "pane-right",
-      layout: splitLayout,
-      connectionsByTerminalId: {
-        "pty-right": { ...connectedSsh, lifecycle: "disconnected" },
-      },
-      backendPtyIdFor: () => "backend-right",
-    })).toThrow("connected SSH terminal");
+  it("rejects pending or disconnected managed Windows SSH before send", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+    for (const lifecycle of ["connecting", "disconnected"] as const) {
+      expect(() => resolveTerminalAttachment({
+        agentId: "network-architect",
+        requested: true,
+        focusedPaneId: "pane-right",
+        layout: splitLayout,
+        connectionsByTerminalId: {
+          "pty-right": { ...connectedSsh, managed: true, lifecycle },
+        },
+        backendPtyIdFor: () => "backend-right",
+      })).toThrow("connected SSH terminal");
+    }
   });
 
-  it("permits a manual terminal candidate for host-side SSH verification", () => {
+  it("does not borrow a managed Windows binding from the other split pane", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
     expect(resolveTerminalAttachment({
       agentId: "network-architect",
       requested: true,
       focusedPaneId: "pane-left",
       layout: splitLayout,
-      connectionsByTerminalId: {},
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: true } },
       backendPtyIdFor: (id) => id,
     })).toEqual({
       backendPtyId: "pty-left",

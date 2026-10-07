@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TerminalConnectionState } from "../state/terminalConnectionStore";
+import { resolveTerminalAttachment } from "./terminalAgentAttachment";
 
 const invokeMock = vi.hoisted(() => vi.fn(async () => undefined));
 
@@ -20,6 +22,40 @@ import {
 
 describe("agentReactCodeRun terminal attachment", () => {
   beforeEach(() => invokeMock.mockClear());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("forwards the focused managed Windows attachment to the agent RPC", async () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+    const connection: TerminalConnectionState = {
+      terminal_id: "terminal-right", backend_pty_id: "backend-right",
+      connection_id: "connection-right", display_name: "Example switch",
+      vendor: "cisco", platform: "iosxe", accent_color: null,
+      syntax_highlighting_enabled: true, syntax_profile: "cisco",
+      lifecycle: "connected", ssh_command: "", managed: true,
+      exit_status: null, error: null,
+    };
+    const terminalAttachment = resolveTerminalAttachment({
+      agentId: "network-architect", requested: true, focusedPaneId: "pane-right",
+      layout: { type: "split", id: "split", direction: "horizontal", size: 100, children: [
+        { type: "leaf", id: "pane-left", terminalId: "terminal-left", size: 50 },
+        { type: "leaf", id: "pane-right", terminalId: "terminal-right", size: 50 },
+      ] },
+      connectionsByTerminalId: { "terminal-right": connection },
+      backendPtyIdFor: (id) => id === "terminal-right" ? "backend-right" : "backend-left",
+    });
+
+    await agentReactCodeRun({
+      agentId: "network-architect", message: "Check the link", history: [],
+      terminalAttachment, onEvent: () => undefined,
+    });
+    expect(invokeMock).toHaveBeenCalledWith("agent_react_code_run", expect.objectContaining({
+      terminalAttachment: {
+        backendPtyId: "backend-right", terminalId: "terminal-right",
+        source: "saved_ssh", connectionId: "connection-right",
+        displayName: "Example switch", vendor: "cisco", platform: "iosxe",
+      },
+    }));
+  });
 
   it("passes the one-turn locked PTY attachment to Rust", async () => {
     await agentReactCodeRun({

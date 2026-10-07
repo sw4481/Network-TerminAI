@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable
 
-from langchain_core.tools import StructuredTool
+from langchain_core.tools import StructuredTool, ToolException
 
 Transport = Callable[[str, dict[str, Any]], dict[str, Any]]
 Emitter = Callable[[dict[str, Any]], None]
@@ -101,10 +101,11 @@ class TerminalGatewayClient:
             "steps": steps,
             "success_criteria": success_criteria,
         }
-        result = self._post("/plan/begin", plan)
-        self._plan_started = True
-        self._emit({"type": "terminal_investigation_plan", "plan": plan, "updated": False})
-        return json.dumps(result, sort_keys=True)
+        with self._command_lock:
+            result = self._post("/plan/begin", plan)
+            self._emit({"type": "terminal_investigation_plan", "plan": plan, "updated": False})
+            self._plan_started = True
+            return json.dumps(result, sort_keys=True)
 
     def update_investigation(
         self,
@@ -132,9 +133,9 @@ class TerminalGatewayClient:
         purpose: str,
         timeout_seconds: int | None = None,
     ) -> str:
-        if not self._plan_started:
-            raise ValueError("terminal diagnostics require an investigation plan first")
         with self._command_lock:
+            if not self._plan_started:
+                raise ToolException("terminal diagnostics require an investigation plan first")
             payload = {
                 "plan_step_id": plan_step_id,
                 "command": command,
@@ -278,7 +279,7 @@ def build_terminal_tools(
             terminal_update_investigation, name="terminal_update_investigation"
         ),
         StructuredTool.from_function(
-            terminal_run_diagnostic, name="terminal_run_diagnostic"
+            terminal_run_diagnostic, name="terminal_run_diagnostic", handle_tool_error=True
         ),
         StructuredTool.from_function(terminal_apply_fix, name="terminal_apply_fix"),
     ]

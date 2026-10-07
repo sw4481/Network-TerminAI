@@ -184,6 +184,7 @@ async def resume_graph(
     on_event: Callable[[dict], None],
     edited_action: dict[str, Any] | None = None,
     stream_output: bool = False,
+    config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """
     Resume an interrupted LangGraph with approval decision.
@@ -195,6 +196,7 @@ async def resume_graph(
         edited_action: Exact reviewed tool name and arguments for an edit decision
         on_event: Event callback
         stream_output: Emit top-level model text chunks while resuming
+        config: Original pending graph config, if available
 
     Emits events as graph resumes execution.
     """
@@ -224,12 +226,15 @@ async def resume_graph(
 
         # Resume by sending Command to the graph
         # LangGraph will continue from the interrupt point
-        config = {"configurable": {"thread_id": thread_id}}
+        resume_config = {"configurable": {"thread_id": thread_id}}
+        if config is not None and (config.get("metadata") or {}).get("max_agent_steps") is not None:
+            resume_config["recursion_limit"] = config["recursion_limit"]
+            resume_config["metadata"] = {"max_agent_steps": config["metadata"]["max_agent_steps"]}
 
         return await run_and_stream(
             graph=graph,
             input_data=Command(resume=resume_value),
-            config=config,
+            config=resume_config,
             on_event=on_event,
             stream_output=stream_output,
         )

@@ -259,7 +259,7 @@ async def react_loop(
         meraki_client = _initialize_meraki_client(vault_entry, vault_secrets)
 
         # Get LLM configuration from user settings
-        from ccie_sidecar.agent import get_saved_config
+        from ccie_sidecar.agent import AgentStepBudget, get_saved_config
 
         config = get_saved_config()
         if not config:
@@ -270,6 +270,7 @@ async def react_loop(
             })
             return
 
+        max_steps = AgentStepBudget(config).limit(MAX_STEPS)
         provider = config.get("provider", "anthropic")
 
         # Convert catalog to tool format appropriate for the provider
@@ -381,7 +382,7 @@ Your goal: answer accurately with MINIMUM tool calls and CLEAN formatting."""
             return f"{tool_name}:{json.dumps(tool_input, sort_keys=True)}"
 
         # ReACT loop
-        for step in range(1, MAX_STEPS + 1):
+        for step in range(1, max_steps + 1):
             on_event({"type": "thought_start", "step": step})
 
             # Call LLM with tools (provider-agnostic)
@@ -598,7 +599,7 @@ Your goal: answer accurately with MINIMUM tool calls and CLEAN formatting."""
         # Max steps reached
         on_event({
             "type": "error",
-            "message": f"Maximum steps ({MAX_STEPS}) reached",
+            "message": f"Maximum steps ({max_steps}) reached",
             "hint": "Query may be too complex or agent is stuck in a loop"
         })
 

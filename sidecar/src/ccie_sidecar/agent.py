@@ -10,6 +10,26 @@ from typing import Any, Iterator
 from ccie_sidecar.providers import anthropic, google, nvidia, ollama, openai, vllm
 
 
+class AgentStepBudget:
+    """Optional global run limit; absent or malformed settings keep each loop's default."""
+
+    def __init__(self, saved: dict[str, Any] | None):
+        value = (saved or {}).get("max_agent_steps")
+        self.configured = value if type(value) is int and 1 <= value <= 500 else None
+
+    def limit(self, default: int) -> int:
+        return self.configured if self.configured is not None else default
+
+    def graph_config(self, thread_id: str, default: int) -> dict[str, Any]:
+        config: dict[str, Any] = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": self.limit(default),
+        }
+        if self.configured is not None:
+            config["metadata"] = {"max_agent_steps": self.configured}
+        return config
+
+
 def get_saved_config() -> dict[str, Any] | None:
     """Read the saved AI config from the app's SQLite database."""
     try:
@@ -26,18 +46,24 @@ def get_saved_config() -> dict[str, Any] | None:
             return None
 
         conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        cursor.execute("SELECT provider, model, api_key, base_url FROM ai_config WHERE id = 1")
-        row = cursor.fetchone()
-        conn.close()
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM ai_config WHERE id = 1").fetchone()
+        finally:
+            conn.close()
 
         if row:
-            return {
-                "provider": row[0],
-                "model": row[1],
-                "api_key": row[2],
-                "base_url": row[3],
+            config = {
+                "provider": row["provider"],
+                "model": row["model"],
+                "api_key": row["api_key"],
+                "base_url": row["base_url"],
             }
+            if "max_agent_steps" in row.keys():
+                config["max_agent_steps"] = AgentStepBudget({
+                    "max_agent_steps": row["max_agent_steps"]
+                }).configured
+            return config
         return None
     except Exception as e:
         print(f"Failed to read AI config: {e}")
