@@ -4,6 +4,7 @@ export type ClosedTab = {
   id: string;
   title: string;
   cwd: string;
+  managed?: boolean;
   closedAt: number;
 };
 

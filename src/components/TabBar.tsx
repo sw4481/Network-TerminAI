@@ -14,6 +14,8 @@ import {
 } from "../lib/tauri";
 import { ENABLE_TERMINAL_REGISTRY } from "../hooks/usePty";
 import * as terminalRegistry from "../lib/terminalRegistry";
+import { isManagedSshTab } from "../lib/sessionRestore";
+import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import NotificationCenter from "./NotificationCenter";
 
 export function TabBar({
@@ -42,6 +44,7 @@ export function TabBar({
   onDetach?: (tab: Tab) => void | Promise<void>;
 }) {
   const { tabs, activeTabId, setActive, removeTab } = useTabs();
+  const connections = useTerminalConnectionStore((s) => s.byTerminalId);
   const activeRecordings = useRecordings((s) => s.active);
   const { focusedPaneId, splitPane } = usePanesStore();
   const activities = usePaneActivityStore((s) => s.activities);
@@ -128,7 +131,8 @@ export function TabBar({
         const isTabCloseable = !isHeartbeat && !isKanban;
         const layout = layoutsByTab.get(t.id);
         const canDetach =
-          isTerminalTab && (!layout || getAllLeafPanes(layout).length === 1);
+          isTerminalTab && !isManagedSshTab(t.shell_cmd, connections[t.id]?.managed)
+          && (!layout || getAllLeafPanes(layout).length === 1);
         // Backend pane-activity is keyed by each pane's spawned PTY id, not the
         // frontend tab/terminal id. Resolve this tab's pane terminalIds → their
         // PTY ids (registry), then match activities by those. Fall back to the
@@ -294,6 +298,16 @@ export function TabBar({
                     isTroubleshootEditor
                   ) {
                     // Pure-frontend tabs; no Rust-side close.
+                  } else if (isManagedSshTab(t.shell_cmd, connections[t.id]?.managed)) {
+                    try {
+                      if (ENABLE_TERMINAL_REGISTRY) await terminalRegistry.disposeManaged(t.id);
+                      else await ptyKill(t.id);
+                    } catch {
+                      useTerminalConnectionStore.getState().setLifecycle(t.id, 'error', {
+                        error: 'Unable to close SSH terminal. The session may still be running; try again.',
+                      });
+                      return;
+                    }
                   } else {
                     if (ENABLE_TERMINAL_REGISTRY) {
                       terminalRegistry.dispose(t.id);

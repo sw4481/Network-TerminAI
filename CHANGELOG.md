@@ -5,6 +5,20 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.9] - 2026-10-06
+
+### Fixed
+
+- Avoid decrypting unused merged vendor vault entries when General/Network Architect runs a Kanban research task; preserve dedicated vendor credential checks.
+- Restore Monaco theme cursor paint with Windows-only inline-style CSP directives and allow the exact Windows IPC origin while retaining script protections and the macOS policy.
+- Add explicitly launched, visible managed Windows SSH connections so human and approved agent input/output use the same PTY, with pinned ownership, lifecycle-safe close, and disconnected history restoration.
+
+### Known limitations
+
+- Native Windows/WebView2 caret, typing/IME, and live managed-SSH execution and termination acceptance remain unverified.
+- Existing manually launched Windows SSH sessions are not adopted; open a new managed connection from a saved SSH profile for agent attachment.
+- Detaching managed Windows SSH live/history tabs is intentionally unavailable; ordinary local/macOS detach behavior is unchanged.
+
 ## [1.1.8] - 2026-10-06
 
 ### Fixed

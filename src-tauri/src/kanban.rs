@@ -624,6 +624,32 @@ async fn execute_run(app: &tauri::AppHandle, run: RunStart) {
     }
 }
 
+fn kanban_runtime_agent_id(general: bool, agent_id: &str) -> &str {
+    if general {
+        "network-architect"
+    } else {
+        agent_id
+    }
+}
+
+async fn attachment_vault_secrets_with<F, R>(
+    runtime_agent_id: &str,
+    entry: &str,
+    retrieve: R,
+) -> Result<Option<std::collections::HashMap<String, String>>, String>
+where
+    R: FnOnce() -> F,
+    F: std::future::Future<Output = Result<std::collections::HashMap<String, String>, String>>,
+{
+    // Architect binds configured vendors itself; merged catalogs are metadata,
+    // not a request to decrypt every loaded agent's credentials.
+    if runtime_agent_id == "network-architect" || entry.is_empty() {
+        Ok(None)
+    } else {
+        retrieve().await.map(Some)
+    }
+}
+
 async fn run_agent(
     app: &tauri::AppHandle,
     db: &Arc<Mutex<Connection>>,
@@ -649,6 +675,7 @@ async fn run_agent(
     } else {
         selected
     };
+    let runtime_agent_id = kanban_runtime_agent_id(general, &target_agent.id);
     let owners: Vec<&Agent> = if general {
         loaded
             .iter()
@@ -717,12 +744,11 @@ async fn run_agent(
                 }
             }
         }
-        let secrets = if entry.is_empty() {
-            None
-        } else {
-            let state = app.state::<AppState>();
-            Some(crate::commands::ai::_retrieve_vault_secrets(&state, &entry).await?)
-        };
+        let state = app.state::<AppState>();
+        let secrets = attachment_vault_secrets_with(runtime_agent_id, &entry, || {
+            crate::commands::ai::_retrieve_vault_secrets(&state, &entry)
+        })
+        .await?;
         attachments.push(json!({"id":tool_id,"catalog":catalog,"vault_entry":entry,"vault_secrets":secrets,"default_blast_radius_allowed":"destructive","owner_agent_id":owner_id,"owner_tool_id":tool_id,"configured_blast_radius":radius}));
     }
 
@@ -735,11 +761,6 @@ async fn run_agent(
         "General".to_string()
     } else {
         target_agent.name.clone()
-    };
-    let runtime_agent_id = if general {
-        "network-architect"
-    } else {
-        target_agent.id.as_str()
     };
     let topolograph_runtime = {
         let state = app.state::<AppState>();
@@ -766,7 +787,7 @@ async fn run_agent(
     );
 
     let params = json!({
-        "agent_id":if general {"network-architect"} else {target_agent.id.as_str()},"message":prompt,"history":[],"system_prompt":system_prompt,"attachments":attachments,
+        "agent_id":runtime_agent_id,"message":prompt,"history":[],"system_prompt":system_prompt,"attachments":attachments,
         "engine":"deepagents","stream_output":true,"topolograph_runtime":topolograph_runtime
     });
     let task_id = task.id.clone();
@@ -884,6 +905,71 @@ async fn route_task(bridge: &AgentBridge, task: &KanbanTask, agents: &[Agent]) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn general_research_does_not_read_merged_meraki_vault() {
+        let runtime_agent_id = kanban_runtime_agent_id(true, "meraki");
+        assert_eq!(runtime_agent_id, "network-architect");
+        assert!(
+            task_prompt("Research a Minecraft game", "Compare approaches", None)
+                .contains("Minecraft")
+        );
+        let reads = std::cell::Cell::new(0);
+        let result = attachment_vault_secrets_with(runtime_agent_id, "meraki_api_key", || async {
+            reads.set(reads.get() + 1);
+            Err("Vault envelope 'meraki_api_key' not found. Create it in Settings → Vault.".into())
+        })
+        .await;
+        assert_eq!(result, Ok(None));
+        assert_eq!(reads.get(), 0);
+
+        // Even an available envelope must not be decrypted for unused catalog metadata.
+        let result = attachment_vault_secrets_with(runtime_agent_id, "meraki_api_key", || async {
+            reads.set(reads.get() + 1);
+            Ok(std::collections::HashMap::from([(
+                "api_key".into(),
+                "synthetic-key".into(),
+            )]))
+        })
+        .await;
+        assert_eq!(result, Ok(None));
+        assert_eq!(reads.get(), 0);
+    }
+
+    #[tokio::test]
+    async fn dedicated_meraki_keeps_actionable_vault_failures_and_secrets() {
+        let runtime_agent_id = kanban_runtime_agent_id(false, "meraki");
+        assert_eq!(runtime_agent_id, "meraki");
+        for error in [
+            "Vault envelope 'meraki_api_key' not found. Create it in Settings → Vault.",
+            "Vault envelope 'meraki_api_key' is locked or timed out. Unlock it in Settings → Vault before using this agent.",
+            "Failed to read secret 'api_key': permission denied",
+            "Secret 'api_key' is not valid UTF-8",
+        ] {
+            let reads = std::cell::Cell::new(0);
+            let result = attachment_vault_secrets_with(runtime_agent_id, "meraki_api_key", || async {
+                reads.set(reads.get() + 1);
+                Err(error.into())
+            }).await;
+            assert_eq!(result, Err(error.into()));
+            assert_eq!(reads.get(), 1);
+        }
+        let secrets = std::collections::HashMap::from([("api_key".into(), "synthetic-key".into())]);
+        assert_eq!(
+            attachment_vault_secrets_with(runtime_agent_id, "meraki_api_key", || async {
+                Ok(secrets.clone())
+            })
+            .await,
+            Ok(Some(secrets)),
+        );
+        assert_eq!(
+            attachment_vault_secrets_with(runtime_agent_id, "", || async {
+                panic!("An empty vault entry must never be read")
+            })
+            .await,
+            Ok(None),
+        );
+    }
 
     #[test]
     fn task_prompt_includes_pasted_terminal_context_as_reference() {

@@ -68,6 +68,7 @@ function installFakeXterm() {
 const searchAddons: any[] = [];
 
 import * as reg from './terminalRegistry';
+import { MANAGED_SSH_SHELL_MARKER } from './sessionRestore';
 
 beforeEach(() => {
   reg.__resetForTest();
@@ -175,6 +176,31 @@ describe('terminalRegistry lifecycle', () => {
     expect(e2.xterm).toBe(e1.xterm);
     expect(ptySpawn).toHaveBeenCalledTimes(1);
     expect(slotB.contains(e1.el)).toBe(true);
+  });
+
+  it('retains managed tab and error state when backend kill fails; explicit retry closes it', async () => {
+    ptySpawn.mockImplementationOnce(async () => 'managed-close');
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 'managed-close', backendPtyId: 'managed-close',
+      connectionId: 'connection-1', displayName: 'Core', vendor: 'cisco',
+      platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: false,
+      syntaxProfile: 'auto', sshCommand: '', managed: true,
+    });
+    const entry = reg.getOrCreate('managed-close', {
+      ...OPTS, preferredTabId: 'managed-close', managedConnectionId: 'connection-1',
+    });
+    await Promise.resolve();
+    ptyKill.mockRejectedValueOnce(new Error('synthetic termination failure'));
+    await expect(reg.disposeManaged('managed-close')).rejects.toThrow('synthetic termination failure');
+    expect(reg.has('managed-close')).toBe(true);
+    expect(entry.xterm.dispose).not.toHaveBeenCalled();
+    expect(useTerminalConnectionStore.getState().get('managed-close')).not.toBeNull();
+
+    await reg.disposeManaged('managed-close');
+    expect(ptyKill).toHaveBeenCalledTimes(2);
+    expect(entry.xterm.dispose).toHaveBeenCalledTimes(1);
+    expect(reg.has('managed-close')).toBe(false);
   });
 
   it('dispose kills PTY, disposes xterm, removes entry; idempotent', async () => {
@@ -313,6 +339,116 @@ describe('terminalRegistry session wiring', () => {
     expect(useTerminalConnectionStore.getState().get('t-lifecycle')).toMatchObject({
       lifecycle: 'disconnected', exit_status: 255,
     });
+  });
+
+  it('binds managed SSH only from the backend authentication event, never terminal text', async () => {
+    ptySpawn.mockImplementationOnce(async () => 'managed-pty');
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 'managed-pty', backendPtyId: 'managed-pty',
+      connectionId: 'connection-1', displayName: 'Core', vendor: 'cisco',
+      platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: true,
+      syntaxProfile: 'auto', sshCommand: '', managed: true,
+    });
+    reg.getOrCreate('managed-pty', { ...OPTS, preferredTabId: 'managed-pty', managedConnectionId: 'connection-1' });
+    const args = ptySpawn.mock.calls[0][0];
+    expect(args).toMatchObject({ preferredTabId: 'managed-pty', managedConnectionId: 'connection-1' });
+    args.onEvent({ type: 'output', bytes: Array.from(new TextEncoder().encode('switch#')) });
+    args.onEvent({ type: 'command_start', cmd: '' });
+    args.onEvent({ type: 'managed_ssh_authenticated', connection_id: 'other' });
+    expect(useTerminalConnectionStore.getState().get('managed-pty')?.lifecycle).toBe('connecting');
+    args.onEvent({ type: 'managed_ssh_authenticated', connection_id: 'connection-1' });
+    expect(useTerminalConnectionStore.getState().get('managed-pty')?.lifecycle).toBe('connected');
+    expect(terminalLaunchSavedSsh).not.toHaveBeenCalled();
+  });
+
+  it('never autofills a managed SSH PTY from remote password-like output', async () => {
+    vi.useFakeTimers();
+    try {
+      ptySpawn.mockImplementationOnce(async () => 'managed-pty');
+      const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+      const { useSshPasswordStore } = await import('../state/sshPasswordStore');
+      useTerminalConnectionStore.getState().bind({
+        terminalId: 'managed-pty', backendPtyId: 'managed-pty',
+        connectionId: 'connection-1', displayName: 'Core', vendor: 'cisco',
+        platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: true,
+        syntaxProfile: 'auto', sshCommand: '', managed: true,
+      });
+      reg.getOrCreate('managed-pty', { ...OPTS, preferredTabId: 'managed-pty', managedConnectionId: 'connection-1' });
+      await Promise.resolve();
+      const onEvent = ptySpawn.mock.calls[0][0].onEvent as (ev: any) => void;
+      const passwordStore = useSshPasswordStore.getState();
+      passwordStore.setPasswordContext('managed-pty', 'example-device', 'tester', 'synthetic-secret');
+      onEvent({ type: 'output', bytes: Array.from(new TextEncoder().encode('remote says password:')) });
+      await vi.advanceTimersByTimeAsync(150);
+      expect(ptyWrite).not.toHaveBeenCalled();
+      onEvent({ type: 'managed_ssh_authenticated', connection_id: 'connection-1' });
+      expect(passwordStore.getPasswordContext('managed-pty')).toBeNull();
+      passwordStore.setPasswordContext('managed-pty', 'example-device', 'tester', 'synthetic-secret');
+      onEvent({ type: 'output', bytes: Array.from(new TextEncoder().encode('remote says password:')) });
+      await vi.advanceTimersByTimeAsync(150);
+      expect(ptyWrite).not.toHaveBeenCalled();
+      onEvent({ type: 'managed_ssh_auth_failed' });
+      expect(passwordStore.getPasswordContext('managed-pty')).toBeNull();
+      passwordStore.setPasswordContext('managed-pty', 'example-device', 'tester', 'synthetic-secret');
+      onEvent({ type: 'exit' });
+      expect(reg.has('managed-pty')).toBe(true);
+      expect(reg.ptyTabIdFor('managed-pty')).toBeNull();
+      expect(useTerminalConnectionStore.getState().get('managed-pty')).toMatchObject({ lifecycle: 'error', managed: true });
+      expect(passwordStore.getPasswordContext('managed-pty')).toBeNull();
+      expect(ptyWrite).not.toHaveBeenCalled();
+      expect(ptyKill).not.toHaveBeenCalled();
+      passwordStore.setPasswordContext('managed-pty', 'example-device', 'tester', 'synthetic-secret');
+      reg.dispose('managed-pty');
+      await Promise.resolve();
+      expect(passwordStore.getPasswordContext('managed-pty')).toBeNull();
+      expect(ptyKill).toHaveBeenCalledWith('managed-pty');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retains a failed managed SSH spawn as a read-only error tab', async () => {
+    ptySpawn.mockRejectedValueOnce(new Error('synthetic spawn failure'));
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 'failed-managed', backendPtyId: 'failed-managed',
+      connectionId: 'connection-1', displayName: 'Core', vendor: 'cisco',
+      platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: false,
+      syntaxProfile: 'auto', sshCommand: '', managed: true,
+    });
+    const entry = reg.getOrCreate('failed-managed', {
+      ...OPTS, preferredTabId: 'failed-managed', managedConnectionId: 'connection-1',
+    });
+    await vi.waitFor(() => {
+      expect(useTerminalConnectionStore.getState().get('failed-managed')?.lifecycle).toBe('error');
+    });
+    expect(reg.has('failed-managed')).toBe(true);
+    expect(entry.xterm.options.disableStdin).toBe(true);
+    expect(ptyWrite).not.toHaveBeenCalled();
+  });
+
+  it('allows human managed SSH input but stops writing after that PTY exits', async () => {
+    ptySpawn.mockImplementationOnce(async () => 'managed-input');
+    const { useTerminalConnectionStore } = await import('../state/terminalConnectionStore');
+    useTerminalConnectionStore.getState().bind({
+      terminalId: 'managed-input', backendPtyId: 'managed-input',
+      connectionId: 'connection-1', displayName: 'Core', vendor: 'cisco',
+      platform: 'iosxe', accentColor: null, syntaxHighlightingEnabled: false,
+      syntaxProfile: 'auto', sshCommand: '', managed: true,
+    });
+    const entry = reg.getOrCreate('managed-input', {
+      ...OPTS, preferredTabId: 'managed-input', managedConnectionId: 'connection-1',
+    });
+    await Promise.resolve();
+    const onData = entry.xterm.onData.mock.calls[0][0] as (text: string) => void;
+    onData('typed-by-human');
+    expect(writtenText(ptyWrite.mock.calls[0])).toBe('typed-by-human');
+    ptySpawn.mock.calls[0][0].onEvent({ type: 'exit' });
+    expect(useTerminalConnectionStore.getState().get('managed-input')?.lifecycle).toBe('disconnected');
+    onData('after-exit');
+    expect(ptyWrite).toHaveBeenCalledTimes(1);
+    expect(entry.xterm.options.disableStdin).toBe(true);
   });
 
   it('delegates the saved SSH launch and binding to the backend', async () => {
@@ -473,6 +609,25 @@ describe('runWhenReady (run-in-terminal delivery)', () => {
 });
 
 describe('session restore (replay scrollback)', () => {
+  it('keeps a restored managed SSH tab readable but never spawns a PTY or reconnects', async () => {
+    const entry = reg.getOrCreate('restored-managed', {
+      ...OPTS, shell: MANAGED_SSH_SHELL_MARKER, replayBytes: [65],
+    });
+    expect(reg.getOrCreate('restored-managed', OPTS)).toBe(entry);
+    expect(entry.xterm.write).toHaveBeenCalled();
+    expect(entry.xterm.options.disableStdin).toBe(true);
+    expect(reg.ptyTabIdFor('restored-managed')).toBeNull();
+    expect(ptySpawn).not.toHaveBeenCalled();
+    expect(terminalLaunchSavedSsh).not.toHaveBeenCalled();
+    const { createDefaultAppearanceSettings } = await import('../theme/defaults');
+    reg.applyAppearanceSettings(createDefaultAppearanceSettings());
+    expect(entry.xterm.options.disableStdin).toBe(true);
+    reg.runWhenReady('restored-managed', 'should-not-run');
+    expect(ptyWrite).not.toHaveBeenCalled();
+    reg.dispose('restored-managed');
+    expect(ptyKill).not.toHaveBeenCalled();
+  });
+
   it('replays scrollback bytes into xterm before live output', () => {
     const e = reg.getOrCreate('t-replay', {
       ...OPTS,

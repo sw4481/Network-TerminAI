@@ -688,3 +688,226 @@
 - What the issue/mistake was: I batched `Plans/Mistakes.MD` into `git add` again, and Git stopped on the ignored `Plans` path before staging the intended release files.
 - RCA of the Issue: I failed to apply the existing repository lesson that tracked ignored files need a separate update-style stage command.
 - How you fixed it: I recorded this recurrence and will stage normal paths separately from `git add -u -- Plans/Mistakes.MD`.
+
+# Verification finding: v1.1.8 caret mitigation failed native Windows acceptance
+
+- What the issue/mistake was: The operator still cannot see the Monaco caret on Windows after v1.1.8. The solid-blink mitigation passed mocked tests and a Chromium Win32 override, but those checks did not reproduce the actual WebView2 failure.
+- RCA of the Issue: The blink mitigation addressed timing without proving caret paint. Later native evidence shows focused input and a visible 2×19 cursor element with transparent background, missing theme variable, and inline-style CSP violations. Tauri adds a style nonce that defeats the intended unsafe-inline allowance; Monaco generates un-nonced theme CSS. An isolated real-Monaco 0.52.2 regression reproduces missing paint under that policy and proves an attribute-only correction is insufficient.
+- How you fixed it: Prepared a Windows-only CSP override with separate attribute/element CSS allowances and the exact missing Windows IPC origin; scripts and the shared/macOS policy remain unchanged. Parent browser regression restores Zed cursor paint and preserves focus/blur and script denial, privacy checks pass, 27 editor tests and macOS all-targets cargo check pass. Native theme-sheet evidence and acceptance of a Windows build remain pending; no commit or release is claimed.
+
+# Mistake: guessed store directory during Windows attachment triage
+
+- What the issue/mistake was: The read-only SSH worker probed nonexistent `src/stores` instead of the actual state-store directory.
+- RCA of the Issue: Inferred a conventional directory rather than locating the store first.
+- How you fixed it: Located `src/state/terminalConnectionStore.ts` and traced actual callers. No source edits, credentials, or device access occurred.
+
+# Mistake: proposed a different SSH experience and an unproven exec transport
+
+- What the issue/mistake was: Proposed Windows diagnostics through a separate saved-target SSH connection instead of the user's expected same visible terminal. The initial transport sketch used SSH exec even though existing device code documents IOS/IOS-XE rejecting exec channels.
+- RCA of the Issue: Treated existing one-shot/SFTP transport patterns as sufficient for interactive device compatibility and presented a workaround as the principal architecture before confirming the requested same-window behavior.
+- How you fixed it: The operator clarified the required shared read/write terminal experience; independent security review caught the exec-channel mismatch before implementation. Withdrew the separate-source proposal and redirected design to an app-owned authenticated PTY/shell session in the same visible pane, with explicit reconnect for unmanaged sessions if needed. No production implementation, native acceptance, or commit is claimed.
+
+# Mistake: malformed read-only regex during Windows security follow-up
+
+- What the issue/mistake was: The security reviewer's first follow-up search used a malformed regex and failed.
+- RCA of the Issue: The search pattern was not valid for the regex parser; no code finding can be inferred from that failed search.
+- How you fixed it: Corrected the pattern and confirmed the actual Windows launcher and ConPTY locations. No source or runtime state was changed by the failed probe.
+
+# Mistake: overstated macOS SSH binding as authentication verification
+
+- What the issue/mistake was: Explained the Windows attachment gap as though the macOS session binding also proved SSH authentication succeeded. The actual macOS checks bind the saved connection to a matching foreground SSH process group; the frontend marks connected on command start, not authentication success.
+- RCA of the Issue: Conflated the desired authenticated-input security property with what the current implementation actually verifies, without first tracing the macOS launcher, validator, and frontend lifecycle together.
+- How you fixed it: A focused Rust source comparison established the actual contract, and I corrected the explanation to the operator. Existing nonce/lease/capture machinery can be reused for a Windows-native, explicitly launched OpenSSH child in an app-owned ConPTY; process ownership and authentication must remain separate. Native behavior, safe client configuration, and any trusted authentication signal remain unverified. No production fix, manual-session adoption, or commit is claimed.
+
+# Mistake: guessed catalog-index shape in the Kanban bootstrap regression
+
+- What the issue/mistake was: The first test used nonexistent `active_catalog_ids`, then assumed the filtered catalog index could never be `None`.
+- RCA of the Issue: Inferred an attribute from a builder argument and overlooked the documented empty-index result after unconfigured vendors are filtered.
+- How you fixed it: Read the real index and grounding implementation, used `catalog_ids`, and accepted `None` or absence of Meraki after first proving the synthetic merged Meraki catalog exists. The corrected real-graph bootstrap regression passes.
+
+# Mistake: assumed optional config readers never attempted an absent database
+
+- What the issue/mistake was: A synthetic bootstrap test initially expected zero intercepted database-open attempts; the optional Zabbix config reader tries opening an absent config DB.
+- RCA of the Issue: Assumed every optional reader checks file existence first rather than tracing the actual reader.
+- How you fixed it: Kept all database operations intercepted before I/O, asserted any attempted path stays under the synthetic HOME, and returned an absent-database error. Operator-database and network attempts still fail the test; no real database or credentials were read.
+
+# Mistake: initial bootstrap regression bypassed the graph and leaked installer state
+
+- What the issue/mistake was: The first fixture substituted a dictionary for the graph constructor, replaced the Python environment mapping rather than the native environment before runtime imports, and did not restore sandbox helper registrations.
+- RCA of the Issue: Focused on vendor selection while overlooking the actual graph factory and global environment/module side effects.
+- How you fixed it: Used the real graph factory with captured arguments, native environment monkeypatching and SQLite/socket/request guards before runtime imports, and a scoped helper-registration finalizer. Independent reruns passed six focused tests and a teardown canary proving original module identities/absences and environment restoration. Earlier executed probes already used an externally isolated interpreter/HOME; the standalone test now enforces its own isolation. This proves synthetic bootstrap, not live LLM research.
+
+# Mistake: caret diagnostic could sample the wrong pane and duplicate listeners
+
+- What the issue/mistake was: The first collector fell back to another pane's Monaco instance when the focused editor was unavailable; repeated installation also accumulated CSP listeners.
+- RCA of the Issue: Treated any editor as representative of the focused pane and did not account for reinstalling the probe during editor-mode changes.
+- How you fixed it: Removed the arbitrary fallback, report focused-editor unavailability, and dispose prior editor/window listeners before reinstalling. The persistent regression and independent review verify one CSP report, no old-editor output, and no exported private markers. No production caret fix or native acceptance is claimed.
+
+# Mistake: initial caret-probe check assumed jsdom layout and event ordering
+
+- What the issue/mistake was: A one-off diagnostic test assumed native caret width and an event order not established by its fixture.
+- RCA of the Issue: Confused jsdom's synthetic geometry with a native rendered layout and relied on implicit events.
+- How you fixed it: Corrected the test invocation, then left a runnable check with explicit event dispatch and only declared fields, focus/composition, listener lifecycle, and privacy assertions. Native geometry remains evidence to collect on Windows, not a mocked passing claim.
+
+# Mistake: described working SSH as failing and did not deliver caret directions
+
+- What the issue/mistake was: Asked how the failing SSH session was opened even though the reported failure was agent attachment to a working session, and referred to local diagnostic files rather than providing usable Windows directions.
+- RCA of the Issue: Conflated SSH connectivity with the attachment trust boundary and assumed the operator could access uncommitted local scripts. Promised the probe later instead of delivering it.
+- How you fixed it: Recorded the reported Windows OpenSSH 9.5p2 version, corrected the failure boundary, and prepared direct copy-paste PowerShell/DevTools instructions requiring no clone or build. The launcher obtains the path from the running app and uses Edge's local inspection page; syntax and focused privacy checks pass, while native execution remains pending.
+
+# Mistake: repeated cached reads and incomplete first-touch facts
+
+- What the issue/mistake was: Re-requested unchanged diagnostic files already in context, then attempted first Bash/Edit operations without all hook-required request, consumer, API, and data facts. Repeated the first-touch omission for this Markdown log after compaction, the first Bash command after receiving native console evidence, and a log edit that relied on an earlier rather than fresh consumer search. Also attempted Windows override creation before demonstrating that no alternate platform configuration served the same purpose.
+- RCA of the Issue: Treated previously established context as sufficient for a new first-touch gate and did not use the current cached file state.
+- How you fixed it: Reused the known source state, searched consumers, presented the exact user request and diagnostic-only/no-persistent-data contract, then completed the permitted edits. No hook exemptions, permission changes, or bypasses were used.
+- Recurrence during v1.1.9 publication preparation: First Bash, temporary scope-manifest creation, Markdown edits, and the diagnostic version-confirmation edit were rejected because I omitted freshly required explicit facts, the complete consumer search, or the exact target path in the facts. I searched tracked references and local guidance, presented the current instruction, identified exact targets, consumers and public API impact, described the path-array and Markdown schemas or lack of schema changes, then retried the permitted operations without exemptions.
+
+# Mistake: caret launcher omitted build confirmation and Edge-target cleanup
+
+- What the issue/mistake was: Auto-detecting TerminAI.exe did not establish that the installed build was v1.1.8, and the Edge inspection directions did not explain removing the target added for the probe.
+- RCA of the Issue: Verified the executable filename and debugger listener but overlooked explicit build provenance and the inspection page's retained configuration.
+- How you fixed it: Added a local executable-path display and explicit v1.1.8 confirmation before relaunching, plus instructions to remove only the Edge target added for this session. The app is never forcibly closed and native execution is still pending.
+
+# Mistake: malformed Python quotation in read-only CSP version probe
+
+- What the issue/mistake was: The CSP reviewer’s first Cargo.lock version probe failed with Python SyntaxError.
+- RCA of the Issue: Escaped quotation marks inside an f-string expression in a shell-quoted one-liner.
+- How you fixed it: The reviewer reran the probe with str.format and obtained the locked Tauri versions. No files changed and no configuration or credentials were read.
+
+# Mistake: guessed editor paths during CSP triage
+
+- What the issue/mistake was: The CSP reviewer’s editor search returned rg exit 2 for five nonexistent paths directly under src/components/.
+- RCA of the Issue: Searched conventional locations before inventorying this repository’s component paths.
+- How you fixed it: Located the editors with rg --files under src/components/editor/ and src/components/iac/, then searched those actual paths. No files changed.
+
+# Mistake: Monaco CSP fixture assumed POSIX output paths
+
+- What the issue/mistake was: The first real-Monaco browser fixture matched esbuild outputs by /fixture.js and /fixture.css suffixes, which could reject Windows paths before running the test.
+- RCA of the Issue: Assumed the macOS host’s path separators represented every test platform.
+- How you fixed it: Normalize separators before basename matching. The current source-backed three-policy browser regression passes; native Windows execution is not claimed.
+
+# Mistake: loopback server was treated as complete fixture network isolation
+
+- What the issue/mistake was: The real-Monaco fixture served only loopback assets but had no explicit browser-request allowlist.
+- RCA of the Issue: Conflated local-only serving with restricting requests initiated by the browser page. No external request or operator-data exposure was demonstrated.
+- How you fixed it: Install a context route before page creation, continuing only the fixture origin and aborting every other request without logging URLs. Parent independently reran all three policy cases and the privacy collector check.
+
+# Mistake: browser shutdown error could skip fixture server cleanup
+
+- What the issue/mistake was: Sequential awaits in the outer finally could skip server.close if browser.close rejected.
+- RCA of the Issue: Assumed the first cleanup operation could not fail, instead of guaranteeing cleanup of both owned resources.
+- How you fixed it: Nested server.close in its own finally. Parent independently reran the real-Monaco browser regression successfully; final review remains separate from native WebView2 acceptance.
+
+# Mistake: Windows managed-SSH dependency omitted its lockfile edge
+
+- What the issue/mistake was: Added the Windows-only `windows-sys` dependency to `src-tauri/Cargo.toml` without updating `Cargo.lock`; the parent's `cargo check --locked --all-targets` stopped before compilation because it could not update the lockfile.
+- RCA of the Issue: I deferred Cargo to avoid concurrent runs but failed to coordinate an offline lockfile synchronization before handing off the manifest change.
+- How you fixed it: With exclusive Cargo ownership, ran `cargo update --offline --workspace --manifest-path src-tauri/Cargo.toml`, adding only the root `windows-sys 0.61.2` lockfile dependency edge and preserving all package versions. `cargo check --locked --offline --all-targets` then passed; native Windows authentication behavior remains unverified.
+
+# Mistake: Windows managed-SSH stale Exit could revoke replacement authority
+
+- What the issue/mistake was: An old PTY Exit passed the generation check, then a replacement registered before the old event performed PTY-ID-scoped lease/binding/capture cleanup.
+- RCA of the Issue: The PTY check and manager cleanup held different locks at different times; a generation check before cleanup was not an atomic authority boundary.
+- How you fixed it: Scoped managed events to the binding generation under the manager's lease → binding locks; held the spawn gate from every Exit validation through frontend delivery. The regression exercises a late old Exit after replacement and verifies the new lease, binding, and capture survive. Rust tests still require the parent's exclusive Cargo run; native Windows remains unverified.
+
+# Mistake: concurrent PTY spawns could overwrite one preferred tab id
+
+- What the issue/mistake was: Two concurrent restores could pass the post-spawn duplicate-ID check separately and overwrite the first PTY, leaving its SSH child untracked.
+- RCA of the Issue: Check and insertion were separate PTY-map lock acquisitions, with no reservation across asynchronous spawn.
+- How you fixed it: Serialized the check/spawn/register sequence with an async spawn gate and added an atomic check-and-insert helper that returns the unused child for killing. Synthetic concurrent-spawn and collision regressions were added; Cargo execution is pending parent ownership.
+
+# Mistake: managed-SSH lease captured a connection id but not the verified child
+
+- What the issue/mistake was: An old attachment could be issued after takeover or reused against a new authenticated SSH process under the same tab and connection id.
+- RCA of the Issue: Validation checked current PID/generation, but the lease stored only serializable PTY/connection metadata; gateway writes re-checked a freshly fetched current child, not the one validated for the lease.
+- How you fixed it: Stored the verified generation, PID, and takeover epoch privately in the lease; made issuance compare the validated snapshot under the lease → binding locks, and required that exact child for every initial and pager write. Added validation/takeover/replacement regressions and zero-write assertions; Cargo execution is pending parent ownership.
+
+# Mistake: Monaco caret fixture asserted before async cursor paint
+
+- What the issue/mistake was: The first real-typing fixture assertion read the DOM caret before Monaco had painted the updated cursor.
+- RCA of the Issue: The fixture assumed typing and the next browser paint completed synchronously.
+- How you fixed it: The fixture owner waited for rendered cursor movement before asserting; three consecutive synthetic fixture runs passed. No production code changed for this correction.
+
+# Mistake: isolated Windows helper check used the wrong Rust toolchain
+
+- What the issue/mistake was: A temporary-directory Windows MSVC helper check initially failed E0463 (missing `core`) despite the project-scoped Windows target being installed.
+- RCA of the Issue: The temporary working directory did not inherit the repository's Rust toolchain override and selected the default Rust 1.95 toolchain rather than the installed Rust 1.97 toolchain with that target.
+- How you fixed it: The helper-check owner pinned the installed Rust 1.97 Cargo/RUSTC paths explicitly; isolated all-targets Windows helper type-check then passed offline with cached dependencies. This does not prove the full application or native behavior, and modified helper source needs rechecking.
+
+# Mistake: managed-SSH restore marker was not persisted when reusing a tab id
+
+- What the issue/mistake was: The first provenance change supplied a marker to `create_tab_with_id`, but an existing row retained its old executable `shell_cmd` during the upsert.
+- RCA of the Issue: I assumed the idempotent tab-reopen helper updated shell metadata; its conflict branch only clears `closed_at`.
+- How you fixed it: Explicitly persist the exact Windows managed-SSH marker in the existing tab row after the upsert; a synthetic in-memory SQLite test covers an old executable shell being replaced by the disconnected marker. Rust tests await the parent's Cargo run.
+
+# Mistake: PTY output could cross a reopened tab generation
+
+- What the issue/mistake was: Non-Exit output passed the PTY generation check before a replacement and was later persisted/emitted under the reused tab id.
+- RCA of the Issue: The spawn lifecycle gate only covered Exit, not the full event check-to-delivery interval for output.
+- How you fixed it: Hold the spawn lifecycle gate for every event through generation check, manager capture, persistence, and frontend delivery; added a synthetic output/replacement interleaving regression. Rust verification awaits the parent's Cargo run.
+
+# Mistake: close during pending spawn could strand an SSH child
+
+- What the issue/mistake was: `pty_kill` could run after spawn's occupancy check but before child registration, close the tab with no handle, then let spawn register a live, untracked child.
+- RCA of the Issue: `pty_kill` did not use the same spawn lifecycle gate as check/spawn/registration.
+- How you fixed it: Make `pty_kill` await the shared gate through revocation, map removal, and tab close. For managed SSH, keep the gate through bounded, confirmed child termination, restoring the tracked handle and leaving the tab open on failure; the waiter records successful `child.wait()` before it sends Exit, so this does not await event-loop delivery. A synthetic close-during-pending-spawn regression was added; final Rust verification awaits the parent's Cargo rerun.
+
+# Mistake: frontend restore dropped a resolved PTY before explicit-close cleanup
+
+- What the issue/mistake was: An initial exit cleared the resolved PTY promise, so later explicit close could no longer use it to finish cleanup.
+- RCA of the Issue: Restore state treated initial exit as permission to discard the identity still needed by explicit close.
+- How you fixed it: The frontend owner retained the resolved promise, blocked input, and added a close-cleanup regression. This note records their reported correction; backend did not modify frontend restore code.
+
+# Mistake: formatter check loop shadowed zsh's PATH array
+
+- What the issue/mistake was: A formatting-check loop lost access to `rg` and `git` and returned an unusable result.
+- RCA of the Issue: In zsh, assigning the loop variable `path` also changes the tied `PATH` array.
+- How you fixed it: Reran the checks with `target_file` as the loop variable; remaining rustfmt differences matched the pre-existing HEAD formatting, and `git diff --check` passed.
+
+# Mistake: managed detach dropped the live connection when history carried a restore marker
+
+- What the issue/mistake was: Detaching a live managed SSH tab lost its connection rather than moving the existing wire session.
+- RCA of the Issue: Detach eligibility checked only terminal type and split count; the detached renderer saw the managed-history marker and skipped `wireSession`.
+- How you fixed it: The frontend owner now shares the `isManagedHistory`/live predicate across button, drag, and handler guards. Live managed detach remains intentionally unsupported without a replacement; ordinary macOS/local detach is untouched. This records the frontend owner's reported fix, not a backend edit.
+
+# Mistake: managed close discarded a child before confirming termination
+
+- What the issue/mistake was: `pty_kill` removed the tracked child, released the lifecycle gate, ignored kill failure, and closed the tab before the child was known to have exited. A new PTY could reuse the same tab id while the old SSH child still ran.
+- RCA of the Issue: Sending a kill request is not evidence of successful `child.wait()`, and the existing `alive` flag deliberately becomes false even on an unknown wait outcome, so it cannot certify exit.
+- How you fixed it: Managed Windows close retains the gate while requesting termination and waiting (bounded) for a separate confirmed-success wait flag; on unconfirmed termination (including actual kill failure, wait failure, or timeout) it restores the handle, leaves the tab open, and surfaces an error. The waiter still marks unknown outcomes not alive for fail-closed lease checks. Added synthetic failure/timeout guards and a controlled local-process termination test; parent Cargo rerun and native Windows verification remain pending.
+
+# Mistake: wait-state observation could misclassify a successful exit as failure
+
+- What the issue/mistake was: Managed close could report an unknown/failed child wait even though a successful exit had just been confirmed.
+- RCA of the Issue: The close loop read `confirmed == false` before the waiter stored `true`, then read `alive == false` after the waiter cleared it. Two separate atomic observations straddled the state transition.
+- How you fixed it: Recheck confirmation after observing `alive == false`, both in the wait loop and the initial no-longer-alive path. A deterministic callback regression reproduces the interleaving; genuinely failed waits remain unconfirmed and fail closed.
+
+# Mistake: frontend close discarded a managed tab after native kill failed
+
+- What the issue/mistake was: The UI removed a managed terminal tab even when its native PTY close failed, losing the operator's ability to retry termination while the SSH child might still be running.
+- RCA of the Issue: TabBar used a void registry disposal that swallowed `ptyKill` rejection before removing the tab; Pane split-close also used void disposal before closing the pane.
+- How you fixed it: The frontend owner now awaits native kill for managed-tab close and retains the tab with an error/retry path on rejection; managed root split close and Cmd-W are guarded, while local split-close behavior is unchanged. This records the frontend owner's report, not a backend edit.
+
+# Mistake: dead managed SSH remained an eligible pipe target
+
+- What the issue/mistake was: A naturally exited managed SSH process left its historical PTY handle in the map, and the PipeMenu could still offer that dead tab as a target.
+- RCA of the Issue: `list_pipe_targets` treated map membership alone as liveness; managed SSH handles can remain mapped after Exit for history/explicit close.
+- How you fixed it: Filter only dead managed SSH handles using the actual handle's liveness while preserving ordinary/macOS map-membership semantics. A synthetic shared-predicate regression covers live/dead managed and ordinary combinations; Rust verification awaits the parent's Cargo rerun.
+
+# Mistake: Windows PTY kill error was mistaken for proof termination failed
+
+- What the issue/mistake was: Managed close could refuse to close a successfully terminated SSH child because its kill request reported an error.
+- RCA of the Issue: In the locked `portable-pty` 0.9.0 Windows implementation, `WinChildKiller::kill` has an inverted `TerminateProcess` result check and can return Err on successful termination; the first close helper returned on Err before consulting the independent waiter.
+- How you fixed it: Always await bounded confirmed-success `child.wait()` after requesting managed termination, whether the kill call reports Ok or Err. Confirmed exit wins; otherwise keep the handle tracked and include any kill error in the actionable failure. Deterministic tests cover false kill Err with confirmed exit, real failure, and no-exit timeout. No dependency or ordinary macOS behavior changed; parent Cargo rerun/native Windows runtime verification remain pending.
+
+# Mistake: Windows auth callback could treat a digit-ending nonce as redirection
+
+- What the issue/mistake was: A generated UUID ending in a digit could be shortened in the local callback, and a nonce fragment could reach terminal output instead of the authentication pipe.
+- RCA of the Issue: The callback placed `>` immediately after the expanded environment variable. Windows cmd.exe treats a trailing digit before `>` as a file-descriptor redirect; the pipe then receives a malformed nonce. This command parsing behavior was confirmed against Microsoft documentation, not device output.
+- How you fixed it: Put the pipe redirection before `echo` in the fixed LocalCommand, leaving nonce out of argv and retaining the exact 36-byte UUID plus CRLF proof gate. A synthetic helper test asserts the prefix and several digit-ending UUID shapes. This is not a native cmd.exe execution test; parent Cargo/helper check and Windows runtime verification remain pending.
+
+# Mistake: guessed public release documentation during candidate transplant
+
+- What the issue/mistake was: The public transplant worker included a nonexistent `docs/RELEASING.md` in a read-only consumer search, producing an exit-2 result after valid matches.
+- RCA of the Issue: Assumed a conventional documentation name rather than using the already identified release procedure.
+- How you fixed it: Used the existing release preflight and changed-Rust formatting scripts already read. No source changes or findings were lost; this records the worker's report.

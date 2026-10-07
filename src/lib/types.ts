@@ -39,6 +39,8 @@ export type PtyEvent =
   | { type: "cwd"; path: string }
   | { type: "enter_alt_screen" }
   | { type: "exit_alt_screen" }
+  | { type: "managed_ssh_authenticated"; connection_id: string }
+  | { type: "managed_ssh_auth_failed" }
   | { type: "exit"; code: number | null };
 
 export type CommandBlockState = {

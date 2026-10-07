@@ -20,6 +20,7 @@ export interface TerminalConnectionState {
   syntax_profile: SyntaxProfile;
   lifecycle: TerminalConnectionLifecycle;
   ssh_command: string;
+  managed?: boolean;
   exit_status: number | null;
   error: string | null;
 }
@@ -35,6 +36,7 @@ export interface BindTerminalConnection {
   syntaxHighlightingEnabled: boolean;
   syntaxProfile: SyntaxProfile;
   sshCommand: string;
+  managed?: boolean;
   lifecycle?: TerminalConnectionLifecycle;
 }
 
@@ -88,6 +90,7 @@ export const useTerminalConnectionStore = create<TerminalConnectionStore>((set, 
         syntax_profile: binding.syntaxProfile,
         lifecycle: binding.lifecycle ?? "connecting",
         ssh_command: binding.sshCommand,
+        managed: binding.managed ?? false,
         exit_status: null,
         error: null,
       };

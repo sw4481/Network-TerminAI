@@ -27,3 +27,18 @@ def test_meraki_empty_array_query_param_is_omitted():
     assert MerakiClient._normalize_query_params(
         {"networkIds": [], "active": True}
     ) == [("active", True)]
+
+
+def test_meraki_without_credentials_keeps_actionable_error_and_does_not_connect(monkeypatch):
+    client = MerakiClient(None)
+
+    def forbidden():
+        raise AssertionError("Missing credentials must fail before opening a session")
+
+    monkeypatch.setattr(client, "_ensure_session", forbidden)
+    for method in ("GET", "DELETE"):
+        result = client.call(method, "/organizations")
+        assert result["status_code"] == 0
+        assert result["data"] is None
+        assert result["error"] == "Meraki is not configured. Set the API key in Settings -> Meraki."
+        assert result["blast_radius"] == ("low" if method == "GET" else "destructive")

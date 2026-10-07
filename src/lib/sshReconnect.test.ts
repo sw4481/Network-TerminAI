@@ -111,6 +111,20 @@ describe("in-place saved SSH reconnect", () => {
     expect(useTerminalConnectionStore.getState().get("stable-terminal")).toBeNull();
   });
 
+  it("never sends a reconnect command or creates a local shell in a managed SSH PTY", async () => {
+    useTerminalConnectionStore.getState().bind({
+      terminalId: "stable-terminal", backendPtyId: "pty-live", connectionId: "connection-1",
+      displayName: "Core", vendor: "cisco", platform: "iosxe", accentColor: null,
+      syntaxHighlightingEnabled: true, syntaxProfile: "auto", sshCommand: "", managed: true,
+      lifecycle: "disconnected",
+    });
+    expect(await reconnectSavedSsh("stable-terminal")).toBe(false);
+    useLocalShell("stable-terminal");
+    expect(useTerminalConnectionStore.getState().get("stable-terminal")?.managed).toBe(true);
+    expect(terminalLaunchSavedSshMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
   it("clears the transient password context when the reconnect write fails", async () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === "ssh_get_connection") return Promise.resolve(LATEST_CONNECTION);

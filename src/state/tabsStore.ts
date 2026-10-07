@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Tab, CommandBlockState } from "../lib/types";
 import { useClosedTabs } from "./closedTabsStore";
+import { MANAGED_SSH_SHELL_MARKER } from "../lib/sessionRestore";
 
 type Store = {
   tabs: Tab[];
@@ -90,6 +91,7 @@ export const useTabs = create<Store>((set) => ({
           id: closed.id,
           title: closed.title,
           cwd: closed.cwd,
+          managed: closed.shell_cmd === MANAGED_SSH_SHELL_MARKER,
           closedAt: Math.floor(Date.now() / 1000),
         });
       }

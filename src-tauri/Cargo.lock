@@ -925,7 +925,7 @@ dependencies = [
 
 [[package]]
 name = "ccie-terminal"
-version = "1.1.8"
+version = "1.1.9"
 dependencies = [
  "aes 0.8.4",
  "aes-gcm 0.10.3",
@@ -1008,6 +1008,7 @@ dependencies = [
  "uuid",
  "warp",
  "whisper-rs",
+ "windows-sys 0.61.2",
  "wiremock",
  "zeroize",
  "zip 2.4.2",
