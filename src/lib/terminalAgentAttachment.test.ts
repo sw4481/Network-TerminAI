@@ -83,7 +83,30 @@ describe("resolveTerminalAttachment", () => {
     });
   });
 
-  it("falls back to manual attachment when saved SSH binding cannot be verified", () => {
+  it("keeps the focused managed Windows SSH binding and backend PTY identity", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+    const backendPtyIdFor = vi.fn((id: string) => id === "pty-right" ? "backend-right" : "backend-left");
+
+    expect(resolveTerminalAttachment({
+      agentId: "network-architect",
+      requested: true,
+      focusedPaneId: "pane-right",
+      layout: splitLayout,
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: true } },
+      backendPtyIdFor,
+    })).toEqual({
+      backendPtyId: "backend-right",
+      terminalId: "pty-right",
+      source: "saved_ssh",
+      connectionId: "ssh-connection-7",
+      displayName: "Access switch 7",
+      vendor: "cisco",
+      platform: "iosxe",
+    });
+    expect(backendPtyIdFor).toHaveBeenCalledExactlyOnceWith("pty-right");
+  });
+
+  it("retains manual attachment for unmanaged Windows SSH", () => {
     vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
 
     const attachment = resolveTerminalAttachment({
@@ -91,7 +114,7 @@ describe("resolveTerminalAttachment", () => {
       requested: true,
       focusedPaneId: "pane-right",
       layout: splitLayout,
-      connectionsByTerminalId: { "pty-right": connectedSsh },
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: false } },
       backendPtyIdFor: () => "backend-right",
     });
 
@@ -100,6 +123,18 @@ describe("resolveTerminalAttachment", () => {
       terminalId: "pty-right",
       source: "manual_ssh",
     });
+  });
+
+  it("retains manual attachment for managed SSH on Linux", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Linux x86_64" });
+    expect(resolveTerminalAttachment({
+      agentId: "network-architect",
+      requested: true,
+      focusedPaneId: "pane-right",
+      layout: splitLayout,
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: true } },
+      backendPtyIdFor: () => "backend-right",
+    })).toEqual({ backendPtyId: "backend-right", terminalId: "pty-right", source: "manual_ssh" });
   });
 
   it("never grants terminal authority to another agent", () => {
@@ -113,26 +148,30 @@ describe("resolveTerminalAttachment", () => {
     })).toBeNull();
   });
 
-  it("rejects a disconnected saved SSH session before send", () => {
-    expect(() => resolveTerminalAttachment({
-      agentId: "network-architect",
-      requested: true,
-      focusedPaneId: "pane-right",
-      layout: splitLayout,
-      connectionsByTerminalId: {
-        "pty-right": { ...connectedSsh, lifecycle: "disconnected" },
-      },
-      backendPtyIdFor: () => "backend-right",
-    })).toThrow("connected SSH terminal");
+  it("rejects pending or disconnected managed Windows SSH before send", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
+    for (const lifecycle of ["connecting", "disconnected"] as const) {
+      expect(() => resolveTerminalAttachment({
+        agentId: "network-architect",
+        requested: true,
+        focusedPaneId: "pane-right",
+        layout: splitLayout,
+        connectionsByTerminalId: {
+          "pty-right": { ...connectedSsh, managed: true, lifecycle },
+        },
+        backendPtyIdFor: () => "backend-right",
+      })).toThrow("connected SSH terminal");
+    }
   });
 
-  it("permits a manual terminal candidate for host-side SSH verification", () => {
+  it("does not borrow a managed Windows binding from the other split pane", () => {
+    vi.stubGlobal("navigator", { ...navigator, platform: "Win32" });
     expect(resolveTerminalAttachment({
       agentId: "network-architect",
       requested: true,
       focusedPaneId: "pane-left",
       layout: splitLayout,
-      connectionsByTerminalId: {},
+      connectionsByTerminalId: { "pty-right": { ...connectedSsh, managed: true } },
       backendPtyIdFor: (id) => id,
     })).toEqual({
       backendPtyId: "pty-left",

@@ -1,0 +1,129 @@
+name: Windows SSH attachment test build
+
+on:
+  push:
+    branches: [test/windows-ssh-attachment-20261007]
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.3.6"
+  RUST_VERSION: "1.97.0"
+  UV_VERSION: "0.8.19"
+
+jobs:
+  windows-installer:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install pinned Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: x86_64-pc-windows-msvc
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Cache immutable sidecar build downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/terminai-downloads
+            ${{ runner.temp }}/terminai-huggingface
+          key: sidecar-downloads-x86_64-pc-windows-msvc-pbs-20260510-3.12.13-${{ hashFiles('sidecar/uv.lock', 'sidecar/scripts/fetch_onnx.py') }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: x86_64-pc-windows-msvc
+
+      - name: Install frontend dependencies from the frozen lock
+        run: bun install --frozen-lockfile
+
+      - name: Run focused attachment regressions
+        run: bunx vitest run src/lib/terminalAgentAttachment.test.ts src/lib/terminalAgentTauri.test.ts --exclude '**/.worktrees/**'
+
+      - name: Sync sidecar from the frozen lock
+        working-directory: sidecar
+        shell: bash
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv
+        run: |
+          uv sync --frozen --extra dev
+          .venv/Scripts/python.exe -c "import ccie_sidecar"
+
+      - name: Build portable sidecar from the frozen lock
+        working-directory: sidecar
+        shell: bash
+        env:
+          CCIE_TARGET_TRIPLE: x86_64-pc-windows-msvc
+          TERMINAI_DOWNLOAD_CACHE: ${{ runner.temp }}/terminai-downloads
+          HF_HOME: ${{ runner.temp }}/terminai-huggingface
+        run: ./scripts/build_sidecar.sh
+
+      - name: Build installer without signed updater artifacts
+        shell: pwsh
+        env:
+          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
+        run: |
+          $config = Join-Path $env:RUNNER_TEMP "tauri-test-config.json"
+          '{"bundle":{"createUpdaterArtifacts":false}}' | Set-Content $config -Encoding utf8
+          bun tauri build --config $config --bundles nsis -- --locked
+
+      - name: Verify sidecar inside the Windows installer
+        shell: bash
+        run: |
+          installer="$(find src-tauri/target/release/bundle/nsis -type f -iname '*-setup.exe' -print -quit)"
+          scripts/verify-bundled-sidecar.sh windows "$installer"
+
+      - name: Prepare test artifact and checksum
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" -File)
+          if ($installers.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          $installer = $installers[0]
+          $artifact = Join-Path $env:RUNNER_TEMP "windows-test-installer"
+          New-Item -ItemType Directory -Path $artifact | Out-Null
+          Copy-Item $installer.FullName $artifact
+          $hash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installer.Name)" | Set-Content (Join-Path $artifact "SHA256SUMS.txt") -Encoding utf8
+          @{
+            commit = $env:GITHUB_SHA
+            branch = $env:GITHUB_REF_NAME
+            version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+            authenticodeStatus = (Get-AuthenticodeSignature $installer.FullName).Status.ToString()
+            updaterSigned = $false
+          } | ConvertTo-Json | Set-Content (Join-Path $artifact "build-info.json") -Encoding utf8
+          "Test installer: $($installer.Name)`nCommit: $env:GITHUB_SHA`nSHA256: $hash`nManual installation only; no official release or signed updater." | Add-Content $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload Windows test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminai-windows-ssh-attachment-test-${{ github.sha }}
+          path: ${{ runner.temp }}/windows-test-installer/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
