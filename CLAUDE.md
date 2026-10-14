@@ -98,15 +98,28 @@ These rules apply to the unattended overnight fixer (branches `nightly/*`).
 uv run --project sidecar --frozen --extra dev pytest -q sidecar/tests
 uv run --project sidecar --frozen --extra dev pytest -q sidecar/tests/test_issue_<N>.py
 
-# Rust suite (CCIE_REPO_ROOT must point at the repo root)
-CCIE_REPO_ROOT="$PWD" cargo test --manifest-path src-tauri/Cargo.toml --locked
-CCIE_REPO_ROOT="$PWD" cargo test --manifest-path src-tauri/Cargo.toml --locked --test issue_<N>_test
+# Rust suite (the nightly run already exports CCIE_REPO_ROOT)
+cargo test --manifest-path src-tauri/Cargo.toml --locked
+cargo test --manifest-path src-tauri/Cargo.toml --locked --test issue_<N>_test
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
 rustfmt --edition 2021 --check <each changed .rs file>
 ```
 
 The full suite is the Python suite, Rust clippy and the Rust suite. All three
 must be green.
+
+### Shell usage
+
+The nightly run denies any shell command that is not on its allowlist.
+
+- Run each verification command above exactly as written, one per Bash call.
+  Do not chain it with `&&`, pipe it into `grep`, or wrap it in a subshell;
+  `| tail -n 40` is the only filter allowed. The Rust suite takes many
+  minutes, so wait for it.
+- Create and change files only with the Write and Edit tools, never with
+  `cat >`, `echo >`, `tee` or `sed -i`.
+- If a command is denied, retry the same work as separate simple commands
+  before treating the step as failed.
 
 ### Rules for every change
 
