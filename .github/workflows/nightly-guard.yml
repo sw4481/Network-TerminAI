@@ -1,0 +1,30 @@
+name: nightly-guard
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard-tests:
+    name: guard-tests
+    # Only applies to the nightly fixer's branches; your own PRs can edit tests
+    if: startsWith(github.head_ref, 'nightly/')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Nightly PRs may only ADD test files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          pattern='(^|/)(tests?|e2e)/|\.(test|spec)\.[jt]sx?$|(^|/)test_[^/]*\.py$|_test\.py$|_tests?\.rs$'
+          changed=$(git diff --name-status --no-renames "origin/${BASE_REF}...HEAD" | grep -Ev '^A' | cut -f2 | grep -E "$pattern" || true)
+          if [ -n "$changed" ]; then
+            echo "Existing tests were modified or deleted:"
+            echo "$changed"
+            exit 1
+          fi
