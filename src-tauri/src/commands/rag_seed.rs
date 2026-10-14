@@ -165,6 +165,7 @@ pub async fn rag_run_seed_script(app: AppHandle) -> Result<SeedRunResult, String
 
     let mut child = Command::new(&python)
         .arg(&script)
+        .env("PYTHONDONTWRITEBYTECODE", "1")
         .env("CCIE_RAG_SEED_DIR", &seed_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

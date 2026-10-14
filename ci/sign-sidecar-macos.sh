@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-# Sign each nested .dylib/.so inside python-build-standalone before Tauri bundles.
-# Phase 7 implements this. Phase 0 stub only.
+# Sign source native resources before Tauri copies them and seals the outer app.
 set -euo pipefail
-echo "sign-sidecar-macos.sh: not yet implemented (Phase 7)"
-exit 0
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "macOS resource signing skipped on this platform"
+  exit 0
+fi
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "${PYTHON:-python3}" -I "$ROOT/scripts/sign_macos_resources.py" "$ROOT/sidecar/dist/python"

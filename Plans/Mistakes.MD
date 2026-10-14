@@ -1,3 +1,111 @@
+# Mistake: commit body contained literal newline escapes
+
+- What the issue/mistake was: On 2026-10-14, the combined local commit body contained literal backslash-n text instead of a paragraph break.
+- RCA of the Issue: Shell double quotes preserve backslash-n in a git -m argument; I assumed newline expansion. The first amendment attempt was blocked before execution because I omitted its required target/rollback facts; these must be presented before retrying.
+- How you fixed it: Amend only this unpublished task-owned commit using separate -m paragraphs, selectively stage this new log entry, and verify real paragraphs plus the required final attribution. No push or unrelated changes are included.
+
+# Mistake: first native acceptance build reused a stale local sidecar payload
+
+- What the issue/mistake was: On 2026-10-14, the first new app passed strict outer/native signature checks but its packaged sidecar lacked the current catalog_grounding module, so the real import/protocol smoke failed.
+- RCA of the Issue: I built Tauri against an old sidecar/dist/python without first rebuilding the portable sidecar as the release workflow does. Valid signatures do not prove current package contents or startup behavior.
+- How you fixed it: Ran the existing fresh-staging portable builder using the frozen dependency lock; the current package/catalog origin and heartbeat/ping smoke passed. Rebuilt the app/DMG from that payload; the final DMG, writable app, and writable local-format archive pass ordinary startup/import/heartbeat/ping plus strict outer/native signature checks before and after smoke. The model fetch retained its pinned local assets after a remote TLS-verification warning; no TLS/security check was disabled.
+
+# Mistake: artifact verifier initially checked seals only before smoke
+
+- What the issue/mistake was: On 2026-10-14, the first macOS artifact verifier could miss ordinary-resource or native-file mutation during startup because it checked signatures only before smoke.
+- RCA of the Issue: Startup success and build-time validity were checked separately rather than verifying that runtime preserved the seal.
+- How you fixed it: Added a failing mutation regression, then repeated strict outer/native signature verification after smoke. The final 35 script tests, shellcheck, actionlint, and whitespace checks pass.
+
+# Mistake: Python startup protection was initially incomplete
+
+- What the issue/mistake was: On 2026-10-14, ordinary Python startup/imports created bytecode inside resources that must remain sealed; a proposed sitecustomize guard still allowed six startup cache writes.
+- RCA of the Issue: The initial package-signing approach considered build-time integrity without covering interpreter initialization before sitecustomize runs. A proposed fixture also incorrectly assumed environment value `0` disables the guard; Python treats any nonempty value as enabled.
+- How you fixed it: Rejected sitecustomize/global environment changes, set PYTHONDONTWRITEBYTECODE=1 at six managed child-process boundaries, and observed RED/GREEN real bridge/MCP child regressions including an empty environment override. Parent and PTY environments remain unchanged.
+
+# Mistake: new MAC test fixtures discarded socket read counts
+
+- What the issue/mistake was: On 2026-10-14, the first all-targets Clippy run rejected two new HTTP fixtures for unused_io_amount.
+- RCA of the Issue: The fixtures discarded the read return values instead of verifying that a request had actually arrived.
+- How you fixed it: Added positive byte-count assertions at both reads; no production network logic changed. The independently rerun all-targets Clippy check with -D warnings passes, as do the 623-test Rust library suite and eight bridge/MCP integration tests.
+
+# Mistake: isolated-mode unittest invocation hid repository imports
+
+- What the issue/mistake was: On 2026-10-14, the final script-suite command used python -I, preventing tests from importing the repository's scripts package. A subsequent progress query also named logs that had not yet been created.
+- RCA of the Issue: I applied downloaded-input isolation to execution of the user's own project tests and assumed every sequential background step had started.
+- How you fixed it: Reran the authorized project unittest suite normally (34 tests passed), retaining -I for tools reading downloaded CSVs/archives; inspected only existing progress logs. No source or security configuration was changed for these command failures.
+
+# Mistake: incomplete MCP regression Edit payload
+
+- What the issue/mistake was: On 2026-10-14, the first attempt to append the MCP regression supplied identical old/new Edit strings and was rejected without changing the file.
+- RCA of the Issue: The replacement payload was incomplete; subsequent rustfmt also identified one new call requiring wrapping.
+- How you fixed it: Used unique final-function context to append the regression and corrected only the new call's formatting; targeted real-child tests and rustfmt pass.
+
+# Mistake: initial updater checks did not separate completeness and blocking work
+
+- What the issue/mistake was: On 2026-10-14, absolute registry count floors allowed severe truncation relative to the active snapshot, while synchronous parsing/publication ran inside an async timeout. A Unicode-control filter also rejected legitimate legacy IEEE C1 address text.
+- RCA of the Issue: Initial validation was not characterized against both the full official data and the existing cache, and the deadline did not distinguish network work from blocking filesystem work.
+- How you fixed it: Added RED/GREEN regressions, reject per-registry losses over 10%, preserve official C1 text while rejecting ASCII controls, and run parsing/publication on blocking workers outside the download-only deadline. The 623-test Cargo library suite passes; no filesystem timeout is falsely promised.
+
+# Mistake: prior MAC result could remain visible after changing the input
+
+- What the issue/mistake was: On 2026-10-14, the first panel implementation invalidated pending responses but retained a prior assignment while a different address was entered or failed validation. Its layout breakpoint also measured the window instead of the panel.
+- RCA of the Issue: The preservation requirement for failed registry updates was applied too broadly to input changes; modal width was not treated as the responsive layout boundary.
+- How you fixed it: Added failing tests, clear results on input edits/current lookup errors while retaining them on update failure, added the missing heading/IAB link, and use container-width breakpoints. All 2,300 frontend tests pass; browser interaction and inspected screenshots at 1440/720/390px show no horizontal overflow.
+
+# Mistake: malformed Edit parameter in backend revision
+
+- What the issue/mistake was: On 2026-10-14, one backend Edit call supplied an extra `.new_string` parameter and was rejected before changing the file.
+- RCA of the Issue: The tool arguments did not match its schema.
+- How you fixed it: Retried with the documented `new_string` parameter; the corrected source was verified through Cargo tests.
+
+# Mistake: treated shared IEEE registrations as corrupt duplicates
+
+- What the issue/mistake was: On 2026-10-14, the initial seed builder and updater rejected duplicate raw CSV prefixes, but the official MA-L dataset lists several organizations for `080030` and `0001C8`.
+- RCA of the Issue: I applied snapshot uniqueness to raw source rows before examining the authoritative data. The reported 59,000 rows are not 59,000 distinct assignments.
+- How you fixed it: Inspected the actual CSVs, added a failing co-registration test, and consolidated all organizations with labeled postal addresses into 58,997 unique assignment entries. The updater receives the same normalization; no organization is arbitrarily preferred.
+
+# Mistake: assumed source and environment paths during implementation preparation
+
+- What the issue/mistake was: On 2026-10-14, read/search commands assumed nonexistent paths: `src/components/ModalShell.tsx`, `.venv/bin/python3`, `src-tauri/src/logging/mod.rs`, `src-tauri/src/sidecar`, `sidecar/scripts/packaging`, `sidecar/scripts/build_portable_sidecar.py`, `src-tauri/src/rag/embedder.rs`, `src-tauri/src/mcp/tests`, and `resources/README.md` (the actual file is resources/mac-registry.README.md). A disk check likewise assumed an incremental-build directory that was absent.
+- RCA of the Issue: I inferred conventional layouts instead of locating the definitions and interpreter first.
+- How you fixed it: Located ModalShell in App.tsx, used the available Python interpreter, and limited subsequent source reads to verified paths. The unsuccessful commands made no changes.
+
+# Mistake: printed a malformed registry total
+
+- What the issue/mistake was: On 2026-10-14, a status update printed an incomplete MAC registry count.
+- RCA of the Issue: I emitted an unfinished count instead of using the parsed totals.
+- How you fixed it: Immediately corrected the count to 59,000 published rows, then distinguished the 58,997 distinct assignments after checking shared prefixes.
+
+# Mistake: verification fixtures bypassed project environment assumptions
+
+- What the issue/mistake was: On 2026-10-14, signing fixtures compared unresolved `/var` paths with canonical `/private/var` paths, and a narrow TypeScript command omitted the jest-dom test setup.
+- RCA of the Issue: The fixture paths and targeted compiler inputs did not match production path normalization or the project test configuration.
+- How you fixed it: Resolved fixture roots in setUp and included src/test-setup.ts in the narrow TypeScript check; both corrected checks pass. No production behavior was weakened.
+
+# Mistake: standalone Rust verification selected mismatched build artifacts
+
+- What the issue/mistake was: On 2026-10-14, the backend's isolated rustc harness initially omitted Cargo package variables, mixed serde artifact identities, collided with Tauri macro reexports, and selected reqwest 0.13 instead of the manifest's 0.11.
+- RCA of the Issue: Direct rustc invocation bypassed Cargo's environment and dependency selection.
+- How you fixed it: Used a path-module wrapper, explicit package variables, and compatible dependency artifacts for the isolated regression. Final backend acceptance uses Cargo rather than treating the harness as a complete product build.
+
+# Mistake: first-touch fact presentations were incomplete for individual targets
+
+- What the issue/mistake was: On 2026-10-14, several first-touch commands were rejected because grouped facts did not satisfy the gate's per-target caller/schema requirements; the resumed first Bash command also lacked a fresh request/purpose statement.
+- RCA of the Issue: I relied on prior-turn or batch context instead of presenting each target's checked facts immediately before its first call.
+- How you fixed it: Repeated the source searches where needed and supplied numbered, per-target facts and the user's verbatim approval before retrying. No gate, permission setting, or security control was disabled.
+
+# Mistake: did not preannounce the large-graph visualization warning
+
+- What the issue/mistake was: On 2026-10-14, the MAC-lookup design refresh invoked `graphify update .` without first warning that the existing graph exceeds 5,000 nodes and the updater may regenerate HTML.
+- RCA of the Issue: I treated the command as a code-only refresh and did not account for its automatic visualization step, although the skill requires a warning before large-graph visualization.
+- How you fixed it: The update used the tool's aggregated community view rather than full node-level visualization. I surfaced its extraction warnings in the design handoff; future updates must preannounce aggregation or use a documented no-visualization path. Application code and security settings were unchanged.
+
+# Mistake: assumed release lookup tooling and repository provenance during macOS triage
+
+- What the issue/mistake was: On 2026-10-14, the first release lookup assumed `gh` was installed and queried the private development repository instead of the public repository that supplied the DMG; it failed with command-not-found and HTTP 404.
+- RCA of the Issue: I inferred artifact provenance from the current Git remote before checking the downloaded file's release source and available command-line tools.
+- How you fixed it: Used the public `sw4481/Network-TerminAI` release API through the available HTTP client, matched the official asset SHA-256 to the downloaded DMG, and traced the actual v1.1.10 tagged workflow. No application, release, or security-setting changes were made.
+
 # Mistake: manually linked a second macOS Info.plist into the dev binary
 
 - What the issue/mistake was: I added manual `-sectcreate __TEXT __info_plist src-tauri/Info.plist` linker arguments to `src-tauri/build.rs`, which appended a second plist to Tauri's already generated embedded plist and caused macOS TCC to crash the app on speech recognition access.
@@ -184,6 +292,8 @@
 - What the issue/mistake was: I ran the first Graphify query directly before reading its query reference, so I skipped the required reflection and graph-vocabulary expansion steps.
 - RCA of the Issue: I followed the core fast-path summary before loading the referenced query workflow in full.
 - How you fixed it: The query was read-only. I then ran `graphify reflect --if-stale`, extracted the graph vocabulary, repeated the query with graph-backed terms, and saved the verified result.
+
+- Recurrence (2026-10-14): The initial macOS DMG triage query again preceded the reference read and vocabulary expansion. Read the reference and lessons, refreshed reflection, extracted actual signing/bundle vocabulary, and reran the query; the graph lacks sufficient release-signing coverage, so the diagnosis uses the downloaded artifact and tagged pipeline instead.
 
 # Mistake: added an extra blank line at the design-spec EOF
 

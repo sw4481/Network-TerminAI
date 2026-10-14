@@ -197,7 +197,7 @@ jobs:
             sidecar_triple: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
             macos_deployment_target: "15.0"
-            tauri_args: --target aarch64-apple-darwin --bundles dmg -- --locked
+            tauri_args: --target aarch64-apple-darwin --bundles app,dmg -- --locked
           - name: windows-x86_64
             runner: windows-2025
             sidecar_triple: x86_64-pc-windows-msvc
@@ -353,6 +353,7 @@ jobs:
           test -f "$updater.sig"
           echo "macOS distribution is intentionally not Developer ID signed or notarized."
           scripts/verify-bundled-sidecar.sh macos "$dmg"
+          scripts/verify-bundled-sidecar.sh macos "$updater"
 
       - name: Validate zero-cost Windows installer and updater signature
         if: runner.os == 'Windows'

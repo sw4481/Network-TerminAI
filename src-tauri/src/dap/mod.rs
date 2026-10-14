@@ -153,6 +153,7 @@ impl DapSession {
 
         let mut child = Command::new(&adapter.command)
             .args(&adapter.args)
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .current_dir(&workspace_root)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -649,6 +650,7 @@ impl DapManager {
             Duration::from_secs(5),
             Command::new(&adapter.command)
                 .args(["-c", "import debugpy; print(debugpy.__version__)"])
+                .env("PYTHONDONTWRITEBYTECODE", "1")
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())

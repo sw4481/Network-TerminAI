@@ -51,6 +51,7 @@ impl SidecarHandle {
             // non-tty. Without this a crash traceback can sit unflushed and
             // never reach the log. Harmless for stdout NDJSON (already flushed).
             .env("PYTHONUNBUFFERED", "1")
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .env("CCIE_LOG_DIR", crate::logging::default_log_dir())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -300,6 +301,7 @@ impl SidecarSupervisor {
             // and Python block-buffers stderr to a non-tty — without this a
             // crash traceback can sit unflushed and never reach the log.
             .env("PYTHONUNBUFFERED", "1")
+            .env("PYTHONDONTWRITEBYTECODE", "1")
             .env("CCIE_LOG_DIR", crate::logging::default_log_dir())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

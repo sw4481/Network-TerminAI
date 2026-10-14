@@ -11,6 +11,7 @@ pub mod git;
 pub mod guardrails;
 pub mod logs;
 pub mod lsp;
+pub mod mac_lookup;
 pub mod palette;
 pub mod pane_activity;
 pub mod parsers;
