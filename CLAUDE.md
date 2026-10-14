@@ -80,3 +80,50 @@ Settings are primarily managed in the app. `.env.example` contains public placeh
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Nightly Fixer Rules
+
+These rules apply to the unattended overnight fixer (branches `nightly/*`).
+
+### Scope
+
+- Fix bugs in the Rust core (`src-tauri/`) or the Python sidecar (`sidecar/`).
+  An issue that needs frontend (`src/`), packaging, release or CI changes is
+  out of scope: SKIP it.
+
+### Verification commands
+
+```bash
+# Python sidecar suite (run from the repo root)
+uv run --project sidecar --frozen --extra dev pytest -q sidecar/tests
+uv run --project sidecar --frozen --extra dev pytest -q sidecar/tests/test_issue_<N>.py
+
+# Rust suite (CCIE_REPO_ROOT must point at the repo root)
+CCIE_REPO_ROOT="$PWD" cargo test --manifest-path src-tauri/Cargo.toml --locked
+CCIE_REPO_ROOT="$PWD" cargo test --manifest-path src-tauri/Cargo.toml --locked --test issue_<N>_test
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings
+rustfmt --edition 2021 --check <each changed .rs file>
+```
+
+The full suite is the Python suite, Rust clippy and the Rust suite. All three
+must be green.
+
+### Rules for every change
+
+- Make the smallest change that fixes the problem. No refactors, renames,
+  reformatting, or "while I'm here" cleanups.
+- Never modify or delete an existing test file, and never edit an existing
+  `#[cfg(test)]` module. A new regression test goes in a NEW file:
+  - Python: `sidecar/tests/test_issue_<N>.py`
+  - Rust, public API: `src-tauri/tests/issue_<N>_test.rs`
+  - Rust, private items: a new `issue_<N>_tests.rs` beside the module, wired in
+    with `#[cfg(test)] #[path = "issue_<N>_tests.rs"] mod issue_<N>_tests;`
+- Never add, remove, or upgrade dependencies or lockfiles (`Cargo.toml`
+  dependencies, `Cargo.lock`, `pyproject.toml` dependencies, `uv.lock`,
+  `package.json`, `bun.lock`).
+- Never touch `.github/`, `.claude/`, `CLAUDE.md`, CI config, release scripts,
+  or secrets.
+- If a fix needs more than 5 files or about 100 changed lines, it is out of
+  scope: stop and explain why.
+- Match the existing code style. Run `rustfmt --check` only on Rust files you
+  changed; never reformat whole files or the crate.
