@@ -314,3 +314,47 @@ async fn test_mcp_client_reconnect_on_crash() -> Result<()> {
     client.shutdown().await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn managed_mcp_child_preserves_module_tree_despite_env_override() -> Result<()> {
+    use ccie_terminal_lib::mcp::{transport::StdioTransport, types::JsonRpcRequest, Transport};
+
+    let root = tempfile::tempdir()?;
+    let module = root.path().join("integrity_fixture.py");
+    std::fs::write(&module, "VALUE = 42\n")?;
+    let script = r#"
+import json, os, sys
+sys.path.insert(0, sys.argv[1])
+import integrity_fixture
+for line in sys.stdin:
+    request = json.loads(line)
+    result = {"disabled": sys.dont_write_bytecode, "env": os.environ.get("PYTHONDONTWRITEBYTECODE"), "value": integrity_fixture.VALUE}
+    print(json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": result}), flush=True)
+"#;
+    let parent_env = std::env::var_os("PYTHONDONTWRITEBYTECODE");
+    let transport = StdioTransport::new(
+        python_executable().to_string(),
+        vec![
+            "-c".to_string(),
+            script.to_string(),
+            root.path().to_string_lossy().into_owned(),
+        ],
+        HashMap::from([("PYTHONDONTWRITEBYTECODE".to_string(), String::new())]),
+    );
+    transport.start().await?;
+    let response = transport
+        .send_request(
+            JsonRpcRequest::new(1, "probe", None),
+            Duration::from_secs(5),
+        )
+        .await?;
+    transport.close().await?;
+    assert_eq!(
+        response.result,
+        Some(json!({"disabled": true, "env": "1", "value": 42}))
+    );
+    assert_eq!(std::fs::read_to_string(module)?, "VALUE = 42\n");
+    assert!(!root.path().join("__pycache__").exists());
+    assert_eq!(std::env::var_os("PYTHONDONTWRITEBYTECODE"), parent_env);
+    Ok(())
+}

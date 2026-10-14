@@ -34,8 +34,8 @@ work_dir="$(mktemp -d)"
 mounted_path=""
 mounted_device=""
 cleanup() {
-  if [[ -n "$mounted_device" ]]; then
-    hdiutil detach "$mounted_device" -quiet || true
+  if [[ -n "$mounted_path" ]]; then
+    hdiutil detach "${mounted_device:-$mounted_path}" -quiet || true
   fi
   rm -rf "$work_dir"
 }
@@ -47,7 +47,7 @@ run_smoke() {
   if [[ -z "$bundled_python" || ! -f "$bundled_python" ]]; then
     fatal "installer has no bundled Python executable"
   fi
-  "$HOST_PYTHON" "$ROOT/sidecar/scripts/smoke_portable_sidecar.py" \
+  PYTHONDONTWRITEBYTECODE=1 "$HOST_PYTHON" -I "$ROOT/sidecar/scripts/smoke_portable_sidecar.py" \
     "$bundled_python" \
     --expected-root "$expected_root"
 }
@@ -58,21 +58,58 @@ case "$PLATFORM" in
     if [[ -d "$BUNDLE" && "$BUNDLE" == *.app ]]; then
       app_path="$BUNDLE"
     else
-      mounted_path="$work_dir/mount"
-      mkdir -p "$mounted_path"
-      attach_output="$(hdiutil attach -nobrowse -readonly -mountpoint "$mounted_path" "$BUNDLE")"
-      mounted_device="$(awk -v mount_path="$mounted_path" 'index($0, mount_path) { print $1; exit }' <<< "$attach_output")"
-      if [[ -z "$mounted_device" ]]; then
-        fatal "could not identify mounted macOS disk device"
-      fi
-      app_path="$(find "$mounted_path" -maxdepth 2 -type d -name '*.app' -print -quit)"
+      case "$BUNDLE" in
+        *.dmg)
+          mounted_path="$work_dir/mount"
+          mkdir -p "$mounted_path"
+          attach_output="$(hdiutil attach -nobrowse -readonly -mountpoint "$mounted_path" "$BUNDLE")"
+          mounted_device="$(awk -v mount_path="$mounted_path" 'index($0, mount_path) { print $1; exit }' <<< "$attach_output")"
+          if [[ -z "$mounted_device" ]]; then
+            fatal "could not identify mounted macOS disk device"
+          fi
+          extract_dir="$mounted_path"
+          ;;
+        *.app.tar.gz)
+          extract_dir="$work_dir/updater"
+          mkdir -p "$extract_dir"
+          # Isolated extraction; the data filter rejects escaping paths/links
+          # and special files, while retaining portable Python's internal links.
+          "$HOST_PYTHON" -I - "$BUNDLE" "$extract_dir" <<'PY'
+import sys
+import tarfile
+
+with tarfile.open(sys.argv[1], "r:gz") as archive:
+    archive.extractall(sys.argv[2], filter="data")
+PY
+          ;;
+        *)
+          fatal "unsupported macOS bundle: $BUNDLE"
+          ;;
+      esac
+      app_path="$(find "$extract_dir" -maxdepth 2 -type d -name '*.app' -print -quit)"
     fi
     if [[ -z "$app_path" ]]; then
       fatal "macOS bundle has no application bundle"
     fi
     resource_root="$app_path/Contents/Resources/python"
+    "$HOST_PYTHON" -I - "$app_path" "$resource_root" <<'PY'
+import sys
+from pathlib import Path
+
+app, resources = (Path(arg).resolve(strict=True) for arg in sys.argv[1:])
+if not resources.is_relative_to(app):
+    raise SystemExit("error: Python resource root resolves outside the app")
+PY
+    # --deep verifies the outer seal, but arbitrary resource-tree native code
+    # also needs explicit verification. Neither step re-signs the artifact.
+    CURRENT_STAGE="verify macOS resource signatures"
+    codesign --verify --deep --strict "$app_path"
+    "$HOST_PYTHON" -I "$ROOT/scripts/sign_macos_resources.py" --verify-only "$resource_root"
     CURRENT_STAGE="smoke macOS bundled python"
     run_smoke "$resource_root/bin/python3" "$resource_root"
+    CURRENT_STAGE="verify macOS resource signatures after smoke"
+    codesign --verify --deep --strict "$app_path"
+    "$HOST_PYTHON" -I "$ROOT/scripts/sign_macos_resources.py" --verify-only "$resource_root"
     ;;
   windows)
     CURRENT_STAGE="extract Windows installer"

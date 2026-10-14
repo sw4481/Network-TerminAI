@@ -45,6 +45,7 @@ import { DecisionLogView } from "./components/BlastRadius/DecisionLogView";
 import { IntentEditor } from "./components/IntentEditor";
 import { PcapPanel } from "./components/PcapPanel";
 import { DiagramPanel } from "./components/DiagramPanel";
+const MacLookupPanel = lazy(() => import("./components/mac/MacLookupPanel").then(m => ({ default: m.MacLookupPanel })));
 import { HelpModal, type HelpSection } from "./components/help/HelpModal";
 import { StateDrawer } from "./components/StateDrawer";
 import MetadataCard from "./components/MetadataCard";
@@ -137,6 +138,7 @@ export default function App() {
   const [guardrailsLogOpen, setGuardrailsLogOpen] = useState(false);
   const [capturesOpen, setCapturesOpen] = useState(false);
   const [diagramOpen, setDiagramOpen] = useState(false);
+  const [macLookupOpen, setMacLookupOpen] = useState(false);
   // Help modal — opened via the Tauri Help menu (`menu:help_open`) or by F1
   // / Cmd+/. The section is bound to the menu payload so individual menu
   // items deep-link straight to User Guide / Quick Start / Shortcuts / About.
@@ -697,6 +699,10 @@ export default function App() {
     // Plan 11 — Captures menu
     unlistens.push(listen('menu:captures_open', () => {
       setCapturesOpen(true);
+    }));
+
+    unlistens.push(listen('menu:mac_lookup_open', () => {
+      setMacLookupOpen(true);
     }));
 
     // Diagrams menu — draw.io diagram viewer
@@ -1692,6 +1698,13 @@ export default function App() {
       )}
       {capturesOpen && (
         <CapturesOverlay onClose={() => setCapturesOpen(false)} />
+      )}
+      {macLookupOpen && (
+        <ModalShell title="MAC Address Lookup" onClose={() => setMacLookupOpen(false)}>
+          <Suspense fallback={<p>Loading MAC lookup…</p>}>
+            <MacLookupPanel />
+          </Suspense>
+        </ModalShell>
       )}
       {diagramOpen && (
         <ModalShell title="Diagrams" onClose={() => setDiagramOpen(false)}>

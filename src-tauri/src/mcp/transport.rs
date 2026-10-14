@@ -74,6 +74,7 @@ impl StdioTransport {
         for (key, value) in &self.env {
             cmd.env(key, value);
         }
+        cmd.env("PYTHONDONTWRITEBYTECODE", "1");
 
         let mut child = cmd.spawn().context("Failed to spawn MCP server process")?;
 

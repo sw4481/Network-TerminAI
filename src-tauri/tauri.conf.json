@@ -7,6 +7,7 @@
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun scripts/fetch-whisper-model.mjs && bun run build:relaxed",
+    "beforeBundleCommand": "bun -e \"if (process.platform === 'darwin') process.exit(Bun.spawnSync(['bash', 'ci/sign-sidecar-macos.sh'], {stdout: 'inherit', stderr: 'inherit'}).exitCode)\"",
     "frontendDist": "../dist"
   },
   "app": {
@@ -79,7 +80,8 @@
     "shortDescription": "Warp-like AI-powered terminal for network engineers",
     "longDescription": "TerminAI is a modern, AI-powered terminal application designed for network engineers. Features include command blocks, AI assistance via Claude, session persistence, and shell integration.",
     "macOS": {
-      "minimumSystemVersion": "15.0"
+      "minimumSystemVersion": "15.0",
+      "signingIdentity": "-"
     },
     "windows": {
       "certificateThumbprint": null,

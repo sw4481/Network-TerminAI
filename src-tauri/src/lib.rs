@@ -332,6 +332,9 @@ pub fn run() {
             commands::tab_close_netconf,
             commands::tab_new_subnet,
             commands::tab_close_subnet,
+            commands::mac_lookup::mac_lookup,
+            commands::mac_lookup::mac_registry_info,
+            commands::mac_lookup::mac_registry_update,
             commands::netconf_connect,
             commands::netconf_send_rpc,
             commands::netconf_device_list,
@@ -1156,11 +1159,12 @@ pub fn run() {
             let tool_workflows = MenuItem::with_id(app, "open_workflows", "Workflows", true, Some("CmdOrCtrl+Shift+W"))?;
             let tool_notebooks = MenuItem::with_id(app, "open_notebooks", "Notebooks", true, Some("CmdOrCtrl+Shift+N"))?;
             let tool_subnet = MenuItem::with_id(app, "subnet_new", "Subnet Calculator", true, Some("CmdOrCtrl+Shift+U"))?;
+            let tool_mac_lookup = MenuItem::with_id(app, "mac_lookup_open", "MAC Address Lookup", true, None::<&str>)?;
             let tools_menu = Submenu::with_items(
                 app,
                 "Tools",
                 true,
-                &[&tool_palette, &tool_workflows, &tool_notebooks, &tool_subnet],
+                &[&tool_palette, &tool_workflows, &tool_notebooks, &tool_subnet, &tool_mac_lookup],
             )?;
 
             // Troubleshoot menu (Plan 15) — AI-driven troubleshooting tree.
@@ -1334,6 +1338,7 @@ pub fn run() {
                     "open_workflows" => { window.emit("menu:open_workflows", ()).ok(); }
                     "open_notebooks" => { window.emit("menu:open_notebooks", ()).ok(); }
                     "subnet_new" => { window.emit("menu:subnet_new", ()).ok(); }
+                    "mac_lookup_open" => { window.emit("menu:mac_lookup_open", ()).ok(); }
                     "drift_open" => { window.emit("menu:drift_open", ()).ok(); }
                     "drift_intents" => { window.emit("menu:drift_intents", ()).ok(); }
                     "iac_state_open" => { window.emit("menu:iac_state_open", ()).ok(); }

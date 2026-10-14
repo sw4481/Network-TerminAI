@@ -414,6 +414,7 @@ jobs:
             exit 1
           fi
           scripts/verify-bundled-sidecar.sh macos "$dmg"
+          scripts/verify-bundled-sidecar.sh macos "$updater"
 
       - name: Validate zero-cost Windows installer and updater signature
         if: runner.os == 'Windows'
