@@ -161,7 +161,7 @@ async fn run_change_snapshot(
         waiters: state.block_end_waiters.clone(),
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =
-        Arc::new(LiveTransport::new(executor, vendor, platform));
+        Arc::new(LiveTransport::new(executor, vendor, platform).with_pager_disabled());
     let parser: Arc<dyn crate::structured::auto_parse::Parser> =
         Arc::new(state.parser_bridge.clone());
 
@@ -248,7 +248,7 @@ pub async fn change_run_post_and_report(
         waiters: state.block_end_waiters.clone(),
     });
     let transport: Arc<dyn crate::change_verify::transport::ShowTransport> =
-        Arc::new(LiveTransport::new(executor, vendor, platform));
+        Arc::new(LiveTransport::new(executor, vendor, platform).with_pager_disabled());
     let parser: Arc<dyn crate::structured::auto_parse::Parser> =
         Arc::new(state.parser_bridge.clone());
 
