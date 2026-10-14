@@ -132,3 +132,4 @@ def test_real_chat_stream():
     # Combined tokens should contain expected text
     full_text = "".join(r["data"] for r in results)
     assert "Test" in full_text or "test" in full_text.lower()
+# guard test: this edit must be blocked
