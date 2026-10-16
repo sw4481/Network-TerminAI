@@ -2,7 +2,7 @@ from ntc_templates.parse import parse_output
 from .errors import TextFSMUnsupportedError
 
 VENDOR_MAP = {
-    ("cisco", "iosxe"): "cisco_xe",
+    ("cisco", "iosxe"): "cisco_ios",  # ntc-templates has no cisco_xe templates
     ("cisco", "ios"): "cisco_ios",
     ("cisco", "nxos"): "cisco_nxos",
     ("juniper", "junos"): "juniper_junos",
