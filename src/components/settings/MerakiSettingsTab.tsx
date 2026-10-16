@@ -31,7 +31,7 @@ export default function MerakiSettingsTab() {
       return;
     }
     setTesting(true);
-    setStatus({ kind: 'info', text: 'Testing connection…' });
+    setStatus({ kind: 'info', text: 'Testing Dashboard connection…' });
     try {
       const res = await merakiTestConnection(cfg);
       setStatus({ kind: res.ok ? 'ok' : 'err', text: res.message });
@@ -59,10 +59,9 @@ export default function MerakiSettingsTab() {
       <div className="meraki-header">
         <h2>Cisco Meraki Dashboard</h2>
         <p className="meraki-subtitle">
-          Configure access to the Meraki Dashboard API for inspecting
-          organizations, networks, devices, clients, and link-layer topology. The
-          Meraki agent and the Network Architect reach the Dashboard API with this
-          key.
+          Meraki Dashboard and Cisco Workflows share the same saved API key.
+          The Meraki agent and Network Architect use it for Dashboard inspection;
+          select Cisco Workflows in AI Chat to work with workflows.
         </p>
       </div>
 
@@ -84,12 +83,14 @@ export default function MerakiSettingsTab() {
             type="text"
             value={cfg.orgId}
             onChange={(e) => setCfg({ ...cfg, orgId: e.target.value })}
-            placeholder="(optional default scope)"
+            placeholder="(optional for Dashboard)"
+            aria-describedby="meraki-org-help"
           />
 
-          <div className="meraki-field-desc meraki-field--full">
+          <div id="meraki-org-help" className="meraki-field-desc meraki-field--full">
             Generate a key in the Meraki Dashboard under My Profile → API access.
-            The Organization ID is optional and only sets a default scope.
+            Organization ID is optional for Dashboard browsing but required for Cisco Workflows.
+            Enter the intended ID before running the Cisco Workflows agent; no organization is selected automatically.
           </div>
         </div>
       </div>
@@ -99,7 +100,7 @@ export default function MerakiSettingsTab() {
           {saving ? 'Saving…' : 'Save'}
         </button>
         <button onClick={test} disabled={testing} className="meraki-btn-secondary">
-          {testing ? 'Testing…' : 'Test Connection'}
+          {testing ? 'Testing Dashboard…' : 'Test Dashboard Connection'}
         </button>
       </div>
 

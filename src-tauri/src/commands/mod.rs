@@ -200,7 +200,7 @@ pub fn sidecar_spawn_target() -> (String, Vec<String>) {
 /// the repo's .venv". We probe the common Tauri resource layouts:
 /// - `<exe_dir>/python/bin/python3` (Linux AppImage, Windows)
 /// - `<exe_dir>/../Resources/python/bin/python3` (macOS .app bundle)
-fn bundled_python_path() -> Option<std::path::PathBuf> {
+pub(crate) fn bundled_python_path() -> Option<std::path::PathBuf> {
     // Debug builds and CCIE_FORCE_VENV use sidecar/.venv to prevent stale
     // target/{debug,release}/python trees from shadowing source packages.
     if cfg!(debug_assertions) || std::env::var_os("CCIE_FORCE_VENV").is_some() {
@@ -440,7 +440,9 @@ impl AppState {
         let agents_loader = agents::create_loader().expect("Failed to create agents loader");
         // First-run copy of bundled agents is an explicit boot-time write;
         // load_all() itself is a pure read.
-        let _ = agents_loader.initialize_bundled_agents();
+        if let Err(error) = agents_loader.initialize_bundled_agents() {
+            tracing::warn!(%error, "Failed to initialize bundled agents");
+        }
         let _ = agents_loader.load_all();
 
         let parser_cache = crate::parsers::cache::ParseCache::from_connection(db_arc.clone());

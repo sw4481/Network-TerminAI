@@ -109,6 +109,41 @@ def _handle_interrupt(interrupt_payload, graph, config, thread_id, on_event) -> 
     from ccie_sidecar.agents.deepagents_state import store_interrupted_graph
 
     action_requests = _extract_action_requests(interrupt_payload)
+    workflows_req = next((r for r in action_requests if r.get("name") == "cisco_workflows_apply"), None)
+    if workflows_req is not None:
+        # The current review UI returns exactly one decision; never let it
+        # approve an undisplayed second action in the same HITL batch.
+        if len(action_requests) != 1:
+            on_event({"type": "error", "message": "Multiple pending workflow actions cannot be approved together; propose one action at a time."})
+            return True
+        args = workflows_req.get("args")
+        if not isinstance(args, dict) or any(
+            not isinstance(args.get(field), str) or not args[field].strip()
+            for field in ("organization_id", "method", "path")
+        ):
+            on_event({"type": "error", "message": "Workflow approval is missing its target organization, method, or path; no action was authorized."})
+            return True
+        from ccie_sidecar.cisco_workflows import _risk
+        risk = _risk(args["method"].upper(), args["path"])
+        if risk == "low" or args["method"].upper() not in {"POST", "PUT", "PATCH", "DELETE"}:
+            on_event({"type": "error", "message": "Workflow approval requires a mutating operation; no action was authorized."})
+            return True
+        store_interrupted_graph(thread_id, graph, config, on_event)
+        on_event({
+            "type": "iac_approval_request",
+            "thread_id": thread_id,
+            "tool": "cisco_workflows_apply",
+            "command": f"{args.get('method', '')} {args.get('path', '')}",
+            "classification": {
+                "tier": risk,
+                "params": args,
+                "target_org_id": args["organization_id"],
+                "body": args.get("body"),
+                "query_params": args.get("query_params"),
+                "rationale": args.get("rationale", ""),
+            },
+        })
+        return True
     zabbix_req = next((r for r in action_requests if r.get("name") == "zabbix_apply"), None)
     if zabbix_req is not None:
         args = zabbix_req.get("args", {}) or {}
