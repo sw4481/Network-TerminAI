@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   guard-tests:
@@ -28,3 +29,31 @@ jobs:
             echo "$changed"
             exit 1
           fi
+
+      - name: Dependency changes need the owner's nightly-approved label
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deps=$(git diff --name-only "origin/${BASE_REF}...HEAD" | grep -E '(^|/)(Cargo\.toml|Cargo\.lock|pyproject\.toml|uv\.lock|package\.json|bun\.lock)$' || true)
+          if [ -z "$deps" ]; then
+            echo "No dependency files changed."
+            exit 0
+          fi
+          echo "Dependency files changed:"
+          echo "$deps"
+          n=$(echo "$HEAD_REF" | sed -nE 's#^nightly/issue-([0-9]+)$#\1#p')
+          if [ -z "$n" ]; then
+            echo "Branch $HEAD_REF is not nightly/issue-<N>, so there is no approval to check."
+            exit 1
+          fi
+          approver=$(gh api --paginate "repos/${REPO}/issues/${n}/events" \
+            --jq '.[] | select(.event == "labeled" and .label.name == "nightly-approved") | .actor.login' | tail -n 1)
+          if [ "$approver" != "$OWNER" ]; then
+            echo "Issue #${n} was not labeled nightly-approved by ${OWNER} (last labeled by: ${approver:-nobody})."
+            exit 1
+          fi
+          echo "Issue #${n} was approved by ${approver}."
