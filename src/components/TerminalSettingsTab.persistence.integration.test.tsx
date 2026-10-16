@@ -92,7 +92,13 @@ describe("TerminalSettingsTab persistence integration", () => {
 
   it("restores a terminal font saved through the Terminal-tab action after relaunch", async () => {
     const firstLaunch = renderTerminalSettings();
-    await waitFor(() => expect(screen.getByLabelText("Font size")).toHaveValue(13));
+    // The second save button renders only after notification preferences load.
+    await waitFor(() => {
+      expect(screen.getByLabelText("Font size")).toHaveValue(13);
+      expect(
+        screen.getAllByRole("button", { name: "Save terminal settings", exact: true })[1],
+      ).toBeEnabled();
+    });
 
     fireEvent.change(screen.getByLabelText("Font size"), { target: { value: "18" } });
     fireEvent.click(

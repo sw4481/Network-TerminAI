@@ -84,6 +84,9 @@ describe('NaturalLanguageInput', () => {
     fireEvent.click(screen.getByText('Generate'));
 
     expect(await screen.findByText(/generating/i)).toBeInTheDocument();
+    // Let the delayed result land before the test ends, so its state update
+    // never runs after the test environment is torn down.
+    expect(await screen.findByText('ls')).toBeInTheDocument();
   });
 
   it('should call onClose when cancel clicked', () => {
