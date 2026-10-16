@@ -1208,6 +1208,7 @@ export type IaCClassification = {
   update?: number;
   destroy?: number;
   params?: unknown;
+  target_org_id?: string;
   rationale?: string;
   source?: string;
   note?: string;

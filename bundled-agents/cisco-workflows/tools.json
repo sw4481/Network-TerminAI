@@ -1,0 +1,6249 @@
+[
+  {
+    "name": "cisco_workflows.getAllWorkflowInstancesQueryParams",
+    "operation_id": "getAllWorkflowInstancesQueryParams",
+    "description": "Handler to get all Workflow Instances. Response: WFInstancePaginationResponse. JSON body optional: WorkflowsInstancePostRequest {owner:array<string>, workflow_ids:array<string>}. Required query: limit, date_from.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1.1/instances"
+    },
+    "args": {
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "search": {
+        "type": "string",
+        "in": "query"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "uint8"
+      },
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "uint8"
+      },
+      "date_from": {
+        "type": "string",
+        "in": "query",
+        "format": "date-time"
+      },
+      "date_to": {
+        "type": "string",
+        "in": "query",
+        "format": "date-time"
+      },
+      "owner": {
+        "type": "array",
+        "in": "body"
+      },
+      "workflow_ids": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [
+      "limit",
+      "date_from"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllWorkflowInstancesQueryParams"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "WorkflowsInstancePostRequest",
+      "schema": {
+        "title": "WorkflowsInstancePostRequest",
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "array",
+            "description": "list of owner IDs to filter by\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflow_ids": {
+            "type": "array",
+            "description": "List of workflows to retrieve\nin: body",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllWorkflowsPostQueryParams",
+    "operation_id": "getAllWorkflowsPostQueryParams",
+    "description": "Handler to get all workflows. Response: WorkflowGetAllPaginationResponse. JSON body optional: WorkflowsPostRequest {categories:array<string>, exclude_rule_types:array<string>, owner:array<string>, rule_types:array<string>, wf_metadata:WorkflowMetaData}. Required query: limit.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1.1/workflows"
+    },
+    "args": {
+      "is_atomic": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "search": {
+        "type": "string",
+        "in": "query"
+      },
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "sort_by": {
+        "type": "string",
+        "in": "query"
+      },
+      "from_playbook": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "categories": {
+        "type": "array",
+        "in": "body"
+      },
+      "exclude_rule_types": {
+        "type": "array",
+        "in": "body"
+      },
+      "owner": {
+        "type": "array",
+        "in": "body"
+      },
+      "rule_types": {
+        "type": "array",
+        "in": "body"
+      },
+      "wf_metadata": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "limit"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllWorkflowsPostQueryParams"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "WorkflowsPostRequest",
+      "schema": {
+        "title": "WorkflowsPostRequest",
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "description": "list of categories to get for.\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_rule_types": {
+            "type": "array",
+            "description": "flag to be used in conjunction with rule_types. specify rule_types to be excluded. \"none\" if workflows should have at least 1 rule_type\nallowed values: none, schedule.rule_schedule, amqp.rule_event, email.rule_event, approval_task.rule_event,\nwebhook.rule_event, kafka.rule_event, incident.rule_event, playbook_assignment.rule_event\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owner": {
+            "type": "array",
+            "description": "list of owner IDs to filter by\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_types": {
+            "type": "array",
+            "description": "list of rule_types to filter by. \"none\" if workflows with no rule_type needed\nallowed values: none, schedule.rule_schedule, amqp.rule_event, email.rule_event, approval_task.rule_event,\nwebhook.rule_event, kafka.rule_event, incident.rule_event, playbook_assignment.rule_event\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "wf_metadata": {
+            "$ref": "#/components/schemas/WorkflowMetaData"
+          }
+        }
+      },
+      "schema_definitions": {
+        "CourseOfAction": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "observable_types"
+          ],
+          "type": "object",
+          "properties": {
+            "actuator": {
+              "type": "string",
+              "description": "Actuator.\nin: body"
+            },
+            "observable_types": {
+              "type": "array",
+              "description": "list of observable types to get for.\nin: body",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "WorkflowMetaData": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "coa"
+          ],
+          "type": "object",
+          "properties": {
+            "coa": {
+              "$ref": "#/components/schemas/CourseOfAction"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllWorkflowsPostQueryParamsV1Dot2",
+    "operation_id": "getAllWorkflowsPostQueryParamsV1Dot2",
+    "description": "Handler to get all workflows. Response: WorkflowGetAllPaginationResponse. JSON body optional: WorkflowsPostRequest {categories:array<string>, exclude_rule_types:array<string>, owner:array<string>, rule_types:array<string>, wf_metadata:WorkflowMetaData}. Required query: limit.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1.2/workflows"
+    },
+    "args": {
+      "is_atomic": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "search": {
+        "type": "string",
+        "in": "query"
+      },
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "sort_by": {
+        "type": "string",
+        "in": "query"
+      },
+      "categories": {
+        "type": "array",
+        "in": "body"
+      },
+      "exclude_rule_types": {
+        "type": "array",
+        "in": "body"
+      },
+      "owner": {
+        "type": "array",
+        "in": "body"
+      },
+      "rule_types": {
+        "type": "array",
+        "in": "body"
+      },
+      "wf_metadata": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "limit"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllWorkflowsPostQueryParamsV1Dot2"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "WorkflowsPostRequest",
+      "schema": {
+        "title": "WorkflowsPostRequest",
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "description": "list of categories to get for.\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exclude_rule_types": {
+            "type": "array",
+            "description": "flag to be used in conjunction with rule_types. specify rule_types to be excluded. \"none\" if workflows should have at least 1 rule_type\nallowed values: none, schedule.rule_schedule, amqp.rule_event, email.rule_event, approval_task.rule_event,\nwebhook.rule_event, kafka.rule_event, incident.rule_event, playbook_assignment.rule_event\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owner": {
+            "type": "array",
+            "description": "list of owner IDs to filter by\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_types": {
+            "type": "array",
+            "description": "list of rule_types to filter by. \"none\" if workflows with no rule_type needed\nallowed values: none, schedule.rule_schedule, amqp.rule_event, email.rule_event, approval_task.rule_event,\nwebhook.rule_event, kafka.rule_event, incident.rule_event, playbook_assignment.rule_event\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "wf_metadata": {
+            "$ref": "#/components/schemas/WorkflowMetaData"
+          }
+        }
+      },
+      "schema_definitions": {
+        "CourseOfAction": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "observable_types"
+          ],
+          "type": "object",
+          "properties": {
+            "actuator": {
+              "type": "string",
+              "description": "Actuator.\nin: body"
+            },
+            "observable_types": {
+              "type": "array",
+              "description": "list of observable types to get for.\nin: body",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "WorkflowMetaData": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "coa"
+          ],
+          "type": "object",
+          "properties": {
+            "coa": {
+              "$ref": "#/components/schemas/CourseOfAction"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.listWorkflowInstancesV1",
+    "operation_id": "listWorkflowInstancesV1",
+    "description": "Handler to get all Workflow Instances. Response: array<WorkflowInstanceGetAllResponse>. Required query: workflow_id.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/instances"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "listWorkflowInstancesV1"
+    }
+  },
+  {
+    "name": "cisco_workflows.WorkflowInstanceBatchDeletePostRequest",
+    "operation_id": "WorkflowInstanceBatchDeletePostRequest",
+    "description": "Handler to delete workflow instances in a batch. Response: unspecified. JSON body required: WorkflowInstanceBatchDeletePostReq {owner:array<string>, wf_instance_ids:array<string>, workflow_ids:array<string>}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/instances/remove"
+    },
+    "args": {
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "date_from": {
+        "type": "string",
+        "in": "query",
+        "format": "date-time"
+      },
+      "date_to": {
+        "type": "string",
+        "in": "query",
+        "format": "date-time"
+      },
+      "owner": {
+        "type": "array",
+        "in": "body"
+      },
+      "wf_instance_ids": {
+        "type": "array",
+        "in": "body"
+      },
+      "workflow_ids": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "WorkflowInstanceBatchDeletePostRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "WorkflowInstanceBatchDeletePostReq",
+      "schema": {
+        "title": "WorkflowInstanceBatchDeletePostReq",
+        "type": "object",
+        "properties": {
+          "owner": {
+            "type": "array",
+            "description": "list of owner IDs to filter by\nin: body",
+            "items": {
+              "type": "string"
+            }
+          },
+          "wf_instance_ids": {
+            "type": "array",
+            "description": "workflow instance IDs",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflow_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.instancesSummaryQueryParam",
+    "operation_id": "instancesSummaryQueryParam",
+    "description": "Handler to get a summary of workflow instances. Response: instancesSummaryResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/instances/summary"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "instancesSummaryQueryParam"
+    }
+  },
+  {
+    "name": "cisco_workflows.getWFInstanceById",
+    "operation_id": "getWFInstanceById",
+    "description": "Get workflow run result. Response: WorkflowInstanceGetResponse {id:string, status:Status.state, actions:array<ActionInstanceGetAllResponse>, output:object}. Inspect actual action outputs and status.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/instances/{wf_instance_id}"
+    },
+    "args": {
+      "wf_instance_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "detailed": {
+        "type": "boolean",
+        "in": "query"
+      }
+    },
+    "required": [
+      "wf_instance_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getWFInstanceById"
+    }
+  },
+  {
+    "name": "cisco_workflows.ManageWFInstanceByID",
+    "operation_id": "ManageWFInstanceByID",
+    "description": "Handler to manage (cancel/pause/resume) a specific workflow instance. Response: unspecified.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/instances/{wf_instance_id}"
+    },
+    "args": {
+      "wf_instance_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "cancel": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "pause": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "resume": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "rerun": {
+        "type": "boolean",
+        "in": "query"
+      }
+    },
+    "required": [
+      "wf_instance_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "ManageWFInstanceByID"
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteWFInstanceById",
+    "operation_id": "deleteWFInstanceById",
+    "description": "Handler to delete workflow instance. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/instances/{wf_instance_id}"
+    },
+    "args": {
+      "wf_instance_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "wf_instance_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteWFInstanceById"
+    }
+  },
+  {
+    "name": "cisco_workflows.getWFActionInstanceById",
+    "operation_id": "getWFActionInstanceById",
+    "description": "Handler returning information about action's instance. Response: ActionInstanceGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/instances/{wf_instance_id}/actions/{action_instance_id}"
+    },
+    "args": {
+      "wf_instance_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_instance_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "iteration": {
+        "type": "integer",
+        "in": "query",
+        "format": "uint64"
+      }
+    },
+    "required": [
+      "wf_instance_id",
+      "action_instance_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getWFActionInstanceById"
+    }
+  },
+  {
+    "name": "cisco_workflows.CancelWFInstanceByID",
+    "operation_id": "CancelWFInstanceByID",
+    "description": "Handler to cancel a specific workflow instance. Response: unspecified.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/instances/{wf_instance_id}/cancel"
+    },
+    "args": {
+      "wf_instance_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "wf_instance_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "CancelWFInstanceByID"
+    }
+  },
+  {
+    "name": "cisco_workflows.RuleCreateRequest",
+    "operation_id": "RuleCreateRequest",
+    "description": "Handler to create a rule. Response: Rule. JSON body required: RulePostRequest {name:string, properties:object, description:string, schema_id:string, title:string, type:string, unique_name:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/rules"
+    },
+    "args": {
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "properties",
+      "title"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "RuleCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "RulePostRequest",
+      "schema": {
+        "required": [
+          "properties",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of Rule"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of Rule"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of Rule"
+          },
+          "schema_id": {
+            "type": "string",
+            "description": "ViewSchemaID of Schedule"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of Rule"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          }
+        },
+        "description": "RulePostRequest struct for rule post api\nEither ViewSchemaID or Type or both can be provided to create an Rule."
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllRulesQueryParam",
+    "operation_id": "getAllRulesQueryParam",
+    "description": "Handler to get all rules. Response: GetAllRulesPaginatedResponse. JSON body optional: RulesPostRequest {group_by_priority_order:string, standalone:string, types:array<string>}. Required query: limit.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/rules/batch_get"
+    },
+    "args": {
+      "search": {
+        "type": "string",
+        "in": "query"
+      },
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "sort_by": {
+        "type": "string",
+        "in": "query"
+      },
+      "group_by_priority_order": {
+        "type": "string",
+        "in": "body"
+      },
+      "standalone": {
+        "type": "string",
+        "in": "body"
+      },
+      "types": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [
+      "limit"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllRulesQueryParam"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "RulesPostRequest",
+      "schema": {
+        "title": "RulesPostRequest",
+        "type": "object",
+        "properties": {
+          "group_by_priority_order": {
+            "type": "string",
+            "description": "Flag for Group by, values: \"true\"/\"false\". Only supports incident rule types\nin: body"
+          },
+          "standalone": {
+            "type": "string",
+            "description": "Flag for standalone rules, values: \"true\"/\"false\"\nin: body"
+          },
+          "types": {
+            "type": "array",
+            "description": "list of types to get for.\nin: body",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.rulePriorityOrderRequest",
+    "operation_id": "rulePriorityOrderRequest",
+    "description": "Handler to update a rule. Response: Rule. JSON body required: RulePatchRequest {previous_rule:PrevRulePriorityPatchRequest, rule:RulePriorityPatchRequest, type:string}.",
+    "endpoint": {
+      "method": "PATCH",
+      "path": "/v1/rules/priority"
+    },
+    "args": {
+      "previous_rule": {
+        "type": "object",
+        "in": "body"
+      },
+      "rule": {
+        "type": "object",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "rulePriorityOrderRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "RulePatchRequest",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "previous_rule": {
+            "$ref": "#/components/schemas/PrevRulePriorityPatchRequest"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/RulePriorityPatchRequest"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "description": "RulePatchRequest struct for rule patch api"
+      },
+      "schema_definitions": {
+        "PrevRulePriorityPatchRequest": {
+          "title": "PrevRulePriorityPatchRequest",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          }
+        },
+        "RulePriorityPatchRequest": {
+          "title": "RulePriorityPatchRequest",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getRuleRequest",
+    "operation_id": "getRuleRequest",
+    "description": "Handler to get rule by ID. Response: GetAllRuleResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/rules/{rule_id}"
+    },
+    "args": {
+      "rule_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "rule_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getRuleRequest"
+    }
+  },
+  {
+    "name": "cisco_workflows.RuleUpdateRequest",
+    "operation_id": "RuleUpdateRequest",
+    "description": "Handler to update a rule. Response: Rule. JSON body required: RulePutRequest {name:string, properties:object, description:string, title:string}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/rules/{rule_id}"
+    },
+    "args": {
+      "rule_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "rule_id",
+      "properties",
+      "title"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "RuleUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "RulePutRequest",
+      "schema": {
+        "required": [
+          "properties",
+          "title"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of Rule"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of Rule"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of Rule"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of Rule"
+          }
+        },
+        "description": "RulePutRequest struct for rule put api"
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.DeleteRuleByID",
+    "operation_id": "DeleteRuleByID",
+    "description": "Handler to delete a rule. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/rules/{rule_id}"
+    },
+    "args": {
+      "rule_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "rule_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "DeleteRuleByID"
+    }
+  },
+  {
+    "name": "cisco_workflows.listRuntimeUsers",
+    "operation_id": "listRuntimeUsers",
+    "description": "Handler to get all runtimeusers. Response: array<RuntimeUserDefinitionGetAllResponse>.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/runtime_users"
+    },
+    "args": {
+      "types": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "listRuntimeUsers"
+    }
+  },
+  {
+    "name": "cisco_workflows.runtimeUserCreateRequest",
+    "operation_id": "runtimeUserCreateRequest",
+    "description": "Handler to create a runtimeuser. Response: RuntimeUserDefinitionGetResponse. JSON body required: RuntimeUserDefinitionPostRequest {name:string, properties:object, description:string, schema_id:string, title:string, type:string, unique_name:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/runtime_users"
+    },
+    "args": {
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "runtimeUserCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "RuntimeUserDefinitionPostRequest",
+      "schema": {
+        "title": "RuntimeUserDefinitionPostRequest",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "schema_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "unique_name": {
+            "type": "string"
+          }
+        },
+        "description": "Either ViewSchemaID or Type or both can be provided to create a Runtime User."
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.getRuntimeUserById",
+    "operation_id": "getRuntimeUserById",
+    "description": "readRuntimeUserByID Handler to return information about runtime user. Response: RuntimeUserDefinitionGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/runtime_users/{runtime_user_id}"
+    },
+    "args": {
+      "runtime_user_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "runtime_user_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getRuntimeUserById"
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteRuntimeUserById",
+    "operation_id": "deleteRuntimeUserById",
+    "description": "deleteRuntimeUser Handler to delete runtime user using definition ID. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/runtime_users/{runtime_user_id}"
+    },
+    "args": {
+      "runtime_user_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "runtime_user_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteRuntimeUserById"
+    }
+  },
+  {
+    "name": "cisco_workflows.runtimeUserUpdateRequest",
+    "operation_id": "runtimeUserUpdateRequest",
+    "description": "updateRuntimeUser Handler to update runtime user. Response: RuntimeUserDefinitionGetResponse. JSON body required: RuntimeUserDefinitionPatchRequest {name:string, properties:object, description:string, title:string}.",
+    "endpoint": {
+      "method": "PATCH",
+      "path": "/v1/runtime_users/{runtime_user_id}"
+    },
+    "args": {
+      "runtime_user_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "runtime_user_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "runtimeUserUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "RuntimeUserDefinitionPatchRequest",
+      "schema": {
+        "title": "RuntimeUserDefinitionPatchRequest",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of runtime user"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of runtime user"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of runtime user"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of runtime user"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllSchemaQueryParams",
+    "operation_id": "getAllSchemaQueryParams",
+    "description": "Handler returning information about all Schemas. Response: array<Schema>. Required query: base_type, schema_type.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/schemas"
+    },
+    "args": {
+      "base_type": {
+        "type": "string",
+        "in": "query"
+      },
+      "schema_type": {
+        "type": "string",
+        "in": "query"
+      },
+      "detailed": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "variable_type": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "is_internal": {
+        "type": "boolean",
+        "in": "query"
+      }
+    },
+    "required": [
+      "base_type",
+      "schema_type"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllSchemaQueryParams"
+    }
+  },
+  {
+    "name": "cisco_workflows.schemaCreateRequest",
+    "operation_id": "schemaCreateRequest",
+    "description": "Handler to create a schema template for all base_types. Response: SchemaNewPostResponse. JSON body required: SchemaNewPostRequest {data_schema:Schema, view_schema:Schema}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/schemas"
+    },
+    "args": {
+      "data_schema": {
+        "type": "object",
+        "in": "body"
+      },
+      "view_schema": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "data_schema"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "schemaCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "SchemaNewPostRequest",
+      "schema": {
+        "title": "SchemaNewPostRequest",
+        "required": [
+          "data_schema"
+        ],
+        "type": "object",
+        "properties": {
+          "data_schema": {
+            "$ref": "#/components/schemas/Schema"
+          },
+          "view_schema": {
+            "$ref": "#/components/schemas/Schema"
+          }
+        }
+      },
+      "schema_definitions": {
+        "AccessMeta": {
+          "title": "AccessMeta",
+          "type": "object",
+          "properties": {
+            "adapter": {
+              "$ref": "#/components/schemas/AccessMetaType"
+            },
+            "deprecated": {
+              "$ref": "#/components/schemas/Deprecated"
+            },
+            "disable_duplicate": {
+              "type": "boolean"
+            },
+            "is_integration": {
+              "type": "boolean"
+            },
+            "is_internal": {
+              "type": "boolean"
+            },
+            "obsolete": {
+              "$ref": "#/components/schemas/Obsolete"
+            },
+            "runtime_users": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AccessMetaType"
+              }
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AccessMetaType"
+              }
+            }
+          }
+        },
+        "ActionFunc": {
+          "title": "ActionFunc",
+          "type": "object",
+          "properties": {
+            "is_microservice": {
+              "type": "boolean"
+            },
+            "micro_service": {
+              "$ref": "#/components/schemas/MicroService"
+            },
+            "serverless": {
+              "$ref": "#/components/schemas/Serverless"
+            }
+          }
+        },
+        "Schema": {
+          "title": "Schema",
+          "type": "object",
+          "properties": {
+            "access_meta": {
+              "$ref": "#/components/schemas/AccessMeta"
+            },
+            "action_func": {
+              "$ref": "#/components/schemas/ActionFunc"
+            },
+            "attributes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "base_type": {
+              "type": "string"
+            },
+            "created_by": {
+              "type": "string"
+            },
+            "created_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": {
+              "type": "string"
+            },
+            "group": {
+              "type": "string"
+            },
+            "inherits": {
+              "type": "object",
+              "properties": {}
+            },
+            "invisible": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "output_schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "owner": {
+              "type": "string"
+            },
+            "property_schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "schema_id": {
+              "type": "string"
+            },
+            "schema_type": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "trigger_schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "updated_by": {
+              "type": "string"
+            },
+            "updated_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "variable_schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "variable_type": {
+              "type": "boolean"
+            },
+            "version": {
+              "type": "string"
+            },
+            "view_config": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getSchemaById",
+    "operation_id": "getSchemaById",
+    "description": "Handler returning information about Template. Response: SchemaByTypeResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/schemas/{type_or_id}"
+    },
+    "args": {
+      "type_or_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "schema_type": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [
+      "type_or_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getSchemaById"
+    }
+  },
+  {
+    "name": "cisco_workflows.schemaUpdateRequest",
+    "operation_id": "schemaUpdateRequest",
+    "description": "Handler method for updating adapter template/schema. Response: Schema. JSON body required: SchemaPutRequest {name:string, access_meta:AccessMeta, action_func:ActionFunc, attributes:object, description:string, group:string, id:string, inherits:object, invisible:boolean, is_internal:boolean, output_schema:object, property_schema:object, title:string, trigger_schema:object, variable_schema:object, version:string, view_config:object}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/schemas/{type_or_id}"
+    },
+    "args": {
+      "type_or_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "access_meta": {
+        "type": "object",
+        "in": "body"
+      },
+      "action_func": {
+        "type": "object",
+        "in": "body"
+      },
+      "attributes": {
+        "type": "object",
+        "in": "body"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "group": {
+        "type": "string",
+        "in": "body"
+      },
+      "id": {
+        "type": "string",
+        "in": "body"
+      },
+      "inherits": {
+        "type": "object",
+        "in": "body"
+      },
+      "invisible": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "is_internal": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "output_schema": {
+        "type": "object",
+        "in": "body"
+      },
+      "property_schema": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "trigger_schema": {
+        "type": "object",
+        "in": "body"
+      },
+      "variable_schema": {
+        "type": "object",
+        "in": "body"
+      },
+      "version": {
+        "type": "string",
+        "in": "body"
+      },
+      "view_config": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "type_or_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "schemaUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "SchemaPutRequest",
+      "schema": {
+        "title": "A SchemaPutRequest for one or more schema templates.",
+        "type": "object",
+        "properties": {
+          "access_meta": {
+            "$ref": "#/components/schemas/AccessMeta"
+          },
+          "action_func": {
+            "$ref": "#/components/schemas/ActionFunc"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "inherits": {
+            "type": "object",
+            "properties": {}
+          },
+          "invisible": {
+            "type": "boolean"
+          },
+          "is_internal": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "output_schema": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "property_schema": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "title": {
+            "type": "string"
+          },
+          "trigger_schema": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "variable_schema": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "version": {
+            "type": "string"
+          },
+          "view_config": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        }
+      },
+      "schema_definitions": {
+        "AccessMeta": {
+          "title": "AccessMeta",
+          "type": "object",
+          "properties": {
+            "adapter": {
+              "$ref": "#/components/schemas/AccessMetaType"
+            },
+            "deprecated": {
+              "$ref": "#/components/schemas/Deprecated"
+            },
+            "disable_duplicate": {
+              "type": "boolean"
+            },
+            "is_integration": {
+              "type": "boolean"
+            },
+            "is_internal": {
+              "type": "boolean"
+            },
+            "obsolete": {
+              "$ref": "#/components/schemas/Obsolete"
+            },
+            "runtime_users": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AccessMetaType"
+              }
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/AccessMetaType"
+              }
+            }
+          }
+        },
+        "AccessMetaType": {
+          "title": "AccessMetaType",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ActionFunc": {
+          "title": "ActionFunc",
+          "type": "object",
+          "properties": {
+            "is_microservice": {
+              "type": "boolean"
+            },
+            "micro_service": {
+              "$ref": "#/components/schemas/MicroService"
+            },
+            "serverless": {
+              "$ref": "#/components/schemas/Serverless"
+            }
+          }
+        },
+        "Deprecated": {
+          "title": "Deprecated",
+          "type": "object",
+          "properties": {
+            "deprecated_in": {
+              "type": "string"
+            },
+            "deprecated_message": {
+              "type": "string"
+            }
+          }
+        },
+        "MicroService": {
+          "title": "MicroService",
+          "type": "object",
+          "properties": {
+            "end_point": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "protocol": {
+              "type": "string"
+            }
+          }
+        },
+        "Obsolete": {
+          "title": "Obsolete",
+          "type": "object",
+          "properties": {
+            "obsolete_from": {
+              "type": "string"
+            },
+            "obsolete_message": {
+              "type": "string"
+            }
+          }
+        },
+        "Serverless": {
+          "title": "Serverless",
+          "type": "object",
+          "properties": {
+            "cloud_type": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "region": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteSchemaById",
+    "operation_id": "deleteSchemaById",
+    "description": "Handler to delete Schema. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/schemas/{type_or_id}"
+    },
+    "args": {
+      "type_or_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "type_or_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteSchemaById"
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllTargetQueryParams",
+    "operation_id": "getAllTargetQueryParams",
+    "description": "Handler returning all Targets. Response: array<TargetDefinitionGetAllResponse>.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/targets"
+    },
+    "args": {
+      "is_internal": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "types": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllTargetQueryParams"
+    }
+  },
+  {
+    "name": "cisco_workflows.targetCreateRequest",
+    "operation_id": "targetCreateRequest",
+    "description": "Handler to create a Target. Response: TargetDefinitionGetResponse. JSON body required: TargetDefinitionPostRequest {name:string, properties:object, description:string, schema_id:string, title:string, type:string, unique_name:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/targets"
+    },
+    "args": {
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "name",
+      "properties"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "targetCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TargetDefinitionPostRequest",
+      "schema": {
+        "title": "TargetDefinitionPostRequest",
+        "required": [
+          "name",
+          "properties"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the target"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the target"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of the target"
+          },
+          "schema_id": {
+            "type": "string",
+            "description": "View SchemaID of the target"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the target"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          }
+        },
+        "description": "Either ViewSchemaID or Type or both can be provided to create a Target."
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.targetValidateRequest",
+    "operation_id": "targetValidateRequest",
+    "description": "Handler to perform target validations. Response: targetValidationResponse. JSON body optional: TargetIDsRequest {target_ids:array<string>}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/targets/validate"
+    },
+    "args": {
+      "all": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "target_ids": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "targetValidateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "TargetIDsRequest",
+      "schema": {
+        "title": "TargetIDsRequest",
+        "type": "object",
+        "properties": {
+          "target_ids": {
+            "type": "array",
+            "description": "Target IDs",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.getTargetById",
+    "operation_id": "getTargetById",
+    "description": "Handler to return target information by ID. Response: TargetDefinitionGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/targets/{target_id}"
+    },
+    "args": {
+      "target_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "target_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getTargetById"
+    }
+  },
+  {
+    "name": "cisco_workflows.targetUpdateRequest",
+    "operation_id": "targetUpdateRequest",
+    "description": "Handler to update the target. Response: TargetDefinitionGetResponse. JSON body required: TargetDefinitionPutRequest {name:string, properties:object, description:string, title:string}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/targets/{target_id}"
+    },
+    "args": {
+      "target_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "target_id",
+      "properties"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "targetUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TargetDefinitionPutRequest",
+      "schema": {
+        "title": "TargetDefinitionPutRequest",
+        "required": [
+          "properties"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of the target"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the target"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of the target"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the target"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteTargetById",
+    "operation_id": "deleteTargetById",
+    "description": "Handler to delete a target by ID. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/targets/{target_id}"
+    },
+    "args": {
+      "target_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "target_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteTargetById"
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllTasksQueryParam",
+    "operation_id": "getAllTasksQueryParam",
+    "description": "Handler to get all tasks. Response: GetAllTasksResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/tasks"
+    },
+    "args": {
+      "owner": {
+        "type": "string",
+        "in": "query"
+      },
+      "search": {
+        "type": "string",
+        "in": "query"
+      },
+      "state": {
+        "type": "string",
+        "in": "query"
+      },
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "sort_by": {
+        "type": "string",
+        "in": "query"
+      },
+      "due_date": {
+        "type": "string",
+        "in": "query"
+      },
+      "requestor": {
+        "type": "string",
+        "in": "query"
+      },
+      "assignees": {
+        "type": "string",
+        "in": "query"
+      },
+      "response": {
+        "type": "string",
+        "in": "query"
+      },
+      "type": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllTasksQueryParam"
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllTasksInBatch",
+    "operation_id": "getAllTasksInBatch",
+    "description": "Handler to get tasks in batch. Response: GetAllTasksResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/tasks/batch_get"
+    },
+    "args": {},
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllTasksInBatch"
+    }
+  },
+  {
+    "name": "cisco_workflows.listTaskSummary",
+    "operation_id": "listTaskSummary",
+    "description": "Handler to get a summary of tasks. Response: TasksSummaryResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/tasks/summary"
+    },
+    "args": {},
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "listTaskSummary"
+    }
+  },
+  {
+    "name": "cisco_workflows.readTaskRequest",
+    "operation_id": "readTaskRequest",
+    "description": "Handler to get a specific task. Response: GetTaskResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/tasks/{task_id}"
+    },
+    "args": {
+      "task_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "readTaskRequest"
+    }
+  },
+  {
+    "name": "cisco_workflows.taskPatchRequest",
+    "operation_id": "taskPatchRequest",
+    "description": "Handler to update a task. Response: GetTaskResponse. JSON body required: TaskPatchRequest {approval_choices:array<string>, assignees:array<string>, description:string, display_name:string, due_date:DueTaskDateInfo, expiration_date:TaskDateInfo, expiration_status:string, minimum_approvals:integer, priority:string, subject_line:string, task_message:string, task_owner:string, task_requestor:string, title:string}.",
+    "endpoint": {
+      "method": "PATCH",
+      "path": "/v1/tasks/{task_id}"
+    },
+    "args": {
+      "task_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "approval_choices": {
+        "type": "array",
+        "in": "body"
+      },
+      "assignees": {
+        "type": "array",
+        "in": "body"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "display_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "due_date": {
+        "type": "object",
+        "in": "body"
+      },
+      "expiration_date": {
+        "type": "object",
+        "in": "body"
+      },
+      "expiration_status": {
+        "type": "string",
+        "in": "body"
+      },
+      "minimum_approvals": {
+        "type": "integer",
+        "in": "body"
+      },
+      "priority": {
+        "type": "string",
+        "in": "body"
+      },
+      "subject_line": {
+        "type": "string",
+        "in": "body"
+      },
+      "task_message": {
+        "type": "string",
+        "in": "body"
+      },
+      "task_owner": {
+        "type": "string",
+        "in": "body"
+      },
+      "task_requestor": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "taskPatchRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TaskPatchRequest",
+      "schema": {
+        "title": "A TaskPatchRequest model.",
+        "type": "object",
+        "properties": {
+          "approval_choices": {
+            "type": "array",
+            "description": "Approval choices of task",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "description": "List of assignees of the task",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Task description"
+          },
+          "display_name": {
+            "type": "string",
+            "description": "Task name"
+          },
+          "due_date": {
+            "$ref": "#/components/schemas/DueTaskDateInfo"
+          },
+          "expiration_date": {
+            "$ref": "#/components/schemas/TaskDateInfo"
+          },
+          "expiration_status": {
+            "type": "string",
+            "description": "Task expiration status"
+          },
+          "minimum_approvals": {
+            "type": "integer",
+            "description": "Minimum Approvals for the task",
+            "format": "uint32"
+          },
+          "priority": {
+            "type": "string",
+            "description": "Task priority"
+          },
+          "subject_line": {
+            "type": "string",
+            "description": "Task subject line"
+          },
+          "task_message": {
+            "type": "string",
+            "description": "Approval message of task"
+          },
+          "task_owner": {
+            "type": "string",
+            "description": "Task owner"
+          },
+          "task_requestor": {
+            "type": "string",
+            "description": "Task requestor"
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title"
+          }
+        }
+      },
+      "schema_definitions": {
+        "DueTaskDateInfo": {
+          "title": "DueTaskDateInfo",
+          "type": "object",
+          "properties": {
+            "is_relative_time": {
+              "type": "boolean"
+            },
+            "is_specified_date": {
+              "type": "boolean"
+            },
+            "relative_time": {
+              "$ref": "#/components/schemas/RelativeTime"
+            },
+            "set_due_date": {
+              "type": "boolean"
+            },
+            "specified_date": {
+              "type": "string"
+            }
+          }
+        },
+        "RelativeTime": {
+          "title": "RelativeTime",
+          "type": "object",
+          "properties": {
+            "duration": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "time_units": {
+              "$ref": "#/components/schemas/TimeUnit"
+            }
+          }
+        },
+        "TaskDateInfo": {
+          "title": "TaskDateInfo",
+          "type": "object",
+          "properties": {
+            "is_relative_time": {
+              "type": "boolean"
+            },
+            "is_specified_date": {
+              "type": "boolean"
+            },
+            "relative_time": {
+              "$ref": "#/components/schemas/RelativeTime"
+            },
+            "specified_date": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.taskActionRequest",
+    "operation_id": "taskActionRequest",
+    "description": "Handler for an assignee of a task to take action on the task. Response: GetTaskResponse. JSON body required: TakeActionRequest {message:string, prompt_response:object, response:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/tasks/{task_id}/action"
+    },
+    "args": {
+      "task_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "message": {
+        "type": "string",
+        "in": "body"
+      },
+      "prompt_response": {
+        "type": "object",
+        "in": "body"
+      },
+      "response": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "task_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "taskActionRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TakeActionRequest",
+      "schema": {
+        "title": "A TakeActionRequest model.",
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          },
+          "prompt_response": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Prompt response"
+          },
+          "response": {
+            "type": "string",
+            "description": "Response"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.VariableTypeCreateRequest",
+    "operation_id": "VariableTypeCreateRequest",
+    "description": "Create a Variable Type. Response: variableTypeResponse. JSON body required: VariableTypePostRequest {name:string, properties:object, description:string, keys:array<VariableTypeObjectKey>, schema_id:string, title:string, type:string, unique_name:string, variable_type_id:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/variable_types"
+    },
+    "args": {
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "keys": {
+        "type": "array",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "variable_type_id": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "name"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "VariableTypeCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "VariableTypePostRequest",
+      "schema": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariableTypeObjectKey"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "schema_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          },
+          "variable_type_id": {
+            "type": "string"
+          }
+        }
+      },
+      "schema_definitions": {
+        "VariableTypeObjectKey": {
+          "title": "VariableTypeObjectKey",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllVarTypesRequest",
+    "operation_id": "getAllVarTypesRequest",
+    "description": "Handler to get all VariableTypes. Response: GetAllVariableTypesResponse. JSON body optional: GetAllVarTypesPostRequest {type:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/variable_types/batch_get"
+    },
+    "args": {
+      "limit": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "start": {
+        "type": "integer",
+        "in": "query",
+        "format": "int64"
+      },
+      "sort_by": {
+        "type": "string",
+        "in": "query"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllVarTypesRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "GetAllVarTypesPostRequest",
+      "schema": {
+        "title": "GetAllVarTypesPostRequest",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "type of variabletypes, values datatype.object/datatype.array\nin: body"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.ReadVariableTypeRequest",
+    "operation_id": "ReadVariableTypeRequest",
+    "description": "Get a Variable Type. Response: variableTypeGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/variable_types/{variable_type_id}"
+    },
+    "args": {
+      "variable_type_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "variable_type_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "ReadVariableTypeRequest"
+    }
+  },
+  {
+    "name": "cisco_workflows.VariableTypeUpdateRequest",
+    "operation_id": "VariableTypeUpdateRequest",
+    "description": "Update a Variable Type. Response: variableTypeResponse. JSON body required: VariableTypePutRequest {name:string, properties:object, description:string, keys:array<VariableTypeObjectKey>, schema_id:string, title:string, type:string}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/variable_types/{variable_type_id}"
+    },
+    "args": {
+      "variable_type_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "keys": {
+        "type": "array",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "variable_type_id",
+      "name"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "VariableTypeUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "VariableTypePutRequest",
+      "schema": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VariableTypeObjectKey"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "schema_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "schema_definitions": {
+        "VariableTypeObjectKey": {
+          "title": "VariableTypeObjectKey",
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.DeleteVariableTypeRequest",
+    "operation_id": "DeleteVariableTypeRequest",
+    "description": "Delete a variable type. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/variable_types/{variable_type_id}"
+    },
+    "args": {
+      "variable_type_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "variable_type_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "DeleteVariableTypeRequest"
+    }
+  },
+  {
+    "name": "cisco_workflows.listVariables",
+    "operation_id": "listVariables",
+    "description": "Handler to get all Variables. Response: array<VariableGetAllResponse>.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/variables"
+    },
+    "args": {},
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "listVariables"
+    }
+  },
+  {
+    "name": "cisco_workflows.variableCreateRequest",
+    "operation_id": "variableCreateRequest",
+    "description": "Handler to create a Variable. Response: VariableGetResponse. JSON body required: VariablePostRequest {properties:VariableContent, schema_id:string, type:string, unique_name:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/variables"
+    },
+    "args": {
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "variableCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "VariablePostRequest",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "properties": {
+            "$ref": "#/components/schemas/VariableContent"
+          },
+          "schema_id": {
+            "type": "string",
+            "description": "ViewSchemaID of variable"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Unique name of the variable"
+          }
+        },
+        "description": "VariablePostRequest model for variables\nEither ViewSchemaID or Type or both can be provided to create a Variable."
+      },
+      "schema_definitions": {
+        "VariableContent": {
+          "title": "VariableContent",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of variable"
+            },
+            "display_on_wizard": {
+              "type": "boolean",
+              "description": "Should the variable be shown on wizard\nUsed in input scope variables, if it is true, then variable is displayed on wizard"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "type": "boolean",
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of variable"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'"
+            },
+            "type": {
+              "type": "string",
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'"
+            },
+            "value": {
+              "type": "object",
+              "properties": {},
+              "description": "Value of variable. Value can be a string, boolean, number or array"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getVariableById",
+    "operation_id": "getVariableById",
+    "description": "Handler to return information about Variable. Response: VariableGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/variables/{variable_id}"
+    },
+    "args": {
+      "variable_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "variable_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getVariableById"
+    }
+  },
+  {
+    "name": "cisco_workflows.VariableUpdateRequest",
+    "operation_id": "VariableUpdateRequest",
+    "description": "Handler to update Variable. Response: VariableGetResponse. JSON body required: VariablePutRequest {properties:VariableContent}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/variables/{variable_id}"
+    },
+    "args": {
+      "variable_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "variable_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "VariableUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "VariablePutRequest",
+      "schema": {
+        "title": "VariablePutRequest represents a payload for modifying an existing variable by its ID.",
+        "type": "object",
+        "properties": {
+          "properties": {
+            "$ref": "#/components/schemas/VariableContent"
+          }
+        }
+      },
+      "schema_definitions": {
+        "VariableContent": {
+          "title": "VariableContent",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of variable"
+            },
+            "display_on_wizard": {
+              "type": "boolean",
+              "description": "Should the variable be shown on wizard\nUsed in input scope variables, if it is true, then variable is displayed on wizard"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "type": "boolean",
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of variable"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'"
+            },
+            "type": {
+              "type": "string",
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'"
+            },
+            "value": {
+              "type": "object",
+              "properties": {},
+              "description": "Value of variable. Value can be a string, boolean, number or array"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteVariableById",
+    "operation_id": "deleteVariableById",
+    "description": "Handler to delete a variable by ID. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/variables/{variable_id}"
+    },
+    "args": {
+      "variable_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "variable_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteVariableById"
+    }
+  },
+  {
+    "name": "cisco_workflows.getVariableRefeById",
+    "operation_id": "getVariableRefeById",
+    "description": "Handler to return variable references by variable ID. Response: VariableGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/variables/{variable_id}/references"
+    },
+    "args": {
+      "variable_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "variable_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getVariableRefeById"
+    }
+  },
+  {
+    "name": "cisco_workflows.getAllWorkflowsQueryParamsV1",
+    "operation_id": "getAllWorkflowsQueryParamsV1",
+    "description": "Handler to get all workflows. Response: array<WorkflowDefinitionGetAllResponse>.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows"
+    },
+    "args": {
+      "is_atomic": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "categories": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getAllWorkflowsQueryParamsV1"
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowCreateRequest",
+    "operation_id": "workflowCreateRequest",
+    "description": "Create workflow. Response: workflowDefinitionGetResponse. Required JSON body workflowDefinitionPostRequest {name:string*, properties:object*, variables:array<Variable>, metadata:WorkflowMetadata, schema_id:string}. Variable.schema_id required; Variable.properties includes name, scope, type and value. Definition alone is not runnable.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows"
+    },
+    "args": {
+      "categories": {
+        "type": "array",
+        "in": "body"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "metadata": {
+        "type": "object",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "schema_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "valid": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "variables": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [
+      "name",
+      "properties"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "workflowDefinitionPostRequest",
+      "schema": {
+        "title": "WorkflowDefinitionPostRequest",
+        "required": [
+          "name",
+          "properties"
+        ],
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "description": "Categories associated with the workflow",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the Wrokflow"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/WorkflowMetadata"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the Workflow"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of the workflow"
+          },
+          "schema_id": {
+            "type": "string",
+            "description": "View SchemaID of the workflow"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the Workflow"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          },
+          "valid": {
+            "type": "boolean",
+            "description": "value of Valid"
+          },
+          "variables": {
+            "type": "array",
+            "description": "WFVariables of the workflow\nin: body",
+            "items": {
+              "$ref": "#/components/schemas/Variable"
+            }
+          }
+        },
+        "description": "Either ViewSchemaID or Type or both can be provided to create a Workflow."
+      },
+      "schema_definitions": {
+        "CourseOfAction": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "observable_types"
+          ],
+          "type": "object",
+          "properties": {
+            "actuator": {
+              "type": "string",
+              "description": "Actuator.\nin: body"
+            },
+            "observable_types": {
+              "type": "array",
+              "description": "list of observable types to get for.\nin: body",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "GitInfo": {
+          "type": "object",
+          "properties": {
+            "commit_hash": {
+              "type": "string"
+            },
+            "commit_message": {
+              "type": "string"
+            },
+            "commited_by": {
+              "type": "string"
+            },
+            "commited_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "file_name": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            }
+          },
+          "description": "nolint: misspell\nGitInfo maintains information about the last Git Import"
+        },
+        "LHObjType": {
+          "title": "LHObjType generated on 2024-06-14T11:01:04+05:30. DO NOT EDIT.",
+          "type": "string"
+        },
+        "Variable": {
+          "title": "Variable",
+          "required": [
+            "schema_id"
+          ],
+          "type": "object",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "created_by": {
+              "type": "string"
+            },
+            "created_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "id": {
+              "type": "string",
+              "description": "ID of variable"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/LHObjType"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/VariableContent"
+            },
+            "schema_id": {
+              "type": "string",
+              "description": "View schema ID of variable, the value can be TargetTypeID for Table variables"
+            },
+            "table_id": {
+              "type": "string",
+              "description": "ID of table"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "updated_by": {
+              "type": "string"
+            },
+            "updated_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "variable_def_id": {
+              "type": "string",
+              "description": "ID of variable"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "VariableContent": {
+          "title": "VariableContent",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of variable"
+            },
+            "display_on_wizard": {
+              "type": "boolean",
+              "description": "Should the variable be shown on wizard\nUsed in input scope variables, if it is true, then variable is displayed on wizard"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "type": "boolean",
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of variable"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'"
+            },
+            "type": {
+              "type": "string",
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'"
+            },
+            "value": {
+              "type": "object",
+              "properties": {},
+              "description": "Value of variable. Value can be a string, boolean, number or array"
+            }
+          }
+        },
+        "WorkflowLock": {
+          "type": "object",
+          "properties": {
+            "locked": {
+              "type": "boolean"
+            },
+            "locked_by": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "WorkflowMetadata": {
+          "type": "object",
+          "properties": {
+            "coa": {
+              "$ref": "#/components/schemas/CourseOfAction"
+            },
+            "flags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "git_info": {
+              "$ref": "#/components/schemas/GitInfo"
+            },
+            "lock": {
+              "$ref": "#/components/schemas/WorkflowLock"
+            }
+          },
+          "description": "WorkflowMetadata maintains miscellaneous metadata for the workflow"
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowBatchGetPostRequest",
+    "operation_id": "workflowBatchGetPostRequest",
+    "description": "Handler to retrieve a list of workflows. Response: array<WorkflowDefinitionGetAllResponse>. JSON body required: array<string>.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/batch_get"
+    },
+    "args": {
+      "body": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [
+      "body"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowBatchGetPostRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": null,
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.startWorkflowRequest",
+    "operation_id": "startWorkflowRequest",
+    "description": "Start workflow. Response: array<StartWorkflowResponse> (id, status). Optional JSON body startWorklfowPostRequestPayload {input_variables:array<VariableStartPutRequest>, runtime_user_id:string, start_point:string, target_id:string}. VariableStartPutRequest.properties has VariableContent.value; id or properties.name identifies input. Query workflow_id XOR unique_name; inspect start_config first.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/start"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "query"
+      },
+      "sync": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "async": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "input_variables": {
+        "type": "array",
+        "in": "body"
+      },
+      "intent_config": {
+        "type": "object",
+        "in": "body"
+      },
+      "runtime_user_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "start_point": {
+        "type": "string",
+        "in": "body"
+      },
+      "target_id": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "startWorkflowRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": false,
+      "schema_ref": "startWorklfowPostRequestPayload",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "input_variables": {
+            "type": "array",
+            "description": "Input Variables information to start the workflow.\nin: body",
+            "items": {
+              "$ref": "#/components/schemas/VariableStartPutRequest"
+            }
+          },
+          "intent_config": {
+            "type": "object",
+            "properties": {},
+            "description": "Intent config to start the workflow.\nin: body"
+          },
+          "runtime_user_id": {
+            "type": "string",
+            "description": "The runtime user ID to submit.\nin: body"
+          },
+          "start_point": {
+            "type": "string",
+            "description": "The workflow start point.\nin: body"
+          },
+          "target_id": {
+            "type": "string",
+            "description": "The target ID to submit.\nin: body"
+          }
+        },
+        "description": "StartWorklfowPostRequestPayload model"
+      },
+      "schema_definitions": {
+        "VariableContent": {
+          "title": "VariableContent",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of variable"
+            },
+            "display_on_wizard": {
+              "type": "boolean",
+              "description": "Should the variable be shown on wizard\nUsed in input scope variables, if it is true, then variable is displayed on wizard"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "type": "boolean",
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of variable"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'"
+            },
+            "type": {
+              "type": "string",
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'"
+            },
+            "value": {
+              "type": "object",
+              "properties": {},
+              "description": "Value of variable. Value can be a string, boolean, number or array"
+            }
+          }
+        },
+        "VariableStartPutRequest": {
+          "title": "VariableStartPutRequest model for variables. Either id or name in the properties needs to be specified.",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Variable ID"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/VariableContent"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowInputParams",
+    "operation_id": "workflowInputParams",
+    "description": "Get required workflow inputs. Response: StartWorklfowConfigResponse {input_variables:array<VariableGetAllResponse>, wf_start_points:array<StartPointOption>, type_of_target_needed:string}. Query workflow_id XOR unique_name.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/start_config"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowInputParams"
+    }
+  },
+  {
+    "name": "cisco_workflows.worklowSummaryQueryParam",
+    "operation_id": "worklowSummaryQueryParam",
+    "description": "Handler to get a summary of workflows. Response: workflowSummaryResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/summary"
+    },
+    "args": {},
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "worklowSummaryQueryParam"
+    }
+  },
+  {
+    "name": "cisco_workflows.getWorkflowById",
+    "operation_id": "getWorkflowById",
+    "description": "Handler to return workflow information using workflow ID. Response: workflowDefinitionGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getWorkflowById"
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowUpdateRequest",
+    "operation_id": "workflowUpdateRequest",
+    "description": "Handler to update the workflow. Response: WorkflowDefinitionPutResponse. JSON body required: WorkflowDefinitionPutRequest {variables:array<Variable>, name:string, properties:object, metadata:WorkflowMetadata, categories:array<string>, description:string, title:string, triggers:array<Trigger>, unique_name:string, valid:boolean}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/workflows/{workflow_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "categories": {
+        "type": "array",
+        "in": "body"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "metadata": {
+        "type": "object",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      },
+      "triggers": {
+        "type": "array",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "valid": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "variables": {
+        "type": "array",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "WorkflowDefinitionPutRequest",
+      "schema": {
+        "title": "WorkflowDefinitionPutRequest",
+        "type": "object",
+        "properties": {
+          "categories": {
+            "type": "array",
+            "description": "Categories associated with the workflow",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the workflow"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/WorkflowMetadata"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the workflow"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of the workflow"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of the workflow"
+          },
+          "triggers": {
+            "type": "array",
+            "description": "Triggers of the workflow",
+            "items": {
+              "$ref": "#/components/schemas/Trigger"
+            }
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          },
+          "valid": {
+            "type": "boolean",
+            "description": "Is valid"
+          },
+          "variables": {
+            "type": "array",
+            "description": "WFVariables of the workflow\nin: body",
+            "items": {
+              "$ref": "#/components/schemas/Variable"
+            }
+          }
+        }
+      },
+      "schema_definitions": {
+        "CourseOfAction": {
+          "title": "WorkflowMetadata",
+          "required": [
+            "observable_types"
+          ],
+          "type": "object",
+          "properties": {
+            "actuator": {
+              "type": "string",
+              "description": "Actuator.\nin: body"
+            },
+            "observable_types": {
+              "type": "array",
+              "description": "list of observable types to get for.\nin: body",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "GitInfo": {
+          "type": "object",
+          "properties": {
+            "commit_hash": {
+              "type": "string"
+            },
+            "commit_message": {
+              "type": "string"
+            },
+            "commited_by": {
+              "type": "string"
+            },
+            "commited_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "file_name": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            }
+          },
+          "description": "nolint: misspell\nGitInfo maintains information about the last Git Import"
+        },
+        "LHObjType": {
+          "title": "LHObjType generated on 2024-06-14T11:01:04+05:30. DO NOT EDIT.",
+          "type": "string"
+        },
+        "Trigger": {
+          "title": "Trigger",
+          "type": "object",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "created_by": {
+              "type": "string"
+            },
+            "created_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": {
+              "type": "string"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "invalid_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "name": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "ref_id": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/components/schemas/TriggerStatus"
+            },
+            "type": {
+              "$ref": "#/components/schemas/TriggerType"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "updated_by": {
+              "type": "string"
+            },
+            "updated_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "workflow_id": {
+              "type": "string"
+            }
+          }
+        },
+        "TriggerStatus": {
+          "title": "TriggerStatus",
+          "type": "object",
+          "properties": {
+            "details": {
+              "$ref": "#/components/schemas/StatusDetails"
+            },
+            "error_msg": {
+              "type": "string"
+            },
+            "prev_state": {
+              "$ref": "#/components/schemas/State"
+            },
+            "state": {
+              "$ref": "#/components/schemas/State"
+            }
+          }
+        },
+        "TriggerType": {
+          "title": "TriggerType",
+          "type": "string"
+        },
+        "Variable": {
+          "title": "Variable",
+          "required": [
+            "schema_id"
+          ],
+          "type": "object",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "created_by": {
+              "type": "string"
+            },
+            "created_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "id": {
+              "type": "string",
+              "description": "ID of variable"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/LHObjType"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/VariableContent"
+            },
+            "schema_id": {
+              "type": "string",
+              "description": "View schema ID of variable, the value can be TargetTypeID for Table variables"
+            },
+            "table_id": {
+              "type": "string",
+              "description": "ID of table"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "updated_by": {
+              "type": "string"
+            },
+            "updated_on": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "variable_def_id": {
+              "type": "string",
+              "description": "ID of variable"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "VariableContent": {
+          "title": "VariableContent",
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of variable"
+            },
+            "display_on_wizard": {
+              "type": "boolean",
+              "description": "Should the variable be shown on wizard\nUsed in input scope variables, if it is true, then variable is displayed on wizard"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "type": "boolean",
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly"
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of variable"
+            },
+            "scope": {
+              "type": "string",
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'"
+            },
+            "type": {
+              "type": "string",
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'"
+            },
+            "value": {
+              "type": "object",
+              "properties": {},
+              "description": "Value of variable. Value can be a string, boolean, number or array"
+            }
+          }
+        },
+        "WorkflowLock": {
+          "type": "object",
+          "properties": {
+            "locked": {
+              "type": "boolean"
+            },
+            "locked_by": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        "WorkflowMetadata": {
+          "type": "object",
+          "properties": {
+            "coa": {
+              "$ref": "#/components/schemas/CourseOfAction"
+            },
+            "flags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "git_info": {
+              "$ref": "#/components/schemas/GitInfo"
+            },
+            "lock": {
+              "$ref": "#/components/schemas/WorkflowLock"
+            }
+          },
+          "description": "WorkflowMetadata maintains miscellaneous metadata for the workflow"
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteWorkflowById",
+    "operation_id": "deleteWorkflowById",
+    "description": "Handler to delete workflow using ID. Response: workflowDefinitionGetResponse.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/workflows/{workflow_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteWorkflowById"
+    }
+  },
+  {
+    "name": "cisco_workflows.addActionRequest",
+    "operation_id": "addActionRequest",
+    "description": "Add action. Response: ActionDefinitionGetResponse. Required JSON body AddActionPostRequest {action:ActionDefinitionPostRequest, previous_action:ActionDefinitionPatchRequest}. ActionDefinitionPostRequest.properties holds action configuration; schema_id, name and type are supported fields. Inspect live action schema.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/{workflow_id}/actions"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action": {
+        "type": "object",
+        "in": "body"
+      },
+      "previous_action": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "addActionRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "AddActionPostRequest",
+      "schema": {
+        "title": "AddActionPostRequest",
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionDefinitionPostRequest"
+          },
+          "previous_action": {
+            "$ref": "#/components/schemas/ActionDefinitionPatchRequest"
+          }
+        }
+      },
+      "schema_definitions": {
+        "ActionDefinitionPatchRequest": {
+          "title": "ActionDefinitionPatchRequest",
+          "type": "object",
+          "properties": {
+            "block_num": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "id": {
+              "type": "string"
+            }
+          }
+        },
+        "ActionDefinitionPostRequest": {
+          "title": "ActionDefinitionPostRequest",
+          "type": "object",
+          "properties": {
+            "block_num": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {}
+              }
+            },
+            "schema_id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "valid": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getActionById",
+    "operation_id": "getActionById",
+    "description": "Handler to return Workflow's action information using action ID. Response: ActionDefinitionGetResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}/actions/{action_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "action_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getActionById"
+    }
+  },
+  {
+    "name": "cisco_workflows.actionUpdateRequest",
+    "operation_id": "actionUpdateRequest",
+    "description": "Handler to update an Action. Response: ActionDefinitionPutResponse. JSON body required: ActionDefinitionPutRequest {name:string, properties:object, description:string, invalid_properties:object, title:string}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/workflows/{workflow_id}/actions/{action_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "invalid_properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "properties": {
+        "type": "object",
+        "in": "body"
+      },
+      "title": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "action_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "actionUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "ActionDefinitionPutRequest",
+      "schema": {
+        "title": "ActionDefinitionPutRequest",
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of an Action"
+          },
+          "invalid_properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "InvalidProperties of an Action"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of an Action"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {}
+            },
+            "description": "Properties of an Action"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of an Action"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.deleteActionById",
+    "operation_id": "deleteActionById",
+    "description": "Handler to delete an action from a workflow by ID. Response: ActionDefinitionPutResponse.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/workflows/{workflow_id}/actions/{action_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "action_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "deleteActionById"
+    }
+  },
+  {
+    "name": "cisco_workflows.modifyActionStepsRequest",
+    "operation_id": "modifyActionStepsRequest",
+    "description": "Handler to move actions in workflow. Response: ActionDefinitionPutResponse. JSON body required: ActionPatchRequest {action:ActionDefinitionPatchRequest, previous_action:ActionDefinitionPatchRequest}.",
+    "endpoint": {
+      "method": "PATCH",
+      "path": "/v1/workflows/{workflow_id}/actions/{action_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action": {
+        "type": "object",
+        "in": "body"
+      },
+      "previous_action": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "action_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "modifyActionStepsRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "ActionPatchRequest",
+      "schema": {
+        "title": "ActionPatchRequest",
+        "type": "object",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionDefinitionPatchRequest"
+          },
+          "previous_action": {
+            "$ref": "#/components/schemas/ActionDefinitionPatchRequest"
+          }
+        }
+      },
+      "schema_definitions": {
+        "ActionDefinitionPatchRequest": {
+          "title": "ActionDefinitionPatchRequest",
+          "type": "object",
+          "properties": {
+            "block_num": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.duplicateActionById",
+    "operation_id": "duplicateActionById",
+    "description": "Handler to duplicate action. Response: ActionDefinitionGetResponse.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/{workflow_id}/actions/{action_id}/duplicate"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "action_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "duplicateActionById"
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowLockPutRequest",
+    "operation_id": "workflowLockPutRequest",
+    "description": "Handler to lock the workflow. Response: unspecified. JSON body required: string.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/workflows/{workflow_id}/lock"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "body": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "body"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowLockPutRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": null,
+      "schema": {
+        "type": "string"
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowObjRefRequestQueryParams",
+    "operation_id": "workflowObjRefRequestQueryParams",
+    "description": "Handler to return references for the workflow. Response: workflowObjRefResponse.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}/references"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "action_id": {
+        "type": "string",
+        "in": "query"
+      },
+      "variable_id": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowObjRefRequestQueryParams"
+    }
+  },
+  {
+    "name": "cisco_workflows.getRulesByWorkflowID",
+    "operation_id": "getRulesByWorkflowID",
+    "description": "Handler to return rules for the workflow. Response: object.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}/rules"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getRulesByWorkflowID"
+    }
+  },
+  {
+    "name": "cisco_workflows.getTriggersById",
+    "operation_id": "getTriggersById",
+    "description": "Handler to get all triggers information. Response: array<Trigger>.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}/triggers"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getTriggersById"
+    }
+  },
+  {
+    "name": "cisco_workflows.triggerCreateRequest",
+    "operation_id": "triggerCreateRequest",
+    "description": "Handler to create a trigger for a workflow. Response: Trigger. JSON body required: TriggerPostRequest {name:string, description:string, disabled:boolean, ref_id:string, type:TriggerType, unique_name:string, version:string}.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/{workflow_id}/triggers"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "disabled": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "ref_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "unique_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "version": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "name",
+      "ref_id",
+      "type"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "triggerCreateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TriggerPostRequest",
+      "schema": {
+        "required": [
+          "name",
+          "ref_id",
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of Trigger"
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "Disabled"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of Trigger"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "RefID, ID of an Event or ID of a Schedule"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TriggerType"
+          },
+          "unique_name": {
+            "type": "string",
+            "description": "Uniquename"
+          },
+          "version": {
+            "type": "string",
+            "description": "Version"
+          }
+        },
+        "description": "TriggerPostRequest struct for triggers post api"
+      },
+      "schema_definitions": {
+        "TriggerType": {
+          "title": "TriggerType",
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.getTriggerById",
+    "operation_id": "getTriggerById",
+    "description": "Handler to get trigger information by ID. Response: Trigger.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/v1/workflows/{workflow_id}/triggers/{trigger_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "trigger_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "trigger_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "getTriggerById"
+    }
+  },
+  {
+    "name": "cisco_workflows.triggerUpdateRequest",
+    "operation_id": "triggerUpdateRequest",
+    "description": "Handler to update a trigger. Response: Trigger. JSON body required: TriggerPutRequest {name:string, description:string, disabled:boolean, ref_id:string, type:TriggerType, version:string}.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/workflows/{workflow_id}/triggers/{trigger_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "trigger_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "description": {
+        "type": "string",
+        "in": "body"
+      },
+      "disabled": {
+        "type": "boolean",
+        "in": "body"
+      },
+      "name": {
+        "type": "string",
+        "in": "body"
+      },
+      "ref_id": {
+        "type": "string",
+        "in": "body"
+      },
+      "type": {
+        "type": "string",
+        "in": "body"
+      },
+      "version": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "trigger_id",
+      "type"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "triggerUpdateRequest"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "TriggerPutRequest",
+      "schema": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description of Trigger"
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "Disabled"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of Trigger"
+          },
+          "ref_id": {
+            "type": "string",
+            "description": "RefID, ID of an Event or ID of a schedule"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TriggerType"
+          },
+          "version": {
+            "type": "string",
+            "description": "Version of Trigger"
+          }
+        },
+        "description": "TriggerPutRequest struct for triggers post api"
+      },
+      "schema_definitions": {
+        "TriggerType": {
+          "title": "TriggerType",
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.triggerDeleteRequest",
+    "operation_id": "triggerDeleteRequest",
+    "description": "Handler to delete a trigger. Response: unspecified.",
+    "endpoint": {
+      "method": "DELETE",
+      "path": "/v1/workflows/{workflow_id}/triggers/{trigger_id}"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "trigger_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "trigger_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "triggerDeleteRequest"
+    }
+  },
+  {
+    "name": "cisco_workflows.unlockWorkflow",
+    "operation_id": "unlockWorkflow",
+    "description": "Handler to unlock a locked workflow. The {workflow_id} parameter accepts both an ID and unique_name of the workflow. Response: unspecified.",
+    "endpoint": {
+      "method": "PUT",
+      "path": "/v1/workflows/{workflow_id}/unlock"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "unlockWorkflow"
+    }
+  },
+  {
+    "name": "cisco_workflows.validateWorkflowParams",
+    "operation_id": "validateWorkflowParams",
+    "description": "Handler to validate workflow. Response: WorkflowValidationGetResponse.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/v1/workflows/{workflow_id}/validate"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "validateWorkflowParams"
+    }
+  },
+  {
+    "name": "cisco_workflows.cancelWorkflowReq",
+    "operation_id": "cancelWorkflowReq",
+    "description": "Handler to cancel a workflow export or import operation. Response: unspecified. Required query: workflow_id.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/exchange/v1/workflows/cancel"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "cancelWorkflowReq"
+    }
+  },
+  {
+    "name": "cisco_workflows.exportToJSONReq",
+    "operation_id": "exportToJSONReq",
+    "description": "Handler to export a workflow as JSON. Response: unspecified. Required query: workflow_id.",
+    "endpoint": {
+      "method": "GET",
+      "path": "/exchange/v1/workflows/export"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "exportToJSONReq"
+    }
+  },
+  {
+    "name": "cisco_workflows.exportToGitReq",
+    "operation_id": "exportToGitReq",
+    "description": "Handler to export a workflow to a user-specified repository. Response: unspecified. JSON body required: ImportExport_WFExportPostRequest {commit_message:string, file_name:string, force:boolean, target_id:string}. Required query: workflow_id, to.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/exchange/v1/workflows/export"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      },
+      "to": {
+        "type": "string",
+        "in": "query"
+      },
+      "force": {
+        "type": "string",
+        "in": "query"
+      },
+      "commit_message": {
+        "type": "string",
+        "in": "body"
+      },
+      "file_name": {
+        "type": "string",
+        "in": "body"
+      },
+      "target_id": {
+        "type": "string",
+        "in": "body"
+      }
+    },
+    "required": [
+      "workflow_id",
+      "to"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "exportToGitReq"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "ImportExport_WFExportPostRequest",
+      "schema": {
+        "type": "object",
+        "title": "WFExportPostRequest",
+        "properties": {
+          "commit_message": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          },
+          "target_id": {
+            "type": "string"
+          }
+        }
+      },
+      "schema_definitions": {}
+    }
+  },
+  {
+    "name": "cisco_workflows.importFromJSONReq",
+    "operation_id": "importFromJSONReq",
+    "description": "Import JSON. Required body ImportExport_WFExportObjects {workflow:ImportExport_WorkflowDefExport, subworkflows:array<ImportExport_WFExportObjects>, variables:object, targets:object, rules:object, triggers:object}. Export object required; GET workflow definition is NOT an import payload.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/exchange/v1/workflows/import"
+    },
+    "args": {
+      "workflow": {
+        "type": "object",
+        "in": "body"
+      },
+      "subworkflows": {
+        "type": "array",
+        "in": "body"
+      },
+      "variables": {
+        "type": "object",
+        "in": "body"
+      },
+      "targets": {
+        "type": "object",
+        "in": "body"
+      },
+      "rules": {
+        "type": "object",
+        "in": "body"
+      },
+      "triggers": {
+        "type": "object",
+        "in": "body"
+      },
+      "workflow_id": {
+        "type": "string",
+        "in": "query"
+      },
+      "workflow_unique_name": {
+        "type": "string",
+        "in": "query"
+      },
+      "create_new": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "overwrite": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "skip_all_runtime_users": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "skip_all_module_targets": {
+        "type": "boolean",
+        "in": "query"
+      },
+      "atomic_workflows": {
+        "type": "array",
+        "in": "body"
+      },
+      "calendars": {
+        "type": "object",
+        "in": "body"
+      },
+      "categories": {
+        "type": "object",
+        "in": "body"
+      },
+      "dependent_workflows": {
+        "type": "array",
+        "in": "body"
+      },
+      "events": {
+        "type": "object",
+        "in": "body"
+      },
+      "module_targets": {
+        "type": "array",
+        "in": "body"
+      },
+      "module_targets_skip_list": {
+        "type": "array",
+        "in": "body"
+      },
+      "remotemetas": {
+        "type": "object",
+        "in": "body"
+      },
+      "remotes_skip_list": {
+        "type": "array",
+        "in": "body"
+      },
+      "runtime_users": {
+        "type": "object",
+        "in": "body"
+      },
+      "runtime_users_skip_list": {
+        "type": "array",
+        "in": "body"
+      },
+      "schedules": {
+        "type": "object",
+        "in": "body"
+      },
+      "table_types": {
+        "type": "object",
+        "in": "body"
+      },
+      "tables": {
+        "type": "object",
+        "in": "body"
+      },
+      "target_groups": {
+        "type": "object",
+        "in": "body"
+      },
+      "webhooks": {
+        "type": "object",
+        "in": "body"
+      },
+      "wf_rule_trigger": {
+        "type": "object",
+        "in": "body"
+      }
+    },
+    "required": [],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "importFromJSONReq"
+    },
+    "request_body": {
+      "content_type": "application/json",
+      "required": true,
+      "schema_ref": "ImportExport_WFExportObjects",
+      "schema": {
+        "type": "object",
+        "title": "WFExportObjects",
+        "properties": {
+          "atomic_workflows": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "calendars": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_CalendarExport"
+            }
+          },
+          "categories": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_CategoryExport"
+            }
+          },
+          "dependent_workflows": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "events": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_EventExport"
+            }
+          },
+          "module_targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportExport_XChangeModuleTargetMetadata"
+            }
+          },
+          "module_targets_skip_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remotemetas": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_RemoteMetaExport"
+            }
+          },
+          "remotes_skip_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_RuleExport"
+            }
+          },
+          "runtime_users": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_DefinitionExport"
+            }
+          },
+          "runtime_users_skip_list": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "schedules": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_ScheduleExport"
+            }
+          },
+          "subworkflows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportExport_WFExportObjects"
+            }
+          },
+          "table_types": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_TableTypeExport"
+            }
+          },
+          "tables": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_TableExport"
+            }
+          },
+          "target_groups": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_TargetGroupDefExport"
+            }
+          },
+          "targets": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_DefinitionExport"
+            }
+          },
+          "triggers": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_TriggerExport"
+            }
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_VariableExport"
+            }
+          },
+          "webhooks": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_WebhookExport"
+            }
+          },
+          "wf_rule_trigger": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ImportExport_WorkflowRuleTriggerExport"
+            }
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/ImportExport_WorkflowDefExport"
+          }
+        }
+      },
+      "schema_definitions": {
+        "ImportExport_ActionDefExport": {
+          "type": "object",
+          "title": "ActionDefExport",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_ActionDefExport"
+              }
+            },
+            "base_type": {
+              "type": "string"
+            },
+            "blocks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_ActionDefExport"
+              }
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "output_schema": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_CalendarExport": {
+          "type": "object",
+          "title": "CalendarExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "calendar_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_CategoryExport": {
+          "type": "object",
+          "title": "CategoryExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "category_type": {
+              "$ref": "#/components/schemas/ImportExport_CategoryType"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_CategoryType": {
+          "type": "string"
+        },
+        "ImportExport_DefinitionExport": {
+          "type": "object",
+          "title": "DefinitionExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_EventExport": {
+          "type": "object",
+          "title": "EventExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "rule_id": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "webhook_id": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_LHObjType": {
+          "type": "string",
+          "title": "LHObjType generated on 2023-05-10T15:25:28-05:00. DO NOT EDIT."
+        },
+        "ImportExport_RemoteMetaExport": {
+          "type": "object",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_RuleExport": {
+          "type": "object",
+          "title": "RuleExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "rule_type": {
+              "$ref": "#/components/schemas/ImportExport_RuleType"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_RuleType": {
+          "type": "string",
+          "title": "RuleType"
+        },
+        "ImportExport_ScheduleExport": {
+          "type": "object",
+          "title": "ScheduleExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/ImportExport_ScheduleProperties"
+            },
+            "rule_id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_ScheduleProperties": {
+          "type": "object",
+          "properties": {
+            "calendar": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "interval_hours": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "interval_minutes": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "number_of_times": {
+              "type": "integer",
+              "format": "uint32"
+            },
+            "starttime": {
+              "type": "string"
+            },
+            "timezone": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TableExport": {
+          "type": "object",
+          "title": "TableExport",
+          "properties": {
+            "access_type": {
+              "type": "string"
+            },
+            "data_type": {
+              "type": "string"
+            },
+            "max_column_size": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "max_columns": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "max_rows": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "max_table_size": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_TableRow"
+              }
+            },
+            "table_type_id": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TableRow": {
+          "type": "object",
+          "properties": {
+            "column_data": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "row_id": {
+              "type": "string"
+            },
+            "suffix_id": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TableTypeExport": {
+          "type": "object",
+          "title": "TableTypeExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object"
+                }
+              }
+            },
+            "data_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "display_name": {
+              "type": "string"
+            },
+            "inherits": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "unique_name": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TargetGroupDefExport": {
+          "type": "object",
+          "title": "TargetGroupDefExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_TargetGroupProperties"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TargetGroupProperties": {
+          "type": "object",
+          "title": "TargetGroupProperties",
+          "properties": {
+            "criteria": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_Expression"
+              }
+            },
+            "include_all_targets": {
+              "type": "boolean"
+            },
+            "matched_target_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "selected_target_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "view_target_type": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TriggerExport": {
+          "type": "object",
+          "title": "TriggerExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "disabled": {
+              "type": "boolean"
+            },
+            "lowercase_name": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "ref_id": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "$ref": "#/components/schemas/ImportExport_TriggerType"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "workflow_id": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_TriggerType": {
+          "type": "string",
+          "title": "TriggerType"
+        },
+        "ImportExport_VariableContent": {
+          "type": "object",
+          "title": "VariableContent",
+          "properties": {
+            "description": {
+              "description": "Description of variable",
+              "type": "string"
+            },
+            "is_invisible": {
+              "type": "boolean"
+            },
+            "is_required": {
+              "description": "Is the variable Required\nUsed in input string and secure string variable, if it is true, then string can't be emptly",
+              "type": "boolean"
+            },
+            "name": {
+              "description": "Name of variable",
+              "type": "string"
+            },
+            "scope": {
+              "description": "Scope of variable. Scope can be 'input', 'global', 'local', 'static' or 'workflow'",
+              "type": "string"
+            },
+            "type": {
+              "description": "Type of variable. Type can be 'datatype.boolean', 'datatype.string', 'datatype.number' or 'datatype.table'",
+              "type": "string"
+            },
+            "value": {
+              "description": "Value of variable. Value can be a string, boolean, number or array",
+              "type": "object"
+            }
+          }
+        },
+        "ImportExport_VariableExport": {
+          "type": "object",
+          "title": "VariableExport",
+          "properties": {
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/ImportExport_VariableContent"
+            },
+            "schema_id": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_WFExportObjects": {
+          "type": "object",
+          "title": "WFExportObjects",
+          "properties": {
+            "atomic_workflows": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "calendars": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_CalendarExport"
+              }
+            },
+            "categories": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_CategoryExport"
+              }
+            },
+            "dependent_workflows": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "events": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_EventExport"
+              }
+            },
+            "module_targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_XChangeModuleTargetMetadata"
+              }
+            },
+            "module_targets_skip_list": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "remotemetas": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_RemoteMetaExport"
+              }
+            },
+            "remotes_skip_list": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rules": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_RuleExport"
+              }
+            },
+            "runtime_users": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_DefinitionExport"
+              }
+            },
+            "runtime_users_skip_list": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "schedules": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_ScheduleExport"
+              }
+            },
+            "subworkflows": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_WFExportObjects"
+              }
+            },
+            "table_types": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_TableTypeExport"
+              }
+            },
+            "tables": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_TableExport"
+              }
+            },
+            "target_groups": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_TargetGroupDefExport"
+              }
+            },
+            "targets": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_DefinitionExport"
+              }
+            },
+            "triggers": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_TriggerExport"
+              }
+            },
+            "variables": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_VariableExport"
+              }
+            },
+            "webhooks": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_WebhookExport"
+              }
+            },
+            "wf_rule_trigger": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ImportExport_WorkflowRuleTriggerExport"
+              }
+            },
+            "workflow": {
+              "$ref": "#/components/schemas/ImportExport_WorkflowDefExport"
+            }
+          }
+        },
+        "ImportExport_WFVariableExport": {
+          "type": "object",
+          "title": "WFVariableExport ..",
+          "properties": {
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "$ref": "#/components/schemas/ImportExport_VariableContent"
+            },
+            "schema_id": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_WebhookExport": {
+          "type": "object",
+          "title": "WebhookExport",
+          "properties": {
+            "base_type": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_WorkflowDefExport": {
+          "type": "object",
+          "title": "WorkflowDefExport",
+          "properties": {
+            "actions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_ActionDefExport"
+              }
+            },
+            "base_type": {
+              "type": "string"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "object_type": {
+              "$ref": "#/components/schemas/ImportExport_LHObjType"
+            },
+            "properties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object"
+              }
+            },
+            "title": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "unique_name": {
+              "type": "string"
+            },
+            "variables": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ImportExport_WFVariableExport"
+              }
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_WorkflowRuleTriggerExport": {
+          "type": "object",
+          "properties": {
+            "rule_unique_name": {
+              "type": "string"
+            },
+            "trig_unique_name": {
+              "type": "string"
+            },
+            "wf_unique_name": {
+              "type": "string"
+            }
+          }
+        },
+        "ImportExport_XChangeModuleTargetMetadata": {
+          "type": "object",
+          "properties": {
+            "external_id": {
+              "type": "string"
+            },
+            "module_type": {
+              "type": "string"
+            },
+            "target_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "cisco_workflows.workflowDuplicateRequest",
+    "operation_id": "workflowDuplicateRequest",
+    "description": "Handler to duplicate a workflow. Response: unspecified.",
+    "endpoint": {
+      "method": "POST",
+      "path": "/exchange/v1/workflows/{workflow_id}/duplicate"
+    },
+    "args": {
+      "workflow_id": {
+        "type": "string",
+        "in": "path"
+      },
+      "skip_all_subworkflows": {
+        "type": "boolean",
+        "in": "query"
+      }
+    },
+    "required": [
+      "workflow_id"
+    ],
+    "source": {
+      "url": "https://documentation.meraki.com/@api/deki/files/36507/oas.json?revision=1",
+      "openapi": "3.0.1",
+      "version": "1.0.0",
+      "operation_id": "workflowDuplicateRequest"
+    }
+  }
+]

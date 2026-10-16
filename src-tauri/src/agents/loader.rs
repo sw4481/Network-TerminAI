@@ -227,10 +227,47 @@ impl AgentsLoader {
     /// deliberately separate from [`AgentsLoader::load_all`] so that loading
     /// agents stays a side-effect-free read.
     pub fn initialize_bundled_agents(&self) -> Result<()> {
-        let bundled_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let repo_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .ok_or_else(|| anyhow::anyhow!("Failed to get parent directory"))?
             .join("bundled-agents");
+        self.initialize_bundled_agents_for_paths(
+            crate::commands::bundled_python_path().as_deref(),
+            &repo_dir,
+        )
+    }
+
+    fn initialize_bundled_agents_for_paths(
+        &self,
+        bundled_python: Option<&Path>,
+        repo_dir: &Path,
+    ) -> Result<()> {
+        let packaged_dir = bundled_python.and_then(|python| {
+            let bin_dir = python.parent()?;
+            let root = if bin_dir.file_name().is_some_and(|name| name == "bin") {
+                bin_dir.parent()?
+            } else {
+                bin_dir
+            };
+            let windows = root.join("Lib/site-packages/ccie_sidecar/bundled-agents");
+            if windows.is_dir() {
+                return Some(windows);
+            }
+            fs::read_dir(root.join("lib"))
+                .ok()?
+                .flatten()
+                .map(|entry| {
+                    entry
+                        .path()
+                        .join("site-packages/ccie_sidecar/bundled-agents")
+                })
+                .find(|path| path.is_dir())
+        });
+        let bundled_dir = if repo_dir.is_dir() {
+            repo_dir.to_path_buf()
+        } else {
+            packaged_dir.unwrap_or_else(|| repo_dir.to_path_buf())
+        };
         self.initialize_bundled_agents_from(&bundled_dir)
     }
 
@@ -619,6 +656,137 @@ allowed-commands:
             std::fs::read_to_string(topolograph_dir.join("AGENT.md")).unwrap(),
             customized
         );
+    }
+
+    fn synthetic_workflows_agent(dir: &Path) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(
+            dir.join("AGENT.md"),
+            "---\nname: cisco-workflows\ndescription: Synthetic workflow agent\nsystem-prompt: Synthetic prompt\n---\n\n# Synthetic body\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("SOUL.md"), "Synthetic persona").unwrap();
+        std::fs::write(dir.join("tools.json"), "[]").unwrap();
+        std::fs::create_dir(dir.join("nested")).unwrap();
+    }
+
+    #[test]
+    fn initializes_packaged_unix_agents_without_a_repository() {
+        let tmp = TempDir::new().unwrap();
+        let python = tmp.path().join("Resources/python/bin/python3");
+        let packaged = tmp.path().join(
+            "Resources/python/lib/python3.12/site-packages/ccie_sidecar/bundled-agents/cisco-workflows",
+        );
+        synthetic_workflows_agent(&packaged);
+        let installed = tmp.path().join("installed");
+        let loader = AgentsLoader::new(installed.clone());
+
+        loader
+            .initialize_bundled_agents_for_paths(Some(&python), &tmp.path().join("absent-repo"))
+            .unwrap();
+
+        let agents = loader.load_all().unwrap();
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].id, "cisco-workflows");
+        assert_eq!(agents[0].name, "cisco-workflows");
+        assert_eq!(
+            std::fs::read_to_string(installed.join("cisco-workflows/SOUL.md")).unwrap(),
+            "Synthetic persona"
+        );
+        assert_eq!(
+            std::fs::read_to_string(installed.join("cisco-workflows/tools.json")).unwrap(),
+            "[]"
+        );
+        assert!(!installed.join("cisco-workflows/nested").exists());
+    }
+
+    #[test]
+    fn initializes_packaged_windows_agents_without_a_repository() {
+        let tmp = TempDir::new().unwrap();
+        let python = tmp.path().join("resources/python/python.exe");
+        let packaged = tmp
+            .path()
+            .join("resources/python/Lib/site-packages/ccie_sidecar/bundled-agents/cisco-workflows");
+        synthetic_workflows_agent(&packaged);
+        let installed = tmp.path().join("installed");
+        let loader = AgentsLoader::new(installed.clone());
+
+        loader
+            .initialize_bundled_agents_for_paths(Some(&python), &tmp.path().join("absent-repo"))
+            .unwrap();
+
+        assert_eq!(loader.load_all().unwrap()[0].id, "cisco-workflows");
+        assert!(installed.join("cisco-workflows/SOUL.md").is_file());
+        assert!(installed.join("cisco-workflows/tools.json").is_file());
+    }
+
+    #[test]
+    fn development_repository_takes_precedence_over_stale_packaged_agents() {
+        let tmp = TempDir::new().unwrap();
+        let python = tmp.path().join("python/bin/python3");
+        let packaged = tmp.path().join(
+            "python/lib/python3.12/site-packages/ccie_sidecar/bundled-agents/cisco-workflows",
+        );
+        synthetic_workflows_agent(&packaged);
+        let repo = tmp.path().join("bundled-agents");
+        synthetic_workflows_agent(&repo.join("cisco-workflows"));
+        std::fs::write(
+            repo.join("cisco-workflows/SOUL.md"),
+            "Current repository persona",
+        )
+        .unwrap();
+        let installed = tmp.path().join("installed");
+        let loader = AgentsLoader::new(installed.clone());
+
+        loader
+            .initialize_bundled_agents_for_paths(Some(&python), &repo)
+            .unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(installed.join("cisco-workflows/SOUL.md")).unwrap(),
+            "Current repository persona"
+        );
+    }
+
+    #[test]
+    fn packaged_install_preserves_existing_agent_customizations() {
+        let tmp = TempDir::new().unwrap();
+        let python = tmp.path().join("python/bin/python3");
+        let packaged = tmp.path().join(
+            "python/lib/python3.13/site-packages/ccie_sidecar/bundled-agents/cisco-workflows",
+        );
+        synthetic_workflows_agent(&packaged);
+        let installed = tmp.path().join("installed/cisco-workflows");
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(
+            installed.join("AGENT.md"),
+            "---\nname: custom-workflows\ndescription: Customized\nsystem-prompt: User prompt\n---\n",
+        )
+        .unwrap();
+
+        let loader = AgentsLoader::new(tmp.path().join("installed"));
+        loader
+            .initialize_bundled_agents_for_paths(Some(&python), &tmp.path().join("absent-repo"))
+            .unwrap();
+
+        assert_eq!(loader.load_all().unwrap()[0].name, "custom-workflows");
+        assert!(!installed.join("SOUL.md").exists());
+    }
+
+    #[test]
+    fn falls_back_to_repository_agents_without_packaged_python() {
+        let tmp = TempDir::new().unwrap();
+        let repo = tmp.path().join("bundled-agents");
+        synthetic_workflows_agent(&repo.join("cisco-workflows"));
+        let installed = tmp.path().join("installed");
+        let loader = AgentsLoader::new(installed.clone());
+
+        loader
+            .initialize_bundled_agents_for_paths(None, &repo)
+            .unwrap();
+
+        assert_eq!(loader.load_all().unwrap()[0].id, "cisco-workflows");
+        assert!(installed.join("cisco-workflows/SOUL.md").is_file());
     }
 
     #[test]

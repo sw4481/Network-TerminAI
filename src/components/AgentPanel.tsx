@@ -40,6 +40,7 @@ import {
 } from "../lib/tauri";
 import { IaCApprovalModal, type IaCApprovalRequest } from "./IaCApprovalModal";
 import { ZabbixApprovalModal, type ZabbixApprovalRequest } from "./ZabbixApprovalModal";
+import { WorkflowsApprovalModal, type WorkflowsApprovalRequest } from "./WorkflowsApprovalModal";
 import { TerminalFixApprovalModal } from "./TerminalFixApprovalModal";
 import { useDiagramStore } from "../state/diagramStore";
 import { CodeBlock } from "./CodeBlock";
@@ -114,6 +115,7 @@ const agentDisplayName = (nameOrId: string, id?: string): string => {
 const PREPACKAGED_AGENT_IDS = new Set<string>([
   "aci",
   "catalyst-center",
+  "cisco-workflows",
   "cisco-xdr",
   "cml",
   "fmc",
@@ -160,6 +162,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const promptsPanelId = useId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const agentToggleRef = useRef<HTMLButtonElement>(null);
   const streamedGenerationRef = useRef<Record<string, boolean>>({});
   const { preferences: aiChatPreferences } = useAiChatPreferences();
 
@@ -239,6 +242,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     } | null
   >(null);
   const [zabbixApproval, setZabbixApproval] = useState<{request: ZabbixApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean} | null>(null);
+  const [workflowsApproval, setWorkflowsApproval] = useState<{ request: WorkflowsApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean } | null>(null);
   const [terminalFixApproval, setTerminalFixApproval] = useState<{
     threadId: string;
     preview: TerminalFixPreview;
@@ -583,6 +587,34 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         setZabbixApproval({ threadId:event.thread_id, bucketKey:keyForTurn, streamOutput, request:{ method:event.command, params:event.classification?.params ?? {}, rationale:event.classification?.rationale ?? "", risk:event.classification?.tier ?? "high" } });
         return;
       }
+      if (event.tool === "cisco_workflows_apply") {
+        const params = event.classification?.params as Record<string, unknown> | undefined;
+        if (!params || typeof params !== "object" || Array.isArray(params) ||
+            typeof params.method !== "string" || typeof params.path !== "string") {
+          setError(keyForTurn, "Workflow approval preview unavailable; no change was approved.");
+          return;
+        }
+        const targetOrgId = event.classification?.target_org_id;
+        if (!targetOrgId?.trim()) {
+          setError(keyForTurn, "Workflow approval pinned organization ID unavailable; no change was approved.");
+          return;
+        }
+        setWorkflowsApproval({
+          threadId: event.thread_id,
+          bucketKey: keyForTurn,
+          streamOutput,
+          request: {
+            tier: event.classification?.tier ?? "high",
+            method: params.method,
+            path: params.path,
+            organizationId: targetOrgId,
+            params,
+            rationale: event.classification?.rationale ||
+              (typeof params.rationale === "string" ? params.rationale : ""),
+          },
+        });
+        return;
+      }
       // Agent paused on a gated apply — surface the approval modal. Streaming
       // stays "on" (the turn isn't finished); resume continues it.
       const tier = event.classification?.tier ?? "high";
@@ -717,6 +749,23 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     const pending=zabbixApproval; setZabbixApproval(null); if(!pending)return;
     try { await agentReactResume({threadId:pending.threadId,decision,streamOutput:pending.streamOutput,onEvent:(event)=>handleReactCodeEvent(event,pending.bucketKey,pending.streamOutput)}); }
     catch(e){setError(pending.bucketKey,e instanceof Error?e.message:String(e));} finally {setStreaming(pending.bucketKey,false);}
+  };
+  const handleWorkflowsDecision = async (decision: "approve" | "deny") => {
+    const pending = workflowsApproval;
+    if (!pending) return;
+    setWorkflowsApproval(null);
+    setStreaming(pending.bucketKey, true);
+    try {
+      await agentReactResume({
+        threadId: pending.threadId,
+        decision,
+        streamOutput: pending.streamOutput,
+        onEvent: (event) => handleReactCodeEvent(event, pending.bucketKey, pending.streamOutput),
+      });
+    } catch (error) {
+      setError(pending.bucketKey, error instanceof Error ? error.message : String(error));
+      setStreaming(pending.bucketKey, false);
+    }
   };
 
   const handleDictationToggle = async () => {
@@ -1173,12 +1222,20 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   return (
     <div className={`agent-panel ${isOpen ? "open" : "collapsed"}`}>
-      <button className="agent-toggle" onClick={onToggle} title="Toggle AI Chat">
+      <button ref={agentToggleRef} className="agent-toggle" onClick={onToggle} title="Toggle AI Chat">
         {isOpen ? "›" : "‹"}
       </button>
 
       {/* IaC Phase 2 — approval gate for agent-initiated terraform/ansible applies. */}
       <ZabbixApprovalModal request={zabbixApproval?.request ?? null} onApprove={() => handleZabbixDecision("approve")} onDeny={() => handleZabbixDecision("deny")} />
+      {workflowsApproval && (
+        <WorkflowsApprovalModal
+          request={workflowsApproval.request}
+          onApprove={() => handleWorkflowsDecision("approve")}
+          onDeny={() => handleWorkflowsDecision("deny")}
+          returnFocusRef={agentToggleRef}
+        />
+      )}
       {iacApproval && (
       <IaCApprovalModal
           request={iacApproval.request}
