@@ -135,6 +135,17 @@ def create_execute_python_code_tool(
             "json.loads(stealthwatch_api_call('GET','/sw-reporting/v1/tenants'))"
             "['data']['data'][0]['id'], then use it in every subsequent path."
         )
+    if cli_package == "cisco_workflows":
+        preloaded_lines.append(
+            "- cisco_workflows_api_call(method, path, body=None, query_params=None): "
+            "pre-bound READ-ONLY Cisco Workflows helper; json.loads its JSON "
+            "envelope, inspect status_code/data/error. POST list/batch_get endpoints "
+            "are reads. Discover exact method/path and request schemas via the "
+            "top-level search_api_catalog. NEVER use this helper for create, "
+            "update, import, start, delete or instance control; propose those via "
+            "the separate approval-gated cisco_workflows_apply tool. No raw client "
+            "or requests; Settings → Meraki requires API key AND organization ID."
+        )
     if cli_package == "zabbix":
         preloaded_lines.append(
             "- zabbix_api_call(method, params=None): your ONLY way to make a "
@@ -239,7 +250,23 @@ def create_catalog_search_tool(
     ) -> dict[str, Any]:
         """Search one configured vendor catalog for the current API intent."""
         try:
-            return index.search(query, catalog_id=catalog_id, limit=limit)
+            result = index.search(query, catalog_id=catalog_id, limit=limit)
+            if catalog_id == "cisco_workflows":
+                # The OAS-derived request schema (not just top-level field names)
+                # is needed to author actions, imports, and runtime inputs.
+                by_endpoint = {
+                    (str(entry["endpoint"]["method"]).upper(), entry["endpoint"]["path"]): entry["request_body"]
+                    for entry in index._entries.get(catalog_id, [])
+                    if isinstance(entry.get("endpoint"), dict)
+                    and entry["endpoint"].get("method") and entry["endpoint"].get("path")
+                    and entry.get("request_body")
+                }
+                for match in result["matches"]:
+                    if match.get("helper") == "cisco_workflows_api_call":
+                        body = by_endpoint.get((match.get("method"), match.get("path")))
+                        if body:
+                            match["request_body"] = body
+            return result
         except CatalogGroundingError as error:
             # A native tool exception aborts the entire DeepAgents graph before
             # the model can obey the guard's STOP instruction. Preserve the
@@ -265,6 +292,13 @@ def create_catalog_search_tool(
             "must call matches[*].helper with matches[*].method and the concrete "
             "matches[*].path, never an SDK-shaped catalog label"
         )
+        if "cisco_workflows" in index.catalog_ids:
+            call_instruction += (
+                "; for cisco_workflows only, use execute_python_code for READ "
+                "matches (including POST list/batch_get), but send any create/update/"
+                "import/start/delete/control match to the separate cisco_workflows_apply "
+                "approval tool with exact method/path and complete schema-grounded JSON body"
+            )
     elif "operation" in tool_properties:
         call_instruction = (
             f"immediately call {execute_code_tool.name} with its exact "

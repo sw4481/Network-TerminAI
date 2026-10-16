@@ -81,6 +81,18 @@ def _cfg(getter_module: str, getter_name: str) -> bool:
     )
 
 
+def _cisco_workflows_configured() -> bool:
+    try:
+        from ccie_sidecar.meraki_config import get_meraki_config
+        config = get_meraki_config()
+        return isinstance(config, dict) and all(
+            isinstance(config.get(key), str) and config[key].strip()
+            for key in ("api_key", "org_id")
+        )
+    except Exception:
+        return False
+
+
 def _pyats_configured() -> bool:
     try:
         from ccie_sidecar.pyats.bridge import default_testbed_path
@@ -209,6 +221,14 @@ VENDOR_SPECS: List[dict] = [
         "configured": lambda: _cfg("ccie_sidecar.splunk_config", "get_splunk_config"),
     },
     {
+        "id": "cisco_workflows",
+        "display": "Cisco Workflows (Meraki cloud automation)",
+        "when": "authoring complete Cisco Workflows/Meraki Workflows automations, "
+                "discovering workflow actions/inputs, importing, starting, or "
+                "controlling workflow instances on Meraki's automation service.",
+        "configured": _cisco_workflows_configured,
+    },
+    {
         "id": "meraki",
         "display": "Cisco Meraki Dashboard",
         "when": "cloud-managed Meraki: organizations, networks, devices, clients, "
@@ -318,6 +338,7 @@ VENDOR_KEYWORDS: dict[str, List[str]] = {
     "catalyst_center": ["catalyst center", "dna center", "dnac", "sd-access",
                         "sda"],
     "splunk": ["splunk", "spl", "saved search", "saved searches"],
+    "cisco_workflows": ["cisco workflows", "meraki workflows"],
     "meraki": ["meraki", "dashboard api"],
     "mist": ["mist", "juniper", "wlan", "wlans", "sle", "assurance"],
     "pyats": ["pyats", "testbed", "show command", "show commands"],
@@ -476,6 +497,8 @@ def detect_vendor_ids(text: str, restrict_to: Optional[List[str]] = None) -> Lis
             elif re.search(r"(?<![a-z0-9])" + re.escape(kw) + r"(?![a-z0-9])", low):
                 found.append(vid)
                 break
+    if "cisco_workflows" in found and "meraki workflows" in low:
+        found = [vid for vid in found if vid != "meraki"]
     return found
 
 
@@ -633,6 +656,16 @@ def _subagent_system_prompt(spec: dict) -> str:
         "factual answer with the concrete data (names, ids, counts, states). If — "
         "and only if — a tool call returns a genuine 'not configured' / auth "
         "error, report that plainly and name the Settings tab to fix it."
+        + (
+            " For Cisco Workflows, read/discover schemas with cisco_workflows_api_call "
+            "in execute_python_code; create a complete workflow with configured "
+            "actions/inputs, not a name-only stub. Send every create, update, "
+            "import, start, delete, or control operation through the top-level "
+            "cisco_workflows_apply tool with the bound organization_id in its tool "
+            "description for operator approval, NEVER through Python. "
+            "POST list/batch_get operations are reads via the Python helper."
+            if spec["id"] == "cisco_workflows" else ""
+        )
     )
 
 
@@ -677,12 +710,18 @@ def build_vendor_subagents(
         catalog_search_tool = create_catalog_search_tool(tool)
         if catalog_search_tool is not None:
             tools.insert(0, catalog_search_tool)
+        subagent_options: dict[str, Any] = {}
+        if spec["id"] == "cisco_workflows":
+            from ccie_sidecar.agents.cisco_workflows_tools import build_cisco_workflows_apply_tool
+            tools.append(build_cisco_workflows_apply_tool(getattr(tool, "_ccie_catalog_index", None)))
+            subagent_options["interrupt_on"] = {"cisco_workflows_apply": {"allowed_decisions": ["approve", "reject"]}}
         subagents.append(
             SubAgent(
                 name=f"{spec['id']}-specialist",
                 description=f"Delegate here for: {spec['when']}",
                 system_prompt=_subagent_system_prompt(spec),
                 tools=tools,
+                **subagent_options,
             )
         )
     topolograph_specialist = build_topolograph_specialist(

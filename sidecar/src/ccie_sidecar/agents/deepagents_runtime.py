@@ -92,7 +92,12 @@ ARCHITECT_EXECUTION_CONTRACT = (
     "repeat searches, or guess paths.\n"
     "- After enough real API data answers the request, answer and stop. Search again only "
     "for a genuinely different endpoint the request still requires.\n"
-    "- Use task() specialists only for genuine multi-platform correlation."
+    "- Use task() specialists only for genuine multi-platform correlation.\n"
+    "- Cisco Workflows: discover the operation and its complete action/input schema "
+    "from the cisco_workflows catalog. Use cisco_workflows_api_call only for reads "
+    "(including POST list/batch_get); submit every create/import/update/start/delete/"
+    "control through cisco_workflows_apply with the bound organization_id shown "
+    "in its tool description for operator approval, never Python."
 )
 
 
@@ -687,6 +692,10 @@ async def deepagents_react_code_loop(
             _continuation_options(agent_id, ctx)
         )
         graph_kwargs.update(continuation_kwargs)
+        if cli_package == "cisco_workflows" and not is_architect:
+            # Each paused standalone turn needs its own registry/checkpoint key.
+            import uuid
+            graph_thread_id = str(uuid.uuid4())
         extra_middleware: list = []
         arch_configured_ids: list = []
         arch_routing_hint = ""
@@ -809,6 +818,14 @@ async def deepagents_react_code_loop(
             graph_kwargs["interrupt_on"] = {"zabbix_apply": True}
             graph_kwargs["checkpointer"] = _get_checkpointer()
             extra_middleware.extend(_zabbix_runtime_middleware(cli_package))
+
+        if cli_package == "cisco_workflows" or (is_architect and "cisco_workflows" in arch_configured_ids):
+            from ccie_sidecar.agents.cisco_workflows_tools import build_cisco_workflows_apply_tool
+            tools.append(build_cisco_workflows_apply_tool(
+                getattr(execute_code_tool, "_ccie_catalog_index", None)
+            ))
+            graph_kwargs.setdefault("interrupt_on", {})["cisco_workflows_apply"] = {"allowed_decisions": ["approve", "reject"]}
+            graph_kwargs.setdefault("checkpointer", _get_checkpointer())
 
         if focused_api_mode:
             from ccie_sidecar.agents.deepagents_middleware import FocusedApiToolsMiddleware

@@ -207,7 +207,7 @@ fn should_use_bundled_python() -> bool {
     !cfg!(debug_assertions) && std::env::var_os("CCIE_FORCE_VENV").is_none()
 }
 
-fn bundled_python_path() -> Option<std::path::PathBuf> {
+pub(crate) fn bundled_python_path() -> Option<std::path::PathBuf> {
     // Dev builds should always use sidecar/.venv. A stale target/debug/python
     // tree can otherwise shadow live sidecar edits until manually deleted.
     if !should_use_bundled_python() {
@@ -447,7 +447,9 @@ impl AppState {
         let agents_loader = agents::create_loader().expect("Failed to create agents loader");
         // First-run copy of bundled agents is an explicit boot-time write;
         // load_all() itself is a pure read.
-        let _ = agents_loader.initialize_bundled_agents();
+        if let Err(error) = agents_loader.initialize_bundled_agents() {
+            tracing::warn!(%error, "Failed to initialize bundled agents");
+        }
         let _ = agents_loader.load_all();
 
         let parser_cache = crate::parsers::cache::ParseCache::from_connection(db_arc.clone());

@@ -577,6 +577,12 @@ def _build_sandbox_globals(
         except Exception:
             pass
 
+    # Cisco Workflows exposes only a read helper in Python; changes require the
+    # separate HITL-gated cisco_workflows_apply StructuredTool.
+    if cli_package == "cisco_workflows":
+        from ccie_sidecar.cisco_workflows import install_cisco_workflows
+        install_cisco_workflows(globals_dict, emit=emit)
+
     # Bind the Cisco XDR client when this is the cisco_xdr agent. Reads creds
     # from sessions.db (same as Settings → Cisco XDR) and injects the
     # `cisco_xdr_api_call(...)` helper the agent's prompt expects.
