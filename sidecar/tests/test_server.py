@@ -394,7 +394,7 @@ def test_architect_keyword_defaults_lists_all_vendors():
     # All vendors, in VENDOR_SPECS order.
     assert ids == [
         "aci", "gnmi", "fmc", "thousandeyes", "cml", "ise", "secure_endpoint",
-        "cisco_xdr", "stealthwatch", "catalyst_center", "splunk", "meraki",
+        "cisco_xdr", "stealthwatch", "catalyst_center", "splunk", "cisco_workflows", "meraki",
         "mist", "pyats", "grafana", "zabbix", "prometheus", "netbox", "sketchfab",
         "devnet", "fwrule", "topolograph",
     ]
