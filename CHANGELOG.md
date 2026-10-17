@@ -5,6 +5,23 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.13] - 2026-10-17
+
+### Added
+
+- Add Cisco Workflows authoring and approved execution: a bundled Workflows agent and catalog that can author, import, run (after approval) and inspect Meraki workflow instances from the standalone agent and Network Architect, sharing the saved Meraki configuration.
+
+### Fixed
+
+- Run "run against switch" change verification on Windows over the app's built-in SSH client instead of the unavailable `sshpass` (#4).
+- Parse IOS-XE show commands such as `show ip interface brief` on Windows, where Genie is unavailable, by using the Cisco IOS TextFSM templates (#9).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
 ## [1.1.12] - 2026-10-15
 
 Includes the changes from the unpublished 1.1.11 release candidate.
