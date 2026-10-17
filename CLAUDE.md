@@ -161,6 +161,12 @@ The nightly run denies any shell command that is not on its allowlist.
   Do not chain it with `&&`, pipe it into `grep`, or wrap it in a subshell;
   `| tail -n 40` is the only filter allowed. The Rust suite takes many
   minutes, so wait for it.
+- Every Bash call starts in the repo root. Never use `cd` or `git -C`, and
+  write paths relative to the repo root, as above.
+- Explore code with the Read tool and plain `grep -rn`, `find` (no `-exec` or
+  `-delete`) and `ls`. Dependency sources live in `sidecar/.venv/lib/`,
+  `node_modules/` and, for Rust crates, `/root/.cargo/registry/src/` (the only
+  absolute path you may use).
 - Create and change files only with the Write and Edit tools, never with
   `cat >`, `echo >`, `tee` or `sed -i`. Write comment bodies to
   `/tmp/nightly-<N>.md` and post them with `--body-file`.
