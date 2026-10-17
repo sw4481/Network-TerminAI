@@ -5,6 +5,43 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.12] - 2026-10-15
+
+Includes the changes from the unpublished 1.1.11 release candidate.
+
+### Added
+
+- Add MAC Address Lookup under Operate > Tools with flexible address input, detailed IEEE assignments, address classifications, and copyable normalized formats.
+- Bundle the complete offline IEEE registry and add a validated, atomic registry-update button without sending entered MAC addresses over the network.
+
+### Fixed
+
+- Fix Windows installer packaging by replacing the shell-quoted inline macOS signing hook with a standalone script that skips signing on Windows and Linux.
+- Repair macOS resource sealing by signing bundled Python native resources before sealing the app and preventing managed Python children from writing bundled bytecode.
+- Verify DMG and updater-archive signatures before and after the bundled sidecar startup checks.
+- Disable IOS paging before live change-verification show commands.
+
+### Known limitations
+
+- macOS builds remain ad-hoc signed and unnotarized; the signature-integrity repair does not remove Gatekeeper trust warnings.
+
+## [1.1.11] - 2026-10-15
+
+### Added
+
+- Add MAC Address Lookup under Operate > Tools with flexible address input, detailed IEEE assignments, address classifications, and copyable normalized formats.
+- Bundle the complete offline IEEE registry and add a validated, atomic registry-update button without sending entered MAC addresses over the network.
+
+### Fixed
+
+- Repair macOS resource sealing by signing bundled Python native resources before sealing the app and preventing managed Python children from writing bundled bytecode.
+- Verify DMG and updater-archive signatures before and after the bundled sidecar startup checks.
+- Disable IOS paging before live change-verification show commands.
+
+### Known limitations
+
+- macOS builds remain ad-hoc signed and unnotarized; the signature-integrity repair does not remove Gatekeeper trust warnings.
+
 ## [1.1.10] - 2026-10-07
 
 ### Added

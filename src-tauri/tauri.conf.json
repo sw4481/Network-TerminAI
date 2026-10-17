@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TerminAI",
-  "version": "1.1.10",
+  "version": "1.1.12",
   "identifier": "com.ccie.terminal",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun scripts/fetch-whisper-model.mjs && bun run build:relaxed",
-    "beforeBundleCommand": "bun -e \"if (process.platform === 'darwin') process.exit(Bun.spawnSync(['bash', 'ci/sign-sidecar-macos.sh'], {stdout: 'inherit', stderr: 'inherit'}).exitCode)\"",
+    "beforeBundleCommand": "bun scripts/sign-sidecar-macos.mjs",
     "frontendDist": "../dist"
   },
   "app": {
