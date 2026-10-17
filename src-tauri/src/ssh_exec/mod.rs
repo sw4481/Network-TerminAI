@@ -39,12 +39,14 @@
 //!   input, or YAML bundles/playbooks the user authored. Callers must not feed
 //!   untrusted third-party input into `command` without their own vetting.
 
+#[cfg(not(windows))]
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
 use parking_lot::Mutex;
 use rusqlite::Connection;
+#[cfg(not(windows))]
 use tokio::process::Command;
 
 /// A resolved SSH target: everything needed to open a one-shot session.
@@ -181,7 +183,140 @@ pub fn sshpass_missing_message(error: &str) -> String {
 impl std::error::Error for SshExecError {}
 
 /// Run a single command against `target`, returning its stdout.
+///
+/// On Windows `sshpass` does not exist, so the native `russh` client is used.
+/// Other platforms keep the `sshpass` + system `ssh` path.
 pub async fn run_command(
+    target: &SshTarget,
+    command: &str,
+    timeout: Duration,
+) -> Result<String, SshExecError> {
+    #[cfg(windows)]
+    {
+        run_command_russh(target, command, timeout).await
+    }
+    #[cfg(not(windows))]
+    {
+        run_command_sshpass(target, command, timeout).await
+    }
+}
+
+/// Native `russh` execution path: connect, authenticate (password, falling
+/// back to keyboard-interactive), run `command` on an exec channel and collect
+/// stdout, stderr and the exit status.
+///
+/// `timeout` bounds the whole operation; the connect step has its own
+/// [`SSH_CONNECT_TIMEOUT_SECS`] limit. Host keys are accepted, matching the
+/// `StrictHostKeyChecking=no` behaviour of the sshpass path.
+#[cfg_attr(not(windows), allow(dead_code))]
+async fn run_command_russh(
+    target: &SshTarget,
+    command: &str,
+    timeout: Duration,
+) -> Result<String, SshExecError> {
+    use russh::client::{self, Handler, KeyboardInteractiveAuthResponse};
+    use russh::keys::ssh_key::PublicKey;
+    use russh::ChannelMsg;
+
+    struct AcceptAll;
+    impl Handler for AcceptAll {
+        type Error = russh::Error;
+        async fn check_server_key(
+            &mut self,
+            _key: &PublicKey,
+        ) -> std::result::Result<bool, Self::Error> {
+            Ok(true)
+        }
+    }
+
+    let work = async {
+        let config = Arc::new(client::Config {
+            inactivity_timeout: Some(Duration::from_secs(60)),
+            ..client::Config::default()
+        });
+        let connect = client::connect(config, (target.host.as_str(), target.port), AcceptAll);
+        let mut session = match tokio::time::timeout(
+            Duration::from_secs(SSH_CONNECT_TIMEOUT_SECS as u64),
+            connect,
+        )
+        .await
+        {
+            Err(_) => return Err(SshExecError::Timeout),
+            Ok(Err(e)) => return Err(SshExecError::Io(format!("connect failed: {e}"))),
+            Ok(Ok(s)) => s,
+        };
+
+        let auth_err = |e: russh::Error| SshExecError::Io(format!("authentication error: {e}"));
+        let mut authed = session
+            .authenticate_password(target.username.clone(), target.password.clone())
+            .await
+            .map_err(auth_err)?
+            .success();
+        if !authed {
+            let mut resp = session
+                .authenticate_keyboard_interactive_start(target.username.clone(), None)
+                .await
+                .map_err(auth_err)?;
+            loop {
+                match resp {
+                    KeyboardInteractiveAuthResponse::Success => {
+                        authed = true;
+                        break;
+                    }
+                    KeyboardInteractiveAuthResponse::Failure { .. } => break,
+                    KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => {
+                        let answers = prompts.iter().map(|_| target.password.clone()).collect();
+                        resp = session
+                            .authenticate_keyboard_interactive_respond(answers)
+                            .await
+                            .map_err(auth_err)?;
+                    }
+                }
+            }
+        }
+        if !authed {
+            return Err(SshExecError::Io("authentication failed".to_string()));
+        }
+
+        let mut channel = session
+            .channel_open_session()
+            .await
+            .map_err(|e| SshExecError::Io(e.to_string()))?;
+        channel
+            .exec(true, command.as_bytes())
+            .await
+            .map_err(|e| SshExecError::Io(e.to_string()))?;
+
+        let mut stdout = Vec::<u8>::new();
+        let mut stderr = Vec::<u8>::new();
+        let mut exit_status: Option<u32> = None;
+        while let Some(msg) = channel.wait().await {
+            match msg {
+                ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
+                ChannelMsg::ExtendedData { data, ext: 1 } => stderr.extend_from_slice(&data),
+                ChannelMsg::ExitStatus { exit_status: code } => exit_status = Some(code),
+                _ => {}
+            }
+        }
+
+        if matches!(exit_status, Some(code) if code != 0) {
+            // Devices often print errors on stdout, so fall back to it.
+            let bytes = if stderr.is_empty() { &stdout } else { &stderr };
+            return Err(SshExecError::NonZeroExit(
+                String::from_utf8_lossy(bytes).into_owned(),
+            ));
+        }
+        Ok(String::from_utf8_lossy(&stdout).into_owned())
+    };
+
+    match tokio::time::timeout(timeout, work).await {
+        Err(_) => Err(SshExecError::Timeout),
+        Ok(r) => r,
+    }
+}
+
+#[cfg(not(windows))]
+async fn run_command_sshpass(
     target: &SshTarget,
     command: &str,
     timeout: Duration,
@@ -346,6 +481,10 @@ impl crate::troubleshoot::live_executor::SshExec for TroubleshootSshExec {
         (self.exec)(command.to_string()).await
     }
 }
+
+#[cfg(test)]
+#[path = "issue_4_tests.rs"]
+mod issue_4_tests;
 
 #[cfg(test)]
 mod tests {
