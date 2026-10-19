@@ -530,6 +530,22 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
     }
   };
 
+  // Wire input before the spawn resolves (#15). A new Windows ConPTY first asks
+  // for the cursor position (ESC[6n) and prints nothing until xterm replies,
+  // and that output can arrive before the pty_spawn response. Input waits here
+  // until the PTY id is known. The empty write completes only after replayed
+  // scrollback is parsed, so xterm's replies to replayed queries are dropped.
+  let inputReady = false;
+  let inputPtyId: string | null = null;
+  const queuedInput: Uint8Array[] = [];
+  xterm.write('', () => { inputReady = true; });
+  xterm.onData((data: string) => {
+    if (!inputReady || entry.disposed || (opts.managedConnectionId && managedExited)) return;
+    const bytes = new TextEncoder().encode(data);
+    if (inputPtyId) ptyWrite(inputPtyId, bytes).catch(() => {});
+    else queuedInput.push(bytes);
+  });
+
   const promise = opts.attach
     ? listen<{ tabId: string; event: PtyEvent }>('pty-event', (event) => {
         if (event.payload.tabId === terminalId) onEvent(event.payload.event);
@@ -566,11 +582,8 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
       });
     }
 
-    xterm.onData((data: string) => {
-      if (entry.disposed || (opts.managedConnectionId && managedExited)) return;
-      const bytes = new TextEncoder().encode(data);
-      ptyWrite(id, bytes).catch(() => {});
-    });
+    inputPtyId = id;
+    for (const bytes of queuedInput.splice(0)) ptyWrite(id, bytes).catch(() => {});
 
     // Deliver any command parked by runWhenReady() before this PTY was live
     // (run-in-terminal: the command outlives the LegacyTerminal→pane handoff).
