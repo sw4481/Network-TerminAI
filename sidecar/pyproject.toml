@@ -19,9 +19,12 @@ dependencies = [
     "mcp-for-blender>=2.0.0",
     # pyATS/Genie ship no Windows wheels (Cisco supports Linux/macOS only), so
     # this is a conditional dependency. On Windows the app builds+runs without
-    # it: genie_adapter falls through to the TextFSM/ntc-templates parser and
-    # unicon-based pcap capture is unavailable. See genie_adapter.py.
+    # it: unicon-based pcap capture is unavailable, and Cisco parsing runs the
+    # pure-Python genie.libs.parser on parsers/genie_compat (our stand-in for
+    # the compiled Genie core), falling through to TextFSM. See genie_adapter.py.
     "pyats[library] >= 25.1; platform_system != 'Windows'",
+    "genie.libs.parser >= 26.4; platform_system == 'Windows'",
+    "netaddr >= 1.3; platform_system == 'Windows'",  # the OSPF and policy-map parsers import it
     "ntc-templates >= 7.0.0",
     "pyshark >= 0.6",
     "onnxruntime >= 1.18",
