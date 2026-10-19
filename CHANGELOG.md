@@ -5,6 +5,22 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.14] - 2026-10-18
+
+### Added
+
+- Use Cisco's Genie parsers on Windows. pyATS has no Windows build, so the sidecar now runs the pure-Python Genie parser library on a built-in stand-in for the Genie core, falling back to TextFSM when a parser cannot run.
+
+### Fixed
+
+- Change verification no longer fails when a command returns no data, such as `show ip bgp summary` on a switch without BGP or `show ip ospf neighbor` with no neighbors; the empty result is recorded and the remaining commands run (#14).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
 ## [1.1.13] - 2026-10-17
 
 ### Added
