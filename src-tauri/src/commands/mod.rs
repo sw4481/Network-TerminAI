@@ -1012,9 +1012,10 @@ pub async fn pty_spawn(
 
 /// Open a native window for an existing terminal PTY. The source tab is
 /// removed by the renderer after this succeeds; the PTY remains owned here
-/// until the detached window is closed.
+/// until the detached window is closed. Async because building a window from
+/// a synchronous command deadlocks the event loop on Windows (#17).
 #[tauri::command]
-pub fn terminal_detach(
+pub async fn terminal_detach(
     app: AppHandle,
     state: State<'_, AppState>,
     tab_id: String,
