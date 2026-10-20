@@ -5,6 +5,18 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.16] - 2026-10-20
+
+### Fixed
+
+- Restored Windows terminal tabs that had a full screen of history, such as a running Claude Code session, now get a prompt. ConPTY ignored the startup cursor report when it fell outside the size the shell was started with (#15).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
 ## [1.1.15] - 2026-10-19
 
 ### Fixed
