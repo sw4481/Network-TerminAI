@@ -349,6 +349,27 @@ export function dispose(terminalId: string): void {
   useTerminalConnectionStore.getState().clear(terminalId);
 }
 
+/**
+ * ConPTY ignores a cursor position reply outside the size it was spawned with,
+ * and the shell then waits for one forever (#15). A restored tab is often
+ * fitted to the window before the reply, so long history leaves the cursor
+ * below the spawn size. Scroll the history up until the cursor is inside it,
+ * and report that position instead.
+ */
+function fitStartupCursorReport(
+  xterm: any, row: number, col: number, rows: number, cols: number,
+): string {
+  if (row <= rows && col <= cols) return `\x1b[${row};${col}R`;
+  const fittedRow = Math.min(row, rows);
+  const fittedCol = Math.min(col, cols);
+  // Clear any scroll region left by the replay so the newlines scroll the
+  // whole screen into scrollback.
+  xterm.write(
+    `\x1b[r\x1b[${xterm.rows};1H${'\n'.repeat(row - fittedRow)}\x1b[${fittedRow};${fittedCol}H`,
+  );
+  return `\x1b[${fittedRow};${fittedCol}R`;
+}
+
 // Full PTY event wiring, ported from usePty.ts (lines 70-370).
 function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts): void {
   const { xterm } = entry;
@@ -538,9 +559,17 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
   let inputReady = false;
   let inputPtyId: string | null = null;
   const queuedInput: Uint8Array[] = [];
+  const spawnCols = xterm.cols ?? 80;
+  const spawnRows = xterm.rows ?? 24;
+  let startupReportPending = terminalPlatform === 'windows' && !opts.attach;
   xterm.write('', () => { inputReady = true; });
   xterm.onData((data: string) => {
     if (!inputReady || entry.disposed || (opts.managedConnectionId && managedExited)) return;
+    const report = startupReportPending ? /^\x1b\[(\d+);(\d+)R$/.exec(data) : null;
+    if (report) {
+      startupReportPending = false;
+      data = fitStartupCursorReport(xterm, +report[1], +report[2], spawnRows, spawnCols);
+    }
     const bytes = new TextEncoder().encode(data);
     if (inputPtyId) ptyWrite(inputPtyId, bytes).catch(() => {});
     else queuedInput.push(bytes);
@@ -557,8 +586,8 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
         shell: opts.shell,
         args: [],
         cwd: opts.cwd,
-        cols: xterm.cols ?? 80,
-        rows: xterm.rows ?? 24,
+        cols: spawnCols,
+        rows: spawnRows,
         onEvent,
         preferredTabId: opts.preferredTabId,
         managedConnectionId: opts.managedConnectionId,
@@ -584,6 +613,10 @@ function wireSession(entry: TerminalEntry, terminalId: string, opts: CreateOpts)
 
     inputPtyId = id;
     for (const bytes of queuedInput.splice(0)) ptyWrite(id, bytes).catch(() => {});
+    // A fit before the spawn resolved could not resize the PTY.
+    if (xterm.cols !== spawnCols || xterm.rows !== spawnRows) {
+      ptyResize(id, xterm.cols, xterm.rows).catch(() => {});
+    }
 
     // Deliver any command parked by runWhenReady() before this PTY was live
     // (run-in-terminal: the command outlives the LegacyTerminal→pane handoff).
