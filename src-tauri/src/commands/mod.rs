@@ -1,3 +1,4 @@
+pub mod agent_catalog;
 pub mod ai;
 pub mod appearance;
 pub mod browser;

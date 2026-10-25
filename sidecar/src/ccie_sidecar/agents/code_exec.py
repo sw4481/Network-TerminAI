@@ -1408,45 +1408,6 @@ async def code_exec_loop(
                 },
             }
 
-        llm_tools = [execute_code_tool]
-        if catalog_index is not None:
-            search_description = (
-                "Mandatory first tool for a live vendor API operation. Search the "
-                "bounded in-memory catalog for the user's exact intent. Once a match "
-                "fits, stop searching and use its exact record in execute_python_code."
-            )
-            if provider == "anthropic":
-                search_catalog_tool = {
-                    "name": "search_api_catalog",
-                    "description": search_description,
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string"},
-                            "catalog_id": {"type": "string"},
-                            "limit": {"type": "integer", "default": 5},
-                        },
-                        "required": ["query", "catalog_id"],
-                    },
-                }
-            else:
-                search_catalog_tool = {
-                    "type": "function",
-                    "function": {
-                        "name": "search_api_catalog",
-                        "description": search_description,
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "query": {"type": "string"},
-                                "catalog_id": {"type": "string"},
-                                "limit": {"type": "integer", "default": 5},
-                            },
-                            "required": ["query", "catalog_id"],
-                        },
-                    },
-                }
-            llm_tools.insert(0, search_catalog_tool)
         else:
             # OpenAI/vLLM format (also used by Google Gemini in OpenAI mode)
             execute_code_tool = {
@@ -1467,6 +1428,52 @@ async def code_exec_loop(
                 },
             }
 
+        llm_tools = [execute_code_tool]
+        if catalog_index is not None:
+            search_description = (
+                "Mandatory first tool for a live vendor API operation. Search the "
+                "bounded in-memory catalog for the user's exact intent. If has_input_details "
+                "is true, request the exact path/method with schema_pointer='' and follow local "
+                "continuations until required inputs are known. Then stop searching and use "
+                "its exact record in execute_python_code."
+            )
+            if provider == "anthropic":
+                search_catalog_tool = {
+                    "name": "search_api_catalog",
+                    "description": search_description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"},
+                            "catalog_id": {"type": "string"},
+                            "method": {"type": "string", "description": "Exact HTTP verb for retained input details"},
+                            "schema_pointer": {"type": "string", "description": "Local input-schema pointer; empty string starts details"},
+                            "limit": {"type": "integer", "default": 5},
+                        },
+                        "required": ["query", "catalog_id"],
+                    },
+                }
+            else:
+                search_catalog_tool = {
+                    "type": "function",
+                    "function": {
+                        "name": "search_api_catalog",
+                        "description": search_description,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "catalog_id": {"type": "string"},
+                                "method": {"type": "string", "description": "Exact HTTP verb for retained input details"},
+                                "schema_pointer": {"type": "string", "description": "Local input-schema pointer; empty string starts details"},
+                                "limit": {"type": "integer", "default": 5},
+                            },
+                            "required": ["query", "catalog_id"],
+                        },
+                    },
+                }
+            llm_tools.insert(0, search_catalog_tool)
+
         # Allow agent model_override
         if agent_def.get("model_override"):
             override = agent_def["model_override"]
@@ -1476,8 +1483,9 @@ async def code_exec_loop(
         # 4. Initialize conversation (prepend prior history for multi-turn context)
         messages: List[Dict[str, Any]] = build_history_messages(ctx, user_msg)
 
-        # 5. LLM loop with retry
-        for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        # Bounded input-schema lookups do not consume code-execution retries.
+        attempt, catalog_lookups = 0, 0
+        while attempt < MAX_RETRY_ATTEMPTS:
             # Call LLM with native bounded discovery plus code execution.
             response = await call_llm(
                 provider=provider,
@@ -1526,6 +1534,10 @@ async def code_exec_loop(
             tool_use_id = tool_call.get("id")
 
             if tool_name == "search_api_catalog" and catalog_index is not None:
+                catalog_lookups += 1
+                if catalog_lookups > 48:
+                    on_event({"type": "error", "message": "Catalog input-detail lookup limit exceeded; no further execution attempted."})
+                    return
                 query = str(tool_input.get("query", ""))
                 catalog_id = str(tool_input.get("catalog_id", ""))
                 limit = tool_input.get("limit", 5)
@@ -1536,11 +1548,11 @@ async def code_exec_loop(
                 on_event({"type": "code_start", "code": rendered})
                 on_event({"type": "code_executing"})
                 try:
-                    search_result = catalog_index.search(
-                        query,
-                        catalog_id=catalog_id,
-                        limit=limit,
-                    )
+                    if tool_input.get("method") is not None or tool_input.get("schema_pointer") is not None:
+                        search_result = catalog_index.describe(query, catalog_id,
+                            method=tool_input.get("method"), schema_pointer=tool_input.get("schema_pointer"))
+                    else:
+                        search_result = catalog_index.search(query, catalog_id=catalog_id, limit=limit)
                     search_output = json.dumps(
                         search_result,
                         ensure_ascii=False,
@@ -1598,6 +1610,7 @@ async def code_exec_loop(
                 })
                 return
 
+            attempt += 1
             code = tool_input.get("code", "")
 
             # Emit code_start

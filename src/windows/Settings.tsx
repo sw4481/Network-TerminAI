@@ -14,6 +14,15 @@ import { PyatsSettingsTab } from "../components/settings/PyatsSettingsTab";
 import { ProxmoxSettingsTab } from "../components/settings/ProxmoxSettingsTab";
 import StealthwatchSettingsTab from "../components/settings/StealthwatchSettingsTab";
 import IseSettingsTab from "../components/settings/IseSettingsTab";
+import { ApiCatalogUpdateControl } from "../components/settings/ApiCatalogUpdateControl";
+
+const CISCO_API_PAGES = [
+  ["stealthwatch", "stealthwatch", "Stealthwatch"], ["ise", "ise", "ISE"], ["cml", "cml", "CML"],
+  ["catalyst_center", "catalyst-center", "Catalyst Center"], ["splunk", "splunk", "Splunk"],
+  ["aci", "aci", "ACI"], ["fmc", "fmc", "FMC"], ["thousandeyes", "thousandeyes", "ThousandEyes"],
+  ["meraki", "meraki", "Meraki"], ["secure_endpoint", "secure-endpoint", "Secure Endpoint"],
+  ["cisco_xdr", "cisco-xdr", "Cisco XDR"],
+] as const;
 import VendorKeywordsSettingsTab from '../components/settings/VendorKeywordsSettingsTab';
 import GitCiSettingsTab from '../components/settings/GitCiSettingsTab';
 import UpdatesSettingsTab from '../components/settings/UpdatesSettingsTab';
@@ -541,19 +550,21 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             <button className={activeTab === "pyats" ? "active" : ""} onClick={() => setActiveTab("pyats")}>pyATS</button>
             <button className={activeTab === "topolograph" ? "active" : ""} onClick={() => setActiveTab("topolograph")}>Topolograph</button>
             <button className={activeTab === "proxmox" ? "active" : ""} onClick={() => setActiveTab("proxmox")}>Proxmox</button>
+            <button className={activeTab === "gnmi" ? "active" : ""} onClick={() => setActiveTab("gnmi")}>gNMI</button>
+            <button className={activeTab === "mist" ? "active" : ""} onClick={() => setActiveTab("mist")}>Juniper Mist</button>
+
+            <div className="settings-tab-group" role="heading" aria-level={3}>Cisco</div>
             <button className={activeTab === "stealthwatch" ? "active" : ""} onClick={() => setActiveTab("stealthwatch")}>Stealthwatch</button>
             <button className={activeTab === "ise" ? "active" : ""} onClick={() => setActiveTab("ise")}>ISE</button>
             <button className={activeTab === "cml" ? "active" : ""} onClick={() => setActiveTab("cml")}>CML</button>
             <button className={activeTab === "catalyst_center" ? "active" : ""} onClick={() => setActiveTab("catalyst_center")}>Catalyst Center</button>
             <button className={activeTab === "splunk" ? "active" : ""} onClick={() => setActiveTab("splunk")}>Splunk</button>
             <button className={activeTab === "aci" ? "active" : ""} onClick={() => setActiveTab("aci")}>ACI</button>
-            <button className={activeTab === "gnmi" ? "active" : ""} onClick={() => setActiveTab("gnmi")}>gNMI</button>
             <button className={activeTab === "fmc" ? "active" : ""} onClick={() => setActiveTab("fmc")}>FMC</button>
             <button className={activeTab === "thousandeyes" ? "active" : ""} onClick={() => setActiveTab("thousandeyes")}>ThousandEyes</button>
             <button className={activeTab === "meraki" ? "active" : ""} onClick={() => setActiveTab("meraki")}>Meraki</button>
             <button className={activeTab === "secure_endpoint" ? "active" : ""} onClick={() => setActiveTab("secure_endpoint")}>Secure Endpoint</button>
             <button className={activeTab === "cisco_xdr" ? "active" : ""} onClick={() => setActiveTab("cisco_xdr")}>Cisco XDR</button>
-            <button className={activeTab === "mist" ? "active" : ""} onClick={() => setActiveTab("mist")}>Juniper Mist</button>
 
             <div className="settings-tab-group">Observability & Tools</div>
             <button className={activeTab === "grafana" ? "active" : ""} onClick={() => setActiveTab("grafana")}>Grafana</button>
@@ -1140,6 +1151,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         {activeTab === "netbox" && <NetboxSettingsTab />}
         {activeTab === "sketchfab" && <SketchfabSettingsTab />}
         {activeTab === "whatsapp" && <WhatsAppSettingsTab />}
+
+        {CISCO_API_PAGES.map(([tab, agentId, label]) => activeTab === tab && (
+          <ApiCatalogUpdateControl key={agentId} agentId={agentId} label={label} />
+        ))}
 
         {activeTab === "terminal" && <TerminalSettingsTab />}
 

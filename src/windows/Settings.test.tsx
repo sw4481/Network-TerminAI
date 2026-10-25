@@ -3,13 +3,46 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../lib/tauri", async (importOriginal) => ({
   ...await importOriginal<typeof import("../lib/tauri")>(),
+  ...Object.fromEntries([
+    "stealthwatchGetConfig", "iseGetConfig", "cmlGetConfig", "catalystCenterGetConfig",
+    "splunkGetConfig", "aciGetConfig", "fmcGetConfig", "thousandeyesGetConfig",
+    "merakiGetConfig", "secureEndpointGetConfig", "ciscoXdrGetConfig",
+  ].map(name => [name, vi.fn().mockResolvedValue(null)])),
   aiGetConfig: vi.fn(),
   aiSaveConfig: vi.fn(),
+  agentCatalogUpdateStart: vi.fn(),
+  agentCatalogUpdateStatus: vi.fn(async (agentId: string) => ({ agent_id: agentId, catalog_id: agentId.replace(/-/g, "_"), job_id: null, state: "idle", phase: null, added: 0, already_known: 0, skipped: 0, warnings: [], source_urls: [], checked_at: null, error: null })),
   contextGraphGetEnabled: vi.fn().mockResolvedValue(false),
   contextGraphGetStaleness: vi.fn().mockResolvedValue(7200),
 }));
 
-import { aiGetConfig, aiSaveConfig } from "../lib/tauri";
+import { aiGetConfig, aiSaveConfig, agentCatalogUpdateStart, agentCatalogUpdateStatus, type CiscoApiProduct } from "../lib/tauri";
+
+const ciscoPages: [string, CiscoApiProduct][] = [
+  ["Stealthwatch", "stealthwatch"], ["ISE", "ise"], ["CML", "cml"],
+  ["Catalyst Center", "catalyst-center"], ["Splunk", "splunk"], ["ACI", "aci"],
+  ["FMC", "fmc"], ["ThousandEyes", "thousandeyes"], ["Meraki", "meraki"],
+  ["Secure Endpoint", "secure-endpoint"], ["Cisco XDR", "cisco-xdr"],
+];
+
+describe("Cisco API update routes", () => {
+  it.each(ciscoPages)("%s updates only its own product", async (label, agentId) => {
+    vi.mocked(agentCatalogUpdateStart).mockResolvedValue({ agent_id: agentId, catalog_id: agentId.replace(/-/g, "_"), job_id: "job", state: "completed", phase: null, added: 1, already_known: 0, skipped: 0, warnings: [], source_urls: [], checked_at: "2026-10-16T12:00:00Z", error: null });
+    render(<Settings isOpen onClose={() => {}} />);
+    const heading = screen.getByRole("heading", { name: "Cisco" });
+    const tab = screen.getByRole("button", { name: label });
+    expect(heading.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(tab);
+    const update = await screen.findByRole("button", { name: `Update APIs for ${label}` });
+    await waitFor(() => expect(update).toBeEnabled());
+    expect(agentCatalogUpdateStatus).toHaveBeenCalledExactlyOnceWith(agentId);
+    fireEvent.click(update);
+    await waitFor(() => expect(agentCatalogUpdateStart).toHaveBeenCalledExactlyOnceWith(agentId));
+    expect(screen.getAllByRole("button", { name: /Update APIs for/ })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "General" }));
+    expect(screen.queryByRole("button", { name: /Update APIs for/ })).not.toBeInTheDocument();
+  });
+});
 import { Settings } from "./Settings";
 
 const savedConfig = {

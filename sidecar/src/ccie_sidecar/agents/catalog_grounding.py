@@ -46,6 +46,8 @@ class CatalogRecord:
     # Extra catalog-native identifiers used only for ranking. These remain
     # private so SDK names improve discovery without expanding model context.
     search_terms: tuple[str, ...] = ()
+    api_details: Mapping[str, Any] | None = None
+    api_update: Mapping[str, Any] | None = None
 
     @property
     def key(self) -> tuple[str, str, str, str, str]:
@@ -72,6 +74,10 @@ class CatalogRecord:
             result["operation"] = self.operation
         if self.parameters:
             result["parameters"] = dict(self.parameters)
+        if self.api_details:
+            result["has_input_details"] = True
+        if self.api_update:
+            result["api_update"] = dict(self.api_update)
         return result
 
 
@@ -100,6 +106,17 @@ def _coerce_entries(raw: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def legacy_function_catalog(raw: Any) -> list[dict[str, Any]]:
+    """Imported HTTP knowledge is data, not a new legacy function binding."""
+    value = json.loads(raw) if isinstance(raw, str) else raw
+    if isinstance(value, dict):
+        value = value.get("tools", value.get("entries", [value]))
+    if not isinstance(value, list):
+        raise ValueError("Legacy catalog must contain a list of records.")
+    return [entry for entry in value if isinstance(entry, dict)
+            and not (entry.get("api_update") and entry.get("endpoint"))]
 
 
 def normalize_catalogs(catalogs: Any) -> list[dict[str, Any]]:
@@ -309,7 +326,7 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                 path_value = official_meraki_path or path_value
             raw_path = _clean_path(
                 path_value,
-                "" if official_meraki_path else catalog_id,
+                "" if official_meraki_path or item.get("api_update") else catalog_id,
             )
             for path in _expand_simple_alternatives(raw_path):
                 records.append(
@@ -323,6 +340,9 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                             {"properties": item.get("args"), "required": item.get("required")}
                         ),
                         search_terms=search_terms,
+                        allowed=item.get("allowed", True) is not False,
+                        api_details=item.get("api_details"),
+                        api_update=item.get("api_update"),
                     )
                 )
             continue
@@ -419,8 +439,8 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                 )
             )
 
-    # Stable de-duplication. Prefer an allowed record and the longer context.
-    dedup: dict[tuple[str, str, str], CatalogRecord] = {}
+    # Stable de-duplication. A prohibition always wins over competing context.
+    dedup: dict[tuple[str, str, str, str], CatalogRecord] = {}
     for record in records:
         key = (
             record.method or "*",
@@ -429,7 +449,9 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
             record.name,
         )
         current = dedup.get(key)
-        if current is None or (record.allowed and not current.allowed) or len(record.summary) > len(current.summary):
+        if current is None or (not record.allowed and current.allowed) or (
+            record.allowed == current.allowed and len(record.summary) > len(current.summary)
+        ):
             dedup[key] = record
     return list(dedup.values())
 
@@ -644,9 +666,90 @@ class CatalogIndex:
         self,
         name_or_path: str,
         catalog_id: str | None = None,
+        *,
+        method: str | None = None,
+        schema_pointer: str | None = None,
     ) -> dict[str, Any]:
-        """Exact lookup convenience; output is bounded like ``search``."""
-        return self.search(name_or_path, catalog_id=catalog_id, limit=1)
+        """Describe an exact match; page large inputs through local JSON pointers."""
+        exact = [record for record in self._records
+                 if (catalog_id is None or record.catalog_id == catalog_id)
+                 and name_or_path in (record.name, record.path)
+                 and (method is None or record.method == method.upper())]
+        if not exact:
+            if schema_pointer is not None or method is not None:
+                raise CatalogGroundingError("No exact catalog operation matches this detail lookup.")
+            return self.search(name_or_path, catalog_id=catalog_id, limit=1)
+        record = exact[0]
+        if record.key not in self._authorized:
+            result = self.search(f"{method or ''} {name_or_path}".strip(), catalog_id, limit=1)
+            if record.allowed:
+                self._authorized.add(record.key)
+        else:
+            result = {"matches": [], "catalog_id": catalog_id}
+        public = record.public()
+        result["matches"] = [public]
+        details = dict(record.api_details or {})
+        pointer = schema_pointer or ""
+        offset = 0
+        if "#offset=" in pointer:
+            pointer, _, raw_offset = pointer.rpartition("#offset=")
+            try:
+                offset = max(0, int(raw_offset))
+            except ValueError as error:
+                raise CatalogGroundingError("Invalid schema continuation offset.") from error
+        if pointer and not pointer.startswith("/"):
+            raise CatalogGroundingError("Schema pointers must address retained local input data.")
+        value: Any = details
+        try:
+            for part in pointer.split("/")[1:]:
+                key = part.replace("~1", "/").replace("~0", "~")
+                value = value[int(key)] if isinstance(value, list) else value[key]
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise CatalogGroundingError("Unknown local schema pointer.") from error
+        remaining = 6_000
+        continuations: list[str] = []
+
+        def bounded(item: Any, location: str, depth: int = 0) -> Any:
+            nonlocal remaining
+            if depth > 24 or remaining < 100:
+                if len(continuations) < 40:
+                    continuations.append(location)
+                return {"schema_pointer": location}
+            if isinstance(item, (dict, list)):
+                output: Any = {} if isinstance(item, dict) else []
+                pairs = item.items() if isinstance(item, dict) else enumerate(item)
+                for position, (key, child) in enumerate(pairs):
+                    if location == pointer and position < offset:
+                        continue
+                    if remaining < 100 or len(continuations) >= 40:
+                        continuations.append(location + f"#offset={position}")
+                        break
+                    child_path = location + "/" + str(key).replace("~", "~0").replace("/", "~1")
+                    remaining -= len(str(key)) + 8
+                    fragment = bounded(child, child_path, depth + 1)
+                    if isinstance(output, dict):
+                        output[key] = fragment
+                    else:
+                        output.append(fragment)
+                return output
+            if isinstance(item, str) and len(json.dumps(item)) > remaining:
+                start = offset if location == pointer else 0
+                fragment = item[start:start + max(100, remaining // 6)]
+                if start + len(fragment) < len(item):
+                    continuations.append(location + f"#offset={start + len(fragment)}")
+                remaining -= len(json.dumps(fragment))
+                return fragment
+            remaining -= len(json.dumps(item))
+            return item
+
+        fragment = bounded(value, pointer)
+        if schema_pointer is None:
+            public["api_details"] = fragment
+        else:
+            result["detail"] = fragment
+        result["truncated"] = bool(continuations)
+        result["continuations"] = continuations[:40]
+        return result
 
     def help(self) -> str:
         return (
@@ -689,7 +792,7 @@ class CatalogIndex:
                 "api_catalog.search directly without importing it)."
             )
         allowed_matches = [record for record in matches if record.allowed]
-        if not allowed_matches:
+        if any(not record.allowed for record in matches):
             raise CatalogGroundingError(
                 f"{method.upper()} {path} is explicitly forbidden by the {catalog_id} catalog; "
                 "network call blocked."
@@ -999,7 +1102,9 @@ def catalog_prompt_hint(index: CatalogIndex | None) -> str:
         "call to each distinct endpoint/operation, call the TOP-LEVEL search_api_catalog tool "
         "with the specific intent and catalog_id. Do NOT run catalog discovery inside Python. "
         "It returns a dict; records are in result['matches']. Once "
-        "a usable match appears, STOP searching and make the real helper call immediately; "
+        "a usable match appears, STOP searching for intent. If has_input_details is true, use the same tool "
+        "with query=exact path, method=verb, schema_pointer='' and follow local continuations for required inputs. "
+        "Then make the real helper call; "
         "never enumerate the catalog. Search again only for a different required endpoint. "
         "Undocumented, undiscovered, explicitly forbidden, and identical previously-failed "
         "calls are blocked before network I/O. HTTP/transport failures raise code errors; "

@@ -1,0 +1,124 @@
+{
+  "ise": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/identity-services-engine/v1/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/identity-services-engine-api-v1/docs/"],
+    "path_prefixes": ["/ers/config/", "/api/", "/admin/API/mnt/"],
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:basic", "header:authorization"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["Published coverage may exceed the installed ISE release. Existing ERS port routing is unchanged."]
+  },
+  "stealthwatch": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/stealthwatch/enterprise/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/stealthwatch/docs/"],
+    "path_prefixes": ["/sw-reporting/", "/smc-configuration/rest/", "/smc-users/rest/", "/report-builder/api/"],
+    "methods": ["GET", "POST", "PUT", "DELETE"],
+    "security_modes": [["header:x-xsrf-token", "cookie:XSRF-TOKEN"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["Multiple API families and RAML references are published. RAML includes/templates are not imported; coverage is partial."]
+  },
+  "cml": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/modeling-labs/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_patterns": ["https://pubhub\\.devnetcloud\\.com/media/(?:modeling-labs|cml)[^/]*/docs/.*"],
+    "path_prefixes": ["/"], "helper_base_path": "/api/v0",
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:bearer", "header:authorization"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["Public CML guides provide partial operation coverage only; complete Swagger documentation is instance-hosted and is not fetched."]
+  },
+  "catalyst_center": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/catalyst-center/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_patterns": ["https://pubhub\\.devnetcloud\\.com/media/cisco-catalyst-center-api-[0-9-]+/docs/.*"],
+    "path_prefixes": ["/dna/"],
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["header:x-auth-token"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["The published operation inventory exceeds one bounded scan; a document limit means incomplete coverage. Multipart/file operations need client changes."]
+  },
+  "splunk": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://dev.splunk.com/enterprise/reference/", "https://docs.splunk.com/Documentation/Splunk/latest/RESTREF/RESTprolog"],
+    "allowed_origins": ["https://dev.splunk.com", "https://docs.splunk.com", "https://help.splunk.com"],
+    "reference_prefixes": ["https://docs.splunk.com/Documentation/Splunk/latest/RESTREF/", "https://help.splunk.com/en/splunk-enterprise/rest-api-reference/"],
+    "path_prefixes": ["/services/", "/servicesNS/"],
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:basic", "header:authorization"], ["http:bearer", "header:authorization"]],
+    "body_content_types": ["application/x-www-form-urlencoded"],
+    "warnings": ["Public REST reference returned HTTP 403 during source verification. A blocked reference cannot extend the catalog. The client sends form-encoded bodies, not JSON."]
+  },
+  "aci": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/apic-rest-api-configuration-guide/", "https://developer.cisco.com/site/apic-mim-ref-api/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com", "https://www.cisco.com"],
+    "reference_prefixes": ["https://www.cisco.com/c/en/us/td/docs/dcn/aci/"],
+    "reference_patterns": ["https://developer\\.cisco\\.com/docs/model-doc-[0-9]+/.*", "https://pubhub\\.devnetcloud\\.com/media/model-doc-[0-9]+/docs/.*"],
+    "path_prefixes": ["/api/"],
+    "methods": ["GET", "POST", "DELETE"],
+    "security_modes": [["cookie:APIC-cookie"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["APIC model classes are not separately published HTTP operations. Only explicit method/path and input evidence can be added; model inventory alone cannot update the catalog."]
+  },
+  "fmc": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://www.cisco.com/c/en/us/support/security/defense-center/products-programming-reference-guides-list.html"],
+    "allowed_origins": ["https://www.cisco.com"],
+    "reference_patterns": ["https://www\\.cisco\\.com/c/en/us/td/docs/security/firepower/[^/]+/API/REST/.*"],
+    "path_prefixes": ["/api/fmc_config/", "/api/fmc_platform/", "/api/fmc_tid/", "/api/fmc_troubleshoot/"],
+    "methods": ["GET", "POST", "PUT", "DELETE"],
+    "security_modes": [["header:x-auth-access-token"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["Public FMC references provide partial coverage; the complete OpenAPI export requires an authenticated instance, which this updater does not access."]
+  },
+  "thousandeyes": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/thousandeyes/v7/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/000-v7-apis/docs/"],
+    "path_prefixes": ["/v7/"],
+    "methods": ["GET"],
+    "security_modes": [["http:bearer", "header:authorization"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["The existing ThousandEyes tool declares GET only; writes are not added."]
+  },
+  "meraki": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/meraki/api-v1/overview/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/Meraki-Dashboard-API-v1-Documentation/docs/"],
+    "path_prefixes": ["/organizations", "/networks", "/devices", "/administered"], "helper_base_path": "/api/v1",
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:bearer", "header:authorization"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["Stable Meraki Dashboard only; Early Access and the separate Cisco Workflows catalog are not refreshed."]
+  },
+  "secure_endpoint": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/secure-endpoint/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/secure-endpoint-api/docs/"],
+    "path_prefixes": ["/v1/"],
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:basic", "header:authorization"]],
+    "body_content_types": ["application/json"],
+    "warnings": ["V3 operations are skipped: public documentation requires an additional access-token exchange absent from the existing client. Authentication mode remains configuration-selected, not path-selected."]
+  },
+  "cisco_xdr": {
+    "verified_at": "2026-10-16",
+    "roots": ["https://developer.cisco.com/docs/cisco-xdr/"],
+    "allowed_origins": ["https://developer.cisco.com", "https://pubhub.devnetcloud.com"],
+    "reference_prefixes": ["https://pubhub.devnetcloud.com/media/cisco-xdr-api-docs/docs/"],
+    "path_prefixes": ["/iroh/", "/ctia/", "/v2/", "/api/v1/", "/api/v1.1/", "/api/v1.2/"],
+    "methods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    "security_modes": [["http:bearer", "header:authorization", "oauth2:clientCredentials"]],
+    "oauth_token_urls": ["https://visibility.amp.cisco.com/iroh/oauth2/token", "https://visibility.eu.amp.cisco.com/iroh/oauth2/token", "https://visibility.apjc.amp.cisco.com/iroh/oauth2/token"],
+    "body_content_types": ["application/json"], "warnings": []
+  }
+}

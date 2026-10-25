@@ -244,10 +244,14 @@ def create_catalog_search_tool(
         query: str,
         catalog_id: str,
         limit: int = 5,
+        method: str | None = None,
+        schema_pointer: str | None = None,
     ) -> dict[str, Any]:
-        """Search one configured vendor catalog for the current API intent."""
+        """Search a vendor; use exact path/method and local schema_pointer for input details."""
         try:
-            result = index.search(query, catalog_id=catalog_id, limit=limit)
+            result = (index.describe(query, catalog_id, method=method, schema_pointer=schema_pointer)
+                      if method is not None or schema_pointer is not None
+                      else index.search(query, catalog_id=catalog_id, limit=limit))
             if catalog_id == "cisco_workflows":
                 # The OAS-derived request schema (not just top-level field names)
                 # is needed to author actions, imports, and runtime inputs.
@@ -310,7 +314,9 @@ def create_catalog_search_tool(
             "MANDATORY first tool for a live platform API operation. Search one "
             "configured vendor's in-memory catalog using the user's specific intent. "
             "Returns {'matches': [...]} with exact authorized methods/paths or operations. "
-            f"When any match fits, STOP searching and {call_instruction}; do not "
+            "If has_input_details is true, use this same tool with query=exact path, method=exact verb "
+            "and schema_pointer='' for retained inputs; follow local continuations until required inputs are known. "
+            f"Then, when a match fits, STOP searching and {call_instruction}; do not "
             "enumerate, import, inspect, or guess."
         ),
     )
@@ -372,7 +378,9 @@ def convert_meraki_catalog_to_langchain_tools(
 
     tools = []
 
-    for tool_def in catalog:
+    from ccie_sidecar.agents.catalog_grounding import legacy_function_catalog
+
+    for tool_def in legacy_function_catalog(catalog):
         name = tool_def.get("name", "unknown_tool")
         description = tool_def.get("description", "")
         blast_radius = tool_def.get("blast_radius", "medium")

@@ -10,6 +10,26 @@ import type { PtyEvent, Tab } from "./types";
 import type { AppearanceSettingsV1 } from "../theme/types";
 import type { CiscoPlatform } from "./ciscoLint";
 
+export type CiscoApiProduct = "stealthwatch" | "ise" | "cml" | "catalyst-center" | "splunk" | "aci" | "fmc" | "thousandeyes" | "meraki" | "secure-endpoint" | "cisco-xdr";
+export type ApiCatalogUpdateResult = {
+  agent_id: CiscoApiProduct;
+  catalog_id: string;
+  job_id: string | null;
+  state: "idle" | "running" | "completed" | "failed" | "busy";
+  phase: string | null;
+  added: number;
+  already_known: number;
+  skipped: number;
+  warnings: string[];
+  source_urls: string[];
+  checked_at: string | null;
+  error: string | null;
+};
+export const agentCatalogUpdateStart = (agentId: CiscoApiProduct) =>
+  invoke<ApiCatalogUpdateResult>("agent_catalog_update_start", { agentId });
+export const agentCatalogUpdateStatus = (agentId: CiscoApiProduct, jobId?: string) =>
+  invoke<ApiCatalogUpdateResult>("agent_catalog_update_status", { agentId, jobId: jobId ?? null });
+
 export type TopolographConfig = { singletonId: string; enabled: boolean; baseUrl: string; apiKey: string; verifyTls: boolean; updatedAt: number };
 export type TopolographConnectionStage = { name: string; status: "passed" | "failed" | "skipped" };
 export type TopolographConnectionReport = { ok: boolean; message: string; warnings: string[]; serverName: string; serverVersion: string; latencyMs: number | null; tools: string[]; missingTools: string[]; unexpectedTools: string[]; stages: TopolographConnectionStage[] };
