@@ -2,6 +2,7 @@ pub mod agent_catalog;
 pub mod ai;
 pub mod appearance;
 pub mod browser;
+pub mod copilot_canvas;
 pub mod dap;
 pub mod diagrams;
 pub mod drift;

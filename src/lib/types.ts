@@ -12,7 +12,8 @@ export type TabType =
   | "troubleshoot-editor"
   | "subnet"
   | "heartbeat"
-  | "kanban";
+  | "kanban"
+  | "canvas";
 
 export type Tab = {
   id: string;

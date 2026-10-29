@@ -67,7 +67,9 @@ from ccie_sidecar.agents.deepagents_tools import (
 from ccie_sidecar.agents.architect_subagents import is_blender_only_request
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
 from ccie_sidecar.agents.deepagents_hitl import tier_for_tool, should_interrupt
-from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddleware
+from ccie_sidecar.agents.deepagents_middleware import (
+    ToolCallSanitizerMiddleware, VisibleRoundBudgetMiddleware,
+)
 from ccie_sidecar.agents.model_recovery import (
     AgentExecutionPolicy,
     ModelProtocolRecoveryMiddleware,
@@ -81,6 +83,23 @@ from ccie_sidecar.agents.model_recovery import (
 # Each ReAct cycle is ~2 graph steps, so 60 ≈ 30 tool calls — ample for the
 # multi-step Meraki flows, tight enough to stop a loop fast.
 RECURSION_LIMIT = 60
+
+
+def _budget_subagents(subagents: list, limit: int | None) -> list:
+    """Give each agent (including DeepAgents' implicit specialist) its own budget."""
+    if limit is None:
+        return subagents
+    from deepagents.middleware.subagents import GENERAL_PURPOSE_SUBAGENT
+
+    return [
+        SubAgent(**{**spec, "middleware": [
+            *(spec.get("middleware") or []), VisibleRoundBudgetMiddleware(limit),
+        ]})
+        for spec in [*subagents, *(
+            [] if any(spec["name"] == "general-purpose" for spec in subagents)
+            else [GENERAL_PURPOSE_SUBAGENT]
+        )]
+    ]
 
 
 ARCHITECT_EXECUTION_CONTRACT = (
@@ -419,7 +438,10 @@ async def deepagents_code_exec_loop(
             + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
             + graph_sandbox_blurb_suffix(user_msg),
             store=InMemoryStore(),  # Required by DeepAgents
-            middleware=[ToolCallSanitizerMiddleware(), _rubric_middleware(config)],
+            middleware=[ToolCallSanitizerMiddleware(), _rubric_middleware(config),
+                        *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else [])],
+            **({"checkpointer": _get_checkpointer(),
+                "subagents": _budget_subagents([], budget.configured)} if budget.configured else {}),
         )
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation)
@@ -576,8 +598,9 @@ async def deepagents_react_loop(
             tools=tools,
             system_prompt=agent_def.get("system_prompt", ""),
             store=InMemoryStore(),
-            subagents=subagents,  # Phase 3: SubAgent middleware
-            middleware=middleware,
+            subagents=_budget_subagents(subagents, budget.configured),
+            middleware=[*middleware, *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else [])],
+            **({"checkpointer": _get_checkpointer()} if budget.configured else {}),
         )
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation)
@@ -686,6 +709,18 @@ async def deepagents_react_code_loop(
         agent_id = agent_def.get("agent_id") or agent_def.get("name") or ""
         is_architect = agent_id == "network-architect"
         focused_api_mode = bool(agent_def.get("focused_api_mode"))
+        canvas_turn = None
+        canvas = None
+        if is_architect and (ctx or {}).get("canvas") is not None:
+            from ccie_sidecar.agents.code_exec import _CanvasTurn, _build_env_overrides
+            binding = agent_def.get("topolograph_binding")
+            sensitive_values = tuple(value for value in (
+                *vault_secrets.values(), *_build_env_overrides(vault_secrets).values(),
+                config.get("api_key"), getattr(binding, "token", None),
+            ) if isinstance(value, str) and value)
+            canvas_turn = _CanvasTurn(ctx["canvas"], emit_custom, sensitive_values)
+            canvas = canvas_turn.context
+        canvas_options = {"canvas": canvas} if canvas is not None else {}
 
         graph_kwargs: dict = {}
         continuation_kwargs, graph_thread_id, continue_on_step_limit = (
@@ -737,6 +772,7 @@ async def deepagents_react_code_loop(
                     if topolograph_binding is not None and topolograph_binding.usable
                     else set()
                 ),
+                **canvas_options,
             )
             # Declarative DeepAgents subagents have their own middleware stacks;
             # explicitly add the same provider-neutral recovery policy so both
@@ -746,6 +782,7 @@ async def deepagents_react_code_loop(
                 emit=emit_custom,
                 catalogs=catalogs,
                 topolograph_binding=topolograph_binding,
+                **canvas_options,
             ):
                 vendor_subagents.append(
                     SubAgent(
@@ -779,6 +816,9 @@ async def deepagents_react_code_loop(
         # can show an approval modal (the tool is also self-tagged destructive). A
         # checkpointer is required for interrupt/resume.
         tools = topolograph_tools or [execute_code_tool]
+        if canvas is not None:
+            from ccie_sidecar.agents.deepagents_tools import create_canvas_tools
+            tools.extend(create_canvas_tools(canvas, publishing=True))
         skip_catalog_search = topolograph_tools is not None or (
             is_architect and is_blender_only_request(user_msg, arch_configured_ids)
         )
@@ -830,6 +870,12 @@ async def deepagents_react_code_loop(
         if focused_api_mode:
             from ccie_sidecar.agents.deepagents_middleware import FocusedApiToolsMiddleware
             extra_middleware.append(FocusedApiToolsMiddleware())
+
+        if budget.configured:
+            graph_kwargs["subagents"] = _budget_subagents(
+                graph_kwargs.get("subagents", []), budget.configured
+            )
+            graph_kwargs.setdefault("checkpointer", _get_checkpointer())
 
         # 4. Create DeepAgents graph
         # Sanitizer repairs malformed tool-call args (NVIDIA/Nemotron 400).
@@ -895,6 +941,9 @@ async def deepagents_react_code_loop(
         # ordinary vendor keyword routing (for example RADIUS -> ISE API).
         if terminal_routing_prompt:
             system_prompt = system_prompt + "\n\n" + terminal_routing_prompt
+        if canvas is not None:
+            from ccie_sidecar.agents.code_exec import CANVAS_PRESENTATION_GUIDANCE
+            system_prompt += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
         graph = create_deep_agent(
             model=chat_model,
             tools=tools,
@@ -905,9 +954,15 @@ async def deepagents_react_code_loop(
                 ToolCallSanitizerMiddleware(),
                 _rubric_middleware(config),
                 *extra_middleware,
+                *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else []),
             ],
             **graph_kwargs,
         )
+
+        if canvas_turn is not None:
+            # The retained compiled graph owns the same context through approval
+            # and step-limit continuations; no restart reconstruction or registry.
+            graph._ccie_canvas_turn = canvas_turn
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation).
         # Fix #1 (architect only): condense stale prior-turn answers about a

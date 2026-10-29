@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { TabBar } from "./components/TabBar";
 import { CommandBlock } from "./components/CommandBlock";
 import { AgentPanel } from "./components/AgentPanel";
+import { CanvasWorkspace } from "./components/canvas/CanvasWorkspace";
 import { SearchBar } from "./components/SearchBar";
 import { Settings } from "./windows/Settings";
 import { CommandPalette } from "./components/CommandPalette";
@@ -69,7 +70,7 @@ import { useSessionSave } from "./hooks/useSessionSave";
 import { useKeyboardShortcut } from "./hooks/useKeyboardShortcut";
 import { usePaneSplit } from "./hooks/usePaneSplit";
 import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
-import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach } from "./lib/tauri";
+import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach, canvasCreateWorkspace, canvasListWorkspaces } from "./lib/tauri";
 import { buildSshCommand, type SshConnection } from "./lib/sshConnections";
 import { normalizeTerminalPlatform } from "./lib/terminalClipboard";
 import { useSshPasswordStore } from "./state/sshPasswordStore";
@@ -150,6 +151,19 @@ export default function App() {
   // Recently-closed tab picker (View ▸ Recently Closed / menu:reopen_closed_pick).
   const [recentlyClosedOpen, setRecentlyClosedOpen] = useState(false);
   const { tabs, activeTabId, addTab } = useTabs();
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const canvasMode = activeTab?.tab_type === "canvas";
+  const [canvasPane, setCanvasPane] = useState<"chat" | "evidence">("evidence");
+  const [canvasError, setCanvasError] = useState<string | null>(null);
+  const canvasCreateOwner = useRef({ mounted: false, request: 0 });
+  useEffect(() => {
+    const owner = canvasCreateOwner.current;
+    owner.mounted = true;
+    const unsubscribe = useTabs.subscribe((state, previous) => {
+      if (state.activeTabId !== previous.activeTabId) owner.request++;
+    });
+    return () => { owner.mounted = false; owner.request++; unsubscribe(); };
+  }, []);
 
   // Persist the live session (tabs + scrollback) on a debounce.
   useSessionSave();
@@ -421,25 +435,55 @@ export default function App() {
   // back to a single fresh slot when there is nothing to restore.
   useEffect(() => {
     let cancelled = false;
+    let navigated = false;
+    let registering = false;
+    const unsubscribe = useTabs.subscribe((state, previous) => {
+      if (!registering && state.activeTabId !== previous.activeTabId) navigated = true;
+    });
+    const registerRestoredTab = (tab: Tab) => {
+      if (navigated) {
+        // Restore genuine terminal history without replacing the user's latest view.
+        useTabs.setState(state => ({ tabs: state.tabs.some(item => item.id === tab.id) ? state.tabs : [...state.tabs, tab] }));
+      } else {
+        registering = true;
+        try { addTab(tab); } finally { registering = false; }
+      }
+    };
     (async () => {
       let plan: import("./lib/sessionRestore").RestorePlan = { tabs: [], activeTabId: null };
+      let activeCanvas: Tab | undefined;
       try {
         const { restoreLastSession } = await import("./lib/tauri");
+        if (cancelled) return;
         const { planRestore } = await import("./lib/sessionRestore");
-        plan = planRestore(await restoreLastSession());
+        if (cancelled) return;
+        const snapshot = await restoreLastSession();
+        if (cancelled) return;
+        plan = planRestore(snapshot);
+        const activeSnapshot = snapshot?.tabs.find(tab => tab.id === snapshot.active_tab_id);
+        if (activeSnapshot && activeSnapshot.shell_cmd.trim() === "") {
+          try {
+            activeCanvas = (await canvasListWorkspaces()).find(tab => tab.id === activeSnapshot.id && tab.tab_type === "canvas" && tab.shell_cmd.trim() === "");
+          } catch (error) {
+            if (!cancelled) setCanvasError(`Unable to restore Canvas: ${error}`);
+          }
+        }
       } catch (e) {
         console.warn("[restore] failed; starting fresh:", e);
       }
       if (cancelled) return;
 
       if (plan.tabs.length === 0) {
-        void seedTerminalTab();
+        if (navigated) return;
+        if (activeCanvas) registerRestoredTab(activeCanvas);
+        else void seedTerminalTab();
         return;
       }
 
       let seeded = 0;
       const terminalRegistry = await import("./lib/terminalRegistry");
       for (const t of plan.tabs) {
+        if (cancelled) return;
         try {
           // Reuse the saved id as the registry terminalId AND the backend tab id.
           terminalRegistry.getOrCreate(t.id, {
@@ -450,7 +494,7 @@ export default function App() {
             skipTabRegistration: true,
           });
           if (t.managed) bindDisconnectedManagedTab(t.id, t.title);
-          addTab({
+          registerRestoredTab({
             id: t.id,
             title: t.title,
             shell_cmd: t.shell_cmd,
@@ -465,7 +509,8 @@ export default function App() {
           // loadLayoutForTab loads saved splits, or inits a default root pane
           // whose terminalId === t.id.
           await usePanesStore.getState().loadLayoutForTab(t.id);
-          setTermSlots((prev) => [...prev, { spawnKey: "restore-" + t.id, tabId: t.id }]);
+          if (cancelled) return;
+          if (useTabs.getState().tabs.some(tab => tab.id === t.id)) setTermSlots((prev) => [...prev, { spawnKey: "restore-" + t.id, tabId: t.id }]);
           seeded++;
         } catch (e) {
           console.warn("[restore] tab failed, skipping:", t.id, e);
@@ -473,7 +518,10 @@ export default function App() {
       }
       // Restore must never block boot: if every tab failed to seed, fall back
       // to a single fresh slot so the terminal column is never left blank.
-      if (seeded === 0) {
+      if (cancelled || navigated) return;
+      if (activeCanvas) {
+        registerRestoredTab(activeCanvas);
+      } else if (seeded === 0) {
         void seedTerminalTab();
       } else if (
         plan.activeTabId &&
@@ -484,7 +532,7 @@ export default function App() {
         useTabs.getState().setActive(plan.activeTabId);
       }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; unsubscribe(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1091,20 +1139,38 @@ export default function App() {
     } catch {}
   }, [agentWidth]);
 
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [workspaceWidth, setWorkspaceWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const element = workspaceRef.current;
+    if (!element) return;
+    const measure = () => { const width = element.getBoundingClientRect().width; if (width > 0) setWorkspaceWidth(width); };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const agentMax = canvasMode ? Math.min(AGENT_MAX, Math.floor(workspaceWidth * 0.45)) : AGENT_MAX;
+  const agentMin = Math.min(AGENT_MIN, agentMax);
+  const displayedAgentWidth = Math.max(agentMin, Math.min(agentMax, agentWidth));
+  const resizeLimits = useRef({ min: agentMin, max: agentMax });
+  resizeLimits.current = { min: agentMin, max: agentMax };
+
   // Drag state for the resize handle
   const dragRef = useRef<{
     startX: number;
     startAgent: number;
+    direction: 1 | -1;
   } | null>(null);
 
   const onDragMove = useCallback((e: MouseEvent) => {
     const d = dragRef.current;
     if (!d) return;
     const dx = e.clientX - d.startX;
-    // Handle is between terminal and agent — dragging right shrinks agent.
+    // The same conversation is left of the divider only in Canvas mode.
     const next = Math.min(
-      AGENT_MAX,
-      Math.max(AGENT_MIN, d.startAgent - dx)
+      resizeLimits.current.max,
+      Math.max(resizeLimits.current.min, d.startAgent + dx * d.direction)
     );
     setAgentWidth(next);
   }, []);
@@ -1121,7 +1187,8 @@ export default function App() {
     e.preventDefault();
     dragRef.current = {
       startX: e.clientX,
-      startAgent: agentWidth,
+      startAgent: displayedAgentWidth,
+      direction: canvasMode ? 1 : -1,
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -1155,6 +1222,21 @@ export default function App() {
 
   const handleNewTab = () => {
     void seedTerminalTab();
+  };
+
+  const handleNewCanvas = async () => {
+    const owner = canvasCreateOwner.current;
+    const request = ++owner.request;
+    setCanvasError(null);
+    try {
+      const tab = await canvasCreateWorkspace("New investigation");
+      // Creation persists independently; an unmounted view must not navigate.
+      if (!owner.mounted) return;
+      if (request === owner.request) addTab(tab);
+      else useTabs.setState(state => ({ tabs: state.tabs.some(item => item.id === tab.id) ? state.tabs : [...state.tabs, tab] }));
+    } catch (error) {
+      if (owner.mounted && request === owner.request) setCanvasError(`Unable to create Canvas: ${error}`);
+    }
   };
 
   const handleDetachTab = useCallback(async (tab: Tab) => {
@@ -1291,12 +1373,14 @@ export default function App() {
   }, [seedTerminalTab]);
 
   // If panel is collapsed we override its effective width to a thin strip.
-  const effectiveAgentWidth = agentPanelOpen ? agentWidth : 40;
+  const conversationOpen = canvasMode || agentPanelOpen;
+  const effectiveAgentWidth = conversationOpen ? displayedAgentWidth : 40;
 
   const workspaceStyle: React.CSSProperties = {
-    gridTemplateColumns: `1fr 6px ${effectiveAgentWidth}px`,
+    gridTemplateColumns: canvasMode
+      ? `${effectiveAgentWidth}px 6px minmax(0, 1fr)`
+      : `minmax(0, 1fr) 6px ${effectiveAgentWidth}px`,
   };
-  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
 
   return (
     <div className="shell">
@@ -1310,11 +1394,14 @@ export default function App() {
           onNewVault={handleOpenVault}
           onNewRecordings={handleOpenRecordings}
           onNewTroubleshoot={handleOpenTroubleshoot}
+          onNewCanvas={() => void handleNewCanvas()}
           onDetach={handleDetachTab}
           onSettings={() => setSettingsOpen(true)}
         />
       </ErrorBoundary>
-      <div className="workspace" style={workspaceStyle}>
+      {canvasError && <p role="alert" className="canvas-entry-error">{canvasError}</p>}
+      {canvasMode && <div className="canvas-pane-tabs" role="group" aria-label="Canvas view"><button aria-pressed={canvasPane === "chat"} onClick={() => setCanvasPane("chat")}>Chat</button><button aria-pressed={canvasPane === "evidence"} onClick={() => setCanvasPane("evidence")}>Evidence</button></div>}
+      <div ref={workspaceRef} className={`workspace${canvasMode ? " workspace-canvas" : ""}`} data-canvas-pane={canvasPane} style={workspaceStyle}>
         <ErrorBoundary componentName="Terminal">
           <Suspense fallback={<div style={{ padding: "20px", color: "var(--text-muted)" }}>Loading terminal...</div>}>
             <div className="term-col">
@@ -1326,6 +1413,7 @@ export default function App() {
                 />
               )}
               <div className="term-col__content">
+              {canvasMode && activeTabId && <CanvasWorkspace key={activeTabId} workspaceId={activeTabId} />}
               {/* Render active terminal tab */}
               {terminals.map(({ slot, tab, shell, cwd, visible }) => {
                 // Check if this tab should use PaneContainer
@@ -1527,17 +1615,34 @@ export default function App() {
           </Suspense>
         </ErrorBoundary>
         <div
-          className={`resize-handle${agentPanelOpen ? "" : " disabled"}`}
-          onMouseDown={agentPanelOpen ? startDrag : undefined}
-          title={agentPanelOpen ? "Drag to resize" : "Expand agent panel to resize"}
+          className={`resize-handle${conversationOpen ? "" : " disabled"}`}
+          role="separator"
+          aria-label="Resize Architect conversation"
+          aria-orientation="vertical"
+          aria-valuemin={agentMin}
+          aria-valuemax={agentMax}
+          aria-valuenow={displayedAgentWidth}
+          aria-disabled={!conversationOpen}
+          tabIndex={conversationOpen ? 0 : -1}
+          onMouseDown={conversationOpen ? startDrag : undefined}
+          onKeyDown={event => {
+            if (!conversationOpen || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const delta = (event.key === "ArrowRight" ? 20 : -20) * (canvasMode ? 1 : -1);
+            setAgentWidth(event.key === "Home" ? agentMin : event.key === "End" ? agentMax : Math.max(agentMin, Math.min(agentMax, displayedAgentWidth + delta)));
+          }}
+          title={conversationOpen ? "Drag or use arrow keys to resize" : "Expand agent panel to resize"}
         />
-        <ErrorBoundary componentName="AgentPanel">
-          <AgentPanel
-            tabId={activeTabId}
-            isOpen={agentPanelOpen}
-            onToggle={() => setAgentPanelOpen(!agentPanelOpen)}
-          />
-        </ErrorBoundary>
+        <div className="workspace-chat" role="region" aria-label="Architect conversation" onFocusCapture={() => { if (canvasMode) setCanvasPane("chat"); }}>
+          <ErrorBoundary componentName="AgentPanel">
+            <AgentPanel
+              tabId={activeTabId}
+              canvasMode={canvasMode}
+              isOpen={conversationOpen}
+              onToggle={() => setAgentPanelOpen(!agentPanelOpen)}
+            />
+          </ErrorBoundary>
+        </div>
       </div>
       {sharedImportNotice && (
         <div

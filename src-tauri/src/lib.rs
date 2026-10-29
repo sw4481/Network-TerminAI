@@ -27,6 +27,7 @@ pub mod codex_hooks;
 pub mod command_parser;
 pub mod commands;
 pub mod config;
+pub mod copilot_canvas;
 pub mod dap;
 pub mod database;
 pub mod db;
@@ -113,6 +114,10 @@ pub fn run() {
         let path = db::default_db_path().expect("default_db_path");
         tracing::info!(?path, "Opening database");
         let db = db::open_and_migrate(&path).expect("open_and_migrate");
+        // Only a new process owns this reconciliation; reopening a live tab must not interrupt it.
+        if let Err(error) = copilot_canvas::CanvasRepository::new(&db).interrupt_orphan_runs() {
+            tracing::warn!(%error, "canvas: orphan reconciliation failed");
+        }
         (db, path)
     };
     let state = AppState::new(db, db_path);
@@ -491,6 +496,12 @@ pub fn run() {
             commands::ai::agent_react_run,
             commands::ai::agent_code_exec_run,
             commands::ai::agent_react_code_run,
+            commands::copilot_canvas::canvas_create_workspace,
+            commands::copilot_canvas::canvas_list_workspaces,
+            commands::copilot_canvas::canvas_open_workspace,
+            commands::copilot_canvas::canvas_rename_workspace,
+            commands::copilot_canvas::canvas_save_run,
+            commands::copilot_canvas::canvas_save_event,
             commands::ai::agent_react_resume,
             commands::ai::agent_terminal_preview_fix_edit,
             commands::ai::agent_terminal_approve_fix,

@@ -21,7 +21,47 @@ import json
 from typing import Any
 
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.middleware.types import PrivateStateAttr
 from langchain_core.messages import AIMessage
+from langgraph.types import interrupt
+from typing import Annotated
+from typing_extensions import NotRequired, TypedDict
+
+
+class VisibleRoundBudgetState(TypedDict):
+    _ccie_rounds: NotRequired[Annotated[int, PrivateStateAttr]]
+    _ccie_round_baseline: NotRequired[Annotated[int, PrivateStateAttr]]
+
+
+class VisibleRoundBudgetMiddleware(AgentMiddleware):
+    """Checkpointed per-agent count of model turns that request tools."""
+
+    state_schema = VisibleRoundBudgetState
+
+    def __init__(self, limit: int):
+        super().__init__()
+        self.limit = limit
+
+    def before_model(self, state, runtime):
+        count = state.get("_ccie_rounds", 0)
+        if count - state.get("_ccie_round_baseline", 0) < self.limit:
+            return None
+        decision = interrupt({"ccie_round_budget": True, "limit": self.limit})
+        if decision != {"ccie_round_budget": "continue"}:
+            raise ValueError("Invalid round-budget continuation")
+        return {"_ccie_round_baseline": count}
+
+    async def abefore_model(self, state, runtime):
+        return self.before_model(state, runtime)
+
+    def after_model(self, state, runtime):
+        messages = state.get("messages") or []
+        if messages and isinstance(messages[-1], AIMessage) and messages[-1].tool_calls:
+            return {"_ccie_rounds": state.get("_ccie_rounds", 0) + 1}
+        return None
+
+    async def aafter_model(self, state, runtime):
+        return self.after_model(state, runtime)
 
 
 def _repair_to_obj(raw: Any) -> dict[str, Any]:

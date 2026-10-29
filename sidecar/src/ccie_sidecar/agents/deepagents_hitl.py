@@ -237,6 +237,7 @@ async def resume_graph(
             config=resume_config,
             on_event=on_event,
             stream_output=stream_output,
+            continue_on_step_limit=bool(resume_config.get("metadata", {}).get("max_agent_steps")),
         )
 
     except Exception as e:
@@ -260,10 +261,20 @@ async def continue_graph(
     original request. A second segment boundary is preserved the same way.
     """
     from ccie_sidecar.agents.deepagents_stream import run_and_stream
+    from langgraph.types import Command
+
+    input_data = None
+    if (config.get("metadata") or {}).get("max_agent_steps"):
+        snapshot = graph.get_state(config)
+        if any(
+            isinstance(interrupt.value, dict) and interrupt.value.get("ccie_round_budget") is True
+            for task in snapshot.tasks for interrupt in task.interrupts
+        ):
+            input_data = Command(resume={"ccie_round_budget": "continue"})
 
     return await run_and_stream(
         graph=graph,
-        input_data=None,
+        input_data=input_data,
         config=config,
         on_event=on_event,
         stream_output=stream_output,

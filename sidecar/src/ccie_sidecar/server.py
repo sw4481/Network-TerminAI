@@ -2228,6 +2228,11 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             ctx={
                                 "history": history,
                                 **(
+                                    {"canvas": params["canvas"]}
+                                    if params.get("canvas") is not None
+                                    else {}
+                                ),
+                                **(
                                     {"run_id": params.get("run_id")}
                                     if params.get("run_id") is not None
                                     else {}
@@ -2254,7 +2259,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         asyncio.run(react_code_loop(
                             agent_def=agent_def,
                             user_msg=message,
-                            ctx={"history": history},
+                            ctx={"history": history, **({"canvas": params["canvas"]} if params.get("canvas") is not None else {})},
                             on_event=emit_event
                         ))
 

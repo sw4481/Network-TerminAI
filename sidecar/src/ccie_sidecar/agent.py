@@ -23,7 +23,7 @@ class AgentStepBudget:
     def graph_config(self, thread_id: str, default: int) -> dict[str, Any]:
         config: dict[str, Any] = {
             "configurable": {"thread_id": thread_id},
-            "recursion_limit": self.limit(default),
+            "recursion_limit": default,
         }
         if self.configured is not None:
             config["metadata"] = {"max_agent_steps": self.configured}

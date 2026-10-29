@@ -1,10 +1,15 @@
 """LangChain tools for DeepAgents — wraps our custom sandbox."""
 from __future__ import annotations
 
-from typing import Any, Callable
+import json
+from typing import Any, Callable, Literal
 
 from langchain_core.tools import StructuredTool
 from langgraph.store.base import BaseStore
+from pydantic import ConfigDict, with_config
+from typing_extensions import TypedDict
+
+from ccie_sidecar.agents.copilot_canvas import CanvasContext, CanvasPublication
 
 from ccie_sidecar.agents.tool_output import (
     TOOL_OUTPUT_GUIDANCE,
@@ -17,6 +22,8 @@ def create_execute_python_code_tool(
     vault_secrets: dict[str, Any],
     emit_callback: Callable[[dict], None],
     catalogs: list[dict[str, Any]] | None = None,
+    *,
+    canvas: CanvasContext | None = None,
 ) -> StructuredTool:
     """
     Create a LangChain tool that wraps our custom code execution sandbox.
@@ -42,6 +49,8 @@ def create_execute_python_code_tool(
         _build_sandbox_globals,
         _execute_code_with_timeout,
         _build_env_overrides,
+        _capture_canvas_result,
+        CANVAS_PRESENTATION_GUIDANCE,
     )
 
     # Build sandbox once (reused across tool calls in the same session)
@@ -50,6 +59,7 @@ def create_execute_python_code_tool(
         vault_secrets,
         emit=emit_callback,
         catalogs=catalogs,
+        **({"canvas": canvas} if canvas is not None else {}),
     )
     env_overrides = _build_env_overrides(vault_secrets)
     output_policy, tool_output = install_tool_output_policy(
@@ -78,6 +88,7 @@ def create_execute_python_code_tool(
             timeout=30,
             label=cli_package or "deepagents",
         )
+        _capture_canvas_result(canvas, "execute_python_code", result.get("output", ""), origin="execution_output")
         return output_policy.format_execution_result(result, tool_output)
 
     # Build tool description showing what's pre-loaded. Memory-first line goes
@@ -202,6 +213,8 @@ def create_execute_python_code_tool(
         f"Pre-loaded in the sandbox:\n{preloaded}\n\n"
         f"{TOOL_OUTPUT_GUIDANCE}"
     )
+    if canvas is not None:
+        tool_description += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
     if discovery_hint:
         tool_description += f"\n\n{discovery_hint}"
     if method_index:
@@ -224,6 +237,172 @@ def create_execute_python_code_tool(
         sandbox_globals.get("api_catalog"),
     )
     return tool
+
+
+# Closed mappings keep native arguments as plain JSON for the shared validator.
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasEvidenceRef(TypedDict):
+    evidence_id: str
+    path: str
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasColumn(TypedDict):
+    key: str
+    label: str
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasRow(TypedDict):
+    cells: dict[str, _CanvasEvidenceRef]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasTable(TypedDict):
+    columns: list[_CanvasColumn]
+    rows: list[_CanvasRow]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasField(TypedDict):
+    label: str
+    ref: _CanvasEvidenceRef
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasKeyValue(TypedDict):
+    fields: list[_CanvasField]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasPoint(TypedDict):
+    label: _CanvasEvidenceRef
+    value: _CanvasEvidenceRef
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasChart(TypedDict):
+    form: Literal["bar", "line"]
+    x_label: str
+    y_label: str
+    points: list[_CanvasPoint]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasNode(TypedDict):
+    id: _CanvasEvidenceRef
+
+
+_CanvasLink = with_config(ConfigDict(extra="forbid", strict=True))(TypedDict(
+    "_CanvasLink", {"from": _CanvasEvidenceRef, "to": _CanvasEvidenceRef,
+                    "relationship": _CanvasEvidenceRef},
+))
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasTopology(TypedDict):
+    nodes: list[_CanvasNode]
+    links: list[_CanvasLink]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasFinding(TypedDict):
+    device: _CanvasEvidenceRef
+    interface: _CanvasEvidenceRef
+    symptom: str
+    severity: Literal["critical", "warning", "info"]
+    cause_assessment: Literal["evidence_supported", "likely", "undetermined"]
+    supporting_refs: list[_CanvasEvidenceRef]
+    contradictory_refs: list[_CanvasEvidenceRef]
+    unknowns: list[str]
+    remediation_considerations: list[str]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasFindings(TypedDict):
+    findings: list[_CanvasFinding]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasText(TypedDict):
+    body: _CanvasEvidenceRef
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class _CanvasAssessment(TypedDict):
+    narrative: str
+    supporting_refs: list[_CanvasEvidenceRef]
+    contradictory_refs: list[_CanvasEvidenceRef]
+    unknowns: list[str]
+    remediation_considerations: list[str]
+
+
+def create_canvas_tools(canvas: CanvasContext, *, publishing: bool = False) -> list[StructuredTool]:
+    """Values-only publishing for runtime; reference tools remain the legacy default."""
+    if publishing:
+        def canvas_publish(type: str, title: str, metadata: dict) -> dict:
+            """Publish a card using actual display-ready values. Supports text, tables,
+            key/value summaries, bar/line charts, topology graphs, findings and assessments.
+            Content is agent-authored, not independently verified evidence. Use the declared
+            metadata for the selected type. Presentation failure never warrants repeating source operations.
+            """
+            result = canvas.publish({"type": type, "title": title, "metadata": metadata})
+            return result if result.get("kind") == "warning" else {"card_id": result["card_id"], "status": "presented"}
+
+        def publication_validation_error(_error: Exception) -> str:
+            limitation = ("Canvas publication rejected. Use type, title and the declared display-ready metadata. "
+                          "Do not supply evidence IDs or pointers. Correct presentation only; never repeat source operations.")
+            with canvas._lock:
+                canvas._event("warning", {"limitation": limitation})
+            return json.dumps({"kind": "warning", "limitation": limitation})
+
+        return [StructuredTool.from_function(func=canvas_publish, args_schema=CanvasPublication,
+                                            handle_validation_error=publication_validation_error)]
+
+    def canvas_sources(evidence_id: str | None = None, path: str = "") -> list[dict] | dict:
+        """List bounded newest-first evidence IDs. Then pass an evidence_id and RFC6901 path
+        ('' for root) to inspect its retained redacted type/count/JSON preview before choosing card refs.
+        If truncated, inspect a narrower pointer. No imports, vendor calls, or new captures.
+        """
+        return canvas.sources() if evidence_id is None else canvas.inspect({"evidence_id": evidence_id, "path": path})
+
+    def canvas_present(
+        type: Literal["findings", "table", "key_value", "chart", "topology", "text", "assessment"],
+        title: str,
+        source_refs: list[_CanvasEvidenceRef],
+        metadata: _CanvasFindings | _CanvasTable | _CanvasKeyValue | _CanvasChart | _CanvasTopology | _CanvasText | _CanvasAssessment,
+    ) -> dict:
+        """Present a curated card before finishing. Use evidence_id/path refs from canvas_sources,
+        never copied values. Metadata follows the shared Canvas guidance in your instructions.
+        Findings need scalar device AND interface evidence; inspect narrower refs when rejected.
+        For device-wide issues or an unassessed interface, use assessment with supporting_refs
+        and unknowns, never an invented interface. Curated narrative belongs in assessment,
+        not a text card containing a raw JSON envelope.
+        Validation failures are presentation-only warnings; correct the refs, never repeat source calls.
+        """
+        result = canvas.present({"type": type, "title": title, "source_refs": source_refs, "metadata": metadata})
+        # Do not echo a potentially large card into the model context.
+        return result if result.get("kind") == "warning" else {"card_id": result["card_id"], "status": "presented"}
+
+    def presentation_validation_error(_error: Exception) -> str:
+        # Never echo Pydantic inputs, unknown keys, or dynamic error locations.
+        warning = {
+            "kind": "warning",
+            "limitation": (
+                "Canvas presentation rejected. Each evidence reference must contain "
+                "exactly evidence_id and path, both strings. Use the declared metadata shape "
+                "for the selected card type. Inspect retained evidence with native canvas_sources "
+                "before choosing references. Correct presentation only; never repeat source operations."
+            ),
+        }
+        with canvas._lock:
+            canvas._event("warning", {"limitation": warning["limitation"]})
+        return json.dumps(warning)
+
+    return [
+        StructuredTool.from_function(func=canvas_sources),
+        StructuredTool.from_function(func=canvas_present, handle_validation_error=presentation_validation_error),
+    ]
 
 
 def create_catalog_search_tool(

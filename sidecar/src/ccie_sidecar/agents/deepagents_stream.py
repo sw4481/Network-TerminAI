@@ -99,7 +99,7 @@ def _extract_action_requests(interrupt_payload: Any) -> list[dict]:
     return requests
 
 
-def _handle_interrupt(interrupt_payload, graph, config, thread_id, on_event) -> bool:
+def _handle_interrupt(interrupt_payload, graph, config, thread_id, on_event, *, budget_can_continue=True) -> bool:
     """Emit an approval-request event for a paused (interrupt_on) graph and store
     it for resume. Returns True if an approval event was emitted.
 
@@ -107,6 +107,23 @@ def _handle_interrupt(interrupt_payload, graph, config, thread_id, on_event) -> 
     back to parsed output, failing safe to "high") so the modal can preview it.
     """
     from ccie_sidecar.agents.deepagents_state import store_interrupted_graph
+
+    items = interrupt_payload if isinstance(interrupt_payload, (list, tuple)) else [interrupt_payload]
+    budget = next((value for item in items
+                   if isinstance(value := getattr(item, "value", item), dict)
+                   and value.get("ccie_round_budget") is True), None)
+    if budget is not None:
+        if budget_can_continue:
+            store_interrupted_graph(thread_id, graph, config, on_event)
+            on_event({"type": "continuation_available", "thread_id": thread_id,
+                      "reason": "step_limit"})
+            message = (f"Reached the {budget['limit']}-round tool-call limit. "
+                       "Select Continue from last step to resume without replaying completed work.")
+        else:
+            message = f"Reached the {budget['limit']}-round tool-call limit. This run stopped."
+        on_event({"type": "error", "message": message, "kind": "step_limit",
+                  "error_type": "VisibleRoundBudget"})
+        return True
 
     action_requests = _extract_action_requests(interrupt_payload)
     workflows_req = next((r for r in action_requests if r.get("name") == "cisco_workflows_apply"), None)
@@ -380,6 +397,32 @@ def _describe_tool_calls(tool_calls: list) -> str:
     return "; ".join(labels) if labels else "Working..."
 
 
+async def _graph_events(graph, input_data, config, *, subgraphs=False):
+    """Continue only internal superstep checkpoints with visible-round progress."""
+    current_input = input_data
+    previous_rounds = -1
+    while True:
+        try:
+            async for event in graph.astream(
+                current_input, config,
+                stream_mode=["updates", "messages", "custom"],
+                **({"subgraphs": True} if subgraphs else {}),
+            ):
+                yield event
+            return
+        except GraphRecursionError as error:
+            if not (config.get("metadata") or {}).get("max_agent_steps"):
+                raise
+            # Never retry an unfinished graph without its exact saved checkpoint.
+            snapshot = graph.get_state(config)
+            rounds = snapshot.values.get("_ccie_rounds", 0)
+            if not snapshot.next or rounds <= previous_rounds:
+                error.ccie_no_progress = True
+                raise
+            previous_rounds = rounds
+            current_input = None
+
+
 # Protocol for compiled LangGraph/DeepAgents graphs
 class CompiledGraph(Protocol):
     """Protocol for LangGraph CompiledStateGraph."""
@@ -445,25 +488,16 @@ async def run_and_stream(
     continuation_available = False
     tool_call_names: dict[str, str] = {}
     input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
+    canvas_turn = getattr(graph, "_ccie_canvas_turn", None)
+    if canvas_turn is not None:
+        canvas_turn.bind(on_event)
 
     try:
         # Stream with all three modes:
         # - "updates": per-node state deltas (new messages appended)
         # - "messages": token-level streaming (optional, for live display)
         # - "custom": custom events from tools (drawio diagram events)
-        async for event in graph.astream(
-            input_data,
-            config,
-            stream_mode=["updates", "messages", "custom"],
-            # subgraphs=True surfaces events from nested graphs — specifically the
-            # per-vendor specialist subagents the architect reaches via task().
-            # Without it, a delegated vendor (e.g. cisco_xdr) shows only the single
-            # "Calling task" step and none of the specialist's execute_python_code
-            # steps, unlike inline vendors. See guard below: a subagent's own
-            # "final" AIMessage must NOT be emitted as THE final, or it suppresses
-            # the orchestrator's real answer (final_text_seen).
-            subgraphs=True,
-        ):
+        async for event in _graph_events(graph, input_data, config, subgraphs=True):
             # With subgraphs=True, items are (namespace, mode, payload); namespace
             # is a tuple of parent node ids — empty () for the top-level graph.
             # Tolerate the 2-tuple shape too (defensive, e.g. if subgraphs is off).
@@ -497,18 +531,29 @@ async def run_and_stream(
                 # approval-request event (with blast-radius classification for
                 # iac_apply), store the graph for resume, and stop streaming.
                 if "__interrupt__" in payload:
+                    if not is_top_level and any(
+                        isinstance(getattr(item, "value", item), dict)
+                        and getattr(item, "value", item).get("ccie_round_budget") is True
+                        for item in payload["__interrupt__"]
+                    ):
+                        continue
+                    budget_terminal = not continue_on_step_limit and any(
+                        isinstance(getattr(item, "value", item), dict)
+                        and getattr(item, "value", item).get("ccie_round_budget") is True
+                        for item in payload["__interrupt__"]
+                    )
                     emitted = _handle_interrupt(
-                        payload["__interrupt__"], graph, config, thread_id, on_event
+                        payload["__interrupt__"], graph, config, thread_id, on_event,
+                        budget_can_continue=continue_on_step_limit,
                     )
                     if emitted:
-                        interrupted = True
                         return {
-                            "interrupted": True,
+                            "interrupted": not budget_terminal,
                             "thread_id": thread_id,
                             "final_emitted": final_text_seen,
                             "steps": step,
-                            "error_kind": None,
-                            "error_type": None,
+                            "error_kind": "step_limit" if budget_terminal else None,
+                            "error_type": "VisibleRoundBudget" if budget_terminal else None,
                             "recovery_attempts": recovery_attempts,
                             "fallback_mode": fallback_mode,
                         }
@@ -659,6 +704,8 @@ async def run_and_stream(
                             if final_text and is_top_level:
                                 # Only emit final once (avoid double-firing)
                                 if not final_text_seen:
+                                    if canvas_turn is not None:
+                                        canvas_turn.context.finish_presentation()
                                     final_text_seen = True
                                     on_event({
                                         "type": "final",
@@ -685,7 +732,7 @@ async def run_and_stream(
         import traceback
         print(f"[run_and_stream] GraphRecursionError:\n{traceback.format_exc()}", file=sys.stderr)
 
-        if continue_on_step_limit:
+        if continue_on_step_limit and not getattr(e, "ccie_no_progress", False):
             from ccie_sidecar.agents.deepagents_state import store_interrupted_graph
 
             store_interrupted_graph(thread_id, graph, config, on_event)
@@ -750,6 +797,12 @@ async def run_and_stream(
                 "fallback_error_type": getattr(e, "fallback_error_type", None),
             })
 
+    finally:
+        if canvas_turn is not None:
+            # Paused/cancelled/completed graphs cannot deliver late Canvas events.
+            # An explicit existing resume binds the same context to its new channel.
+            canvas_turn.bind(None)
+
     outcome = {
         "interrupted": interrupted,
         "thread_id": thread_id,
@@ -794,11 +847,7 @@ async def run_and_stream_code_exec(
     input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
 
     try:
-        async for event in graph.astream(
-            input_data,
-            config,
-            stream_mode=["updates", "messages", "custom"],
-        ):
+        async for event in _graph_events(graph, input_data, config):
             if isinstance(event, tuple) and len(event) == 2:
                 mode, payload = event
 
@@ -811,6 +860,13 @@ async def run_and_stream_code_exec(
                 if mode == "updates":
                     if not isinstance(payload, dict):
                         continue
+                    if "__interrupt__" in payload:
+                        _handle_interrupt(
+                            payload["__interrupt__"], graph, config,
+                            config.get("configurable", {}).get("thread_id", "default"), on_event,
+                            budget_can_continue=False,
+                        )
+                        return
                     for node_name, node_output in payload.items():
                         if not isinstance(node_output, dict):
                             continue

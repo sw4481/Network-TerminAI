@@ -142,8 +142,8 @@ class CiscoWorkflowsClient:
             return self._result(0, None, _redact(str(exc), key), risk)
 
 
-def install_cisco_workflows(globals_dict: dict[str, Any], emit: Callable | None = None) -> None:
-    """Bind only the read door, loading the saved Meraki credentials at installation."""
+def install_cisco_workflows(globals_dict: dict[str, Any], emit: Callable | None = None) -> CiscoWorkflowsClient:
+    """Bind only the read door; return the client to the application installer caller."""
     from ccie_sidecar.meraki_config import get_meraki_config
 
     client = CiscoWorkflowsClient(get_meraki_config())
@@ -152,3 +152,4 @@ def install_cisco_workflows(globals_dict: dict[str, Any], emit: Callable | None 
         return json.dumps(client.call(method, path, body, query_params))
 
     globals_dict["cisco_workflows_api_call"] = cisco_workflows_api_call
+    return client

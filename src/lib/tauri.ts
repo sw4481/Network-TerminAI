@@ -7,6 +7,21 @@
 
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type { PtyEvent, Tab } from "./types";
+import type { CanvasCard, CanvasEvent, CanvasRequest, CanvasRun, EvidenceSnapshot } from "./copilotCanvas";
+
+export type CanvasWorkspaceSnapshot = {
+  tab: Tab;
+  runs: CanvasRun[];
+  evidence: EvidenceSnapshot[];
+  cards: CanvasCard[];
+  warnings: CanvasEvent[];
+};
+export const canvasCreateWorkspace = (title: string) => invoke<Tab>("canvas_create_workspace", { title });
+export const canvasListWorkspaces = () => invoke<Tab[]>("canvas_list_workspaces");
+export const canvasOpenWorkspace = (workspaceId: string) => invoke<CanvasWorkspaceSnapshot>("canvas_open_workspace", { workspaceId });
+export const canvasRenameWorkspace = (workspaceId: string, title: string) => invoke<void>("canvas_rename_workspace", { workspaceId, title });
+export const canvasSaveRun = (workspaceId: string, run: CanvasRun) => invoke<void>("canvas_save_run", { workspaceId, run });
+export const canvasSaveEvent = (workspaceId: string, event: CanvasEvent) => invoke<void>("canvas_save_event", { workspaceId, event });
 import type { AppearanceSettingsV1 } from "../theme/types";
 import type { CiscoPlatform } from "./ciscoLint";
 
@@ -1257,6 +1272,8 @@ export type TerminalFixPreview = TerminalFixBatch & {
 };
 
 export type ReactEvent =
+  | CanvasEvent
+  | { type: "canvas_limitation"; limitation: string }
   | { type: "thought_start"; thought: string; step: number }
   | { type: "tool_call"; name: string; args: unknown; blast_radius: string }
   | { type: "tool_result"; success: boolean; result: string }
@@ -1488,6 +1505,7 @@ export async function agentReactCodeRun(opts: {
   history?: ChatTurn[];
   streamOutput?: boolean;
   terminalAttachment?: import("./terminalAgentAttachment").TerminalAttachment | null;
+  canvas?: CanvasRequest;
   onEvent: (e: ReactEvent) => void;
 }): Promise<void> {
   const channel = new Channel<ReactEvent>();
@@ -1498,6 +1516,7 @@ export async function agentReactCodeRun(opts: {
     history: opts.history ?? [],
     streamOutput: opts.streamOutput ?? false,
     terminalAttachment: opts.terminalAttachment ?? null,
+    ...(opts.canvas ? { canvas: opts.canvas } : {}),
     onEvent: channel,
   });
 }

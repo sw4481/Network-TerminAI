@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache, wraps
 import hashlib
-import inspect
 import json
 from pathlib import Path
 import re
@@ -154,13 +153,6 @@ def _clean_path(path: str, catalog_id: str) -> str:
     clean = clean.split("?", 1)[0]
     if clean.endswith("["):
         clean = clean[:-1]
-    # The generated Meraki catalog pluralized already-plural resources once
-    # more (networkss, policiess, wirelesss).  Remove that generated final s.
-    if catalog_id == "meraki":
-        clean = "/".join(
-            segment[:-1] if segment.endswith("ss") else segment
-            for segment in clean.split("/")
-        )
     if catalog_id == "catalyst_center" and not clean.startswith("/dna/"):
         if clean.startswith(
             (
@@ -266,42 +258,23 @@ _FMC_SUPPLEMENTS: tuple[tuple[str | None, str, str], ...] = (
 
 
 @lru_cache(maxsize=1)
-def _meraki_dashboard_for_catalog() -> Any:
-    """Build the installed official SDK client without making a network call."""
-    try:
-        import meraki
+def _meraki_legacy_endpoints(catalog_path: Path) -> dict[tuple[str, str, str, str], dict[str, str]]:
+    """Repair only known generated endpoints using packaged official metadata.
 
-        auth_arg = {"api" + "_key": "placeholder"}
-        return meraki.DashboardAPI(
-            **auth_arg,
-            suppress_logging=True,
-            print_console=False,
-        )
-    except Exception:
-        return None
-
-
-@lru_cache(maxsize=2_048)
-def _meraki_official_path(resource: str, sdk_method: str) -> str | None:
-    """Read the real generated SDK resource template for a catalog operation.
-
-    The legacy 933-entry catalog guessed paths from English action names and
-    produced values such as ``/inventorys``. The installed Cisco SDK already
-    carries the authoritative path in each generated method, so use it when
-    available and retain the catalog value only as a cross-platform fallback.
+    Meraki OpenAPI v1.75.1, meraki/openapi revision
+    4b45e1cfd07885c453f322bc0bd738da0c35ae51, supplies the corrected endpoints.
+    Exact original pairs preserve installed custom paths without requiring the
+    optional SDK, network access, or writes to the user's catalog.
     """
-    if not resource or not sdk_method:
-        return None
-    try:
-        client = _meraki_dashboard_for_catalog()
-        if client is None:
-            return None
-        method = getattr(getattr(client, resource), sdk_method)
-        source = inspect.getsource(method)
-        match = re.search(r"\bresource\s*=\s*f?([\"'])(.*?)\1", source, re.DOTALL)
-        return match.group(2) if match else None
-    except Exception:
-        return None
+    entries = _coerce_entries(str(catalog_path))
+    return {
+        (str(item.get("resource") or ""), str(item.get("sdk_method") or ""),
+         str(legacy.get("method") or "").upper(), str(legacy.get("path") or "")):
+        item["endpoint"]
+        for item in entries
+        if isinstance(legacy := item.get("legacy_endpoint"), dict)
+        and isinstance(item.get("endpoint"), dict)
+    }
 
 
 def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list[CatalogRecord]:
@@ -320,17 +293,17 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
         )
         endpoint = item.get("endpoint")
         if isinstance(endpoint, dict) and endpoint.get("path"):
-            path_value = str(endpoint["path"])
-            official_meraki_path: str | None = None
-            if catalog_id == "meraki":
-                official_meraki_path = _meraki_official_path(
-                    str(item.get("resource") or ""),
-                    str(item.get("sdk_method") or ""),
+            if catalog_id == "meraki" and not item.get("api_update"):
+                repairs = _meraki_legacy_endpoints(
+                    _default_bundled_agents_dir() / "meraki" / "tools.json"
                 )
-                path_value = official_meraki_path or path_value
+                endpoint = repairs.get(
+                    (str(item.get("resource") or ""), str(item.get("sdk_method") or ""),
+                     str(endpoint.get("method") or "").upper(), str(endpoint["path"])),
+                    endpoint,
+                )
             raw_path = _clean_path(
-                path_value,
-                "" if official_meraki_path or item.get("api_update") else catalog_id,
+                str(endpoint["path"]), "" if item.get("api_update") else catalog_id,
             )
             for path in _expand_simple_alternatives(raw_path):
                 records.append(

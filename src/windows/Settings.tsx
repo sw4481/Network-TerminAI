@@ -684,8 +684,8 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
                 style={{ maxWidth: "140px" }}
               />
               <small id="max-agent-steps-hint" className="hint">
-                Global for all agents, including model overrides. DeepAgents counts graph steps;
-                blank preserves engine defaults (60 graph steps, Legacy 12/16 iterations).
+                Global for all agents, including model overrides. Configured limits count each agent's tool-call rounds,
+                not internal graph steps; blank preserves engine defaults.
                 Changes apply on the next turn. Enter a whole number from 1 to 500.
               </small>
             </div>
