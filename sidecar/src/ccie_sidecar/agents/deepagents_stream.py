@@ -740,7 +740,8 @@ async def run_and_stream(
                         on_event({"type": "token", "text": text})
 
         if canvas_turn is not None and pending_canvas_final:
-            if not canvas_review_required or canvas_review_status == "satisfied":
+            # RubricMiddleware sees only the first 4000 characters of each message.
+            if len(pending_canvas_final) <= 4000 and (not canvas_review_required or canvas_review_status == "satisfied"):
                 canvas_turn.context.finish_presentation()
                 final_text_seen = True
                 on_event({"type": "final", "response": pending_canvas_final})
@@ -752,8 +753,8 @@ async def run_and_stream(
                     "kind": error_kind,
                     "error_type": error_type,
                     "message": (
-                        "Answer review did not pass within the existing review budget "
-                        "or could not finish. Retained Canvas cards are provisional, "
+                        "Answer review did not pass, could not finish, or the answer "
+                        "exceeded its 4000-character review bound. Retained Canvas cards are provisional, "
                         "not a verified assessment. No unapproved draft was finalized."
                     ),
                 })

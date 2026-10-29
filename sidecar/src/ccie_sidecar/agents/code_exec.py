@@ -140,7 +140,11 @@ Findings need real scalar device and interface values; use assessment/table for 
 or unassessed interfaces. Do not invent missing fields or repeat whole responses as cells.
 No executable UI or arbitrary HTML. Advice is Recommendation — not executed.
 On presentation failure, correct the card only; never repeat source operations.
-Answer normally in chat with limitations; card failure must not erase the answer.
+Keep the final chat answer self-contained and at most 4000 characters so the existing
+reviewer can see it in full. Open with the assessed population, observation window,
+counts, conclusion, blockers/unknowns, and conditional next steps. Keep full tables and
+row-by-row details in cards, not duplicated in the final answer. Card failure must not
+erase an honestly scoped answer; do not claim the cards were independently verified.
 """
 
 
