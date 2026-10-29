@@ -838,8 +838,9 @@ class CatalogIndex:
         if fingerprint in self._failed_calls:
             raise CatalogGroundingError(
                 f"The identical {method.upper()} {path} call already failed in this turn; "
-                f"duplicate network retry blocked. Search the {catalog_id} catalog and change "
-                "the endpoint or arguments."
+                "duplicate network retry blocked. Follow the original failure guidance; "
+                "do not vary endpoints or arguments blindly. Retain successful evidence "
+                "and explicitly report blocked or partial coverage."
             )
         return fingerprint
 
@@ -1043,10 +1044,18 @@ def install_catalog_grounding(
                 if status is not None:
                     index.mark_failed(fingerprint)
                     label = f"HTTP {status}" if status else "transport/configuration failure"
-                    raise CatalogApiError(
-                        f"{__catalog_id} {method} {path} failed ({label}): {error}. "
+                    guidance = (
+                        "Stop ineffective retries and endpoint or argument variations; "
+                        "resolve the transport, access, rate-limit or server-availability "
+                        "blocker first. Retain successful evidence from unaffected calls "
+                        "and explicitly report blocked or partial coverage."
+                        if status in (0, 401, 403, 407, 408, 429) or 500 <= status < 600 else
                         "Do not retry the identical call; exit Python and use the TOP-LEVEL "
                         "search_api_catalog tool for the corrected documented endpoint."
+                    )
+                    raise CatalogApiError(
+                        f"{__catalog_id} {method} {path} failed ({label}): {error}. "
+                        f"{guidance}"
                     )
                 return result
 

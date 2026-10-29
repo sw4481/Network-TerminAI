@@ -60,6 +60,11 @@ def _capture_canvas_result(
                     value = json.loads(value)
                 except (ValueError, RecursionError):
                     pass
+        if origin == "observed" and isinstance(value, dict):
+            from ccie_sidecar.agents.catalog_grounding import _result_failure
+            status, _ = _result_failure(value)
+            if status is not None:
+                canvas.collection_failed(helper)
         canvas.capture({"helper": helper}, value, call_id=str(uuid.uuid4()), origin=origin)
     except Exception:
         # A broken Canvas must never retry or fail a successful source operation.
@@ -89,7 +94,14 @@ def _install_canvas(globals_dict: Dict[str, Any], canvas: CanvasContext) -> None
     def wrap(name, helper):
         @wraps(helper)
         def captured(*args, **kwargs):
-            result = helper(*args, **kwargs)
+            try:
+                result = helper(*args, **kwargs)
+            except Exception:
+                try:
+                    canvas.collection_failed(name)
+                except Exception:
+                    pass  # Preserve the original source exception if Canvas is unavailable.
+                raise
             _capture_canvas_result(canvas, name, result)
             return result
         return captured

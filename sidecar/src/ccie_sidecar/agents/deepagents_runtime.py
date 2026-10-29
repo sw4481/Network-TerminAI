@@ -102,6 +102,28 @@ def _budget_subagents(subagents: list, limit: int | None) -> list:
     ]
 
 
+INVESTIGATION_EVIDENCE_CONTRACT = (
+    "INVESTIGATION EVIDENCE CHECK — applies to every headline, card and final answer:\n"
+    "- Compute counts and percentages from the same retained rows, with distinct identities "
+    "and the queried population stated. Distinguish records, sessions and endpoints. "
+    "State the observation window, pagination and record caps; bounded history is not "
+    "all activity in that window. Empty history means no records returned, not inactivity. "
+    "Never subtract the queried subset from inventory to infer inactive or healthy endpoints.\n"
+    "- Limit negative findings to the retrieved population: 'no failures found in the "
+    "retrieved records' does not establish no failures anywhere. Put material scope limits "
+    "in the headline, not only in a later caveat.\n"
+    "- A state label or missing field is an observation, not a fault or cause. Require "
+    "applicable policy and outcome evidence to call it unhealthy; otherwise report "
+    "unassessed or undetermined. Timestamps or event codes alone do not prove missing "
+    "configuration, fallback or client failure.\n"
+    "- Reconcile every diagnosis and recommendation with its unknowns. If the policy, "
+    "configuration or causal evidence was not inspected, withdraw the categorical claim "
+    "and make the next step a conditional verification, not a prescribed configuration fix. "
+    "A caveat cannot repair a contradictory headline or card. An honestly scoped partial "
+    "answer may finish without more source calls.\n"
+)
+
+
 ARCHITECT_EXECUTION_CONTRACT = (
     "CURRENT NETWORK ARCHITECT RUNTIME CONTRACT (overrides older prompt wording):\n"
     "- For a single-platform request about live/current data, your FIRST action is "
@@ -111,12 +133,23 @@ ARCHITECT_EXECUTION_CONTRACT = (
     "repeat searches, or guess paths.\n"
     "- After enough real API data answers the request, answer and stop. Search again only "
     "for a genuinely different endpoint the request still requires.\n"
+    "- Evidence discipline: distinguish observed values, hypotheses, and confirmed causes. "
+    "Missing fields are unknown, not success or failure; policy-dependent states require "
+    "applicable policy and outcome evidence before calling them unhealthy.\n"
+    "- Match collection to the requested population and observation window. For failures "
+    "over time, discover documented event/history sources, not only current active records "
+    "or a reason dictionary. If no window was supplied, state the bounded window used. "
+    "State assessed scope, pagination/record limits, unavailable sources and unassessed "
+    "populations; a subset or blocked source cannot establish 'all' or 'none'. "
+    "When blocked, retain successful evidence and give an explicitly partial final answer "
+    "with the remaining unknowns, not endpoint variations or invented conclusions.\n"
     "- Use task() specialists only for genuine multi-platform correlation.\n"
     "- Cisco Workflows: discover the operation and its complete action/input schema "
     "from the cisco_workflows catalog. Use cisco_workflows_api_call only for reads "
     "(including POST list/batch_get); submit every create/import/update/start/delete/"
     "control through cisco_workflows_apply with the bound organization_id shown "
-    "in its tool description for operator approval, never Python."
+    "in its tool description for operator approval, never Python.\n"
+    + INVESTIGATION_EVIDENCE_CONTRACT
 )
 
 
@@ -144,9 +177,20 @@ TASK_COMPLETION_RUBRIC = (
     "(not a placeholder or a promise to do it)?\n"
     "3. Is the final answer a single, complete, non-repeating response with the "
     "actual results — not a half-formed sentence, not the same paragraph repeated?\n"
-    "Grade 'satisfied' ONLY if the task is genuinely done and the answer is clean. "
-    "Grade 'failed' with specific feedback if the agent looped, repeated itself, "
-    "stopped early, or only narrated an action without performing it."
+    "For investigations, require an explicit observation window and assessed scope; "
+    "missing fields or policy-dependent states alone do not prove success, failure or cause. "
+    "A blocked investigation may finish with an honestly scoped partial answer naming "
+    "the blocker and unknowns; do not demand ineffective retries or grade it as a "
+    "complete assessment.\n"
+    "Grade 'satisfied' ONLY if the task is genuinely done or the investigation is "
+    "honestly partial, and all conclusions meet the evidence check below. "
+    "Grade 'needs_revision' for fixable answer errors, unsupported claims, inconsistent "
+    "counts, contradictions between a headline/card and its caveats, or narrated actions "
+    "not performed. Give specific gaps; prefer narrowing or withdrawing unsupported "
+    "claims over demanding more calls when evidence is unavailable. "
+    "Reserve 'failed' for a rubric that is malformed or impossible to evaluate, "
+    "not for an answer that needs correction.\n"
+    + INVESTIGATION_EVIDENCE_CONTRACT
 )
 
 
@@ -165,7 +209,7 @@ def _platform_aware_rubric(user_msg: str, configured_ids: list) -> str:
         TASK_COMPLETION_RUBRIC
         + "\n4. PLATFORM MATCH: the user's question is about "
         + f"{names}. The answer MUST present data from that platform. Grade "
-        "'failed' if the answer reports data from a DIFFERENT vendor (e.g. "
+        "'needs_revision' if the answer reports data from a DIFFERENT vendor (e.g. "
         "repeats a prior platform's results) instead of the one asked about."
     )
 
@@ -192,10 +236,6 @@ def _rubric_middleware(config: dict) -> RubricMiddleware:
     flows). max_iterations bounds how many times it can loop the model back."""
     return RubricMiddleware(
         model=_build_grader_model(config),
-        system_prompt=(
-            "You are a strict grader checking whether a network-automation agent "
-            "completed the user's request. Be concise and decisive."
-        ),
         max_iterations=2,
     )
 

@@ -135,6 +135,21 @@ class CanvasContext:
         self._sizes: dict[str, int] = {}
         self._card_pinned: set[str] = set()
         self._cards_delivered = 0
+        self._failed_helpers: set[str] = set()
+
+    def collection_failed(self, helper: str) -> None:
+        """Report collection limits, never infer health or discard successful evidence."""
+        with self._lock:
+            helper = self._policy.redact(helper)
+            if helper in self._failed_helpers:
+                return
+            failed = self._failed_helpers | {helper}
+            if self._event("coverage", {
+                "collection_status": "partial",
+                "failed_helpers": sorted(failed),
+                "limitation": "At least one source call failed. Retained results do not establish complete coverage of the requested scope; no automatic retry.",
+            }):
+                self._failed_helpers = failed
 
     def sources(self) -> list[dict]:
         """Bounded newest-first source IDs, shared by Python and native tools."""

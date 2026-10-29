@@ -488,7 +488,14 @@ async def run_and_stream(
     continuation_available = False
     tool_call_names: dict[str, str] = {}
     input_ai_object_ids, input_ai_message_ids = _input_ai_markers(input_data)
+    from ccie_sidecar.agents.code_exec import _CanvasTurn
+
     canvas_turn = getattr(graph, "_ccie_canvas_turn", None)
+    if not isinstance(canvas_turn, _CanvasTurn):
+        canvas_turn = None
+    pending_canvas_final = ""
+    canvas_review_status = None
+    canvas_review_required = False
     if canvas_turn is not None:
         canvas_turn.bind(on_event)
 
@@ -512,6 +519,8 @@ async def run_and_stream(
 
             # Handle custom events (drawio diagrams from inside execute_python_code)
             if mode == "custom":
+                if is_top_level and isinstance(payload, dict) and payload.get("type") == "rubric_evaluation_start":
+                    canvas_review_required = True
                 # Custom events are emitted by get_stream_writer() inside tools
                 # drawio helper calls: emit({"type": "diagram", ...})
                 if isinstance(payload, dict) and payload.get("type") == "diagram":
@@ -562,6 +571,9 @@ async def run_and_stream(
                 for node_name, node_output in payload.items():
                     if not isinstance(node_output, dict):
                         continue
+                    if is_top_level and node_name == "RubricMiddleware.after_agent":
+                        canvas_review_status = node_output.get("_rubric_status")
+                        canvas_review_required = True
                     messages = node_output.get("messages", []) or []
 
                     for msg in messages:
@@ -570,6 +582,9 @@ async def run_and_stream(
                         # specialist subagents (namespace != ()), so a delegated
                         # vendor's steps now stream just like an inline vendor's.
                         if isinstance(msg, AIMessage) and msg.tool_calls:
+                            if is_top_level and canvas_turn is not None:
+                                pending_canvas_final = ""
+                                canvas_review_status = None
                             step += 1
 
                             # Synthesize thought_start (required by ai.rs:271)
@@ -702,10 +717,11 @@ async def run_and_stream(
                                     final_text = text_blocks[0].get("text", "")
 
                             if final_text and is_top_level:
-                                # Only emit final once (avoid double-firing)
-                                if not final_text_seen:
-                                    if canvas_turn is not None:
-                                        canvas_turn.context.finish_presentation()
+                                if canvas_turn is not None:
+                                    # This is a draft until after_agent review finishes.
+                                    pending_canvas_final = final_text
+                                    canvas_review_status = None
+                                elif not final_text_seen:
                                     final_text_seen = True
                                     on_event({
                                         "type": "final",
@@ -717,10 +733,30 @@ async def run_and_stream(
                 # top-level model output belongs in the main chat transcript;
                 # specialist subagent chunks stay represented by their normal
                 # tool lifecycle events.
-                if stream_output and is_top_level:
+                if stream_output and is_top_level and canvas_turn is None:
+                    # Canvas publishes only the reviewed answer, never draft tokens.
                     text = _stream_text_from_payload(payload)
                     if text:
                         on_event({"type": "token", "text": text})
+
+        if canvas_turn is not None and pending_canvas_final:
+            if not canvas_review_required or canvas_review_status == "satisfied":
+                canvas_turn.context.finish_presentation()
+                final_text_seen = True
+                on_event({"type": "final", "response": pending_canvas_final})
+            else:
+                error_kind = "answer_review"
+                error_type = "AnswerReviewIncomplete"
+                on_event({
+                    "type": "error",
+                    "kind": error_kind,
+                    "error_type": error_type,
+                    "message": (
+                        "Answer review did not pass within the existing review budget "
+                        "or could not finish. Retained Canvas cards are provisional, "
+                        "not a verified assessment. No unapproved draft was finalized."
+                    ),
+                })
 
     except GraphRecursionError as e:
         # LangGraph's recursion limit is a superstep budget, not proof of a
