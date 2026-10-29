@@ -21,6 +21,7 @@ HEARTBEAT_INTERVAL_S = int(os.environ.get("CCIE_SIDECAR_HEARTBEAT_S", "30"))
 # Serialize stdout writes so the background heartbeat thread doesn't interleave
 # bytes with response lines from the request handler.
 _STDOUT_LOCK = threading.Lock()
+_catalog_updater = None
 
 
 def build_deepagents_agent_definition(
@@ -310,6 +311,28 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
     req_id = str(req.get("id", ""))
     method = req.get("method")
     params = req.get("params", {})
+
+    if method in {"agent.catalog_update_start", "agent.catalog_update_status"}:
+        try:
+            if not isinstance(params, dict):
+                raise ValueError("API update params must be an object.")
+            allowed = {"agent_id"} if method.endswith("_start") else {"agent_id", "job_id"}
+            if set(params) - allowed or not isinstance(params.get("agent_id"), str):
+                raise ValueError("Select one Cisco product; URLs, paths and replacement data are not accepted.")
+            job_id = params.get("job_id")
+            if job_id is not None and (not isinstance(job_id, str) or len(job_id) > 128):
+                raise ValueError("Invalid API update job ID.")
+            global _catalog_updater
+            if _catalog_updater is None:
+                from ccie_sidecar.agents.api_catalog_update import ApiCatalogUpdater
+                _catalog_updater = ApiCatalogUpdater()
+            result = (_catalog_updater.start(params["agent_id"]) if method.endswith("_start")
+                      else _catalog_updater.status(params["agent_id"], job_id))
+            return {"id": req_id, "type": "done", "result": result}
+        except ValueError as error:
+            return {"id": req_id, "type": "error", "message": str(error)}
+        except Exception:
+            return {"id": req_id, "type": "error", "message": "API updater is unavailable; no catalog update was started."}
 
     if method == "topolograph.import_lsdb_from_pyats":
         from ccie_sidecar.topolograph_pyats_import import (
@@ -2045,17 +2068,18 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             stream_output=stream_output,
                         ))
                     else:
-                        # Legacy: expects catalog as JSON string
+                        # Legacy function bindings must exclude imported endpoint knowledge.
+                        from ccie_sidecar.agents.catalog_grounding import legacy_function_catalog
                         if isinstance(attachments_raw, list) and attachments_raw:
                             attached_tools = []
                             for attachment in attachments_raw:
                                 catalog = attachment.get("catalog", [])
                                 attached_tools.append({
                                     **attachment,
-                                    "catalog": json.dumps(catalog) if isinstance(catalog, list) else catalog,
+                                    "catalog": json.dumps(legacy_function_catalog(catalog)),
                                 })
                         else:
-                            catalog_json_str = json.dumps(tools_raw) if isinstance(tools_raw, list) else tools_raw
+                            catalog_json_str = json.dumps(legacy_function_catalog(tools_raw))
                             attached_tools = [{
                                 "catalog": catalog_json_str,
                                 "vault_entry": vault_entry,

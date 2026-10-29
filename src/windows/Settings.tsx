@@ -15,6 +15,15 @@ import { ProxmoxSettingsTab } from "../components/settings/ProxmoxSettingsTab";
 import { AgentComputersSettingsTab } from "../components/settings/AgentComputersSettingsTab";
 import StealthwatchSettingsTab from "../components/settings/StealthwatchSettingsTab";
 import IseSettingsTab from "../components/settings/IseSettingsTab";
+import { ApiCatalogUpdateControl } from "../components/settings/ApiCatalogUpdateControl";
+
+const CISCO_API_PAGES = [
+  ["stealthwatch", "stealthwatch", "Stealthwatch"], ["ise", "ise", "ISE"], ["cml", "cml", "CML"],
+  ["catalyst_center", "catalyst-center", "Catalyst Center"], ["splunk", "splunk", "Splunk"],
+  ["aci", "aci", "ACI"], ["fmc", "fmc", "FMC"], ["thousandeyes", "thousandeyes", "ThousandEyes"],
+  ["meraki", "meraki", "Meraki"], ["secure_endpoint", "secure-endpoint", "Secure Endpoint"],
+  ["cisco_xdr", "cisco-xdr", "Cisco XDR"],
+] as const;
 import VendorKeywordsSettingsTab from '../components/settings/VendorKeywordsSettingsTab';
 import GitCiSettingsTab from '../components/settings/GitCiSettingsTab';
 import UpdatesSettingsTab from '../components/settings/UpdatesSettingsTab';
@@ -520,7 +529,7 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
             {getSettingsTabGroups().map(({ category, tabs }) => (
               <div key={category} className="settings-tab-group">
                 {category !== "General" && (
-                  <div className="settings-tab-category">{category}</div>
+                  <div className="settings-tab-category" role={category === "Cisco" ? "heading" : undefined} aria-level={category === "Cisco" ? 2 : undefined}>{category}</div>
                 )}
                 {tabs.map((tab) => (
                   <button
@@ -1116,6 +1125,10 @@ export function Settings({ isOpen, onClose }: SettingsProps) {
         {activeTab === "netbox" && <NetboxSettingsTab />}
         {activeTab === "sketchfab" && <SketchfabSettingsTab />}
         {activeTab === "whatsapp" && <WhatsAppSettingsTab />}
+
+        {CISCO_API_PAGES.map(([tab, agentId, label]) => activeTab === tab && (
+          <ApiCatalogUpdateControl key={agentId} agentId={agentId} label={label} />
+        ))}
 
         {activeTab === "terminal" && <TerminalSettingsTab />}
 

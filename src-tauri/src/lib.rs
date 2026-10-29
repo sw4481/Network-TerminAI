@@ -308,6 +308,8 @@ pub fn run() {
         .manage(shutdown)
         .invoke_handler(tauri::generate_handler![
             commands::ping_cmd,
+            commands::agent_catalog::agent_catalog_update_start,
+            commands::agent_catalog::agent_catalog_update_status,
             commands::dictation_start,
             commands::dictation_stop,
             commands::dictation_cancel,

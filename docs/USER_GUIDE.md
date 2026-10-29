@@ -324,6 +324,16 @@ Open **Settings → Skills**.
 
 Discover, reload, create, and invoke reusable AI workflows with prompts and helper scripts.
 
+### Update a Cisco agent’s APIs
+
+Open **Settings → Cisco → the product → Update APIs**. Each product’s button checks only its own published API references and adds compatible, newly documented operations to that installed agent’s catalog. It does not execute those operations or change connection settings, prompts, existing entries, or other products. Save and Test Connection remain separate actions.
+
+The page shows progress, added/already-known/skipped counts, warnings, checked sources and the latest check time. One update runs at a time; switching pages does not cancel it, and returning to the product resumes status polling. Job status is reset if the sidecar restarts. Start a **new agent run** after an update to use additions.
+
+Public-reference coverage is partial: login-only/client-rendered pages, unsupported schema references or formats, and scan limits can leave APIs undiscovered. Prose extraction uses your configured AI provider, may incur provider usage charges, and requires supporting input/authentication evidence; it is not deterministic specification verification. A completed check does not establish full product coverage, installed-version compatibility, or the permissions of your saved account. New authentication, uploads or transports still require an integration change. In particular, ThousandEyes retains its existing GET-only scope and Secure Endpoint v3 is not imported.
+
+Publication preserves a managed last-known-good backup beside the selected catalog (`<catalog filename>.api-update-backup.json`). A fetch, validation or concurrent-edit failure leaves that catalog unchanged; unrelated files are never treated as updater backups.
+
 ### MCP servers
 
 Open **Settings → MCP Servers**.

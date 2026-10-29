@@ -23,6 +23,7 @@ MAX_SEARCH_LIMIT = 5
 MAX_CONSECUTIVE_DISCOVERY_CALLS = 4
 MAX_SUMMARY_CHARS = 420
 MAX_PROMPT_HINT_CHARS = 1_800
+API_UPDATE_BACKUP_OWNER = "terminai-api-catalog-updater-v1"
 
 
 class CatalogGroundingError(RuntimeError):
@@ -46,6 +47,8 @@ class CatalogRecord:
     # Extra catalog-native identifiers used only for ranking. These remain
     # private so SDK names improve discovery without expanding model context.
     search_terms: tuple[str, ...] = ()
+    api_details: Mapping[str, Any] | None = None
+    api_update: Mapping[str, Any] | None = None
 
     @property
     def key(self) -> tuple[str, str, str, str, str]:
@@ -74,6 +77,10 @@ class CatalogRecord:
             result["operation"] = self.operation
         if self.parameters:
             result["parameters"] = dict(self.parameters)
+        if self.api_details:
+            result["has_input_details"] = True
+        if self.api_update:
+            result["api_update"] = dict(self.api_update)
         return result
 
 
@@ -102,6 +109,17 @@ def _coerce_entries(raw: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def legacy_function_catalog(raw: Any) -> list[dict[str, Any]]:
+    """Imported HTTP knowledge is data, not a new legacy function binding."""
+    value = json.loads(raw) if isinstance(raw, str) else raw
+    if isinstance(value, dict):
+        value = value.get("tools", value.get("entries", [value]))
+    if not isinstance(value, list):
+        raise ValueError("Legacy catalog must contain a list of records.")
+    return [entry for entry in value if isinstance(entry, dict)
+            and not (entry.get("api_update") and entry.get("endpoint"))]
 
 
 def normalize_catalogs(catalogs: Any) -> list[dict[str, Any]]:
@@ -312,7 +330,7 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                 path_value = official_meraki_path or path_value
             raw_path = _clean_path(
                 path_value,
-                "" if official_meraki_path else catalog_id,
+                "" if official_meraki_path or item.get("api_update") else catalog_id,
             )
             for path in _expand_simple_alternatives(raw_path):
                 records.append(
@@ -326,6 +344,9 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                             {"properties": item.get("args"), "required": item.get("required")}
                         ),
                         search_terms=search_terms,
+                        allowed=item.get("allowed", True) is not False,
+                        api_details=item.get("api_details"),
+                        api_update=item.get("api_update"),
                     )
                 )
             continue
@@ -422,8 +443,8 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
                 )
             )
 
-    # Stable de-duplication. Prefer an allowed record and the longer context.
-    dedup: dict[tuple[str, str, str], CatalogRecord] = {}
+    # Stable de-duplication. A prohibition always wins over competing context.
+    dedup: dict[tuple[str, str, str, str], CatalogRecord] = {}
     for record in records:
         key = (
             record.method or "*",
@@ -432,7 +453,9 @@ def _records_for_catalog(catalog_id: str, entries: list[dict[str, Any]]) -> list
             record.name,
         )
         current = dedup.get(key)
-        if current is None or (record.allowed and not current.allowed) or len(record.summary) > len(current.summary):
+        if current is None or (not record.allowed and current.allowed) or (
+            record.allowed == current.allowed and len(record.summary) > len(current.summary)
+        ):
             dedup[key] = record
     return list(dedup.values())
 
@@ -649,9 +672,90 @@ class CatalogIndex:
         self,
         name_or_path: str,
         catalog_id: str | None = None,
+        *,
+        method: str | None = None,
+        schema_pointer: str | None = None,
     ) -> dict[str, Any]:
-        """Exact lookup convenience; output is bounded like ``search``."""
-        return self.search(name_or_path, catalog_id=catalog_id, limit=1)
+        """Describe an exact match; page large inputs through local JSON pointers."""
+        exact = [record for record in self._records
+                 if (catalog_id is None or record.catalog_id == catalog_id)
+                 and name_or_path in (record.name, record.path)
+                 and (method is None or record.method == method.upper())]
+        if not exact:
+            if schema_pointer is not None or method is not None:
+                raise CatalogGroundingError("No exact catalog operation matches this detail lookup.")
+            return self.search(name_or_path, catalog_id=catalog_id, limit=1)
+        record = exact[0]
+        if record.key not in self._authorized:
+            result = self.search(f"{method or ''} {name_or_path}".strip(), catalog_id, limit=1)
+            if record.allowed:
+                self._authorized.add(record.key)
+        else:
+            result = {"matches": [], "catalog_id": catalog_id}
+        public = record.public()
+        result["matches"] = [public]
+        details = dict(record.api_details or {})
+        pointer = schema_pointer or ""
+        offset = 0
+        if "#offset=" in pointer:
+            pointer, _, raw_offset = pointer.rpartition("#offset=")
+            try:
+                offset = max(0, int(raw_offset))
+            except ValueError as error:
+                raise CatalogGroundingError("Invalid schema continuation offset.") from error
+        if pointer and not pointer.startswith("/"):
+            raise CatalogGroundingError("Schema pointers must address retained local input data.")
+        value: Any = details
+        try:
+            for part in pointer.split("/")[1:]:
+                key = part.replace("~1", "/").replace("~0", "~")
+                value = value[int(key)] if isinstance(value, list) else value[key]
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise CatalogGroundingError("Unknown local schema pointer.") from error
+        remaining = 6_000
+        continuations: list[str] = []
+
+        def bounded(item: Any, location: str, depth: int = 0) -> Any:
+            nonlocal remaining
+            if depth > 24 or remaining < 100:
+                if len(continuations) < 40:
+                    continuations.append(location)
+                return {"schema_pointer": location}
+            if isinstance(item, (dict, list)):
+                output: Any = {} if isinstance(item, dict) else []
+                pairs = item.items() if isinstance(item, dict) else enumerate(item)
+                for position, (key, child) in enumerate(pairs):
+                    if location == pointer and position < offset:
+                        continue
+                    if remaining < 100 or len(continuations) >= 40:
+                        continuations.append(location + f"#offset={position}")
+                        break
+                    child_path = location + "/" + str(key).replace("~", "~0").replace("/", "~1")
+                    remaining -= len(str(key)) + 8
+                    fragment = bounded(child, child_path, depth + 1)
+                    if isinstance(output, dict):
+                        output[key] = fragment
+                    else:
+                        output.append(fragment)
+                return output
+            if isinstance(item, str) and len(json.dumps(item)) > remaining:
+                start = offset if location == pointer else 0
+                fragment = item[start:start + max(100, remaining // 6)]
+                if start + len(fragment) < len(item):
+                    continuations.append(location + f"#offset={start + len(fragment)}")
+                remaining -= len(json.dumps(fragment))
+                return fragment
+            remaining -= len(json.dumps(item))
+            return item
+
+        fragment = bounded(value, pointer)
+        if schema_pointer is None:
+            public["api_details"] = fragment
+        else:
+            result["detail"] = fragment
+        result["truncated"] = bool(continuations)
+        result["continuations"] = continuations[:40]
+        return result
 
     def help(self) -> str:
         return (
@@ -695,7 +799,7 @@ class CatalogIndex:
                 "api_catalog.search directly without importing it)."
             )
         allowed_matches = [record for record in matches if record.allowed]
-        if not allowed_matches:
+        if any(not record.allowed for record in matches):
             raise CatalogGroundingError(
                 f"{method.upper()} {path} is explicitly forbidden by the {catalog_id} catalog; "
                 "network call blocked."
@@ -1004,9 +1108,10 @@ def catalog_prompt_hint(index: CatalogIndex | None) -> str:
         "each distinct endpoint/operation, call TOP-LEVEL search_api_catalog with intent "
         "and catalog_id. Do NOT run catalog discovery inside Python. It returns a dict; "
         "records are in result['matches']. Once a usable match appears, STOP searching. "
-        "For HTTP records call the returned helper with method and concrete path; for object "
-        "records call the returned operation. Never execute a catalog label as Python or "
-        "enumerate the catalog. Search again only for a different required endpoint. "
+        "If has_input_details, search exact path/method with schema_pointer='' and follow continuations. "
+        "Use the returned HTTP helper with method/path, or returned object operation. "
+        "Never execute catalog labels as Python or enumerate. "
+        "Search again only for a different required endpoint. "
         "Undocumented, undiscovered, forbidden, and repeat-failed calls are blocked before "
         "network I/O. HTTP/transport failures raise code errors; do not present them as "
         "success. api_catalog.inventory() takes no arguments; use api_catalog.help() for syntax.\n"
@@ -1021,7 +1126,7 @@ def _default_bundled_agents_dir() -> Path:
     return _bundled_agents_dir()
 
 
-def _read_agent_catalogs(agent_dir: Path) -> list[dict[str, Any]]:
+def _read_agent_catalogs(agent_dir: Path, *, include_paths: bool = False) -> list[dict[str, Any]]:
     agent_md = agent_dir / "AGENT.md"
     if not agent_md.is_file():
         return []
@@ -1055,8 +1160,62 @@ def _read_agent_catalogs(agent_dir: Path) -> list[dict[str, Any]]:
             continue
         coerced = _coerce_entries(entries)
         if coerced:
-            catalogs.append({"id": catalog_id, "entries": coerced})
+            catalog = {"id": catalog_id, "entries": coerced}
+            if include_paths:
+                catalog["path"] = path
+            catalogs.append(catalog)
     return catalogs
+
+
+def _managed_additions(user_dir: Path, bundled_catalog: dict[str, Any]) -> list[dict[str, Any]]:
+    if user_dir.is_symlink() or (user_dir / "AGENT.md").is_symlink():
+        return []
+    for installed in _read_agent_catalogs(user_dir, include_paths=True):
+        if installed["id"] != bundled_catalog["id"]:
+            continue
+        path = installed["path"]
+        if path.is_symlink() or not path.resolve().is_relative_to(user_dir.resolve()):
+            return []
+        backup = path.with_name(path.name + ".api-update-backup.json")
+        if backup.is_symlink():
+            return []
+        try:
+            metadata = json.loads(backup.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+        if not isinstance(metadata, dict) or metadata.get("owner") != API_UPDATE_BACKUP_OWNER or metadata.get("target") != path.name:
+            return []
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        previous = _coerce_entries(metadata.get("catalog"))
+        entries = installed["entries"]
+        start = metadata.get("managed_start")
+        if not previous or type(start) is not int or not 0 <= start <= len(previous):
+            return []
+        if digest == metadata.get("published_sha256"):
+            if entries[:len(previous)] != previous or not entries[len(previous):]:
+                return []
+            managed = entries[start:]
+        elif metadata.get("previous_sha256") and digest == metadata["previous_sha256"] and entries == previous:
+            managed = entries[start:]
+        else:
+            return []
+        shipped = CatalogIndex([bundled_catalog])._records
+        additions = []
+        for addition in managed:
+            endpoint = addition.get("endpoint")
+            if not isinstance(addition.get("api_update"), dict) or not isinstance(endpoint, dict):
+                continue
+            method, operation_path = endpoint.get("method"), endpoint.get("path")
+            if not isinstance(method, str) or not isinstance(operation_path, str):
+                continue
+            if any(record.path and (record.method is None or record.method == method.upper())
+                   and (_path_matches(record.path, operation_path) or _path_matches(operation_path, record.path))
+                   for record in shipped):
+                continue
+            additions.append(addition)
+            shipped.extend(CatalogIndex([{"id": installed["id"], "entries": [addition]}])._records)
+        return additions
+    return []
 
 
 def load_catalogs_for_agent(
@@ -1107,6 +1266,8 @@ def load_catalogs_for_agent(
         for catalog in _read_agent_catalogs(directory):
             if catalog["id"] not in seen:
                 seen.add(catalog["id"])
+                if directory == bundled:
+                    catalog["entries"].extend(_managed_additions(user_root / name, catalog))
                 merged.append(catalog)
     return merged
 
