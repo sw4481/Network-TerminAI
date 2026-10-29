@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from deepagents import create_deep_agent, SubAgent, RubricMiddleware
+from deepagents.middleware.rubric import GraderResponse, _coerce_text
 from langchain_core.messages import AIMessage, HumanMessage
 
 
@@ -230,11 +231,47 @@ def _build_grader_model(config: dict):
         return build_chat_model(config)
 
 
-def _rubric_middleware(config: dict) -> RubricMiddleware:
+class _CanvasRubricMiddleware(RubricMiddleware):
+    """Make an unreviewable draft revisable within the existing review budget."""
+
+    name = "RubricMiddleware"
+    canvas = False
+
+    def _length_verdict(self, state) -> GraderResponse | None:
+        if not self.canvas:
+            return None
+        messages = state.get("messages") or []
+        candidate = messages[-1] if messages else None
+        if not isinstance(candidate, AIMessage) or candidate.tool_calls:
+            return None
+        length = len(_coerce_text(candidate))
+        if length <= 4000:
+            return None
+        return GraderResponse(
+            result="needs_revision",
+            explanation=f"The Canvas answer is {length} characters; the reviewer can see only 4000.",
+            criteria=[{
+                "name": "Complete Canvas answer within review bound",
+                "passed": False,
+                "gap": "Rewrite the complete answer in at most 4000 characters. Leave row-by-row "
+                       "tables in cards. Include assessed scope, window, conclusions, unknowns and "
+                       "conditional next steps; withdraw unresolved counts rather than assert them. "
+                       "Do not repeat source calls just to shorten the answer.",
+            }],
+        )
+
+    def _grade(self, state, iteration) -> GraderResponse:
+        return self._length_verdict(state) or super()._grade(state, iteration)
+
+    async def _agrade(self, state, iteration) -> GraderResponse:
+        return self._length_verdict(state) or await super()._agrade(state, iteration)
+
+
+def _rubric_middleware(config: dict) -> _CanvasRubricMiddleware:
     """RubricMiddleware is safe to include unconditionally; it activates only when
     a `rubric` is present in invocation state (which we pass for change/verify
     flows). max_iterations bounds how many times it can loop the model back."""
-    return RubricMiddleware(
+    return _CanvasRubricMiddleware(
         model=_build_grader_model(config),
         max_iterations=2,
     )
@@ -984,6 +1021,9 @@ async def deepagents_react_code_loop(
         if canvas is not None:
             from ccie_sidecar.agents.code_exec import CANVAS_PRESENTATION_GUIDANCE
             system_prompt += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
+        rubric_middleware = _rubric_middleware(config)
+        if canvas_turn is not None:
+            rubric_middleware.canvas = True
         graph = create_deep_agent(
             model=chat_model,
             tools=tools,
@@ -992,7 +1032,7 @@ async def deepagents_react_code_loop(
             middleware=[
                 primary_recovery,
                 ToolCallSanitizerMiddleware(),
-                _rubric_middleware(config),
+                rubric_middleware,
                 *extra_middleware,
                 *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else []),
             ],
