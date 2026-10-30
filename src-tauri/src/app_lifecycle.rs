@@ -361,6 +361,7 @@ fn cleanup_process_services(services: &impl ProcessExitServices) {
 
 pub(super) fn cleanup_before_process_exit(app: &AppHandle) {
     let state = app.state::<crate::commands::AppState>();
+    state.terminal_logging.shutdown();
     cleanup_process_services(&*state);
     tracing::info!("application exit cleanup stopped STP and the sidecar");
 }

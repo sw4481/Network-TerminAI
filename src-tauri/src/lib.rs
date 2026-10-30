@@ -65,6 +65,7 @@ pub mod skills;
 pub mod ssh_exec;
 pub mod structured;
 pub mod terminal_agent;
+pub mod terminal_logging;
 pub mod tftp;
 pub mod topology;
 pub mod transcript_export;
@@ -891,6 +892,9 @@ pub fn run() {
             commands::vault::vault_idle_sweep,
             commands::vault::vault_audit_list,
             commands::vault::vault_import_csv,
+            commands::terminal_log_start,
+            commands::terminal_log_stop,
+            commands::terminal_log_status,
             // Plan 14 — Session recording.
             commands::recording::recording_start,
             commands::recording::recording_stop,

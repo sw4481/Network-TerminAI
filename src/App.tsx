@@ -980,6 +980,20 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void import('./state/terminalLoggingStore').then(async ({ useTerminalLoggingStore }) => {
+      const cleanup = await useTerminalLoggingStore.getState().initListener();
+      if (disposed) cleanup();
+      else unlisten = cleanup;
+    }).catch((error) => console.error('[terminal-logging] status subscription failed:', error));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
   // Phase 1: AI Assistant Integration — subscribe to pane activity events
   useEffect(() => {
     const subscribeToActivity = async () => {

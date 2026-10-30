@@ -14,6 +14,13 @@
   scrollbar-width: thin;
 }
 
+.terminal-logging-controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
 .global-command-bar__item {
   display: inline-flex;
   flex: 0 0 auto;
