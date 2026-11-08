@@ -151,7 +151,11 @@ fn build_index(headers: Option<&csv::StringRecord>) -> HashMap<String, usize> {
     m
 }
 
-fn col<'a>(idx: &HashMap<String, usize>, row: &'a csv::StringRecord, name: &str) -> Option<&'a str> {
+fn col<'a>(
+    idx: &HashMap<String, usize>,
+    row: &'a csv::StringRecord,
+    name: &str,
+) -> Option<&'a str> {
     let pos = idx.get(name)?;
     row.get(*pos)
 }
@@ -180,12 +184,18 @@ fn parse_row(
             };
             let mut meta = HashMap::new();
             if !username.is_empty() {
-                meta.insert("username".into(), serde_json::Value::String(username.into()));
+                meta.insert(
+                    "username".into(),
+                    serde_json::Value::String(username.into()),
+                );
             }
             if !url.is_empty() {
                 meta.insert("url".into(), serde_json::Value::String(url.into()));
             }
-            meta.insert("source".into(), serde_json::Value::String("1password_csv".into()));
+            meta.insert(
+                "source".into(),
+                serde_json::Value::String("1password_csv".into()),
+            );
             Some(ParsedRow {
                 kind: kind.into(),
                 label: title.into(),
@@ -212,7 +222,10 @@ fn parse_row(
             };
             let mut meta = HashMap::new();
             if !username.is_empty() {
-                meta.insert("username".into(), serde_json::Value::String(username.into()));
+                meta.insert(
+                    "username".into(),
+                    serde_json::Value::String(username.into()),
+                );
             }
             if !uri.is_empty() {
                 meta.insert("url".into(), serde_json::Value::String(uri.into()));
@@ -220,7 +233,10 @@ fn parse_row(
             if !totp.is_empty() {
                 meta.insert("totp".into(), serde_json::Value::Bool(true));
             }
-            meta.insert("source".into(), serde_json::Value::String("bitwarden_csv".into()));
+            meta.insert(
+                "source".into(),
+                serde_json::Value::String("bitwarden_csv".into()),
+            );
             Some(ParsedRow {
                 kind: kind.into(),
                 label: name.into(),

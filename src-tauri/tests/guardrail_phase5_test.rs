@@ -71,7 +71,10 @@ fn impact_falls_back_when_topology_missing() {
     let conn = empty_db();
     let s = summarize(&conn, "cisco", "iosxe", "show version");
     assert!(!s.topology_available);
-    assert!(s.notes.iter().any(|n| n.contains("Topology data not available")));
+    assert!(s
+        .notes
+        .iter()
+        .any(|n| n.contains("Topology data not available")));
 }
 
 #[test]
@@ -85,7 +88,10 @@ fn impact_predicts_reload_disruption() {
 fn impact_predicts_no_router_bgp_blast_radius() {
     let conn = empty_db();
     let s = summarize(&conn, "cisco", "iosxe", "no router bgp 64512");
-    assert!(s.notes.iter().any(|n| n.contains("BGP sessions in ASN 64512")));
+    assert!(s
+        .notes
+        .iter()
+        .any(|n| n.contains("BGP sessions in ASN 64512")));
 }
 
 #[test]

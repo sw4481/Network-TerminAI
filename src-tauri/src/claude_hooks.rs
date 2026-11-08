@@ -143,7 +143,10 @@ mod tests {
     fn working_and_idle_states_map_to_right_events() {
         let v = build_hooks_settings(54321, "tok");
         let cmd_for = |evt: &str| -> String {
-            v["hooks"][evt][0]["hooks"][0]["command"].as_str().unwrap().to_string()
+            v["hooks"][evt][0]["hooks"][0]["command"]
+                .as_str()
+                .unwrap()
+                .to_string()
         };
         assert!(cmd_for("UserPromptSubmit").contains("\\\"state\\\":\\\"working\\\""));
         assert!(cmd_for("Stop").contains("\\\"state\\\":\\\"idle\\\""));
@@ -153,10 +156,21 @@ mod tests {
     #[test]
     fn command_targets_control_server_with_auth_and_pane() {
         let v = build_hooks_settings(54321, "secret-token");
-        let cmd = v["hooks"]["Stop"][0]["hooks"][0]["command"].as_str().unwrap();
-        assert!(cmd.contains("127.0.0.1:54321/agent_status"), "must hit the control route");
-        assert!(cmd.contains("Bearer secret-token"), "must carry the bearer token");
-        assert!(cmd.contains("$CCIE_PANE_ID"), "must reference the injected pane id");
+        let cmd = v["hooks"]["Stop"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap();
+        assert!(
+            cmd.contains("127.0.0.1:54321/agent_status"),
+            "must hit the control route"
+        );
+        assert!(
+            cmd.contains("Bearer secret-token"),
+            "must carry the bearer token"
+        );
+        assert!(
+            cmd.contains("$CCIE_PANE_ID"),
+            "must reference the injected pane id"
+        );
     }
 
     #[test]
@@ -165,8 +179,14 @@ mod tests {
         let sl = v.get("statusLine").expect("statusLine present");
         assert_eq!(sl["type"].as_str().unwrap(), "command");
         let cmd = sl["command"].as_str().unwrap();
-        assert!(cmd.ends_with("statusline.sh"), "points at the script: {cmd}");
-        assert!(cmd.contains("claude-config"), "lives in the app config dir: {cmd}");
+        assert!(
+            cmd.ends_with("statusline.sh"),
+            "points at the script: {cmd}"
+        );
+        assert!(
+            cmd.contains("claude-config"),
+            "lives in the app config dir: {cmd}"
+        );
     }
 
     #[test]

@@ -1,7 +1,5 @@
 use ccie_terminal_lib::fanout::events::FanoutEvent;
-use ccie_terminal_lib::fanout::executor::{
-    EventSink, ExecuteArgs, Executor, MemberRef, NoopParse,
-};
+use ccie_terminal_lib::fanout::executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse};
 use ccie_terminal_lib::fanout::export::export_run_zip;
 use ccie_terminal_lib::fanout::model::DeviceKind;
 use ccie_terminal_lib::fanout::store::FanoutStore;
@@ -33,12 +31,9 @@ async fn export_zip_contains_manifest_report_and_per_device_files() {
         let conn = db.lock();
         (0..3)
             .map(|i| {
-                let id = FanoutStore::seed_test_ssh(
-                    &conn,
-                    &format!("dev{i}"),
-                    &format!("10.0.0.{i}"),
-                )
-                .unwrap();
+                let id =
+                    FanoutStore::seed_test_ssh(&conn, &format!("dev{i}"), &format!("10.0.0.{i}"))
+                        .unwrap();
                 MemberRef {
                     device_id: id,
                     device_kind: DeviceKind::Ssh,
@@ -111,12 +106,9 @@ async fn export_zip_handles_partial_run_with_failures() {
         let conn = db.lock();
         (0..2)
             .map(|i| {
-                let id = FanoutStore::seed_test_ssh(
-                    &conn,
-                    &format!("dev{i}"),
-                    &format!("10.0.0.{i}"),
-                )
-                .unwrap();
+                let id =
+                    FanoutStore::seed_test_ssh(&conn, &format!("dev{i}"), &format!("10.0.0.{i}"))
+                        .unwrap();
                 MemberRef {
                     device_id: id,
                     device_kind: DeviceKind::Ssh,

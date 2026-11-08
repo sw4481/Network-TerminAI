@@ -822,13 +822,13 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         platform = params.get("platform")
         command = params.get("command")
         raw = params.get("raw")
-        if protocol not in ("cdp", "lldp", "bgp", "ospf", "isis"):
+        if protocol not in ("cdp", "lldp", "bgp", "ospf", "isis", "eigrp"):
             return {
                 "id": req_id,
                 "type": "error",
                 "message": (
                     "topology.neighbors 'protocol' must be one of "
-                    "'cdp', 'lldp', 'bgp', 'ospf', 'isis'"
+                    "'cdp', 'lldp', 'bgp', 'ospf', 'isis', 'eigrp'"
                 ),
             }
         if not (
@@ -842,19 +842,37 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
                 "type": "error",
                 "message": "topology.neighbors requires 'vendor', 'platform', 'command', 'raw' params",
             }
+        if protocol == "eigrp" and command != "show ip eigrp neighbors":
+            return {"id": req_id, "type": "error", "message": "EIGRP collection requires show ip eigrp neighbors"}
         try:
             from ccie_sidecar.parsers.dispatcher import parse_show
             from ccie_sidecar.parsers.errors import NoParserError
-            from ccie_sidecar.topology.neighbors import normalize_neighbors
+            from ccie_sidecar.topology.neighbors import normalize_neighbors, normalize_neighbor_capture
 
             envelope = parse_show(vendor, platform, command, raw)
-            records = normalize_neighbors(protocol, envelope)
-            return {
-                "id": req_id,
-                "type": "done",
-                "result": {"records": records},
-            }
+            result = (
+                normalize_neighbor_capture(protocol, envelope, raw)
+                if params.get("include_status") is True
+                else {"records": normalize_neighbors(protocol, envelope)}
+            )
+            if params.get("include_status") is True and protocol in ("bgp", "ospf", "isis", "eigrp"):
+                interfaces_raw = params.get("interfaces_raw")
+                if interfaces_raw is not None:
+                    if not isinstance(interfaces_raw, str) or len(interfaces_raw.encode("utf-8")) > 2 * 1024 * 1024:
+                        raise ValueError("invalid interface evidence input")
+                    from ccie_sidecar.topology.interface_addresses import InterfaceAddressEvidence
+                    try:
+                        addresses = InterfaceAddressEvidence(parse_show(vendor, platform, InterfaceAddressEvidence.command, interfaces_raw))
+                    except (NoParserError, ValueError, TypeError, KeyError):
+                        addresses = None
+                    # Missing/unsupported evidence never blocks the logical observation.
+                    for record in result["records"]:
+                        if addresses is not None:
+                            addresses.associate(record)
+            return {"id": req_id, "type": "done", "result": result}
         except NoParserError as e:
+            if params.get("include_status") is True:
+                return {"id": req_id, "type": "done", "result": {"status": "unsupported", "records": []}}
             return {"id": req_id, "type": "error", "message": str(e)}
         except Exception as e:
             return {"id": req_id, "type": "error", "message": str(e)}

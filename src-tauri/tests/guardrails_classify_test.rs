@@ -118,7 +118,12 @@ fn show_prefix_safety_default_for_unknown_vendor() {
     // Unknown vendor + show command should still hit the universal `*/*` show fallback
     // OR the read-only-prefix safety default — both yield T0.
     let rs = load_builtin();
-    let d = classify(&rs, "unknown-vendor", "unknown-platform", "show interface diagnostics");
+    let d = classify(
+        &rs,
+        "unknown-vendor",
+        "unknown-platform",
+        "show interface diagnostics",
+    );
     assert_eq!(d.tier, Tier::T0);
 }
 

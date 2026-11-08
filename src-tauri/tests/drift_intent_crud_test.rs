@@ -1,4 +1,6 @@
-use ccie_terminal_lib::drift::intent::{IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode};
+use ccie_terminal_lib::drift::intent::{
+    IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode,
+};
 
 fn open_db() -> rusqlite::Connection {
     let tmp = tempfile::NamedTempFile::new().unwrap();
@@ -106,7 +108,10 @@ fn selector_persists_group_id_and_ssh_connection_id() {
     )
     .unwrap();
     let updated = IntentRepo::get(&conn, &id).unwrap().unwrap();
-    assert_eq!(updated.selector.ssh_connection_id.as_deref(), Some("conn-9"));
+    assert_eq!(
+        updated.selector.ssh_connection_id.as_deref(),
+        Some("conn-9")
+    );
     assert_eq!(updated.selector.group_id, None);
 }
 

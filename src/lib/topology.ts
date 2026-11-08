@@ -9,7 +9,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 
-export type Protocol = "cdp" | "lldp" | "bgp" | "ospf" | "isis";
+export type Protocol = "cdp" | "lldp" | "bgp" | "ospf" | "isis" | "eigrp" | "unknown";
 
 export interface TopologyNode {
   graph_id: string;
@@ -39,10 +39,166 @@ export interface TopologyGraph {
   updated_at: number;
 }
 
+export interface NodePosition {
+  device_ref: string;
+  x: number;
+  y: number;
+}
+
+export interface TopologyImportProvenance {
+  format: "sc2" | "native";
+  imported_at: number;
+  source_graph_id?: string;
+  node_metadata: { device_ref: string; placeholder: boolean; model?: string; serial?: string; os_version?: string }[];
+  unsupported_protocols: { a_device_ref: string; a_port: string; b_device_ref: string; b_port: string; raw_protocol: string }[];
+}
+
+export interface TopologyImportPreview {
+  format: "sc2" | "native";
+  node_count: number;
+  edge_count: number;
+  placeholder_count: number;
+  warnings: string[];
+}
+
+export interface RoutingEvidence {
+  state: string;
+  established: boolean;
+  peer_address: string | null;
+  vrf: string | null;
+  address_family: string | null;
+  instance: string | null;
+  level: string | null;
+  scope_supported: boolean;
+  interface_association?: {
+    interface: string;
+    local_address: string;
+    prefix_length: number;
+    source_command: string;
+    relationship: "same_subnet_unverified";
+  } | null;
+}
+
+export interface NeighborRecord {
+  protocol: string;
+  local_port: string;
+  neighbor_name: string;
+  neighbor_port: string;
+  neighbor_mgmt_ip: string | null;
+  neighbor_platform: string | null;
+  neighbor_vendor: string | null;
+  capabilities: string[];
+  routing?: RoutingEvidence | null;
+}
+
+export interface NeighborObservation {
+  record: NeighborRecord;
+  captured_at: number;
+  in_latest_capture: boolean;
+}
+
+export interface SnmpObservation {
+  captured_at?: number;
+  in_latest_attempt?: boolean;
+  index: number[];
+  neighbor_name: string;
+  local_port_id: string;
+  local_port_description: string;
+  remote_port_id: string;
+  remote_port_description: string;
+  remote_port_subtype: number | null;
+  local_ifindex: number | null;
+  mapping: string | null;
+  reason: string | null;
+  management_addresses: string[];
+  management_indexes: number[][];
+}
+
+export interface CaptureEvidence {
+  source_ref: string;
+  protocol: string;
+  source_command: string;
+  attempted_at: number;
+  status: "incomplete" | "completed" | "failed" | "unsupported";
+  observations: NeighborObservation[];
+  snmp_observations?: SnmpObservation[];
+}
+
 export interface GraphSnapshot {
   graph: TopologyGraph;
   nodes: TopologyNode[];
   edges: TopologyEdge[];
+  positions?: NodePosition[];
+  /** Import origin only; subsequent native observations may coexist. */
+  import_provenance?: TopologyImportProvenance;
+  /** Local collection evidence; intentionally excluded from native v1 interchange. */
+  capture_evidence?: CaptureEvidence[];
+}
+
+export interface DiscoverySummary extends IngestSummary {
+  status: "completed" | "partial" | "failed";
+  captures: {
+    protocol: string;
+    status: "completed" | "failed" | "unsupported";
+    records: number;
+    error?: string;
+  }[];
+}
+
+export type CollectionMode = "ssh" | "snmp_v3" | "snmp_v2c";
+
+export interface DiscoveryRequest {
+  graph_id: string;
+  seed_ids: string[];
+  eligible_ids: string[];
+  passwords: Record<string, string>;
+  max_depth: 0 | 1;
+  include_routing?: boolean;
+  collection_mode?: CollectionMode;
+  snmp_secret_id?: string;
+}
+export interface DiscoveryRun {
+  collection_mode?: CollectionMode;
+  run_id: string;
+  graph_id: string;
+  state: "running" | "cancelling" | "completed" | "cancelled" | "timed_out" | "failed";
+  max_depth: 0 | 1;
+  devices: { connection_id: string; host: string; depth: number; status: string; captures: DiscoverySummary["captures"]; error?: string | null }[];
+  not_dialed: { reference: string; reason: string }[];
+  additional_not_dialed: number;
+  nodes_processed: number;
+  edges_processed: number;
+  parser_admission_ms: number;
+  parser_reply_ms: number;
+}
+
+/** A render projection only: legacy rows remain intact in the database. */
+export class TopologyProjection {
+  static project(rows: TopologyNode[], graphId: string): { nodes: TopologyNode[]; warnings: string[] } {
+    const groups = new Map<string, TopologyNode[]>();
+    for (const row of rows) {
+      if (row.graph_id !== graphId) continue;
+      const group = groups.get(row.device_ref) ?? [];
+      group.push(row);
+      groups.set(row.device_ref, group);
+    }
+    const nodes: TopologyNode[] = [];
+    const warnings: string[] = [];
+    const priority = { ssh: 0, netconf: 1, discovered: 2 };
+    const fields = ["device_kind", "label", "vendor", "platform", "mgmt_ip"] as const;
+    for (const ref of [...groups.keys()].sort()) {
+      const group = groups.get(ref)!;
+      group.sort((a, b) => priority[a.device_kind] - priority[b.device_kind] ||
+        JSON.stringify(fields.map((field) => a[field] ?? null)).localeCompare(JSON.stringify(fields.map((field) => b[field] ?? null))));
+      nodes.push(group[0]);
+      const conflicts = fields.flatMap((field) => {
+        const values = [...new Set(group.map((row) => JSON.stringify(row[field] ?? null)))].sort();
+        return values.length > 1 ? [`${field}: ${values.join(" / ")}`] : [];
+      });
+      if (conflicts.length) warnings.push(`${ref} has conflicting metadata (${conflicts.join("; ")}). Displaying ${group[0].device_kind}; legacy rows retained.`);
+    }
+    return { nodes, warnings };
+  }
 }
 
 export interface IngestSummary {
@@ -60,6 +216,11 @@ export interface NeighborCacheRow {
 }
 
 export const topologyApi = {
+  startDiscovery: (request: DiscoveryRequest) => invoke<DiscoveryRun>("topology_discovery_start", { request }),
+  discoveryStatus: (runId?: string) => invoke<DiscoveryRun | null>("topology_discovery_status", { runId }),
+  cancelDiscovery: (runId: string) => invoke<DiscoveryRun>("topology_discovery_cancel", { runId }),
+  previewImport: (content: string) => invoke<TopologyImportPreview>("topology_preview_import", { content }),
+  importGraph: (content: string, name: string) => invoke<GraphSnapshot>("topology_import_graph", { content, name }),
   ingestFromBlock: (
     blockId: string,
     vendor: string,
@@ -90,13 +251,18 @@ export const topologyApi = {
       deviceRef,
       deviceKind,
     }),
-  discoverDevice: (connectionId: string, vendor: string, platform: string, password?: string) =>
-    invoke<IngestSummary>("topology_discover_device", {
+  discoverDevice: (connectionId: string, vendor: string, platform: string, password?: string, graphId?: string) =>
+    invoke<DiscoverySummary>("topology_discover_device", {
       connectionId,
       vendor,
       platform,
       password,
+      graphId,
     }),
+  saveLayout: (graphId: string, positions: NodePosition[]) =>
+    invoke<void>("topology_save_layout", { graphId, positions }),
+  resetLayout: (graphId: string) =>
+    invoke<void>("topology_reset_layout", { graphId }),
   listGraphs: () => invoke<TopologyGraph[]>("topology_list_graphs"),
   getGraph: (graphId: string) =>
     invoke<GraphSnapshot>("topology_get_graph", { graphId }),
@@ -204,6 +370,8 @@ export async function openNeighbor(
   node: TopologyNode,
   handlers: OpenNeighborHandlers,
 ): Promise<void> {
+  // Scoped routing identifiers are observations, never management or save-profile targets.
+  if (node.device_ref.startsWith("routing:")) return;
   const ref = node.mgmt_ip ?? node.device_ref;
   let saved: SavedDeviceLookup | null = null;
   try {

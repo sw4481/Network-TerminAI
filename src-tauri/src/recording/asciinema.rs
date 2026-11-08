@@ -42,13 +42,7 @@ pub struct CastWriter {
 }
 
 impl CastWriter {
-    pub fn create(
-        path: &Path,
-        width: u16,
-        height: u16,
-        term: &str,
-        shell: &str,
-    ) -> Result<Self> {
+    pub fn create(path: &Path, width: u16, height: u16, term: &str, shell: &str) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).context("recording dir")?;
         }

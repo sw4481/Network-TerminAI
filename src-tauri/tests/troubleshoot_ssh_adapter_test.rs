@@ -16,7 +16,10 @@ async fn troubleshoot_ssh_exec_returns_command_output() {
         Box::pin(async move { Ok(format!("ran:{cmd}")) })
     }));
 
-    let out = adapter.exec("tab-ignored", "show ip ospf neighbor").await.unwrap();
+    let out = adapter
+        .exec("tab-ignored", "show ip ospf neighbor")
+        .await
+        .unwrap();
     assert_eq!(out, "ran:show ip ospf neighbor");
 }
 

@@ -7,9 +7,7 @@ static TERRAFORM_PATTERN: OnceLock<Regex> = OnceLock::new();
 static ANSIBLE_PLAYBOOK_PATTERN: OnceLock<Regex> = OnceLock::new();
 static ANSIBLE_ADHOC_PATTERN: OnceLock<Regex> = OnceLock::new();
 
-const TERRAFORM_MUTATING_SUBCOMMANDS: &[&str] = &[
-    "apply", "destroy", "import", "taint", "untaint"
-];
+const TERRAFORM_MUTATING_SUBCOMMANDS: &[&str] = &["apply", "destroy", "import", "taint", "untaint"];
 
 fn get_terraform_pattern() -> &'static Regex {
     TERRAFORM_PATTERN.get_or_init(|| {
@@ -54,8 +52,12 @@ fn parse_flags_and_args(remainder: &str) -> (Vec<String>, Vec<String>) {
                 // Flag might have a space-separated value
                 // Peek at next token to see if it's a value or another flag/arg
                 if let Some(next) = tokens.peek() {
-                    if !next.starts_with('-') && !next.ends_with(".yml") && !next.ends_with(".yaml")
-                        && !next.ends_with(".tf") && !next.ends_with(".json") {
+                    if !next.starts_with('-')
+                        && !next.ends_with(".yml")
+                        && !next.ends_with(".yaml")
+                        && !next.ends_with(".tf")
+                        && !next.ends_with(".json")
+                    {
                         // Next token looks like a flag value, consume it
                         let value = tokens.next().unwrap();
                         flags.push(format!("{} {}", token, value));

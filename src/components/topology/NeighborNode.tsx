@@ -22,6 +22,8 @@ export type NeighborNodeT = Node<
     /** 'cisco' | 'juniper' | 'arista' | 'meraki' | 'unknown' (case-insensitive). */
     vendor: string;
     mgmtIp?: string;
+    deviceKind?: "ssh" | "netconf" | "discovered";
+    deviceRef?: string;
     localPort?: string;
     neighborPort?: string;
     /** Marks the device the show command was run on. */
@@ -66,6 +68,8 @@ export function NeighborNode({ data }: NodeProps<NeighborNodeT>) {
       className={`neighbor-node${data.isSource ? " neighbor-node--source" : ""}`}
       data-testid="topology-node"
       data-vendor={vendorKey}
+      data-device-kind={data.deviceKind}
+      data-device-ref={data.deviceRef}
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
@@ -77,6 +81,7 @@ export function NeighborNode({ data }: NodeProps<NeighborNodeT>) {
       <Handle type="target" position={Position.Top} style={HIDDEN_HANDLE} />
       <span className="neighbor-node__circle" aria-hidden="true" />
       <span className="neighbor-node__label">{data.label}</span>
+      {data.deviceKind && <span className="neighbor-node__kind">{data.deviceKind === "discovered" ? "Discovered" : `${data.deviceKind.toUpperCase()} profile`}</span>}
       {tooltip ? (
         <span className="neighbor-node__tooltip" role="tooltip">
           {tooltip}

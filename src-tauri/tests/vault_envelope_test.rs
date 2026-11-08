@@ -12,7 +12,13 @@ use std::time::Duration;
 use tempfile::TempDir;
 use zeroize::Zeroizing;
 
-fn fresh_store() -> (TempDir, rusqlite::Connection, VaultStore, VaultLock, Arc<InMemoryKeyringStore>) {
+fn fresh_store() -> (
+    TempDir,
+    rusqlite::Connection,
+    VaultStore,
+    VaultLock,
+    Arc<InMemoryKeyringStore>,
+) {
     let tmp = TempDir::new().unwrap();
     let path = tmp.path().join("test.db");
     let conn = open_and_migrate(&path).unwrap();
@@ -27,7 +33,9 @@ fn fresh_store() -> (TempDir, rusqlite::Connection, VaultStore, VaultLock, Arc<I
 fn create_envelope_inserts_row_and_canary() {
     let (_tmp, conn, store, _lock, _kr) = fresh_store();
     let pp = Zeroizing::new(b"correct-horse".to_vec());
-    let env = store.create_envelope(&conn, "site-A", Some("primary"), pp).unwrap();
+    let env = store
+        .create_envelope(&conn, "site-A", Some("primary"), pp)
+        .unwrap();
     assert_eq!(env.name, "site-A");
 
     let count: i64 = conn
@@ -50,20 +58,10 @@ fn create_envelope_inserts_row_and_canary() {
 fn create_envelope_rejects_duplicate_name() {
     let (_tmp, conn, store, _lock, _kr) = fresh_store();
     store
-        .create_envelope(
-            &conn,
-            "site-A",
-            None,
-            Zeroizing::new(b"pp".to_vec()),
-        )
+        .create_envelope(&conn, "site-A", None, Zeroizing::new(b"pp".to_vec()))
         .unwrap();
     let err = store
-        .create_envelope(
-            &conn,
-            "site-A",
-            None,
-            Zeroizing::new(b"pp".to_vec()),
-        )
+        .create_envelope(&conn, "site-A", None, Zeroizing::new(b"pp".to_vec()))
         .unwrap_err();
     assert!(matches!(err, VaultError::EnvelopeNameTaken));
 }
@@ -249,7 +247,10 @@ fn delete_secret_removes_keyring_and_db() {
         )
         .unwrap();
     assert_eq!(n, 0);
-    assert!(matches!(kr.get(&kref).unwrap_err(), VaultError::KeyringMissing));
+    assert!(matches!(
+        kr.get(&kref).unwrap_err(),
+        VaultError::KeyringMissing
+    ));
 }
 
 #[test]
@@ -345,7 +346,9 @@ fn canary_decrypt_confirms_passphrase_before_revealing_anything() {
             Default::default(),
         )
         .unwrap();
-    store.lock_envelope(&conn, &lock, &env.id, "manual").unwrap();
+    store
+        .lock_envelope(&conn, &lock, &env.id, "manual")
+        .unwrap();
 
     // Wrong passphrase: must fail without trying to open any real secret.
     let err = store

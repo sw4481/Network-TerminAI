@@ -23,17 +23,19 @@ pub enum AeadError {
     Malformed,
 }
 
-pub fn seal(
-    key: &Zeroizing<[u8; 32]>,
-    plaintext: &[u8],
-    aad: &[u8],
-) -> Result<Vec<u8>, AeadError> {
+pub fn seal(key: &Zeroizing<[u8; 32]>, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, AeadError> {
     let cipher = Aes256Gcm::new(key.as_ref().into());
     let mut nonce_bytes = [0u8; 12];
     OsRng.fill_bytes(&mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
     let ct = cipher
-        .encrypt(nonce, Payload { msg: plaintext, aad })
+        .encrypt(
+            nonce,
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|_| AeadError::Encrypt)?;
     let mut out = Vec::with_capacity(12 + ct.len());
     out.extend_from_slice(&nonce_bytes);

@@ -30,7 +30,11 @@ fn removed(row_key: &str) -> CellDiff {
 #[test]
 fn bgp_neighbor_drop_is_red() {
     let deltas = vec![removed("10.0.0.2")];
-    let out = classify("show ip bgp summary", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip bgp summary",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     assert_eq!(out.len(), 1);
     assert_eq!(out[0].severity, Severity::Red);
     assert!(out[0].message.contains("10.0.0.2"));
@@ -44,7 +48,11 @@ fn bgp_state_change_to_active_is_red() {
         json!("Established"),
         json!("Active"),
     )];
-    let out = classify("show ip bgp summary", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip bgp summary",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     assert_eq!(out[0].severity, Severity::Red);
     assert!(out[0].message.contains("Active"));
 }
@@ -135,7 +143,11 @@ fn unchanged_entries_are_dropped() {
         a: Some(json!(1)),
         b: Some(json!(1)),
     }];
-    let out = classify("show ip bgp summary", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip bgp summary",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     assert!(
         out.is_empty(),
         "Unchanged should not produce a ClassifiedDelta"
@@ -145,7 +157,11 @@ fn unchanged_entries_are_dropped() {
 #[test]
 fn zero_to_nonzero_route_count_is_yellow() {
     let deltas = vec![changed("total", "", json!(0), json!(50))];
-    let out = classify("show ip route summary", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip route summary",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     assert_eq!(out[0].severity, Severity::Yellow);
     assert!(out[0].message.contains("0 to 50"));
 }
@@ -160,7 +176,11 @@ fn bgp_counter_changes_are_filtered() {
         // A real material change — should survive.
         changed("10.0.0.2", "state", json!("Established"), json!("Active")),
     ];
-    let out = classify("show ip bgp summary", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip bgp summary",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     // Only the state change should remain.
     assert_eq!(out.len(), 1);
     assert!(out[0].path.contains("state"));
@@ -170,12 +190,26 @@ fn bgp_counter_changes_are_filtered() {
 #[test]
 fn ospf_timer_changes_are_filtered() {
     let deltas = vec![
-        changed("10.1.1.1", "dead_time", json!("00:00:35"), json!("00:00:34")),
-        changed("10.1.1.1", "hello_timer", json!("00:00:09"), json!("00:00:08")),
+        changed(
+            "10.1.1.1",
+            "dead_time",
+            json!("00:00:35"),
+            json!("00:00:34"),
+        ),
+        changed(
+            "10.1.1.1",
+            "hello_timer",
+            json!("00:00:09"),
+            json!("00:00:08"),
+        ),
         // A real material change — should survive.
         changed("10.1.1.1", "state", json!("FULL/DR"), json!("INIT")),
     ];
-    let out = classify("show ip ospf neighbor", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show ip ospf neighbor",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     // Only the state change should remain.
     assert_eq!(out.len(), 1);
     assert!(out[0].path.contains("state"));
@@ -191,7 +225,11 @@ fn cdp_hold_time_changes_are_filtered() {
         changed("cdp.index.2.hold_time", "value", json!(142), json!(134)),
         changed("cdp.index.3.hold_time", "value", json!(170), json!(178)),
     ];
-    let out = classify("show cdp neighbor", &deltas, &ClassifierThresholds::default());
+    let out = classify(
+        "show cdp neighbor",
+        &deltas,
+        &ClassifierThresholds::default(),
+    );
     assert!(
         out.is_empty(),
         "CDP hold_time ticks should be filtered, got {out:?}"

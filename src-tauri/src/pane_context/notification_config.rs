@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
-use rusqlite::{Connection, params};
 use anyhow::Result;
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,8 +19,17 @@ impl Default for NotificationPreferences {
             min_duration_secs: 30,
             notify_on_nonzero_exit: true,
             notify_on_agent_output: true,
-            keyword_triggers: vec!["error".to_string(), "failed".to_string(), "timeout".to_string()],
-            ignore_commands: vec!["tail".to_string(), "watch".to_string(), "top".to_string(), "htop".to_string()],
+            keyword_triggers: vec![
+                "error".to_string(),
+                "failed".to_string(),
+                "timeout".to_string(),
+            ],
+            ignore_commands: vec![
+                "tail".to_string(),
+                "watch".to_string(),
+                "top".to_string(),
+                "htop".to_string(),
+            ],
             enable_sound: false,
         }
     }
@@ -30,7 +39,7 @@ pub fn load_notification_preferences(db: &Connection) -> Result<NotificationPref
     let mut stmt = db.prepare(
         "SELECT min_duration_secs, notify_on_nonzero_exit, notify_on_agent_output,
                 keyword_triggers_json, ignore_commands_json, enable_sound
-         FROM notification_preferences WHERE id = 1"
+         FROM notification_preferences WHERE id = 1",
     )?;
 
     let row = stmt.query_row([], |row| {
@@ -54,7 +63,10 @@ pub fn load_notification_preferences(db: &Connection) -> Result<NotificationPref
     }
 }
 
-pub fn save_notification_preferences(db: &Connection, prefs: &NotificationPreferences) -> Result<()> {
+pub fn save_notification_preferences(
+    db: &Connection,
+    prefs: &NotificationPreferences,
+) -> Result<()> {
     let keyword_json = serde_json::to_string(&prefs.keyword_triggers)?;
     let ignore_json = serde_json::to_string(&prefs.ignore_commands)?;
 
@@ -107,7 +119,8 @@ mod tests {
                 enable_sound INTEGER NOT NULL
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut prefs = NotificationPreferences::default();
         prefs.min_duration_secs = 60;

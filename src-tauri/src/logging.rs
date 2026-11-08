@@ -100,8 +100,7 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
     let log_dir = config.log_dir.unwrap_or_else(default_log_dir);
 
     // Create log directory if it doesn't exist
-    std::fs::create_dir_all(&log_dir)
-        .context("Failed to create log directory")?;
+    std::fs::create_dir_all(&log_dir).context("Failed to create log directory")?;
 
     // Create a file appender with daily rotation
     let file_appender = RollingFileAppender::builder()
@@ -113,13 +112,12 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
         .context("Failed to create log file appender")?;
 
     // Create env filter
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            EnvFilter::new(format!(
-                "ccie_terminal_lib={}",
-                config.level.to_tracing_level()
-            ))
-        });
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(format!(
+            "ccie_terminal_lib={}",
+            config.level.to_tracing_level()
+        ))
+    });
 
     // Build the subscriber based on mode
     let result = if config.production_mode {
@@ -131,7 +129,7 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .json()
                     .with_writer(file_appender)
                     .with_current_span(true)
-                    .with_span_list(true)
+                    .with_span_list(true),
             )
             .try_init()
     } else {
@@ -145,7 +143,7 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .with_file(true)
                     .with_line_number(true)
                     .with_thread_ids(true)
-                    .with_target(true)
+                    .with_target(true),
             )
             .try_init()
     };
@@ -157,7 +155,10 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
             // Silently ignore in tests - subscriber is already initialized
             return Ok(());
         } else {
-            return Err(anyhow::anyhow!("Failed to initialize tracing subscriber: {}", e));
+            return Err(anyhow::anyhow!(
+                "Failed to initialize tracing subscriber: {}",
+                e
+            ));
         }
     }
 

@@ -76,11 +76,7 @@ impl<R: tauri::Runtime> LiveStepExecutor<R> {
 
 #[async_trait]
 impl<R: tauri::Runtime> StepExecutor for LiveStepExecutor<R> {
-    async fn run_command(
-        &self,
-        ctx: &mut RunContext,
-        command: &str,
-    ) -> Result<serde_json::Value> {
+    async fn run_command(&self, ctx: &mut RunContext, command: &str) -> Result<serde_json::Value> {
         // Engine has already substituted vars and re-classified —
         // we ONLY see Tier-0 commands here. Belt-and-braces:
         // re-classify once more so a misbehaving caller can never
@@ -109,12 +105,7 @@ impl<R: tauri::Runtime> StepExecutor for LiveStepExecutor<R> {
         Ok(parsed)
     }
 
-    async fn classify(
-        &self,
-        command: &str,
-        vendor: &str,
-        platform: &str,
-    ) -> Result<Tier> {
+    async fn classify(&self, command: &str, vendor: &str, platform: &str) -> Result<Tier> {
         // Scope the RwLockReadGuard inside a block so the future
         // remains Send.
         let tier = {
@@ -124,12 +115,7 @@ impl<R: tauri::Runtime> StepExecutor for LiveStepExecutor<R> {
         Ok(tier)
     }
 
-    async fn narrate(
-        &self,
-        ctx: &RunContext,
-        step_id: &str,
-        text: &str,
-    ) -> Result<String> {
+    async fn narrate(&self, ctx: &RunContext, step_id: &str, text: &str) -> Result<String> {
         let payload = serde_json::json!({
             "run_id": ctx.run_id,
             "tab_id": ctx.tab_id,

@@ -14,9 +14,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use ccie_terminal_lib::rag::bridge::{
-    IngestProgress, IngestedDoc, RagBridgeApi,
-};
+use ccie_terminal_lib::rag::bridge::{IngestProgress, IngestedDoc, RagBridgeApi};
 use ccie_terminal_lib::rag::retrieve::{retrieve, RetrieveArgs};
 use ccie_terminal_lib::rag::store::RagStore;
 
@@ -91,7 +89,12 @@ fn seed_three_docs() -> (RagStore, i64, i64, i64) {
         .set_tags(doc_a, &["cisco-iosxe-router"])
         .expect("tag A");
     store
-        .insert_chunk(doc_a, 0, "BGP neighbor configuration on IOS-XE", &one_hot(0))
+        .insert_chunk(
+            doc_a,
+            0,
+            "BGP neighbor configuration on IOS-XE",
+            &one_hot(0),
+        )
         .expect("chunk A0");
     store
         .insert_chunk(doc_a, 1, "clear ip bgp * soft on IOS-XE", &one_hot(0))
@@ -100,9 +103,7 @@ fn seed_three_docs() -> (RagStore, i64, i64, i64) {
     let doc_b = store
         .insert_document("Meraki Dashboard API", "/tmp/b.md", "md", 1)
         .expect("insert B");
-    store
-        .set_tags(doc_b, &["cisco-meraki"])
-        .expect("tag B");
+    store.set_tags(doc_b, &["cisco-meraki"]).expect("tag B");
     store
         .insert_chunk(doc_b, 0, "Meraki API key auth header", &one_hot(1))
         .expect("chunk B0");
@@ -244,7 +245,10 @@ async fn retrieve_rejects_zero_k() {
     .await
     .expect_err("k=0 must be rejected");
 
-    assert!(err.to_string().to_lowercase().contains("k"), "error mentions k");
+    assert!(
+        err.to_string().to_lowercase().contains("k"),
+        "error mentions k"
+    );
 }
 
 #[tokio::test]
@@ -310,9 +314,7 @@ async fn retrieve_user_tag_subset_of_one_passes() {
         tags: vec!["cisco-iosxe-router".into(), "customer-acme".into()],
         k: 5,
     };
-    let chunks = retrieve(&store, &bridge, args)
-        .await
-        .expect("retrieve ok");
+    let chunks = retrieve(&store, &bridge, args).await.expect("retrieve ok");
     assert!(
         chunks.iter().any(|c| c.document_id == doc_id),
         "tagged doc must surface"
@@ -339,9 +341,7 @@ async fn retrieve_user_tag_missing_excludes_doc() {
         tags: vec!["cisco-iosxe-router".into(), "customer-acme".into()],
         k: 5,
     };
-    let chunks = retrieve(&store, &bridge, args)
-        .await
-        .expect("retrieve ok");
+    let chunks = retrieve(&store, &bridge, args).await.expect("retrieve ok");
     assert!(
         !chunks.iter().any(|c| c.document_id == doc_id),
         "doc without all user tags must be excluded"
@@ -371,9 +371,7 @@ async fn retrieve_two_user_tags_both_present_passes() {
         ],
         k: 5,
     };
-    let chunks = retrieve(&store, &bridge, args)
-        .await
-        .expect("retrieve ok");
+    let chunks = retrieve(&store, &bridge, args).await.expect("retrieve ok");
     assert!(
         chunks.iter().any(|c| c.document_id == doc_id),
         "doc with both user tags must surface"

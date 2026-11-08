@@ -133,9 +133,8 @@ impl RecordingSupervisor {
         // present. Verify it up front (before touching the DB) so that being
         // called from a synchronous context returns a clean error instead of
         // `tokio::spawn` panicking and aborting the whole process.
-        let rt = tokio::runtime::Handle::try_current().map_err(|_| {
-            anyhow!("recording must be started from within a Tokio runtime")
-        })?;
+        let rt = tokio::runtime::Handle::try_current()
+            .map_err(|_| anyhow!("recording must be started from within a Tokio runtime"))?;
 
         let started_at = chrono::Utc::now().timestamp();
 
@@ -280,9 +279,8 @@ impl RecordingSupervisor {
     pub fn cleanup_orphan_recordings(&self) -> Result<usize> {
         let conn = self.db.lock();
         let orphans: Vec<(String, String)> = {
-            let mut stmt = conn.prepare(
-                "SELECT id, path FROM session_recordings WHERE ended_at IS NULL",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT id, path FROM session_recordings WHERE ended_at IS NULL")?;
             let rows = stmt
                 .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -369,10 +367,7 @@ impl RecordingSupervisor {
         Ok(())
     }
 
-    pub fn redaction_summary(
-        &self,
-        recording_id: &str,
-    ) -> Result<Vec<(String, String, i64)>> {
+    pub fn redaction_summary(&self, recording_id: &str) -> Result<Vec<(String, String, i64)>> {
         let conn = self.db.lock();
         let mut stmt = conn.prepare(
             "SELECT pattern, replacement_hash, matches FROM recording_redactions
@@ -380,7 +375,11 @@ impl RecordingSupervisor {
         )?;
         let rows = stmt
             .query_map(params![recording_id], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?))
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)

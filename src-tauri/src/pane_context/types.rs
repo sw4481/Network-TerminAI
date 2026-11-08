@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 #[serde(rename_all = "camelCase")]
 pub struct CommandState {
     pub cmd: String,
-    pub start_time: i64,  // Unix timestamp
+    pub start_time: i64, // Unix timestamp
     pub exit_code: Option<i32>,
     #[serde(with = "serde_vecdeque")]
     pub output_preview: VecDeque<String>,

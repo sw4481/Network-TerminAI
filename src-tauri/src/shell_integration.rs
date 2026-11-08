@@ -26,5 +26,9 @@ pub fn install() -> Result<IntegrationPaths> {
     std::fs::write(&zsh, ZSH).context("write zsh integration")?;
     std::fs::write(&bash, BASH).context("write bash integration")?;
     std::fs::write(&powershell, POWERSHELL).context("write powershell integration")?;
-    Ok(IntegrationPaths { zsh, bash, powershell })
+    Ok(IntegrationPaths {
+        zsh,
+        bash,
+        powershell,
+    })
 }

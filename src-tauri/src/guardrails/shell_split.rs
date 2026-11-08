@@ -76,7 +76,10 @@ mod tests {
 
     #[test]
     fn no_metachars_returns_original() {
-        assert_eq!(split_for_classification("show version"), vec!["show version"]);
+        assert_eq!(
+            split_for_classification("show version"),
+            vec!["show version"]
+        );
     }
 
     #[test]

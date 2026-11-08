@@ -238,8 +238,8 @@ fn daemonize() {
         // command) returns immediately, and the child is not a process-group
         // leader (a precondition for setsid()).
         match libc::fork() {
-            -1 => return, // fork failed; fall through and run attached (best effort)
-            0 => {}       // child continues
+            -1 => return,        // fork failed; fall through and run attached (best effort)
+            0 => {}              // child continues
             _ => libc::_exit(0), // parent exits now
         }
 

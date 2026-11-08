@@ -17,11 +17,7 @@ pub struct DriftSchedule {
 pub struct DriftScheduleRepo;
 
 impl DriftScheduleRepo {
-    pub fn create(
-        conn: &Connection,
-        template_id: &str,
-        cron_expr: &str,
-    ) -> Result<DriftSchedule> {
+    pub fn create(conn: &Connection, template_id: &str, cron_expr: &str) -> Result<DriftSchedule> {
         let id = uuid::Uuid::new_v4().to_string();
         conn.execute(
             "INSERT INTO drift_schedules (id, template_id, cron_expr, enabled)

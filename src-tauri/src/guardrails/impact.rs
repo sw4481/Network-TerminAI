@@ -41,33 +41,40 @@ pub fn summarize(conn: &Connection, vendor: &str, platform: &str, command: &str)
     };
 
     if !topo {
-        summary.notes.push(
-            "Topology data not available — impact preview limited to rule reasoning.".into(),
-        );
+        summary
+            .notes
+            .push("Topology data not available — impact preview limited to rule reasoning.".into());
     }
 
     // Per-command heuristics that work without topology.
-    if lower.contains("reload") || lower.contains("request system reboot") || lower.contains("request system halt") {
+    if lower.contains("reload")
+        || lower.contains("request system reboot")
+        || lower.contains("request system halt")
+    {
         summary
             .notes
             .push("Full device reboot — outage until boot completes.".into());
     } else if let Some(rest) = strip_prefix(&lower, "no router bgp ") {
         let asn = first_token(rest);
-        summary.notes.push(format!(
-            "All BGP sessions in ASN {asn} will be torn down."
-        ));
+        summary
+            .notes
+            .push(format!("All BGP sessions in ASN {asn} will be torn down."));
     } else if lower.contains("clear ip bgp * soft")
         || lower.contains("clear bgp * soft")
         || lower.contains("clear bgp neighbor *")
     {
-        summary
-            .notes
-            .push("All BGP neighbors receive refreshed inbound; forwarding unchanged but churn expected.".into());
+        summary.notes.push(
+            "All BGP neighbors receive refreshed inbound; forwarding unchanged but churn expected."
+                .into(),
+        );
     } else if lower.contains("clear ip bgp *") || lower.contains("clear bgp *") {
         summary
             .notes
             .push("All BGP sessions hard-reset; full reconvergence required.".into());
-    } else if lower.contains("write erase") || lower.contains("zeroize") || lower.contains("delete startup-config") {
+    } else if lower.contains("write erase")
+        || lower.contains("zeroize")
+        || lower.contains("delete startup-config")
+    {
         summary
             .notes
             .push("Startup-config wiped — device will boot empty next reload.".into());

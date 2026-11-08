@@ -12,10 +12,10 @@
 //! round-tripping a full mTLS handshake from axum-server is overkill for
 //! what we need to guarantee at this layer.
 
+use ccie_terminal_lib::api_runner::execute_request;
 use ccie_terminal_lib::api_runner::types::{
     ApiAuth, ApiRequest, BodyKind, BodyKindDefault, HttpMethod,
 };
-use ccie_terminal_lib::api_runner::execute_request;
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -41,7 +41,12 @@ fn req(url: impl Into<String>) -> ApiRequest {
 
 /// Stand up a one-shot self-signed HTTPS server and return
 /// `(base_url, cert_pem_path, _guard)`. The guard keeps the temp dir alive.
-async fn start_tls_server() -> (String, std::path::PathBuf, TempDir, tokio::task::JoinHandle<()>) {
+async fn start_tls_server() -> (
+    String,
+    std::path::PathBuf,
+    TempDir,
+    tokio::task::JoinHandle<()>,
+) {
     // Ensure a crypto provider is installed for rustls 0.23.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
@@ -56,10 +61,9 @@ async fn start_tls_server() -> (String, std::path::PathBuf, TempDir, tokio::task
     std::fs::write(&cert_path, &cert_pem).unwrap();
     std::fs::write(&key_path, &key_pem).unwrap();
 
-    let tls_config =
-        axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
-            .await
-            .expect("build rustls config");
+    let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
+        .await
+        .expect("build rustls config");
 
     // Listener on a random free port.
     let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
@@ -67,10 +71,7 @@ async fn start_tls_server() -> (String, std::path::PathBuf, TempDir, tokio::task
     let addr: SocketAddr = listener.local_addr().unwrap();
     let base_url = format!("https://127.0.0.1:{}", addr.port());
 
-    let app = axum::Router::new().route(
-        "/hello",
-        axum::routing::get(|| async { "hi" }),
-    );
+    let app = axum::Router::new().route("/hello", axum::routing::get(|| async { "hi" }));
 
     let handle = tokio::spawn(async move {
         axum_server::from_tcp_rustls(listener, tls_config)

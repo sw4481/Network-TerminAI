@@ -258,7 +258,13 @@ fn diff_raises_when_data_shapes_mismatch() {
     seed_tab(&db, "t1");
     let b1 = seed_block(&db, "t1", "show foo");
     let b2 = seed_block(&db, "t1", "show foo");
-    insert_parsed(&db, &b1, "textfsm", "show foo", serde_json::json!([{"x":1}]));
+    insert_parsed(
+        &db,
+        &b1,
+        "textfsm",
+        "show foo",
+        serde_json::json!([{"x":1}]),
+    );
     insert_parsed(&db, &b2, "genie", "show foo", serde_json::json!({"x":1}));
     let ai = pin(&db, &b1, "a");
     let bi = pin(&db, &b2, "b");

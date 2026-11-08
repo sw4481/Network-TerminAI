@@ -108,12 +108,10 @@ pub fn get_password(id: i64) -> Result<String> {
     tracing::debug!("Attempting to retrieve password for key: {}", key);
     let entry = keyring::Entry::new("ccie-terminal", &key)
         .map_err(|e| NetconfError::Keychain(e.to_string()))?;
-    let password = entry
-        .get_password()
-        .map_err(|e| {
-            tracing::error!("Failed to get password for key {}: {}", key, e);
-            NetconfError::Keychain(e.to_string())
-        })?;
+    let password = entry.get_password().map_err(|e| {
+        tracing::error!("Failed to get password for key {}: {}", key, e);
+        NetconfError::Keychain(e.to_string())
+    })?;
     tracing::debug!("Successfully retrieved password for key: {}", key);
     Ok(password)
 }
@@ -124,12 +122,10 @@ fn set_password(id: i64, password: &str) -> Result<()> {
     tracing::debug!("Attempting to store password for key: {}", key);
     let entry = keyring::Entry::new("ccie-terminal", &key)
         .map_err(|e| NetconfError::Keychain(e.to_string()))?;
-    entry
-        .set_password(password)
-        .map_err(|e| {
-            tracing::error!("Failed to set password for key {}: {}", key, e);
-            NetconfError::Keychain(e.to_string())
-        })?;
+    entry.set_password(password).map_err(|e| {
+        tracing::error!("Failed to set password for key {}: {}", key, e);
+        NetconfError::Keychain(e.to_string())
+    })?;
     tracing::info!("Successfully stored password for key: {}", key);
     Ok(())
 }
@@ -168,8 +164,8 @@ mod tests {
     #[test]
     fn test_create_and_list() {
         let db = setup_db();
-        let dev = create_device(&db, "Lab CSR", "192.168.1.1", 830, "admin", "secret", false)
-            .unwrap();
+        let dev =
+            create_device(&db, "Lab CSR", "192.168.1.1", 830, "admin", "secret", false).unwrap();
         assert_eq!(dev.name, "Lab CSR");
         assert_eq!(dev.host, "192.168.1.1");
         assert!(dev.password.is_none());
@@ -193,7 +189,10 @@ mod tests {
         let retrieved = get_password(dev.id);
         if retrieved.is_err() {
             // Cleanup and skip test if keyring isn't available (e.g., headless CI)
-            eprintln!("Keyring not available, skipping password test: {:?}", retrieved.err());
+            eprintln!(
+                "Keyring not available, skipping password test: {:?}",
+                retrieved.err()
+            );
             return;
         }
         assert_eq!(retrieved.unwrap(), "pass123");

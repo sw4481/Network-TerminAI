@@ -44,7 +44,10 @@ fn t0_show_auto_approves_and_writes_audit_row() {
                     |r| r.get(0),
                 )
                 .unwrap();
-            assert_eq!(count, 1, "T0 should have written exactly one auto_approved row");
+            assert_eq!(
+                count, 1,
+                "T0 should have written exactly one auto_approved row"
+            );
         }
         other => panic!("expected Proceed, got {:?}", other),
     }
@@ -84,8 +87,7 @@ fn t2_single_neighbor_clear_returns_needs_confirmation() {
 fn ambiguous_returns_needs_confirmation() {
     let rs = RuleSet::load_builtin().unwrap();
     let db = open_test_db();
-    let outcome =
-        classify_and_gate(&ctx(&rs, &db), "archive path disk0:foobar.cfg").unwrap();
+    let outcome = classify_and_gate(&ctx(&rs, &db), "archive path disk0:foobar.cfg").unwrap();
     match outcome {
         GuardrailOutcome::NeedsConfirmation { tier, .. } => assert_eq!(tier, Tier::Ambiguous),
         other => panic!("expected NeedsConfirmation Ambiguous, got {:?}", other),

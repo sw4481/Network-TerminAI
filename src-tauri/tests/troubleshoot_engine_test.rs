@@ -169,12 +169,10 @@ steps:
 #[tokio::test]
 async fn happy_path_bgp_established() {
     let pb = Playbook::parse_yaml(BGP_PLAYBOOK_YAML).unwrap();
-    let exec = Arc::new(
-        MockExecutor::new().with_parsed(
-            "show bgp neighbor 10.0.0.5",
-            serde_json::json!({"session_state": "Established"}),
-        ),
-    );
+    let exec = Arc::new(MockExecutor::new().with_parsed(
+        "show bgp neighbor 10.0.0.5",
+        serde_json::json!({"session_state": "Established"}),
+    ));
     let mut vars = HashMap::new();
     vars.insert(
         "neighbor".to_string(),

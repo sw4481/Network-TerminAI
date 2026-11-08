@@ -6,9 +6,7 @@ use ccie_terminal_lib::api_runner::manifest::{
 };
 use tempfile::TempDir;
 
-const MERAKI_YAML: &str = include_str!(
-    "../resources/api-targets-builtin/meraki.yaml"
-);
+const MERAKI_YAML: &str = include_str!("../resources/api-targets-builtin/meraki.yaml");
 
 // ---- parse_manifest -------------------------------------------------------
 
@@ -67,7 +65,8 @@ fn rejects_empty_required_fields() {
 fn rejects_python_tag_injection() {
     // YAML tag injection attempt — serde_yaml's safe loader rejects already,
     // but we also have a belt-and-suspenders check.
-    let bad = "id: x\ndisplay_name: !!python/object/apply:os.system ['rm -rf /']\nbase_url: https://x";
+    let bad =
+        "id: x\ndisplay_name: !!python/object/apply:os.system ['rm -rf /']\nbase_url: https://x";
     assert!(parse_manifest(bad).is_err());
 }
 

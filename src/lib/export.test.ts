@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { toCsv, toJson, toMarkdownTable, copyToClipboard, downloadFile } from "./export";
+import { toCsv, toJson, toMarkdownTable, copyToClipboard, downloadFile, downloadBinaryFile } from "./export";
 
 const saveMock = vi.fn();
 const writeTextFileMock = vi.fn();
+const writeFileMock = vi.fn();
 const clipboardWriteTextMock = vi.fn();
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: (...a: unknown[]) => saveMock(...a) }));
 vi.mock("@tauri-apps/plugin-fs", () => ({
   writeTextFile: (...a: unknown[]) => writeTextFileMock(...a),
+  writeFile: (...a: unknown[]) => writeFileMock(...a),
 }));
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
   writeText: (...a: unknown[]) => clipboardWriteTextMock(...a),
@@ -67,6 +69,43 @@ describe("toMarkdownTable", () => {
 
   it("returns empty string for no columns", () => {
     expect(toMarkdownTable([], [])).toBe("");
+  });
+});
+
+describe("downloadBinaryFile", () => {
+  const bytes = new Uint8Array([137, 80, 78, 71, 0, 255]);
+  beforeEach(() => {
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+    saveMock.mockReset(); writeFileMock.mockReset();
+  });
+  afterEach(() => { delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__; });
+  it("writes unmodified bytes through native fs, never the text helper", async () => {
+    saveMock.mockResolvedValue("/synthetic/topology.png");
+    await expect(downloadBinaryFile("topology.png", bytes, "image/png")).resolves.toBe(true);
+    expect(saveMock).toHaveBeenCalledWith({ defaultPath: "topology.png", filters: [{ name: "PNG", extensions: ["png"] }] });
+    expect(writeFileMock).toHaveBeenCalledWith("/synthetic/topology.png", bytes);
+  });
+  it("returns false without a write on native cancellation", async () => {
+    saveMock.mockResolvedValue(null);
+    await expect(downloadBinaryFile("topology.png", bytes, "image/png")).resolves.toBe(false);
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+  it.each(["dialog", "write"])("propagates %s errors instead of reporting success", async (stage) => {
+    saveMock.mockResolvedValue("/synthetic/topology.png");
+    if (stage === "dialog") saveMock.mockRejectedValue(new Error("save unavailable"));
+    else writeFileMock.mockRejectedValue(new Error("disk full"));
+    await expect(downloadBinaryFile("topology.png", bytes, "image/png")).rejects.toThrow(stage === "dialog" ? "save unavailable" : "disk full");
+  });
+  it("does not write an export aborted while its native dialog was open", async () => {
+    const run = new AbortController();
+    saveMock.mockImplementation(async () => { run.abort(); return "/synthetic/topology.png"; });
+    await expect(downloadBinaryFile("topology.png", bytes, "image/png", run.signal)).rejects.toThrow();
+    expect(writeFileMock).not.toHaveBeenCalled();
+  });
+  it("rejects an already aborted export before opening a dialog", async () => {
+    const run = new AbortController(); run.abort();
+    await expect(downloadBinaryFile("topology.png", bytes, "image/png", run.signal)).rejects.toThrow();
+    expect(saveMock).not.toHaveBeenCalled();
   });
 });
 

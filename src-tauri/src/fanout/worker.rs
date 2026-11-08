@@ -54,11 +54,7 @@ pub trait DeviceWorker: Send + Sync {
 
 #[async_trait]
 pub trait WorkerFactory: Send + Sync {
-    fn create(
-        &self,
-        kind: DeviceKind,
-        creds: DeviceCreds,
-    ) -> Box<dyn DeviceWorker>;
+    fn create(&self, kind: DeviceKind, creds: DeviceCreds) -> Box<dyn DeviceWorker>;
 }
 
 // ---------- Mock factory used by tests ----------

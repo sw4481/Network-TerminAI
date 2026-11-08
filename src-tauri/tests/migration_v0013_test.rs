@@ -43,7 +43,10 @@ fn fresh_db_gets_tab_type_column_and_all_api_tables() {
 
     let conn = db::open_and_migrate(&db_path).expect("migrate fresh");
 
-    assert!(has_column(&conn, "tabs", "tab_type"), "tab_type column missing");
+    assert!(
+        has_column(&conn, "tabs", "tab_type"),
+        "tab_type column missing"
+    );
     assert!(has_table(&conn, "api_tab_state"));
     assert!(has_table(&conn, "api_saved_requests"));
     assert!(has_table(&conn, "api_history"));

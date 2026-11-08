@@ -31,8 +31,15 @@ fn upsert(conn: &Connection, r: &Rule) -> rusqlite::Result<()> {
            enabled = excluded.enabled,
            updated_at = strftime('%s','now')",
         rusqlite::params![
-            r.id, r.name, r.vendor, r.platform, r.pattern_regex,
-            r.tier as i64, r.reason, r.enabled as i64, r.builtin as i64,
+            r.id,
+            r.name,
+            r.vendor,
+            r.platform,
+            r.pattern_regex,
+            r.tier as i64,
+            r.reason,
+            r.enabled as i64,
+            r.builtin as i64,
         ],
     )?;
     Ok(())
@@ -101,14 +108,20 @@ fn delete_does_not_remove_builtin_rules() {
             [],
         )
         .unwrap();
-    assert_eq!(n, 0, "builtin rule must not be deletable via the user CRUD path");
+    assert_eq!(
+        n, 0,
+        "builtin rule must not be deletable via the user CRUD path"
+    );
     assert_eq!(count_rules(&conn, "builtin = 1"), initial_builtin);
 }
 
 #[test]
 fn regex_validation_rejects_malformed_pattern_before_db() {
     let bad = "^[invalid(";
-    assert!(regex::Regex::new(bad).is_err(), "fixture should be malformed");
+    assert!(
+        regex::Regex::new(bad).is_err(),
+        "fixture should be malformed"
+    );
 }
 
 #[test]

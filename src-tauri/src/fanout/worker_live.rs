@@ -147,6 +147,8 @@ struct MismatchedKindWorker;
 #[async_trait]
 impl DeviceWorker for MismatchedKindWorker {
     async fn run(&self, _command: &str, _timeout: Duration) -> Result<WorkerOutcome, WorkerError> {
-        Err(WorkerError::Other("device kind / credential mismatch".into()))
+        Err(WorkerError::Other(
+            "device kind / credential mismatch".into(),
+        ))
     }
 }

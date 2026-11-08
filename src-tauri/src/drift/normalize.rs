@@ -64,7 +64,10 @@ static IOS_REDACT: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
         ),
         (Regex::new(r"^(\s*password 7 )\S+").unwrap(), "$1<REDACTED>"),
         (Regex::new(r"^(\s*key 7 )\S+").unwrap(), "$1<REDACTED>"),
-        (Regex::new(r"^(\s*key-string 7 )\S+").unwrap(), "$1<REDACTED>"),
+        (
+            Regex::new(r"^(\s*key-string 7 )\S+").unwrap(),
+            "$1<REDACTED>",
+        ),
         (
             Regex::new(r"(pre-shared-key.*key \d+ )\S+").unwrap(),
             "$1<REDACTED>",

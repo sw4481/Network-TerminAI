@@ -116,7 +116,11 @@ pub(crate) fn resolve_topolograph_runtime_binding(
     )
 }
 
-fn should_retrieve_attached_tool_vault(_agent_id: &str, tool_id: &str, vault_entry: &str) -> bool {
+fn should_retrieve_attached_tool_vault(
+    _agent_id: &str,
+    tool_id: &str,
+    vault_entry: &str,
+) -> bool {
     !vault_entry.is_empty() && tool_id != "topolograph"
 }
 

@@ -12,8 +12,8 @@ pub struct ModelOverride {
 #[serde(rename_all = "camelCase")]
 pub struct AttachedTool {
     pub id: String,
-    pub catalog: String,  // path to JSON catalog file
-    pub default_blast_radius_allowed: String,  // "low"|"medium"|"high"|"destructive"
+    pub catalog: String,                      // path to JSON catalog file
+    pub default_blast_radius_allowed: String, // "low"|"medium"|"high"|"destructive"
     pub vault_entry: String,
 }
 
@@ -27,9 +27,9 @@ pub struct Agent {
     #[serde(default)]
     pub model_override: Option<ModelOverride>,
     #[serde(default)]
-    pub execution_mode: Option<String>,  // "code" | "react" (default: react)
+    pub execution_mode: Option<String>, // "code" | "react" (default: react)
     #[serde(default)]
-    pub engine: Option<String>,  // "deepagents" | "legacy" (default: legacy)
+    pub engine: Option<String>, // "deepagents" | "legacy" (default: legacy)
     #[serde(default)]
     pub attached_skills: Vec<String>,
     #[serde(default)]
@@ -38,8 +38,8 @@ pub struct Agent {
     pub attached_tools: Vec<AttachedTool>,
     #[serde(default)]
     pub allowed_commands: Vec<String>,
-    pub body: String,      // markdown playbook after frontmatter
-    pub path: PathBuf,     // agent directory path
+    pub body: String,  // markdown playbook after frontmatter
+    pub path: PathBuf, // agent directory path
 }
 
 #[derive(Debug, Deserialize)]
@@ -53,7 +53,7 @@ pub struct AgentFrontmatter {
     #[serde(default, rename = "execution-mode")]
     pub execution_mode: Option<String>,
     #[serde(default)]
-    pub engine: Option<String>,  // "deepagents" | "legacy"
+    pub engine: Option<String>, // "deepagents" | "legacy"
     #[serde(default)]
     pub attached_skills: Vec<String>,
     #[serde(default)]

@@ -78,14 +78,19 @@ pub fn reclassify_with_approvals(
 /// false-positives like "10.0.0.5" matching "/10.0.0.50/state".
 fn path_matches_segment(path: &str, needle: &str) -> bool {
     let segs: Vec<&str> = path.trim_start_matches('/').split('/').collect();
-    let needle_segs: Vec<&str> = needle.trim_start_matches('/').split('/').filter(|s| !s.is_empty()).collect();
+    let needle_segs: Vec<&str> = needle
+        .trim_start_matches('/')
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
     if needle_segs.is_empty() {
         return false;
     }
     if needle_segs.len() > segs.len() {
         return false;
     }
-    segs.windows(needle_segs.len()).any(|w| w == needle_segs.as_slice())
+    segs.windows(needle_segs.len())
+        .any(|w| w == needle_segs.as_slice())
 }
 
 pub fn count_severities(deltas: &[ClassifiedDelta]) -> SeverityCounts {

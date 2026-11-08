@@ -146,7 +146,10 @@ fn placeholder_without_prefix_passes_through_literally() {
     // may not use the `prefix:name` form. Unknown shapes MUST NOT silently
     // resolve to empty — they pass through as literals so the user can see
     // what didn't expand.
-    assert_eq!(resolve("${FOO}", &ResolverContext::default()).unwrap(), "${FOO}");
+    assert_eq!(
+        resolve("${FOO}", &ResolverContext::default()).unwrap(),
+        "${FOO}"
+    );
 }
 
 #[test]
@@ -167,11 +170,7 @@ fn unknown_prefix_is_left_literal_for_future_resolvers() {
 
 #[test]
 fn nested_vars_resolve_transitively() {
-    let c = ctx(&[
-        ("A", "${var:B}"),
-        ("B", "${var:C}"),
-        ("C", "deep-value"),
-    ]);
+    let c = ctx(&[("A", "${var:B}"), ("B", "${var:C}"), ("C", "deep-value")]);
     assert_eq!(resolve("${var:A}", &c).unwrap(), "deep-value");
 }
 
@@ -214,8 +213,7 @@ fn resolve_request_rewrites_url_headers_query_body_and_auth() {
         ("KEY", "deadbeef"),
     ]);
     let mut r = req("https://${env:HOST}/api/v1/organizations/${var:ORG}/networks");
-    r.headers
-        .insert("X-Key".into(), "Bearer ${env:KEY}".into());
+    r.headers.insert("X-Key".into(), "Bearer ${env:KEY}".into());
     r.query.insert("per_page".into(), "${var:ORG}".into());
     r.body_text = Some("{\"org\":\"${var:ORG}\"}".into());
     r.body_kind = BodyKindDefault(BodyKind::Json);
@@ -229,12 +227,12 @@ fn resolve_request_rewrites_url_headers_query_body_and_auth() {
         r.url,
         "https://api.meraki.com/api/v1/organizations/L_9/networks"
     );
-    assert_eq!(r.headers.get("X-Key").map(String::as_str), Some("Bearer deadbeef"));
-    assert_eq!(r.query.get("per_page").map(String::as_str), Some("L_9"));
     assert_eq!(
-        r.body_text.as_deref(),
-        Some("{\"org\":\"L_9\"}")
+        r.headers.get("X-Key").map(String::as_str),
+        Some("Bearer deadbeef")
     );
+    assert_eq!(r.query.get("per_page").map(String::as_str), Some("L_9"));
+    assert_eq!(r.body_text.as_deref(), Some("{\"org\":\"L_9\"}"));
     match r.auth {
         ApiAuth::Bearer { token } => assert_eq!(token, "deadbeef"),
         other => panic!("expected Bearer, got {other:?}"),

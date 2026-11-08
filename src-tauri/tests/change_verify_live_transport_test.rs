@@ -40,7 +40,10 @@ async fn live_transport_threads_command_to_executor() {
         response: "Interface           IP-Address     OK?".into(),
     });
     let transport = LiveTransport::new(exec.clone(), "cisco".into(), "iosxe".into());
-    let out = transport.run_show("tab42", "show ip interface brief").await.unwrap();
+    let out = transport
+        .run_show("tab42", "show ip interface brief")
+        .await
+        .unwrap();
     assert!(out.contains("Interface"));
     let captured = exec.captured.lock();
     assert_eq!(captured.len(), 1);

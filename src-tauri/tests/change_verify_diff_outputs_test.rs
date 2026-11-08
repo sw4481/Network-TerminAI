@@ -99,11 +99,17 @@ fn diff_outputs_matches_diff_snapshots_on_nested_dict() {
     let (_dir, db) = open_db();
     let conn = db.lock();
     let a_id = seed_parsed_output(
-        &conn, "tab1", "blk-a", "show ip route summary",
+        &conn,
+        "tab1",
+        "blk-a",
+        "show ip route summary",
         r#"{"total": 1000, "connected": 5}"#,
     );
     let b_id = seed_parsed_output(
-        &conn, "tab1", "blk-b", "show ip route summary",
+        &conn,
+        "tab1",
+        "blk-b",
+        "show ip route summary",
         r#"{"total": 1050, "connected": 5}"#,
     );
     let pin_a = pin_snapshot(&conn, "tab1", a_id, "pre");
@@ -132,13 +138,20 @@ fn diff_outputs_matches_diff_snapshots_with_schema_key() {
         "INSERT INTO parse_schemas(parser,command,vendor,platform,schema_json)
          VALUES ('genie','show ip interface brief','cisco','iosxe',?1)",
         params![r#"{"key":"intf"}"#],
-    ).unwrap();
+    )
+    .unwrap();
     let a_id = seed_parsed_output(
-        &conn, "tab1", "blk-a", "show ip interface brief",
+        &conn,
+        "tab1",
+        "blk-a",
+        "show ip interface brief",
         r#"[{"intf":"Gi0/1","status":"up","oper_status":"up"}]"#,
     );
     let b_id = seed_parsed_output(
-        &conn, "tab1", "blk-b", "show ip interface brief",
+        &conn,
+        "tab1",
+        "blk-b",
+        "show ip interface brief",
         r#"[{"intf":"Gi0/1","status":"up","oper_status":"down"}]"#,
     );
     let pin_a = pin_snapshot(&conn, "tab1", a_id, "pre");

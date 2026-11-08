@@ -72,6 +72,7 @@ import { usePaneSplit } from "./hooks/usePaneSplit";
 import { useFanoutShortcuts } from "./hooks/useFanoutShortcuts";
 import { listTabs, tabNewApi, tabNewNetconf, tabNewEditor, tabNewSubnet, terminalDetach, canvasCreateWorkspace, canvasListWorkspaces } from "./lib/tauri";
 import { buildSshCommand, type SshConnection } from "./lib/sshConnections";
+import { TopologyOpeners, type TopologySshSeed } from "./lib/topologyOpeners";
 import { normalizeTerminalPlatform } from "./lib/terminalClipboard";
 import { useSshPasswordStore } from "./state/sshPasswordStore";
 import { useTerminalConnectionStore } from "./state/terminalConnectionStore";
@@ -366,14 +367,17 @@ export default function App() {
   // Falls back to a bare LegacyTerminal slot only if the xterm CDN isn't ready
   // yet (getOrCreate throws) — never leave the terminal column blank.
   const seedTerminalTab = useCallback(
-    async (opts: { cwd?: string; pendingCommand?: string; managed?: { connection: SshConnection } } = {}): Promise<void> => {
+    async (opts: { cwd?: string; pendingCommand?: string; managed?: { connection: SshConnection }; savedSsh?: TopologySshSeed["savedSsh"] } = {}): Promise<void> => {
       const id = crypto.randomUUID();
       const shell = defaultShell();
       const cwd = opts.cwd || "/";
+      const managed = opts.managed ?? (opts.savedSsh && normalizeTerminalPlatform() === "windows"
+        ? { connection: opts.savedSsh.connection } : undefined);
+      let terminalRegistry: typeof import("./lib/terminalRegistry") | undefined;
       try {
-        const terminalRegistry = await import("./lib/terminalRegistry");
-        if (opts.managed) {
-          const { connection } = opts.managed;
+        terminalRegistry = await import("./lib/terminalRegistry");
+        if (managed) {
+          const { connection } = managed;
           useTerminalConnectionStore.getState().bind({
             terminalId: id, backendPtyId: id, connectionId: connection.id,
             displayName: connection.name, vendor: connection.vendor, platform: connection.platform,
@@ -385,17 +389,27 @@ export default function App() {
         }
         // skipTabRegistration: we addTab ourselves below with the right values;
         // the registry's own spawn-resolve addTab would race with default ones.
-        terminalRegistry.getOrCreate(id, {
+        const entry = terminalRegistry.getOrCreate(id, {
           shell,
           cwd,
           preferredTabId: id,
-          managedConnectionId: opts.managed?.connection.id,
+          managedConnectionId: managed?.connection.id,
           skipTabRegistration: true,
+          onPtyReady: opts.savedSsh && !managed ? (ptyTabId) => {
+            const { connection, password } = opts.savedSsh!;
+            window.dispatchEvent(new CustomEvent("ssh-connect", {
+              detail: TopologyOpeners.sshConnectDetail(connection, password, ptyTabId),
+            }));
+          } : undefined,
         });
+        if (opts.savedSsh) {
+          await entry._ptySpawnPromise;
+          if (entry.disposed || !entry.ptyTabId) throw new Error("SSH terminal could not be opened.");
+        }
         addTab({
           id,
-          title: opts.managed?.connection.name ?? shell.split("/").pop() ?? shell,
-          shell_cmd: opts.managed ? MANAGED_SSH_SHELL_MARKER : shell,
+          title: managed?.connection.name ?? opts.savedSsh?.connection.name ?? shell.split("/").pop() ?? shell,
+          shell_cmd: managed ? MANAGED_SSH_SHELL_MARKER : shell,
           cwd,
           created_at: Math.floor(Date.now() / 1000),
           tab_type: "terminal",
@@ -406,6 +420,15 @@ export default function App() {
           terminalRegistry.runWhenReady(id, opts.pendingCommand);
         }
       } catch (e) {
+        if (opts.savedSsh) {
+          terminalRegistry?.dispose(id);
+          if (managed) {
+            useSshPasswordStore.getState().clearPasswordContext(id);
+            useTerminalConnectionStore.getState().clear(id);
+          }
+          window.alert("SSH terminal could not be opened.");
+          throw new Error("SSH terminal could not be opened.");
+        }
         if (opts.managed) {
           useSshPasswordStore.getState().clearPasswordContext(id);
           useTerminalConnectionStore.getState().clear(id);
@@ -429,6 +452,7 @@ export default function App() {
     },
     [addTab],
   );
+  const topologyOpeners = new TopologyOpeners(seedTerminalTab, addTab);
 
   // One-time session restore. Recreate terminal tabs (fresh shell + replayed
   // scrollback, reusing saved ids so scrollback/pane_layouts line up). Falls
@@ -1523,7 +1547,11 @@ export default function App() {
                       display: tab.id === activeTabId ? "block" : "none",
                     }}
                   >
-                    <TopologyTab tabId={tab.id} />
+                    <TopologyTab
+                      tabId={tab.id}
+                      onOpenSshTab={(ref) => topologyOpeners.openSsh(ref)}
+                      onOpenNetconfTab={(ref) => topologyOpeners.openNetconf(ref)}
+                    />
                   </div>
                 ))}
               {tabs

@@ -85,11 +85,7 @@ impl MockExecutor {
 
 #[async_trait]
 impl StepExecutor for MockExecutor {
-    async fn run_command(
-        &self,
-        _ctx: &mut RunContext,
-        command: &str,
-    ) -> anyhow::Result<Value> {
+    async fn run_command(&self, _ctx: &mut RunContext, command: &str) -> anyhow::Result<Value> {
         self.state.lock().commands_run.push(command.to_string());
         Ok(self
             .parsed_by_cmd
@@ -217,9 +213,10 @@ fn fresh_ctx(vars: HashMap<String, Value>) -> RunContext {
     RunContext::new("run-1", "tab-1", vars)
 }
 
-fn record_into(buf: Arc<Mutex<Vec<(StepResult, &'static str)>>>, pb: Playbook)
-    -> impl FnMut(&StepResult) -> anyhow::Result<()>
-{
+fn record_into(
+    buf: Arc<Mutex<Vec<(StepResult, &'static str)>>>,
+    pb: Playbook,
+) -> impl FnMut(&StepResult) -> anyhow::Result<()> {
     move |r| {
         let step_type: &'static str = pb
             .find_step(&r.step_id)
@@ -270,12 +267,10 @@ steps:
 #[tokio::test]
 async fn happy_path_emits_narration_per_command_assertion_or_branch_step() {
     let pb = Playbook::parse_yaml(BGP_PLAYBOOK_YAML).unwrap();
-    let exec = Arc::new(
-        MockExecutor::new().with_parsed(
-            "show bgp neighbor 10.0.0.5",
-            serde_json::json!({"session_state": "Idle (Admin)"}),
-        ),
-    );
+    let exec = Arc::new(MockExecutor::new().with_parsed(
+        "show bgp neighbor 10.0.0.5",
+        serde_json::json!({"session_state": "Idle (Admin)"}),
+    ));
     let exec_state = exec.state();
     let mut vars = HashMap::new();
     vars.insert("neighbor".into(), Value::String("10.0.0.5".into()));
@@ -284,7 +279,9 @@ async fn happy_path_emits_narration_per_command_assertion_or_branch_step() {
     let history: Arc<Mutex<Vec<(StepResult, &'static str)>>> = Arc::new(Mutex::new(Vec::new()));
     let recorder = record_into(history.clone(), pb.clone());
 
-    run_tree(&pb, &mut ctx, exec.clone(), recorder).await.unwrap();
+    run_tree(&pb, &mut ctx, exec.clone(), recorder)
+        .await
+        .unwrap();
 
     assert_eq!(ctx.status, RunStatus::Completed);
 
@@ -343,7 +340,9 @@ steps:
     let history: Arc<Mutex<Vec<(StepResult, &'static str)>>> = Arc::new(Mutex::new(Vec::new()));
     let recorder = record_into(history.clone(), pb.clone());
 
-    run_tree(&pb, &mut ctx, exec.clone(), recorder).await.unwrap();
+    run_tree(&pb, &mut ctx, exec.clone(), recorder)
+        .await
+        .unwrap();
 
     assert_eq!(ctx.status, RunStatus::Paused);
 
@@ -372,7 +371,9 @@ async fn produce_conclusion_returns_shaped_payload_once_per_terminal_run() {
     let history: Arc<Mutex<Vec<(StepResult, &'static str)>>> = Arc::new(Mutex::new(Vec::new()));
     let recorder = record_into(history.clone(), pb.clone());
 
-    run_tree(&pb, &mut ctx, exec.clone(), recorder).await.unwrap();
+    run_tree(&pb, &mut ctx, exec.clone(), recorder)
+        .await
+        .unwrap();
     assert!(is_terminal(ctx.status));
 
     let bridge = MockBridge::new(serde_json::json!({
@@ -470,17 +471,8 @@ async fn produce_conclusion_clamps_invalid_confidence() {
         "suggested_fix": "y",
         "evidence": [],
     }));
-    let conclusion = produce_conclusion(
-        &bridge,
-        "r",
-        "s",
-        "v",
-        "p",
-        RunStatus::Completed,
-        &[],
-        &[],
-    )
-    .await;
+    let conclusion =
+        produce_conclusion(&bridge, "r", "s", "v", "p", RunStatus::Completed, &[], &[]).await;
     assert_eq!(conclusion["confidence"].as_str(), Some("low"));
 }
 

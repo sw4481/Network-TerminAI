@@ -36,7 +36,12 @@ pub fn list(db: &Connection) -> Result<Vec<SavedNetconfRpc>> {
 
 /// Create or update a saved NETCONF RPC.
 /// If id is Some, updates existing record. If None, creates new record.
-pub fn upsert(db: &Connection, id: Option<i64>, name: &str, rpc_xml: &str) -> Result<SavedNetconfRpc> {
+pub fn upsert(
+    db: &Connection,
+    id: Option<i64>,
+    name: &str,
+    rpc_xml: &str,
+) -> Result<SavedNetconfRpc> {
     let now = chrono::Utc::now().to_rfc3339();
 
     match id {
@@ -104,10 +109,22 @@ mod tests {
         assert_eq!(rpcs.len(), 0);
 
         // Create
-        let rpc1 = upsert(db, None, "Get running config", "<get-config><source><running/></source></get-config>").unwrap();
+        let rpc1 = upsert(
+            db,
+            None,
+            "Get running config",
+            "<get-config><source><running/></source></get-config>",
+        )
+        .unwrap();
         assert_eq!(rpc1.name, "Get running config");
 
-        let rpc2 = upsert(db, None, "Get interfaces", "<get><filter type=\"subtree\"><interfaces/></filter></get>").unwrap();
+        let rpc2 = upsert(
+            db,
+            None,
+            "Get interfaces",
+            "<get><filter type=\"subtree\"><interfaces/></filter></get>",
+        )
+        .unwrap();
 
         // List
         let rpcs = list(db).unwrap();
@@ -117,7 +134,13 @@ mod tests {
         assert_eq!(rpcs[1].name, "Get running config");
 
         // Update
-        let updated = upsert(db, Some(rpc1.id), "Get running config (updated)", rpc1.rpc_xml.as_str()).unwrap();
+        let updated = upsert(
+            db,
+            Some(rpc1.id),
+            "Get running config (updated)",
+            rpc1.rpc_xml.as_str(),
+        )
+        .unwrap();
         assert_eq!(updated.name, "Get running config (updated)");
         assert_eq!(updated.id, rpc1.id);
 

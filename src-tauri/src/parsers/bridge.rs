@@ -12,6 +12,26 @@ pub struct ParsedOutput {
     pub data: serde_json::Value,
 }
 
+/// Opt-in status from topology.neighbors; legacy neighbors() still returns Vec.
+#[derive(Debug, serde::Deserialize)]
+pub struct NeighborCapture {
+    pub status: crate::topology::CaptureStatus,
+    pub records: Vec<crate::topology::NeighborRecord>,
+}
+
+impl NeighborCapture {
+    pub fn from_response(value: serde_json::Value) -> Result<Self> {
+        let capture: Self = serde_json::from_value(value)?;
+        anyhow::ensure!(
+            capture.status == crate::topology::CaptureStatus::Completed
+                || (capture.status == crate::topology::CaptureStatus::Unsupported
+                    && capture.records.is_empty()),
+            "invalid topology capture status"
+        );
+        Ok(capture)
+    }
+}
+
 /// Thin wrapper that calls the sidecar `parse.request` method through the
 /// existing `AgentBridge`. Bridge is shared via `Arc` so cloning is cheap.
 #[derive(Clone)]
@@ -50,8 +70,45 @@ impl ParserBridge {
                     .ok_or_else(|| anyhow!("parse.request response missing 'data'"))?;
                 Ok(ParsedOutput { parser, data })
             }
-            AgentResponse::Error { message } => Err(anyhow!("sidecar parse.request error: {message}")),
+            AgentResponse::Error { message } => {
+                Err(anyhow!("sidecar parse.request error: {message}"))
+            }
             AgentResponse::Token { .. } => Err(anyhow!("parse.request unexpectedly streamed")),
+        }
+    }
+
+    /// Manual collection needs support information even when records is empty.
+    pub async fn neighbor_capture(
+        &self,
+        protocol: &str,
+        vendor: &str,
+        platform: &str,
+        command: &str,
+        raw: &str,
+    ) -> Result<NeighborCapture> {
+        self.neighbor_capture_with_interfaces(protocol, vendor, platform, command, raw, None).await
+    }
+
+    pub async fn neighbor_capture_with_interfaces(
+        &self,
+        protocol: &str,
+        vendor: &str,
+        platform: &str,
+        command: &str,
+        raw: &str,
+        interfaces_raw: Option<&str>,
+    ) -> Result<NeighborCapture> {
+        let params = json!({
+            "protocol": protocol, "vendor": vendor, "platform": platform,
+            "command": command, "raw": raw, "include_status": true,
+            "interfaces_raw": interfaces_raw,
+        });
+        match self.agent.call("topology.neighbors", params).await? {
+            AgentResponse::Done { result } => NeighborCapture::from_response(result),
+            AgentResponse::Error { message } => {
+                Err(anyhow!("sidecar topology.neighbors error: {message}"))
+            }
+            AgentResponse::Token { .. } => Err(anyhow!("topology.neighbors unexpectedly streamed")),
         }
     }
 
@@ -80,16 +137,13 @@ impl ParserBridge {
                     .get("records")
                     .cloned()
                     .ok_or_else(|| anyhow!("topology.neighbors response missing 'records'"))?;
-                let parsed: Vec<crate::topology::NeighborRecord> =
-                    serde_json::from_value(records)?;
+                let parsed: Vec<crate::topology::NeighborRecord> = serde_json::from_value(records)?;
                 Ok(parsed)
             }
             AgentResponse::Error { message } => {
                 Err(anyhow!("sidecar topology.neighbors error: {message}"))
             }
-            AgentResponse::Token { .. } => {
-                Err(anyhow!("topology.neighbors unexpectedly streamed"))
-            }
+            AgentResponse::Token { .. } => Err(anyhow!("topology.neighbors unexpectedly streamed")),
         }
     }
 }

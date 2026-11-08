@@ -126,14 +126,12 @@ impl RagBridgeApi for RagBridge {
             // `rag.ingest.result` (intermediate) to seed `result_payload`.
             supervisor
                 .call_stream_ex("rag.ingest", params, |ev| {
-                    let ev_type =
-                        ev.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                    let ev_type = ev.get("type").and_then(|v| v.as_str()).unwrap_or("");
                     match ev_type {
                         "rag.ingest.progress" => {
                             if let Some(payload) = ev.get("payload") {
-                                if let Ok(p) = serde_json::from_value::<
-                                    IngestProgressWire,
-                                >(payload.clone())
+                                if let Ok(p) =
+                                    serde_json::from_value::<IngestProgressWire>(payload.clone())
                                 {
                                     on_progress(IngestProgress {
                                         chunks_done: p.chunks_done,
@@ -155,8 +153,8 @@ impl RagBridgeApi for RagBridge {
 
             let payload = result_payload
                 .ok_or_else(|| anyhow!("rag.ingest finished without a result payload"))?;
-            let parsed: IngestResultWire = serde_json::from_value(payload)
-                .context("decode rag.ingest.result payload")?;
+            let parsed: IngestResultWire =
+                serde_json::from_value(payload).context("decode rag.ingest.result payload")?;
             let mut chunks = Vec::with_capacity(parsed.chunks.len());
             for c in parsed.chunks {
                 if c.embedding.len() != EMBEDDING_DIM {
@@ -193,8 +191,8 @@ impl RagBridgeApi for RagBridge {
             let result = supervisor
                 .call("rag.embed", params)
                 .context("rag.embed call")?;
-            let parsed: EmbedResultWire = serde_json::from_value(result)
-                .context("decode rag.embed result payload")?;
+            let parsed: EmbedResultWire =
+                serde_json::from_value(result).context("decode rag.embed result payload")?;
             if parsed.embedding.len() != EMBEDDING_DIM {
                 bail!(
                     "rag.embed returned {}-dim vector, expected {}",

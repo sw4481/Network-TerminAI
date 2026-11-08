@@ -50,7 +50,10 @@ fn import_get_export_round_trip_is_byte_stable() {
     )));
 
     let exported = export_markdown_impl(&conn, &id).expect("export");
-    assert_eq!(exported, FIXTURE, "body_markdown must round-trip byte-stable");
+    assert_eq!(
+        exported, FIXTURE,
+        "body_markdown must round-trip byte-stable"
+    );
 }
 
 #[test]
