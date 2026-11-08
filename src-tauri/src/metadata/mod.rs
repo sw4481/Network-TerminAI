@@ -2,9 +2,9 @@
 //! tolerant gatherers (git, ports, ssh) assembled into a `PaneMetadata`
 //! snapshot for the focused terminal pane. macOS-first.
 
-pub mod proc;
 pub mod git;
 pub mod ports;
+pub mod proc;
 pub mod ssh;
 
 use serde::Serialize;
@@ -22,7 +22,12 @@ pub fn get_metadata(
     let git = git::gather_git(cwd);
     let ports = pid.map(ports::gather_ports).unwrap_or_default();
     let ssh = ssh_from_chain.or_else(|| pid.and_then(ssh::gather_ssh_from_process));
-    PaneMetadata { git, ports, ssh, gathered_at: now }
+    PaneMetadata {
+        git,
+        ports,
+        ssh,
+        gathered_at: now,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

@@ -2,9 +2,8 @@
 //! chaining resolver.
 
 use ccie_terminal_lib::api_runner::history::{
-    delete_saved_request, get_history_detail, get_saved_by_id, list_history,
-    list_saved_requests, lookup_latest_response_body, save_request, validate_saved_name,
-    HistoryFilter, NewSavedRequest,
+    delete_saved_request, get_history_detail, get_saved_by_id, list_history, list_saved_requests,
+    lookup_latest_response_body, save_request, validate_saved_name, HistoryFilter, NewSavedRequest,
 };
 use ccie_terminal_lib::api_runner::resolver::{resolve, ResolverContext};
 use ccie_terminal_lib::db;
@@ -41,7 +40,16 @@ fn insert_history(
              status_code, response_headers_json, response_body,
              response_body_truncated, duration_ms, error, sent_at)
          VALUES (?, ?, ?, NULL, NULL, ?, ?, '{}', NULL, ?, '{}', ?, 0, 42, NULL, ?)",
-        params![id, tab_id, saved_request_id, method, url, status, body, sent_at],
+        params![
+            id,
+            tab_id,
+            saved_request_id,
+            method,
+            url,
+            status,
+            body,
+            sent_at
+        ],
     )
     .unwrap();
     id
@@ -58,7 +66,16 @@ fn validate_saved_name_accepts_reasonable_titles() {
 
 #[test]
 fn validate_saved_name_rejects_bad_shapes() {
-    for bad in ["", "   ", "a/b", "a\\b", "a;b", "a\nb", "a*b", &"x".repeat(129)] {
+    for bad in [
+        "",
+        "   ",
+        "a/b",
+        "a\\b",
+        "a;b",
+        "a\nb",
+        "a*b",
+        &"x".repeat(129),
+    ] {
         assert!(
             validate_saved_name(bad).is_err(),
             "expected rejection for {bad:?}"
@@ -270,7 +287,16 @@ fn list_history_respects_tab_filter() {
 fn list_history_limit_and_offset_paginate_correctly() {
     let (_dir, conn) = open_test_db();
     for i in 0..5 {
-        insert_history(&conn, None, None, "GET", &format!("/{i}"), Some(200), None, i);
+        insert_history(
+            &conn,
+            None,
+            None,
+            "GET",
+            &format!("/{i}"),
+            Some(200),
+            None,
+            i,
+        );
     }
     let page1 = list_history(
         &conn,
@@ -298,16 +324,7 @@ fn list_history_limit_and_offset_paginate_correctly() {
 #[test]
 fn get_history_detail_returns_body_bytes() {
     let (_dir, conn) = open_test_db();
-    let id = insert_history(
-        &conn,
-        None,
-        None,
-        "GET",
-        "/x",
-        Some(200),
-        Some(b"hello"),
-        0,
-    );
+    let id = insert_history(&conn, None, None, "GET", "/x", Some(200), Some(b"hello"), 0);
     let detail = get_history_detail(&conn, &id).unwrap().unwrap();
     assert_eq!(detail.response_body.as_deref(), Some(b"hello".as_slice()));
 }
@@ -338,11 +355,40 @@ fn lookup_latest_picks_newest_successful_row() {
         },
     )
     .unwrap();
-    insert_history(&conn, None, Some(&saved.id), "GET", "/probe", Some(200), Some(b"old"), 1);
-    insert_history(&conn, None, Some(&saved.id), "GET", "/probe", Some(200), Some(b"newer"), 5);
-    insert_history(&conn, None, Some(&saved.id), "GET", "/probe", Some(200), Some(b"mid"), 3);
+    insert_history(
+        &conn,
+        None,
+        Some(&saved.id),
+        "GET",
+        "/probe",
+        Some(200),
+        Some(b"old"),
+        1,
+    );
+    insert_history(
+        &conn,
+        None,
+        Some(&saved.id),
+        "GET",
+        "/probe",
+        Some(200),
+        Some(b"newer"),
+        5,
+    );
+    insert_history(
+        &conn,
+        None,
+        Some(&saved.id),
+        "GET",
+        "/probe",
+        Some(200),
+        Some(b"mid"),
+        3,
+    );
 
-    let body = lookup_latest_response_body(&conn, "probe").unwrap().unwrap();
+    let body = lookup_latest_response_body(&conn, "probe")
+        .unwrap()
+        .unwrap();
     assert_eq!(body, b"newer");
 }
 
@@ -365,10 +411,30 @@ fn lookup_latest_skips_transport_failures() {
     )
     .unwrap();
     // status=0 = transport failure; must not be picked even though it's newest.
-    insert_history(&conn, None, Some(&saved.id), "GET", "/probe", Some(200), Some(b"ok"), 1);
-    insert_history(&conn, None, Some(&saved.id), "GET", "/probe", Some(0), Some(b"fail"), 10);
+    insert_history(
+        &conn,
+        None,
+        Some(&saved.id),
+        "GET",
+        "/probe",
+        Some(200),
+        Some(b"ok"),
+        1,
+    );
+    insert_history(
+        &conn,
+        None,
+        Some(&saved.id),
+        "GET",
+        "/probe",
+        Some(0),
+        Some(b"fail"),
+        10,
+    );
 
-    let body = lookup_latest_response_body(&conn, "probe").unwrap().unwrap();
+    let body = lookup_latest_response_body(&conn, "probe")
+        .unwrap()
+        .unwrap();
     assert_eq!(body, b"ok");
 }
 
@@ -390,7 +456,9 @@ fn lookup_latest_returns_none_when_saved_has_no_history() {
         },
     )
     .unwrap();
-    assert!(lookup_latest_response_body(&conn, "unsent").unwrap().is_none());
+    assert!(lookup_latest_response_body(&conn, "unsent")
+        .unwrap()
+        .is_none());
 }
 
 // ---- ${response.NAME.path} chaining resolver ----------------------------

@@ -50,7 +50,9 @@ fn meraki_has_hundreds_of_endpoints() {
 fn catalyst_center_has_hundreds_of_endpoints() {
     let (_tmp, b, u) = setup();
     let loaded = load_all(&b, &u).unwrap();
-    let m = loaded.find("catalyst_center").expect("catalyst_center manifest");
+    let m = loaded
+        .find("catalyst_center")
+        .expect("catalyst_center manifest");
     let endpoints = catalog_for_manifest(m);
     assert!(
         endpoints.len() >= 800,
@@ -122,7 +124,10 @@ fn every_manifest_has_an_openapi_url_for_reimport() {
     let loaded = load_all(&b, &u).unwrap();
     for (m, src) in &loaded.builtin {
         assert!(
-            m.openapi_url.as_deref().map(|s| !s.is_empty()).unwrap_or(false),
+            m.openapi_url
+                .as_deref()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false),
             "{} needs an openapi_url so the UI's Import button has something to fetch",
             src.display(),
         );
@@ -168,9 +173,7 @@ fn sna_uses_form_body_credentials_for_session_login() {
     // Regression for the "415 Unsupported Media Type" bug.
     // /token/v2/authenticate expects application/x-www-form-urlencoded;
     // sending JSON fails the login entirely.
-    use ccie_terminal_lib::api_runner::manifest::{
-        ManifestAuth, ManifestLoginCredentials,
-    };
+    use ccie_terminal_lib::api_runner::manifest::{ManifestAuth, ManifestLoginCredentials};
     let (_tmp, b, u) = setup();
     let loaded = load_all(&b, &u).unwrap();
     let sna = loaded.find("sna").expect("sna manifest");

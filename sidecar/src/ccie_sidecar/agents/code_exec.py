@@ -26,6 +26,111 @@ from io import StringIO
 from contextlib import redirect_stdout
 from typing import Any, Callable, Dict, List, Optional
 
+from ccie_sidecar.agents.copilot_canvas import CanvasContext
+
+
+class _CanvasTurn:
+    """In-memory turn callback, rebound only by the existing stream/resume path."""
+
+    def __init__(self, request: dict, emit: Callable[[dict], None], sensitive_values: tuple[str, ...]):
+        self._emit: Callable[[dict], None] | None = emit
+        self.context = CanvasContext(request, self.emit, sensitive_values)
+
+    def bind(self, emit: Callable[[dict], None] | None) -> None:
+        self._emit = emit
+
+    def emit(self, event: dict) -> None:
+        if self._emit is None:
+            raise RuntimeError("Canvas turn is not streaming")
+        self._emit(event)
+
+
+def _capture_canvas_result(
+    canvas: CanvasContext | None, helper: str, value: Any, *,
+    origin: str = "observed",
+) -> None:
+    if canvas is None:
+        return
+    try:
+        # Parse only known helper return strings. Unattributed stdout stays text.
+        if origin == "observed" and isinstance(value, str):
+            from ccie_sidecar.agents.tool_output import DEFAULT_MAX_RETAINED_BYTES
+            if len(value.encode("utf-8")) <= DEFAULT_MAX_RETAINED_BYTES:
+                try:
+                    value = json.loads(value)
+                except (ValueError, RecursionError):
+                    pass
+        canvas.capture({"helper": helper}, value, call_id=str(uuid.uuid4()), origin=origin)
+    except Exception:
+        # A broken Canvas must never retry or fail a successful source operation.
+        pass
+
+
+def _install_canvas(globals_dict: Dict[str, Any], canvas: CanvasContext) -> None:
+    from functools import wraps
+    from types import SimpleNamespace
+
+    def sources() -> list[dict]:
+        return canvas.sources()
+
+    def present(spec: dict) -> dict:
+        return canvas.present(spec)
+
+    def publish(spec: dict) -> dict:
+        return canvas.publish(spec)
+
+    def derive(parent_refs: list[dict], value: Any, calculation: str) -> str | None:
+        return canvas.derive(parent_refs, value, calculation)
+
+    # No direct context-bound methods; full-trust Python closure reflection is
+    # still not an isolation boundary.
+    globals_dict["canvas"] = SimpleNamespace(publish=publish, present=present, derive=derive, sources=sources)
+
+    def wrap(name, helper):
+        @wraps(helper)
+        def captured(*args, **kwargs):
+            result = helper(*args, **kwargs)
+            _capture_canvas_result(canvas, name, result)
+            return result
+        return captured
+
+    for name, helper in list(globals_dict.items()):
+        if name.endswith("_api_call") and callable(helper):
+            globals_dict[name] = wrap(name, helper)
+
+
+CANVAS_PRESENTATION_GUIDANCE = """Canvas is enabled for this Architect turn only.
+Before finishing, publish useful display-ready cards with the preloaded Python
+canvas.publish({'type':type,'title':title,'metadata':metadata}); NEVER import canvas.
+If native canvas_publish is available in your tool list, you may instead call it
+with type, title, metadata.
+Supply actual JSON values, not evidence IDs, pointers, or source-selection plumbing.
+Published cards are agent-authored summaries — not independently verified evidence.
+Use actual results and honest unknowns; configuration is not proof of a health alert.
+Choose the display that fits: tables for records, bar/line charts for numeric
+comparisons or trends, topology graphs for relationships, assessments for interpretation.
+Metadata shapes (examples use actual values):
+table: {'columns':[{'key':'name','label':'Name'}],'rows':[{'cells':{'name':'Switch A'}}]}.
+key_value: {'fields':[{'label':'Count','value':2}]}.
+chart: {'form':'bar','x_label':'Group','y_label':'Count','points':[{'label':'A','value':2}]}.
+Use form 'line' for a line chart; point values must be finite numbers.
+topology: {'nodes':[{'id':'A'},{'id':'B'}],'links':[{'from':'A','to':'B'}]}.
+Graph node IDs must be unique; every link endpoint must be a declared node.
+Label proposed relationships as proposed, not observed facts.
+text: {'body':'Readable summary or explicitly labeled raw source text'}.
+assessment: {'narrative':'Coverage is incomplete','unknowns':['Interface unassessed'],
+'remediation_considerations':[]}.
+findings: {'findings':[{'device':'Switch A','interface':'Port 1','symptom':'Review required',
+'severity':'warning','cause_assessment':'undetermined','unknowns':['Cause not established'],
+'remediation_considerations':[]}]}.
+Severity is critical/warning/info; cause_assessment is evidence_supported/likely/undetermined.
+Findings need real scalar device and interface values; use assessment/table for device-wide
+or unassessed interfaces. Do not invent missing fields or repeat whole responses as cells.
+No executable UI or arbitrary HTML. Advice is Recommendation — not executed.
+On presentation failure, correct the card only; never repeat source operations.
+Answer normally in chat with limitations; card failure must not erase the answer.
+"""
+
 
 _SIDECAR_RECYCLE_EXIT_CODE = 75
 _DEFAULT_CANCEL_GRACE_SECONDS = 0.5
@@ -355,6 +460,8 @@ def _build_sandbox_globals(
     secrets: Dict[str, Any],
     emit: Optional[Callable[[dict], None]] = None,
     catalogs: Optional[List[Dict[str, Any]]] = None,
+    *,
+    canvas: CanvasContext | None = None,
 ) -> Dict[str, Any]:
     """
     Build a global namespace for code execution.
@@ -383,6 +490,9 @@ def _build_sandbox_globals(
         "collections": collections,
         "os": os,
     }
+
+    # Clients not exposed in globals (Workflows has an approval-only apply door).
+    application_clients = []
 
     # draw.io diagram helper — available to every code-capable agent. Holds the
     # loop's on_event so drawio.diagram(...) streams a diagram event straight to
@@ -574,7 +684,7 @@ def _build_sandbox_globals(
     # separate HITL-gated cisco_workflows_apply StructuredTool.
     if cli_package == "cisco_workflows":
         from ccie_sidecar.cisco_workflows import install_cisco_workflows
-        install_cisco_workflows(globals_dict, emit=emit)
+        application_clients.append(install_cisco_workflows(globals_dict, emit=emit))
 
     # Bind the Cisco XDR client when this is the cisco_xdr agent. Reads creds
     # from sessions.db (same as Settings → Cisco XDR) and injects the
@@ -733,6 +843,20 @@ def _build_sandbox_globals(
             install_iac_guard(globals_dict)
         except Exception:
             pass
+
+    # Capture actual source returns before memory wrappers; catalog grounding
+    # remains outermost and rejects ungrounded calls before capture or side effects.
+    if canvas is not None:
+        # Installed API clients share _config; use those actual inputs, not a
+        # second vendor-loader catalog or reflection into helper closures.
+        application_clients.extend(globals_dict.get(name.removesuffix("_api_call"))
+                                   for name, helper in globals_dict.items()
+                                   if name.endswith("_api_call") and callable(helper))
+        for client in application_clients:
+            config = getattr(client, "_config", None)
+            if isinstance(config, dict):
+                canvas.register_sensitive_config(config)
+        _install_canvas(globals_dict, canvas)
 
     # In-turn GET de-dup: wrap every bound `*_api_call` global so identical
     # discovery GETs within one turn hit the API once (kills the observed 3x

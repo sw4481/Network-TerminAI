@@ -543,9 +543,7 @@ fn collection_from_sidecar_result(result: &Value) -> Result<StpCollection, StpCo
             .and_then(|value| value.get("instances"))
             .and_then(Value::as_array)
             .is_some_and(|instances| !instances.is_empty());
-        let has_parsable_stp = parsed_instances
-            .iter()
-            .any(StpInstance::has_parsable_state);
+        let has_parsable_stp = parsed_instances.iter().any(StpInstance::has_parsable_state);
         evidence.spanning_tree |= has_ports || has_instances;
         evidence.interfaces |= has_ports;
         if supported_record {
@@ -2163,7 +2161,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(collection.payload.instances[0].id, "10");
-        assert_eq!(collection.payload.instances[0].mode.as_deref(), Some("pvst"));
+        assert_eq!(
+            collection.payload.instances[0].mode.as_deref(),
+            Some("pvst")
+        );
         assert_eq!(
             collection.payload.instances[0].bridge_id.as_deref(),
             Some("32768.r1")
@@ -2214,9 +2215,15 @@ mod tests {
         assert_eq!(serialized["instances"][0]["rootPriority"], 32768);
         assert_eq!(serialized["instances"][0]["rootCost"], 4);
         assert_eq!(serialized["instances"][0]["rootPort"], "Gi1/0/1");
-        assert_eq!(serialized["instances"][0]["ports"][0]["interface"], "Gi1/0/1");
+        assert_eq!(
+            serialized["instances"][0]["ports"][0]["interface"],
+            "Gi1/0/1"
+        );
         assert_eq!(serialized["instances"][0]["ports"][0]["role"], "designated");
-        assert_eq!(serialized["instances"][0]["ports"][0]["state"], "forwarding");
+        assert_eq!(
+            serialized["instances"][0]["ports"][0]["state"],
+            "forwarding"
+        );
         assert_eq!(serialized["links"][0]["instanceId"], "10");
         assert!(serialized.get("raw").is_none());
     }

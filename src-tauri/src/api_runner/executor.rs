@@ -12,9 +12,7 @@
 //! with `status_code = 0`.
 
 use super::auth::apply_auth;
-use super::types::{
-    ApiRequest, ApiResponse, BodyKind, DEFAULT_TIMEOUT_SECS, MAX_RESPONSE_BODY,
-};
+use super::types::{ApiRequest, ApiResponse, BodyKind, DEFAULT_TIMEOUT_SECS, MAX_RESPONSE_BODY};
 use anyhow::Context;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::redirect::Policy;
@@ -85,18 +83,11 @@ pub async fn execute_request(req: ApiRequest) -> ApiResponse {
 
     let final_url = resp.url().to_string();
     let status_code = resp.status().as_u16();
-    let status_text = resp
-        .status()
-        .canonical_reason()
-        .unwrap_or("")
-        .to_string();
+    let status_text = resp.status().canonical_reason().unwrap_or("").to_string();
 
     let mut headers_out = BTreeMap::new();
     for (k, v) in resp.headers() {
-        headers_out.insert(
-            k.as_str().to_string(),
-            v.to_str().unwrap_or("").to_string(),
-        );
+        headers_out.insert(k.as_str().to_string(), v.to_str().unwrap_or("").to_string());
     }
 
     // Read body with an explicit cap. reqwest's `bytes()` would read the full
@@ -172,8 +163,7 @@ pub fn build_client_with(
 
     // Custom CA bundle: parse as PEM and add every cert it contains.
     if let Some(path) = &req.tls_ca_bundle {
-        let bytes = std::fs::read(path)
-            .with_context(|| format!("read CA bundle {path}"))?;
+        let bytes = std::fs::read(path).with_context(|| format!("read CA bundle {path}"))?;
         for cert in reqwest::Certificate::from_pem_bundle(&bytes)
             .with_context(|| format!("parse CA bundle {path}"))?
         {
@@ -183,8 +173,7 @@ pub fn build_client_with(
 
     // Client cert (mTLS): expects PEM containing cert + private key.
     if let Some(path) = &req.tls_client_cert {
-        let bytes = std::fs::read(path)
-            .with_context(|| format!("read client cert {path}"))?;
+        let bytes = std::fs::read(path).with_context(|| format!("read client cert {path}"))?;
         let identity = reqwest::Identity::from_pem(&bytes)
             .with_context(|| format!("parse client cert {path}"))?;
         builder = builder.identity(identity);
@@ -198,8 +187,8 @@ fn build_headers(src: &BTreeMap<String, String>) -> anyhow::Result<HeaderMap> {
     for (k, v) in src {
         let name = HeaderName::from_bytes(k.as_bytes())
             .map_err(|e| anyhow::anyhow!("header name {k:?}: {e}"))?;
-        let value = HeaderValue::from_str(v)
-            .map_err(|e| anyhow::anyhow!("header value for {k:?}: {e}"))?;
+        let value =
+            HeaderValue::from_str(v).map_err(|e| anyhow::anyhow!("header value for {k:?}: {e}"))?;
         out.insert(name, value);
     }
     Ok(out)

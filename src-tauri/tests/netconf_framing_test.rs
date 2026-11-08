@@ -55,7 +55,9 @@ async fn decode_chunked_single_chunk() {
 #[tokio::test]
 async fn decode_chunked_reassembles_multiple_chunks() {
     let (mut a, b) = duplex(256);
-    a.write_all(b"\n#6\n<big-m\n#8\nessage/>\n##\n").await.unwrap();
+    a.write_all(b"\n#6\n<big-m\n#8\nessage/>\n##\n")
+        .await
+        .unwrap();
     drop(a);
 
     let mut reader = tokio::io::BufReader::new(b);

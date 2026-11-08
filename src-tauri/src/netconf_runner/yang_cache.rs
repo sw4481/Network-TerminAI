@@ -35,11 +35,12 @@ pub struct YangModule {
 
 /// Get the base cache directory: `~/.ccie-terminal/yang-cache/`.
 pub fn cache_base() -> Result<PathBuf> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| NetconfError::Io(std::io::Error::new(
+    let home = dirs::home_dir().ok_or_else(|| {
+        NetconfError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "Could not determine home directory",
-        )))?;
+        ))
+    })?;
     let cache = home.join(".ccie-terminal").join("yang-cache");
     Ok(cache)
 }
@@ -111,12 +112,19 @@ pub fn insert_release(
 /// Does NOT delete files from disk - caller must handle that separately.
 pub fn delete_release(db: &Connection, release_id: i64) -> Result<()> {
     // Modules are CASCADE deleted via foreign key
-    db.execute("DELETE FROM yang_releases WHERE id = ?1", params![release_id])?;
+    db.execute(
+        "DELETE FROM yang_releases WHERE id = ?1",
+        params![release_id],
+    )?;
     Ok(())
 }
 
 /// List all modules in a release, optionally filtered by name query.
-pub fn list_modules(db: &Connection, release_id: i64, query: Option<&str>) -> Result<Vec<YangModule>> {
+pub fn list_modules(
+    db: &Connection,
+    release_id: i64,
+    query: Option<&str>,
+) -> Result<Vec<YangModule>> {
     if let Some(q) = query.filter(|q| !q.trim().is_empty()) {
         let pattern = format!("%{}%", q);
         let mut stmt = db.prepare(
@@ -206,11 +214,28 @@ mod tests {
             "1715",
             "github.com/YangModels/yang/cisco/xe/1715",
             "/tmp/yang-cache/cisco/xe/1715",
-        ).unwrap();
+        )
+        .unwrap();
 
         // Insert modules
-        insert_module(db, release_id, "ietf-interfaces", Some("urn:ietf:params:xml:ns:yang:ietf-interfaces"), Some("2014-05-08"), "/tmp/yang-cache/cisco/xe/1715/ietf-interfaces.yang").unwrap();
-        insert_module(db, release_id, "Cisco-IOS-XE-native", None, Some("2023-01-01"), "/tmp/yang-cache/cisco/xe/1715/Cisco-IOS-XE-native.yang").unwrap();
+        insert_module(
+            db,
+            release_id,
+            "ietf-interfaces",
+            Some("urn:ietf:params:xml:ns:yang:ietf-interfaces"),
+            Some("2014-05-08"),
+            "/tmp/yang-cache/cisco/xe/1715/ietf-interfaces.yang",
+        )
+        .unwrap();
+        insert_module(
+            db,
+            release_id,
+            "Cisco-IOS-XE-native",
+            None,
+            Some("2023-01-01"),
+            "/tmp/yang-cache/cisco/xe/1715/Cisco-IOS-XE-native.yang",
+        )
+        .unwrap();
 
         // Update count
         update_module_count(db, release_id).unwrap();

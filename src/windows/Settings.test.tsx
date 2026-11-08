@@ -64,7 +64,7 @@ describe("Settings general AI configuration", () => {
     render(<Settings isOpen onClose={() => {}} />);
     const steps = await screen.findByRole("textbox", { name: "Maximum agent steps" });
     await waitFor(() => expect(steps).toHaveValue("42"));
-    expect(steps).toHaveAccessibleDescription(/DeepAgents.*graph steps.*60.*Legacy.*12\/16.*next turn/i);
+    expect(steps).toHaveAccessibleDescription(/tool-call rounds.*not.*internal graph.*blank preserves.*next turn/i);
 
     fireEvent.change(steps, { target: { value: "200" } });
     fireEvent.click(screen.getByRole("button", { name: "Save Configuration" }));

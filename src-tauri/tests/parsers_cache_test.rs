@@ -9,7 +9,14 @@ fn cache_roundtrip() {
     assert!(cache.get(&key).unwrap().is_none());
 
     cache
-        .put(&key, "cisco", "iosxe", "show ip int br", "genie", r#"{"a":1}"#)
+        .put(
+            &key,
+            "cisco",
+            "iosxe",
+            "show ip int br",
+            "genie",
+            r#"{"a":1}"#,
+        )
         .unwrap();
 
     let hit = cache.get(&key).unwrap().unwrap();

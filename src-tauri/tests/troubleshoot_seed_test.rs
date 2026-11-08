@@ -43,11 +43,9 @@ fn troubleshoot_builtins_are_idempotent() {
     seed::ensure_builtins(&conn).unwrap();
 
     let n: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM troubleshoot_playbooks",
-            [],
-            |r| r.get(0),
-        )
+        .query_row("SELECT COUNT(*) FROM troubleshoot_playbooks", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(n, 6, "idempotency: still exactly six rows after re-seeding");
 

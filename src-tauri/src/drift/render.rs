@@ -10,16 +10,12 @@ use anyhow::{Context, Result};
 use minijinja::Environment;
 use serde_yaml::Value as YamlValue;
 
-pub fn render_intent(
-    tpl: &IntentTemplate,
-    override_vars_yaml: Option<&str>,
-) -> Result<String> {
+pub fn render_intent(tpl: &IntentTemplate, override_vars_yaml: Option<&str>) -> Result<String> {
     if matches!(tpl.kind, IntentKind::Golden) {
         return Ok(tpl.body.clone());
     }
 
-    let defaults = parse_yaml_or_null(&tpl.vars_yaml)
-        .context("parsing default vars_yaml")?;
+    let defaults = parse_yaml_or_null(&tpl.vars_yaml).context("parsing default vars_yaml")?;
     let overrides = match override_vars_yaml {
         None | Some("") => YamlValue::Null,
         Some(s) => parse_yaml_or_null(s).context("parsing override vars_yaml")?,

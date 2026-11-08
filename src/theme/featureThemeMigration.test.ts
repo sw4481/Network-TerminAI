@@ -26,7 +26,7 @@ describe("feature-area theme migration", () => {
       "src/components/netconf/NetconfTab.tsx",
       "src/components/editor/EditorTab.css",
       "src/components/iac/IacStudioTab.css",
-      "src/components/topology/TopologyTab.tsx",
+      "src/components/topology/TopologyTab.css",
       "src/features/troubleshoot/PlaybookPicker.css",
       "src/components/vault/VaultTab.css",
       "src/components/recording/RecordingsTab.css",

@@ -28,10 +28,7 @@ use std::sync::Arc;
 /// conceptually wrong for SSH-driven drift and literally a cartesian product.
 /// Existing tag-only templates now resolve to an empty set; re-point them at a
 /// group or connection.
-pub fn resolve_selector(
-    conn: &Connection,
-    tpl: &IntentTemplate,
-) -> Result<Vec<MemberRef>> {
+pub fn resolve_selector(conn: &Connection, tpl: &IntentTemplate) -> Result<Vec<MemberRef>> {
     // 1. Fan-out group — expand to its members (reuses the canonical member
     //    listing so display names / device kinds stay consistent with the UI).
     if let Some(group_id) = tpl.selector.group_id.as_deref() {
@@ -90,11 +87,7 @@ fn parse_device_id_token(raw: &str) -> (DeviceKind, String) {
     (DeviceKind::Ssh, raw.to_string())
 }
 
-fn lookup_display_name(
-    conn: &Connection,
-    kind: DeviceKind,
-    id: &str,
-) -> Result<Option<String>> {
+fn lookup_display_name(conn: &Connection, kind: DeviceKind, id: &str) -> Result<Option<String>> {
     use rusqlite::OptionalExtension;
     let name = match kind {
         DeviceKind::Ssh => conn
@@ -191,19 +184,20 @@ pub async fn run_on_demand(
                         tracing::warn!(error = %e, device = %d.device_id, "config archive insert failed");
                     }
                     let patch = match tpl.match_mode {
-                        MatchMode::Baseline => {
-                            diff_intent_vs_running(&intent_norm, &running_norm)
-                        }
-                        MatchMode::Partial => {
-                            match_intent_presence(&intent_norm, &running_norm)
-                        }
+                        MatchMode::Baseline => diff_intent_vs_running(&intent_norm, &running_norm),
+                        MatchMode::Partial => match_intent_presence(&intent_norm, &running_norm),
                     };
                     let mut patch = patch;
-                    if let Ok(excepted) =
-                        crate::drift::exception::DriftExceptionRepo::active_lines(&conn, template_id)
-                    {
+                    if let Ok(excepted) = crate::drift::exception::DriftExceptionRepo::active_lines(
+                        &conn,
+                        template_id,
+                    ) {
                         if !excepted.is_empty() {
-                            crate::drift::exception::apply_exceptions(&mut patch, &excepted, tpl.match_mode);
+                            crate::drift::exception::apply_exceptions(
+                                &mut patch,
+                                &excepted,
+                                tpl.match_mode,
+                            );
                         }
                     }
                     let report = DriftReportRepo::insert(

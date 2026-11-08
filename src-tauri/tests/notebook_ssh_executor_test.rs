@@ -32,10 +32,7 @@ async fn ssh_pty_executor_reports_nonzero_on_error() {
         Box::pin(async move { Err(anyhow::anyhow!("ssh command failed")) })
     }));
 
-    let result = exec
-        .run_command("tab", "show run", "block")
-        .await
-        .unwrap();
+    let result = exec.run_command("tab", "show run", "block").await.unwrap();
 
     // The notebook runner inspects exit_code to mark a cell failed; a failed
     // SSH exec must surface as a non-zero code rather than an Err that aborts

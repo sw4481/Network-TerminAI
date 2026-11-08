@@ -589,8 +589,7 @@ allowed-commands:
         );
     }
 
-    const TOPOLOGRAPH_ROUTING_METADATA: &str =
-        "execution-mode: react-code\nengine: deepagents\n";
+    const TOPOLOGRAPH_ROUTING_METADATA: &str = "execution-mode: react-code\nengine: deepagents\n";
 
     fn desired_topolograph_template() -> String {
         let bundled = std::fs::read_to_string(

@@ -282,6 +282,96 @@ def test_http_failure_is_an_error_and_identical_retry_never_hits_network_twice()
     assert calls == 1
 
 
+@pytest.fixture
+def no_meraki_sdk(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "meraki", None)
+
+
+@pytest.mark.parametrize(
+    ("sdk_method", "legacy_path", "official_path"),
+    [
+        ("getDeviceSwitchPorts", "/devices/{serial}", "/devices/{serial}/switch/ports"),
+        ("getDeviceSwitchPortsStatuses", "/devices/{serial}", "/devices/{serial}/switch/ports/statuses"),
+        ("getOrganizationSwitchPortsStatusesBySwitch", "/organizations/{organizationId}/switchs",
+         "/organizations/{organizationId}/switch/ports/statuses/bySwitch"),
+        ("getOrganizationSummaryTopSwitchesByEnergyUsage", "/organizations/{organizationId}/summarys",
+         "/organizations/{organizationId}/summary/top/switches/byEnergyUsage"),
+        ("getNetworkEvents", "/networks/{networkId}/eventss", "/networks/{networkId}/events"),
+        ("getOrganizationNetworks", "/organizations/{organizationId}/networkss",
+         "/organizations/{organizationId}/networks"),
+        ("getOrganizationInventoryDevices", "/organizations/{organizationId}/inventorys",
+         "/organizations/{organizationId}/inventory/devices"),
+    ],
+)
+@pytest.mark.parametrize("catalog_source", ["packaged", "legacy"])
+def test_meraki_packaged_and_legacy_routes_work_without_sdk(
+    no_meraki_sdk, sdk_method, legacy_path, official_path, catalog_source,
+):
+    catalog = _catalog("meraki")
+    entry = next(item for item in catalog["entries"] if item.get("sdk_method") == sdk_method)
+    if catalog_source == "packaged":
+        assert entry["endpoint"] == {"method": "GET", "path": official_path}
+    legacy = {**entry, "endpoint": {"method": "GET", "path": legacy_path}}
+    legacy.pop("legacy_endpoint", None)  # Installed catalogs predate the repair metadata.
+    calls = []
+    sandbox = {"meraki_api_call": lambda method, path: calls.append((method, path)) or
+               json.dumps({"status_code": 200, "data": [{"id": "synthetic"}]})}
+    index = install_catalog_grounding(sandbox, [{"id": "meraki", "entries": [legacy]}])
+    actual_path = official_path.replace("{serial}", "Q2XX-TEST").replace(
+        "{organizationId}", "123").replace("{networkId}", "L_1")
+    with pytest.raises(CatalogGroundingError, match="has not been discovered"):
+        sandbox["meraki_api_call"]("GET", actual_path)
+    assert calls == []
+
+    match = index.search(sdk_method, catalog_id="meraki", limit=1)["matches"][0]
+    assert match["path"] == official_path
+    assert json.loads(sandbox["meraki_api_call"]("GET", actual_path))["data"]
+    assert calls == [("GET", actual_path)]
+    with pytest.raises(CatalogGroundingError, match="not documented"):
+        sandbox["meraki_api_call"]("GET", legacy_path)
+    assert len(calls) == 1
+
+
+def test_meraki_legacy_http_verb_is_corrected_without_sdk(no_meraki_sdk):
+    entry = next(item for item in _catalog("meraki")["entries"]
+                 if item.get("sdk_method") == "dismissOrganizationAssuranceAlerts")
+    entry = {**entry, "endpoint": {"method": "GET", "path":
+             "/organizations/{organizationId}/assurance/alerts/dismiss"}}
+    entry.pop("legacy_endpoint", None)
+    index = CatalogIndex([{"id": "meraki", "entries": [entry]}])
+    match = index.search("dismissOrganizationAssuranceAlerts", catalog_id="meraki", limit=1)["matches"][0]
+    assert match["method"] == "POST"
+    index.require_authorized("meraki", "POST", "/organizations/123/assurance/alerts/dismiss")
+    with pytest.raises(CatalogGroundingError, match="not documented"):
+        index.require_authorized("meraki", "GET", "/organizations/123/assurance/alerts/dismiss")
+
+
+@pytest.mark.parametrize("override", ["api_update", "custom", "forbidden"])
+def test_meraki_path_repairs_preserve_overrides_and_prohibitions(no_meraki_sdk, override):
+    entry = next(item for item in _catalog("meraki")["entries"]
+                 if item.get("sdk_method") == "getDeviceSwitchPortsStatuses")
+    entry = {**entry, "endpoint": {"method": "GET", "path": "/devices/{serial}"}}
+    if override == "api_update":
+        entry["endpoint"] = {"method": "GET", "path": "/organizations/{organizationId}/customss"}
+        entry["api_update"] = {"source_url": "https://developer.cisco.com/meraki/"}
+    elif override == "custom":
+        entry["endpoint"] = {"method": "GET", "path": "/networks/{networkId}/custom"}
+    else:
+        entry["allowed"] = False
+    index = CatalogIndex([{"id": "meraki", "entries": [entry]}])
+    match = index.search("getDeviceSwitchPortsStatuses", catalog_id="meraki", limit=1)["matches"][0]
+    if override == "forbidden":
+        assert match["path"] == "/devices/{serial}/switch/ports/statuses"
+        assert match["allowed"] is False
+        with pytest.raises(CatalogGroundingError, match="explicitly forbidden"):
+            index.require_authorized("meraki", "GET", "/devices/Q2XX-TEST/switch/ports/statuses")
+    else:
+        assert match["path"] == entry["endpoint"]["path"]
+        index.require_authorized("meraki", "GET", match["path"])
+
+
 def test_meraki_catalog_repairs_generated_extra_plural_suffixes():
     index = CatalogIndex([_catalog("meraki")])
 
@@ -386,7 +476,6 @@ def test_meraki_legacy_sdk_names_find_their_exact_rest_records(
     sdk_method,
     expected_path,
 ):
-    pytest.importorskip("meraki")
     index = CatalogIndex([_catalog("meraki")])
 
     result = index.search(sdk_method, catalog_id="meraki", limit=1)
@@ -396,7 +485,6 @@ def test_meraki_legacy_sdk_names_find_their_exact_rest_records(
 
 
 def test_meraki_heartbeat_batch_search_authorizes_all_required_endpoints():
-    pytest.importorskip("meraki")
     index = CatalogIndex([_catalog("meraki")])
 
     result = index.search(
@@ -421,8 +509,7 @@ def test_meraki_heartbeat_batch_search_authorizes_all_required_endpoints():
         index.require_authorized("meraki", method, path)
 
 
-def test_meraki_uses_installed_official_sdk_path_metadata_when_available():
-    pytest.importorskip("meraki")
+def test_meraki_uses_packaged_official_path_metadata_without_sdk(no_meraki_sdk):
     index = CatalogIndex([_catalog("meraki")])
 
     result = index.search(

@@ -20,7 +20,11 @@ fn flatten_inner(value: &Value, prefix: &str, out: &mut Vec<FlatRow>) {
         Value::Object(map) => {
             if map.is_empty() {
                 out.push(FlatRow {
-                    key: if prefix.is_empty() { "$".to_string() } else { prefix.to_string() },
+                    key: if prefix.is_empty() {
+                        "$".to_string()
+                    } else {
+                        prefix.to_string()
+                    },
                     value: Value::Object(map.clone()),
                 });
                 return;
@@ -43,7 +47,11 @@ fn flatten_inner(value: &Value, prefix: &str, out: &mut Vec<FlatRow>) {
         }
         _ => {
             out.push(FlatRow {
-                key: if prefix.is_empty() { "$".to_string() } else { prefix.to_string() },
+                key: if prefix.is_empty() {
+                    "$".to_string()
+                } else {
+                    prefix.to_string()
+                },
                 value: value.clone(),
             });
         }

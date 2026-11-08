@@ -67,8 +67,10 @@ mod tests {
     fn matches_codex_js_path() {
         // Real installs: `codex` -> `.../@openai/codex/bin/codex.js`.
         assert_eq!(
-            foreground_agent_for("/Users/x/.npm-global/lib/node_modules/@openai/codex/bin/codex.js")
-                .as_deref(),
+            foreground_agent_for(
+                "/Users/x/.npm-global/lib/node_modules/@openai/codex/bin/codex.js"
+            )
+            .as_deref(),
             Some("codex"),
         );
     }
@@ -82,10 +84,8 @@ mod tests {
             Some("codex"),
         );
         assert_eq!(
-            foreground_agent_for(
-                "/Users/x/.hermes/node/bin/node /Users/x/.npm-global/bin/codex"
-            )
-            .as_deref(),
+            foreground_agent_for("/Users/x/.hermes/node/bin/node /Users/x/.npm-global/bin/codex")
+                .as_deref(),
             Some("codex"),
         );
     }

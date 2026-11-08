@@ -4,8 +4,8 @@
 
 use ccie_terminal_lib::commands::blocks::{
     add_tag, block_share_create_inner, block_share_fetch_inner, block_share_revoke_inner,
-    blocks_by_tag_inner, list_pinned_inner, list_tags, pin_block, remove_tag,
-    set_collapsed_inner, unpin_block, BlockDto,
+    blocks_by_tag_inner, list_pinned_inner, list_tags, pin_block, remove_tag, set_collapsed_inner,
+    unpin_block, BlockDto,
 };
 use ccie_terminal_lib::db;
 use rusqlite::{params, Connection};
@@ -52,7 +52,10 @@ fn tag_add_list_remove() {
     assert_eq!(tags, vec!["golden".to_string(), "site-atl".to_string()]);
 
     remove_tag(&conn, &bid, "golden").unwrap();
-    assert_eq!(list_tags(&conn, &bid).unwrap(), vec!["site-atl".to_string()]);
+    assert_eq!(
+        list_tags(&conn, &bid).unwrap(),
+        vec!["site-atl".to_string()]
+    );
 }
 
 #[test]
@@ -197,4 +200,3 @@ fn share_revoke_makes_fetch_fail() {
     // Revoking an already-revoked share is a no-op (idempotent).
     block_share_revoke_inner(&conn, &share_id).unwrap();
 }
-

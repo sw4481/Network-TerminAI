@@ -57,9 +57,7 @@ const SEEDS: &[(&str, &str)] = &[
     ),
     (
         "ipsec-phase1-fail",
-        include_str!(
-            "../../../sidecar/src/ccie_sidecar/troubleshoot/seeds/ipsec-phase1-fail.yaml"
-        ),
+        include_str!("../../../sidecar/src/ccie_sidecar/troubleshoot/seeds/ipsec-phase1-fail.yaml"),
     ),
     (
         "mac-flap",
@@ -102,14 +100,7 @@ pub fn ensure_builtins(conn: &Connection) -> anyhow::Result<()> {
                  body_yaml        = excluded.body_yaml,
                  updated_at       = strftime('%s','now')
              WHERE builtin = 1",
-            params![
-                pb.id,
-                pb.name,
-                keywords,
-                pb.vendor,
-                pb.platform,
-                yaml_text,
-            ],
+            params![pb.id, pb.name, keywords, pb.vendor, pb.platform, yaml_text,],
         )
         .with_context(|| format!("upsert builtin playbook '{expected_id}'"))?;
     }
@@ -150,11 +141,9 @@ mod tests {
         ensure_builtins(&conn).unwrap();
         ensure_builtins(&conn).unwrap();
         let n: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM troubleshoot_playbooks",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT COUNT(*) FROM troubleshoot_playbooks", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(n, 6);
     }

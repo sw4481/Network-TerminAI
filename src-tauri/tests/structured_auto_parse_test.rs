@@ -55,7 +55,11 @@ async fn auto_parse_fires_only_for_show_commands() {
 
     let conn = db.lock();
     let rows = auto_parse::list_parsed_outputs_for_tab(&conn, "t1").unwrap();
-    assert_eq!(rows.len(), 1, "only the show block should have parsed output");
+    assert_eq!(
+        rows.len(),
+        1,
+        "only the show block should have parsed output"
+    );
     assert_eq!(rows[0].block_id, show_bid);
     assert_eq!(rows[0].parser, "genie");
 }
@@ -76,7 +80,11 @@ async fn auto_parse_is_idempotent() {
 
     let conn = db.lock();
     let rows = auto_parse::list_parsed_outputs_for_tab(&conn, "t1").unwrap();
-    assert_eq!(rows.len(), 1, "parsed_outputs has UNIQUE(block_id); second call updates in place");
+    assert_eq!(
+        rows.len(),
+        1,
+        "parsed_outputs has UNIQUE(block_id); second call updates in place"
+    );
 }
 
 #[tokio::test]
@@ -117,7 +125,12 @@ async fn auto_parse_swallows_parser_errors() {
 async fn auto_parse_case_insensitive_show() {
     let (_dir, db) = open_test_db();
     seed_tab(&db, "t1");
-    let bid = seed_block(&db, "t1", "  SHOW running-config  ", "Building configuration...");
+    let bid = seed_block(
+        &db,
+        "t1",
+        "  SHOW running-config  ",
+        "Building configuration...",
+    );
     let parser = FakeParser::new(r#"{"hostname":"R1"}"#);
 
     auto_parse::on_block_completed(db.clone(), &parser, &bid, "cisco", "iosxe")

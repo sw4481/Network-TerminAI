@@ -82,7 +82,9 @@ async fn redaction_persisted_on_stop() {
 #[tokio::test]
 async fn double_start_for_same_tab_is_rejected() {
     let tmp = TempDir::new().unwrap();
-    let db = Arc::new(Mutex::new(open_and_migrate(&tmp.path().join("t.db")).unwrap()));
+    let db = Arc::new(Mutex::new(
+        open_and_migrate(&tmp.path().join("t.db")).unwrap(),
+    ));
     let sup = RecordingSupervisor::new(db);
     sup.set_base_dir(tmp.path().join("recordings"));
     sup.start("tab-x", "local", 80, 24).unwrap();

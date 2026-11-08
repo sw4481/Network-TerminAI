@@ -26,7 +26,9 @@ fn seed_block(conn: &Connection, tab_id: &str, cmd: &str) -> String {
     let id = format!(
         "blk-{}-{}",
         tab_id,
-        cmd.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>()
+        cmd.chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect::<String>()
     );
     conn.execute(
         "INSERT INTO command_blocks (id, tab_id, cmd, output, started_at)

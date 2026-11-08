@@ -247,7 +247,10 @@ pub struct SshPtyExecutor {
 
 /// Async command-runner used by [`SshPtyExecutor`]: command -> raw output.
 pub type AdhocExecFn = Arc<
-    dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send>>
+    dyn Fn(
+            String,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send>>
         + Send
         + Sync,
 >;
@@ -412,8 +415,7 @@ mod tests {
     fn resolve_target_uses_override_password_when_provided() {
         let (_d, db) = open_test_db();
         seed_conn(&db, "c1", Some("cisco"), None);
-        let (target, name) =
-            resolve_target(&db, "c1", Some("password1".to_string())).unwrap();
+        let (target, name) = resolve_target(&db, "c1", Some("password1".to_string())).unwrap();
         assert_eq!(target.username, "cisco");
         assert_eq!(target.password, "password1");
         assert_eq!(target.host, "172.16.6.2");

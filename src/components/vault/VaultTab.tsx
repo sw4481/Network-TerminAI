@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useVault } from "../../state/vaultStore";
 import type { SecretDto, SecretKind } from "../../lib/vault";
 import { vault } from "../../lib/vault";
+import { SnmpProfile, type SnmpVersion } from "../../lib/snmpProfile";
 import { copyWithAutoClear } from "../../lib/clipboard";
 import "./VaultTab.css";
 
@@ -53,6 +54,14 @@ export function VaultTab() {
   const [newSecretKind, setNewSecretKind] = useState<SecretKind>("password");
   const [newSecretLabel, setNewSecretLabel] = useState("");
   const [newSecretValue, setNewSecretValue] = useState("");
+  const [snmp, setSnmp] = useState(SnmpProfile.empty);
+  const [secretError, setSecretError] = useState<string | null>(null);
+  const [savingSecret, setSavingSecret] = useState(false);
+  useEffect(() => {
+    setNewSecretValue("");
+    setSnmp(SnmpProfile.empty());
+    setSecretError(null);
+  }, [showAddSecret, selectedEnvelopeId, newSecretKind]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteEnvelopeId, setConfirmDeleteEnvelopeId] = useState<string | null>(null);
   const [, forceTick] = useState(0);
@@ -123,19 +132,25 @@ export function VaultTab() {
 
   const onAddSecret = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEnvelope || !newSecretLabel.trim() || !newSecretValue) return;
+    if (!selectedEnvelope || !newSecretLabel.trim() || savingSecret || (!newSecretValue && newSecretKind !== "snmp_community")) return;
+    setSecretError(null);
+    setSavingSecret(true);
     try {
       await addSecret(
         selectedEnvelope.id,
         newSecretKind,
         newSecretLabel.trim(),
-        newSecretValue,
+        newSecretKind === "snmp_community" ? SnmpProfile.serialize(snmp) : newSecretValue,
+        newSecretKind === "snmp_community" ? { format: "topology-snmp-v1", version: snmp.version } : {},
       );
       setNewSecretLabel("");
       setNewSecretValue("");
+      setSnmp(SnmpProfile.empty());
       setShowAddSecret(false);
-    } catch (err) {
-      console.error("add secret failed", err);
+    } catch {
+      setSecretError("Secret could not be saved. Check the profile fields and that the envelope is unlocked.");
+    } finally {
+      setSavingSecret(false);
     }
   };
 
@@ -472,7 +487,7 @@ export function VaultTab() {
       )}
 
       {showAddSecret && selectedEnvelope && (
-        <div className="vault-modal-backdrop" onClick={() => setShowAddSecret(false)}>
+        <div className="vault-modal-backdrop" onClick={() => { if (!savingSecret) setShowAddSecret(false); }}>
           <form
             className="vault-modal"
             onClick={(e) => e.stopPropagation()}
@@ -483,26 +498,42 @@ export function VaultTab() {
             <label>
               Kind
               <select
+                disabled={savingSecret}
                 value={newSecretKind}
                 onChange={(e) => setNewSecretKind(e.target.value as SecretKind)}
               >
                 <option value="password">Password</option>
                 <option value="ssh_key">SSH Key</option>
                 <option value="api_token">API Token</option>
-                <option value="snmp_community">SNMP Community</option>
+                <option value="snmp_community">SNMP discovery profile</option>
                 <option value="netconf">NETCONF</option>
               </select>
             </label>
             <label>
               Label
               <input
+                disabled={savingSecret}
                 value={newSecretLabel}
                 onChange={(e) => setNewSecretLabel(e.target.value)}
                 placeholder="rtr1-enable"
                 autoFocus
               />
             </label>
-            <label>
+            {newSecretKind === "snmp_community" ? <fieldset disabled={savingSecret}>
+              <legend>Read-only SNMP discovery credential</legend>
+              <label>SNMP version<select value={snmp.version} onChange={(event) => setSnmp({ ...SnmpProfile.empty(), version: event.target.value as SnmpVersion })}>
+                <option value="3">SNMPv3 authPriv (SHA-256 / AES-128, recommended)</option>
+                <option value="2c">SNMPv2c (unencrypted — explicit choice)</option>
+              </select></label>
+              {snmp.version === "3" ? <>
+                <label>SNMP username<input autoComplete="off" value={snmp.username} onChange={(event) => setSnmp({ ...snmp, username: event.target.value })} /></label>
+                <label>Authentication passphrase<input type="password" autoComplete="new-password" value={snmp.authKey} onChange={(event) => setSnmp({ ...snmp, authKey: event.target.value })} /></label>
+                <label>Privacy passphrase<input type="password" autoComplete="new-password" value={snmp.privKey} onChange={(event) => setSnmp({ ...snmp, privKey: event.target.value })} /></label>
+                <label>SNMP context (optional)<input autoComplete="off" value={snmp.context} onChange={(event) => setSnmp({ ...snmp, context: event.target.value })} /></label>
+              </> : <label>SNMP community<input type="password" autoComplete="new-password" value={snmp.community} onChange={(event) => setSnmp({ ...snmp, community: event.target.value })} /></label>}
+              <label>SNMP UDP port<input type="number" min="1" max="65535" value={snmp.port} onChange={(event) => setSnmp({ ...snmp, port: event.target.value })} /></label>
+              <p>Use a device account restricted to read-only MIB access. Discovery never issues SET requests. All profile fields are encrypted; existing plain community secrets remain unchanged.</p>
+            </fieldset> : <label>
               {newSecretKind === "ssh_key" ? "Key (paste full PEM)" : "Value"}
               {newSecretKind === "ssh_key" ? (
                 <textarea
@@ -518,11 +549,13 @@ export function VaultTab() {
                   onChange={(e) => setNewSecretValue(e.target.value)}
                 />
               )}
-            </label>
+            </label>}
+            {secretError && <p role="alert">{secretError}</p>}
             <div className="vault-actions">
               <button
                 type="button"
                 className="vault-btn"
+                disabled={savingSecret}
                 onClick={() => setShowAddSecret(false)}
               >
                 Cancel
@@ -530,7 +563,7 @@ export function VaultTab() {
               <button
                 type="submit"
                 className="vault-btn vault-btn-primary"
-                disabled={!newSecretLabel.trim() || !newSecretValue}
+                disabled={savingSecret || !newSecretLabel.trim() || (newSecretKind !== "snmp_community" && !newSecretValue)}
               >
                 Add
               </button>

@@ -733,8 +733,20 @@ async def react_code_loop(
             resolve_agent_catalogs,
         )
         catalogs = resolve_agent_catalogs(agent_def)
-        sandbox_globals = _build_sandbox_globals(cli_package, vault_secrets, emit=on_event)
-        env_overrides = _build_env_overrides(vault_secrets)
+        canvas = None
+        canvas_env = None
+        if agent_def.get("agent_id") == "network-architect" and (ctx or {}).get("canvas") is not None:
+            from ccie_sidecar.agents.copilot_canvas import CanvasContext
+            canvas_env = _build_env_overrides(vault_secrets)
+            sensitive_values = tuple(value for value in (
+                *vault_secrets.values(), *canvas_env.values(), api_key,
+            ) if isinstance(value, str) and value)
+            canvas = CanvasContext(ctx["canvas"], on_event, sensitive_values)
+        sandbox_globals = _build_sandbox_globals(
+            cli_package, vault_secrets, emit=on_event,
+            **({"canvas": canvas} if canvas is not None else {}),
+        )
+        env_overrides = canvas_env if canvas_env is not None else _build_env_overrides(vault_secrets)
 
         print(f"[react_code_loop] cli_package={cli_package!r} "
               f"env_overrides keys: {list(env_overrides.keys())} "
@@ -927,6 +939,10 @@ Use print() to output results — only printed output is visible to you."""
             + lessons_blurb(cli_package)
         )
 
+        if canvas is not None:
+            from ccie_sidecar.agents.code_exec import CANVAS_PRESENTATION_GUIDANCE
+            system_prompt += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
+
         # Initialize conversation (prepend prior history for multi-turn context)
         from ccie_sidecar.agents.code_exec import build_history_messages
         messages = build_history_messages(ctx, user_msg)
@@ -1040,6 +1056,8 @@ Use print() to output results — only printed output is visible to you."""
                                 label=cli_package or "react_code",
                             )
 
+                            from ccie_sidecar.agents.code_exec import _capture_canvas_result
+                            _capture_canvas_result(canvas, "execute_python_code", result.get("output", ""), origin="execution_output")
                             success = result.get("success", False)
                             output = result.get("output", "")
                             error = result.get("error", "")

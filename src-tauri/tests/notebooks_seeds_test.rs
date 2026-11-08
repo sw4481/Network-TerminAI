@@ -77,6 +77,10 @@ fn each_seed_has_distinct_title() {
         .map(|t| t.unwrap())
         .collect();
     let unique: std::collections::HashSet<_> = titles.iter().collect();
-    assert_eq!(unique.len(), titles.len(), "duplicate seed titles: {titles:?}");
+    assert_eq!(
+        unique.len(),
+        titles.len(),
+        "duplicate seed titles: {titles:?}"
+    );
     assert_eq!(titles.len(), SEED_MARKDOWN.len());
 }

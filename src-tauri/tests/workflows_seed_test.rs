@@ -43,7 +43,11 @@ fn seed_includes_expected_vendor_mix() {
     let juniper = workflow_list_impl(&c, Some("juniper"), None, None).unwrap();
     let arista = workflow_list_impl(&c, Some("arista"), None, None).unwrap();
     // Cisco filter also pulls in 'generic' (per workflow_list_impl semantics).
-    assert!(cisco.len() >= 18 + 4, "cisco+generic count: {}", cisco.len());
+    assert!(
+        cisco.len() >= 18 + 4,
+        "cisco+generic count: {}",
+        cisco.len()
+    );
     assert!(juniper.len() >= 3 + 4, "juniper+generic: {}", juniper.len());
     assert!(arista.len() >= 3 + 4, "arista+generic: {}", arista.len());
 }
@@ -66,5 +70,8 @@ fn seed_workflow_template_renders_with_user_value() {
         &values,
     )
     .unwrap();
-    assert_eq!(rendered, vec!["show interface Gi0/0/0 counters".to_string()]);
+    assert_eq!(
+        rendered,
+        vec!["show interface Gi0/0/0 counters".to_string()]
+    );
 }

@@ -255,12 +255,8 @@ pub(super) fn request_shutdown(app: &AppHandle, shutdown: &ShutdownCoordinator, 
                 let emission = if app.get_webview_window(&label).is_none() {
                     Err("window disappeared before preparation".to_string())
                 } else {
-                    app.emit_to(
-                        label.as_str(),
-                        APP_SHUTDOWN_PREPARE_EVENT,
-                        payload.clone(),
-                    )
-                    .map_err(|error| error.to_string())
+                    app.emit_to(label.as_str(), APP_SHUTDOWN_PREPARE_EVENT, payload.clone())
+                        .map_err(|error| error.to_string())
                 };
                 if let Err(error) = emission {
                     match shutdown.acknowledge(
@@ -338,11 +334,16 @@ pub async fn app_shutdown_acknowledge(
 }
 
 trait ProcessExitServices {
+    fn shutdown_discovery(&self) -> Result<(), String>;
     fn shutdown_stp(&self) -> Result<(), String>;
     fn stop_sidecar(&self);
 }
 
 impl ProcessExitServices for crate::commands::AppState {
+    fn shutdown_discovery(&self) -> Result<(), String> {
+        self.topology_discovery.shutdown()
+    }
+
     fn shutdown_stp(&self) -> Result<(), String> {
         self.stp.shutdown()
     }
@@ -353,6 +354,9 @@ impl ProcessExitServices for crate::commands::AppState {
 }
 
 fn cleanup_process_services(services: &impl ProcessExitServices) {
+    if let Err(error) = services.shutdown_discovery() {
+        tracing::warn!(error = %error, "application exit cleanup could not stop topology discovery cleanly");
+    }
     if let Err(error) = services.shutdown_stp() {
         tracing::warn!(error = %error, "application exit cleanup could not stop STP cleanly");
     }
@@ -362,7 +366,7 @@ fn cleanup_process_services(services: &impl ProcessExitServices) {
 pub(super) fn cleanup_before_process_exit(app: &AppHandle) {
     let state = app.state::<crate::commands::AppState>();
     cleanup_process_services(&*state);
-    tracing::info!("application exit cleanup stopped STP and the sidecar");
+    tracing::info!("application exit cleanup finished topology discovery, STP and sidecar cleanup attempts");
 }
 
 #[cfg(test)]
@@ -380,6 +384,11 @@ mod tests {
     }
 
     impl ProcessExitServices for RecordingExitServices {
+        fn shutdown_discovery(&self) -> Result<(), String> {
+            self.calls.lock().push("discovery");
+            Ok(())
+        }
+
         fn shutdown_stp(&self) -> Result<(), String> {
             self.calls.lock().push("stp");
             Err("shutdown failed".into())
@@ -398,7 +407,7 @@ mod tests {
 
         cleanup_process_services(&services);
 
-        assert_eq!(*services.calls.lock(), vec!["stp", "sidecar"]);
+        assert_eq!(*services.calls.lock(), vec!["discovery", "stp", "sidecar"]);
     }
 
     #[test]

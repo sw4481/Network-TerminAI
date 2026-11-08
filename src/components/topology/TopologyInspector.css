@@ -7,8 +7,61 @@
   padding: 12px;
   border: 1px solid var(--border-default);
   background: var(--surface-2);
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   font-size: 12px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.topology-inspector__header,
+.topology-inspector__details,
+.topology-inspector__actions {
+  flex-shrink: 0;
+}
+
+.topology-inspector__scroll {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.topology-inspector__neighbors + .topology-inspector__neighbors {
+  margin-top: 14px;
+}
+
+.topology-inspector p {
+  margin: 6px 0;
+  line-height: 1.45;
+}
+
+.topology-inspector summary {
+  padding: 7px 4px;
+  cursor: pointer;
+  line-height: 1.45;
+}
+
+.topology-inspector summary:hover {
+  background: var(--surface-hover);
+}
+
+.topology-inspector summary > span:not(.topology-inspector__protocol-title) {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.topology-inspector summary:focus-visible,
+.topology-inspector button:focus-visible {
+  outline: 2px solid var(--status-info);
+  outline-offset: 2px;
+}
+
+.topology-inspector [role="alert"] {
+  color: var(--status-warning);
 }
 
 .topology-inspector__header {
@@ -26,9 +79,10 @@
   font-size: 10px;
   font-weight: 650;
   text-transform: capitalize;
-  color: var(--text-inverse);
+  color: var(--text-primary);
+  background: var(--surface-3);
+  border: 1px solid var(--border-default);
   border-radius: 3px;
-  text-shadow: 0 0 1px var(--surface-2);
 }
 
 .topology-inspector__title {
@@ -41,6 +95,9 @@
 }
 
 .topology-inspector__close {
+  flex-shrink: 0;
+  min-width: 28px;
+  min-height: 28px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
@@ -86,6 +143,8 @@
 .topology-inspector__copy {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 6px;
   padding: 2px 6px;
   font-family: Menlo, monospace;
@@ -121,11 +180,12 @@
 
 .topology-inspector__protocol-group {
   margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .topology-inspector__protocol-title {
   margin: 0 0 2px;
-  color: var(--status-info);
+  color: var(--text-primary);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -177,8 +237,8 @@
   margin: 0;
   padding: 8px 10px;
   border-left: 2px solid var(--status-warning);
-  color: var(--status-warning);
-  background: var(--status-warning-surface);
+  color: var(--text-primary);
+  background: var(--surface-overlay);
   font-size: 11px;
   line-height: 1.45;
 }

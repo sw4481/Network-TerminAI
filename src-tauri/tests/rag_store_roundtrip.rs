@@ -75,9 +75,7 @@ fn delete_document_clears_vec_rows() {
     let doc_id = store
         .insert_document("doomed", "/p", "txt", 1)
         .expect("insert doc");
-    store
-        .set_tags(doc_id, &["generic"])
-        .expect("set tags");
+    store.set_tags(doc_id, &["generic"]).expect("set tags");
     for i in 0..2 {
         store
             .insert_chunk(doc_id, i as i64, "x", &make_vec(i))

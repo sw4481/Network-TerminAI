@@ -1,6 +1,5 @@
 use ccie_terminal_lib::commands::workflows::{
-    render_template, workflow_run_impl, workflow_upsert_impl, Workflow, WorkflowParam,
-    WorkflowStep,
+    render_template, workflow_run_impl, workflow_upsert_impl, Workflow, WorkflowParam, WorkflowStep,
 };
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -72,7 +71,10 @@ fn run_returns_rendered_steps_and_records_run() {
         created_at: 0,
         updated_at: 0,
         steps: vec![
-            WorkflowStep { idx: 0, command_template: "show ip int br".into() },
+            WorkflowStep {
+                idx: 0,
+                command_template: "show ip int br".into(),
+            },
             WorkflowStep {
                 idx: 1,
                 command_template: "show interface {{ intf }} counters".into(),

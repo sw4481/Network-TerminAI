@@ -5,9 +5,7 @@
 //! has its own pytest coverage in Phase 1.2).
 
 use ccie_terminal_lib::db;
-use ccie_terminal_lib::topology::{
-    cache, graph, ingest, NeighborRecord, GLOBAL_GRAPH_ID,
-};
+use ccie_terminal_lib::topology::{cache, graph, ingest, NeighborRecord, GLOBAL_GRAPH_ID};
 use rusqlite::{params, Connection};
 use tempfile::TempDir;
 
@@ -28,6 +26,7 @@ fn cdp_record(local_port: &str, neighbor_name: &str, neighbor_port: &str) -> Nei
         neighbor_platform: Some("ISR4451".into()),
         neighbor_vendor: Some("cisco".into()),
         capabilities: vec!["Router".into()],
+        routing: None,
     }
 }
 
@@ -64,7 +63,10 @@ fn ingest_writes_cache_and_global_graph() {
     // 2. Global graph has 2 nodes (R1 source + R2 neighbor) and 1 edge.
     let nodes = graph::list_nodes(&conn, GLOBAL_GRAPH_ID).unwrap();
     let refs: Vec<&str> = nodes.iter().map(|n| n.device_ref.as_str()).collect();
-    assert!(refs.contains(&"R1"), "expected R1 source node, got {refs:?}");
+    assert!(
+        refs.contains(&"R1"),
+        "expected R1 source node, got {refs:?}"
+    );
     // Neighbor should be canonicalised to its mgmt_ip (10.0.0.2) since
     // ingest prefers mgmt_ip over hostname when present.
     assert!(
@@ -215,6 +217,7 @@ fn ingest_routing_protocols_substitute_port_placeholders() {
         neighbor_platform: None,
         neighbor_vendor: None,
         capabilities: vec![],
+        routing: None,
     };
     let bgp_b = NeighborRecord {
         protocol: "bgp".into(),
@@ -225,6 +228,7 @@ fn ingest_routing_protocols_substitute_port_placeholders() {
         neighbor_platform: None,
         neighbor_vendor: None,
         capabilities: vec![],
+        routing: None,
     };
 
     ingest::ingest_neighbors(
@@ -238,7 +242,11 @@ fn ingest_routing_protocols_substitute_port_placeholders() {
     .unwrap();
 
     let edges = graph::list_edges(&conn, GLOBAL_GRAPH_ID).unwrap();
-    assert_eq!(edges.len(), 2, "two distinct BGP peers must produce two edges");
+    assert_eq!(
+        edges.len(),
+        2,
+        "two distinct BGP peers must produce two edges"
+    );
     let mut ports: Vec<String> = edges
         .iter()
         .flat_map(|e| vec![e.a_port.clone(), e.b_port.clone()])
@@ -273,6 +281,7 @@ fn ingest_ospf_substitutes_only_neighbor_port_placeholder() {
         neighbor_platform: None,
         neighbor_vendor: None,
         capabilities: vec![],
+        routing: None,
     };
 
     ingest::ingest_neighbors(
@@ -295,14 +304,14 @@ fn ingest_ospf_substitutes_only_neighbor_port_placeholder() {
         (e.b_device_ref.clone(), e.b_port.clone()),
     ];
     assert!(
-        pairs.iter().any(|(r, p)| r == "R1" && p == "GigabitEthernet0/0/0"),
+        pairs
+            .iter()
+            .any(|(r, p)| r == "R1" && p == "GigabitEthernet0/0/0"),
         "R1's local interface must be preserved, got {:?}",
         pairs,
     );
     assert!(
-        pairs
-            .iter()
-            .any(|(_, p)| p == "peer:R1"),
+        pairs.iter().any(|(_, p)| p == "peer:R1"),
         "neighbor's port must be substituted with peer:R1, got {:?}",
         pairs,
     );

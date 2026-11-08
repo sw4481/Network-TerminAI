@@ -137,7 +137,10 @@ mod tests {
     #[test]
     fn build_scp_args_targets_user_host_basename() {
         let args = build_scp_args(&conn(), "CAP.pcap", &PathBuf::from("/tmp/x.pcap"));
-        assert!(args.contains(&"cisco@172.16.6.2:CAP.pcap".to_string()), "{args:?}");
+        assert!(
+            args.contains(&"cisco@172.16.6.2:CAP.pcap".to_string()),
+            "{args:?}"
+        );
         assert_eq!(args.last().unwrap(), "/tmp/x.pcap");
     }
 

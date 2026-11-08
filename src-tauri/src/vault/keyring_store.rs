@@ -32,29 +32,33 @@ impl Default for OsKeyringStore {
 impl KeyringStore for OsKeyringStore {
     fn set(&self, key: &str, value: &[u8]) -> Result<(), VaultError> {
         use base64::{engine::general_purpose, Engine as _};
-        log::info!("[VAULT] Setting keyring entry: service={}, account={}", SERVICE, key);
-        let entry =
-            keyring::Entry::new(SERVICE, key).map_err(|e| {
-                log::error!("[VAULT] Failed to create Entry: {}", e);
-                VaultError::Keyring(e.to_string())
-            })?;
+        log::info!(
+            "[VAULT] Setting keyring entry: service={}, account={}",
+            SERVICE,
+            key
+        );
+        let entry = keyring::Entry::new(SERVICE, key).map_err(|e| {
+            log::error!("[VAULT] Failed to create Entry: {}", e);
+            VaultError::Keyring(e.to_string())
+        })?;
         let encoded = general_purpose::STANDARD.encode(value);
-        entry
-            .set_password(&encoded)
-            .map_err(|e| {
-                log::error!("[VAULT] Failed to set_password: {}", e);
-                VaultError::Keyring(e.to_string())
-            })
+        entry.set_password(&encoded).map_err(|e| {
+            log::error!("[VAULT] Failed to set_password: {}", e);
+            VaultError::Keyring(e.to_string())
+        })
     }
 
     fn get(&self, key: &str) -> Result<Vec<u8>, VaultError> {
         use base64::{engine::general_purpose, Engine as _};
-        log::info!("[VAULT] Getting keyring entry: service={}, account={}", SERVICE, key);
-        let entry =
-            keyring::Entry::new(SERVICE, key).map_err(|e| {
-                log::error!("[VAULT] Failed to create Entry: {}", e);
-                VaultError::Keyring(e.to_string())
-            })?;
+        log::info!(
+            "[VAULT] Getting keyring entry: service={}, account={}",
+            SERVICE,
+            key
+        );
+        let entry = keyring::Entry::new(SERVICE, key).map_err(|e| {
+            log::error!("[VAULT] Failed to create Entry: {}", e);
+            VaultError::Keyring(e.to_string())
+        })?;
         match entry.get_password() {
             Ok(s) => {
                 log::info!("[VAULT] Successfully retrieved password");

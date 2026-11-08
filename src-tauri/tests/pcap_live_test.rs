@@ -33,7 +33,12 @@ async fn live_scp_pull_pcap_from_flash() {
     let user = env("CCIE_PCAP_TEST_USER").expect("set CCIE_PCAP_TEST_USER");
     let pass = env("CCIE_PCAP_TEST_PASS").expect("set CCIE_PCAP_TEST_PASS");
 
-    let conn = DeviceConn { host, port: 22, username: user, password: pass };
+    let conn = DeviceConn {
+        host,
+        port: 22,
+        username: user,
+        password: pass,
+    };
 
     let dir = tempfile::TempDir::new().unwrap();
     let local = dir.path().join("pulled.pcap");

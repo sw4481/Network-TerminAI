@@ -45,7 +45,10 @@ fn drift_exceptions_unique_per_resource() {
          VALUES ('e2', '/infra', 'aws_security_group.alb', 2)",
         [],
     );
-    assert!(dup.is_err(), "duplicate (project_path, resource_address) must be rejected");
+    assert!(
+        dup.is_err(),
+        "duplicate (project_path, resource_address) must be rejected"
+    );
     // A different resource in the same project is allowed.
     conn.execute(
         "INSERT INTO drift_exceptions (id, project_path, resource_address, created_at)

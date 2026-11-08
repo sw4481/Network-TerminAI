@@ -50,19 +50,36 @@ macro_rules! guard {
     };
 }
 
-async fn h_open(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_open(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
-    let url = match arg_str(&body, "url") { Ok(u) => u, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let url = match arg_str(&body, "url") {
+        Ok(u) => u,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_create_browser_window(&ctx.app, &ctx.mgr, &url) {
         Ok(id) => (StatusCode::OK, Json(json!({"browserId": id}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
     }
 }
 
-async fn h_navigate(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_navigate(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
-    let id = match arg_str(&body, "browserId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
-    let url = match arg_str(&body, "url") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let id = match arg_str(&body, "browserId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
+    let url = match arg_str(&body, "url") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_navigate(&ctx.app, &ctx.mgr, &id, &url) {
         Ok(()) => (StatusCode::OK, Json(json!({"ok": true}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
@@ -70,54 +87,101 @@ async fn h_navigate(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json
 }
 
 async fn h_simple(ctx: &Ctx, body: &Value, js: &str) -> axum::response::Response {
-    let id = match arg_str(body, "browserId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let id = match arg_str(body, "browserId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_simple_js(&ctx.app, &id, js) {
         Ok(()) => (StatusCode::OK, Json(json!({"ok": true}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
     }
 }
 
-async fn h_back(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_back(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
     h_simple(&ctx, &body, "history.back()").await
 }
-async fn h_forward(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_forward(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
     h_simple(&ctx, &body, "history.forward()").await
 }
-async fn h_reload(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_reload(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
     h_simple(&ctx, &body, "location.reload()").await
 }
 
-async fn h_eval(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_eval(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
-    let id = match arg_str(&body, "browserId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
-    let script = match arg_str(&body, "script") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let id = match arg_str(&body, "browserId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
+    let script = match arg_str(&body, "script") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_eval(&ctx.app, &id, &script) {
         Ok(()) => (StatusCode::OK, Json(json!({"ok": true}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
     }
 }
 
-async fn h_close(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_close(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
-    let id = match arg_str(&body, "browserId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let id = match arg_str(&body, "browserId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_close(&ctx.app, &ctx.mgr, &id) {
         Ok(()) => (StatusCode::OK, Json(json!({"ok": true}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
     }
 }
 
-async fn h_list(State(ctx): State<Ctx>, headers: HeaderMap, Json(_body): Json<Value>) -> impl IntoResponse {
+async fn h_list(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(_body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
     let windows = ctx.mgr.list();
-    (StatusCode::OK, Json(json!({"windows": windows, "count": windows.len()}))).into_response()
+    (
+        StatusCode::OK,
+        Json(json!({"windows": windows, "count": windows.len()})),
+    )
+        .into_response()
 }
 
-async fn h_get_url(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_get_url(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     guard!(headers, ctx);
-    let id = match arg_str(&body, "browserId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
+    let id = match arg_str(&body, "browserId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
     match ops::do_get_url(&ctx.app, &id) {
         Ok(url) => (StatusCode::OK, Json(json!({"url": url}))).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": e}))).into_response(),
@@ -127,22 +191,43 @@ async fn h_get_url(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<
 /// Report agent (claude/codex) lifecycle state for a pane. Called by the
 /// agents' lifecycle hooks (a `curl` from the Stop / UserPromptSubmit / etc.
 /// hook). Body: `{"paneId": "...", "agentType": "claude-code", "state": "working"|"waiting"|"idle"}`.
-async fn h_agent_status(State(ctx): State<Ctx>, headers: HeaderMap, Json(body): Json<Value>) -> impl IntoResponse {
+async fn h_agent_status(
+    State(ctx): State<Ctx>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     use tauri::{Emitter, Manager};
     guard!(headers, ctx);
-    let pane_id = match arg_str(&body, "paneId") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
-    let state_str = match arg_str(&body, "state") { Ok(v) => v, Err((c, m)) => return (c, Json(json!({"error": m}))).into_response() };
-    let agent_type = body.get("agentType").and_then(|v| v.as_str()).unwrap_or("agent");
+    let pane_id = match arg_str(&body, "paneId") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
+    let state_str = match arg_str(&body, "state") {
+        Ok(v) => v,
+        Err((c, m)) => return (c, Json(json!({"error": m}))).into_response(),
+    };
+    let agent_type = body
+        .get("agentType")
+        .and_then(|v| v.as_str())
+        .unwrap_or("agent");
 
     let status = match state_str.as_str() {
         "working" => crate::pane_context::AgentStatus::Working,
         "waiting" => crate::pane_context::AgentStatus::Waiting,
         "idle" => crate::pane_context::AgentStatus::Idle,
-        other => return (StatusCode::BAD_REQUEST, Json(json!({"error": format!("invalid state: {}", other)}))).into_response(),
+        other => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": format!("invalid state: {}", other)})),
+            )
+                .into_response()
+        }
     };
 
     let app_state = ctx.app.state::<crate::commands::AppState>();
-    app_state.pane_manager.set_agent_status(&pane_id, agent_type, status);
+    app_state
+        .pane_manager
+        .set_agent_status(&pane_id, agent_type, status);
 
     // Push the updated activity so the indicator reacts in real time.
     if let Some(activity) = app_state.pane_manager.get_activity(&pane_id) {
@@ -158,7 +243,11 @@ pub async fn start_control_server(
     mgr: Arc<BrowserManager>,
 ) -> anyhow::Result<BrowserControlInfo> {
     let token = uuid::Uuid::new_v4().to_string();
-    let ctx = Ctx { app, mgr, token: token.clone() };
+    let ctx = Ctx {
+        app,
+        mgr,
+        token: token.clone(),
+    };
 
     let router = Router::new()
         .route("/open", post(h_open))

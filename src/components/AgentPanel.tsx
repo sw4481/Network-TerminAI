@@ -3,6 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useChatStore, chatKey } from "../state/chatStore";
 import { useAgentsStore } from "../state/agentsStore";
+import { useCopilotCanvas } from "../state/copilotCanvasStore";
+import { CanvasContextBuilder, type CanvasRequest, type CanvasRun } from "../lib/copilotCanvas";
 import { useTabs } from "../state/tabsStore";
 import { useRagStore } from "../state/ragStore";
 import { usePanesStore } from "../state/panesStore";
@@ -20,6 +22,7 @@ import {
   agentApproveTool,
   agentChatCancel,
   aiMessagesByTabAgent,
+  saveAiMessage,
   aiClearMessages,
   agentReactRun,
   agentCodeExecRun,
@@ -142,13 +145,23 @@ const PREPACKAGED_AGENT_IDS = new Set<string>([
   "fwrule",
 ]);
 
+type ReactCodeTurn = {
+  tabId: string;
+  agentId: string | null;
+  settled: boolean;
+  paused: boolean;
+  invocation: number;
+  canvas?: CanvasRequest;
+};
+
 type AgentPanelProps = {
   tabId: string | null;
   isOpen: boolean;
   onToggle: () => void;
+  canvasMode?: boolean;
 };
 
-export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
+export function AgentPanel({ tabId, isOpen, onToggle, canvasMode = false }: AgentPanelProps) {
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [dictationStatus, setDictationStatus] = useState("");
@@ -163,19 +176,24 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const agentToggleRef = useRef<HTMLButtonElement>(null);
+  const canvasHeadingRef = useRef<HTMLHeadingElement>(null);
   const streamedGenerationRef = useRef<Record<string, boolean>>({});
+  const reactCodeTurns = useRef<Record<string, ReactCodeTurn>>({});
+  const canvasWorkspace = useCopilotCanvas(s => canvasMode && tabId ? s.workspaces[tabId] : undefined);
   const { preferences: aiChatPreferences } = useAiChatPreferences();
 
   // Agents store — must resolve BEFORE the chat key so the key reflects the active agent
   const agents = useAgentsStore((s) => s.agents);
   const setAgents = useAgentsStore((s) => s.setAgents);
   const activeAgentForTab = useAgentsStore((s) =>
-    tabId ? s.activeAgentByTab[tabId] ?? DEFAULT_AGENT_ID : DEFAULT_AGENT_ID
+    !canvasMode && tabId ? s.activeAgentByTab[tabId] ?? DEFAULT_AGENT_ID : DEFAULT_AGENT_ID
   );
   const setActiveAgent = useAgentsStore((s) => s.setActiveAgent);
 
   // Composite in-memory bucket key: separates conversation per (tab, agent).
   const bucketKey = tabId ? chatKey(tabId, activeAgentForTab) : null;
+  const currentTurn = bucketKey ? reactCodeTurns.current[bucketKey] : undefined;
+  const awaitingCheckpoint = Boolean(currentTurn?.paused && !currentTurn.settled);
   // agentId to persist to DB (null = general chat row)
   const persistAgentId: string | null =
     activeAgentForTab && activeAgentForTab !== "general" ? activeAgentForTab : null;
@@ -239,16 +257,18 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       threadId: string;
       bucketKey: string;
       streamOutput: boolean;
+      turn?: ReactCodeTurn;
     } | null
   >(null);
-  const [zabbixApproval, setZabbixApproval] = useState<{request: ZabbixApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean} | null>(null);
-  const [workflowsApproval, setWorkflowsApproval] = useState<{ request: WorkflowsApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean } | null>(null);
+  const [zabbixApproval, setZabbixApproval] = useState<{request: ZabbixApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean; turn?: ReactCodeTurn} | null>(null);
+  const [workflowsApproval, setWorkflowsApproval] = useState<{ request: WorkflowsApprovalRequest; threadId: string; bucketKey: string; streamOutput: boolean; turn?: ReactCodeTurn } | null>(null);
   const [terminalFixApproval, setTerminalFixApproval] = useState<{
     threadId: string;
     preview: TerminalFixPreview;
     bucketKey: string;
     streamOutput: boolean;
     edited: boolean;
+    turn?: ReactCodeTurn;
   } | null>(null);
 
   // Which assistant message's Sources drawer is currently open.
@@ -282,24 +302,32 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   }, [setAgents]);
 
   useEffect(() => {
-    if (!tabId) return;
+    if (!tabId || canvasMode) return;
     agentSessionGet(tabId)
       .then((row) => {
         if (row) setActiveAgent(tabId, row.agentId);
       })
       .catch(() => {});
-  }, [tabId, setActiveAgent]);
+  }, [tabId, canvasMode, setActiveAgent]);
 
   // Lazy-load history for the active (tab, agent) bucket when it's first shown
   // OR after an explicit Clear (we use `${key}#loaded` flag to avoid re-hydrating
   // freshly-added messages on every render).
   const hydratedRef = useRef<Set<string>>(new Set());
+  const [historySettled, setHistorySettled] = useState<Record<string, boolean>>({});
+  const awaitingCanvasHistory = canvasMode && !!bucketKey && !historySettled[bucketKey];
   useEffect(() => {
     if (!tabId || !bucketKey) return;
     // If we already have messages in-memory (e.g., user just sent a message in
     // this bucket), don't clobber them with a DB fetch — only hydrate ONCE per bucket.
     if (hydratedRef.current.has(bucketKey)) return;
     hydratedRef.current.add(bucketKey);
+    const finishHydration = () => setHistorySettled(current => ({ ...current, [bucketKey]: true }));
+    // A remounted Canvas may already own a live shell; do not fetch duplicate saved IDs.
+    if (canvasMode && useChatStore.getState().messages[bucketKey]?.length) {
+      finishHydration();
+      return;
+    }
     aiMessagesByTabAgent(tabId, persistAgentId)
       .then((rows) => {
         if (rows.length === 0) return;
@@ -310,14 +338,16 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             role: r.role as "user" | "assistant",
             content: r.content,
             timestamp: r.timestamp,
+            ...(canvasMode && r.role === "assistant" ? { canvasFinal: { runId: null, response: r.content } } : {}),
           }))
         );
       })
-      .catch(() => {});
-  }, [tabId, bucketKey, persistAgentId, loadMessages]);
+      .catch(() => {})
+      .finally(finishHydration);
+  }, [tabId, bucketKey, persistAgentId, loadMessages, canvasMode]);
 
   const handleAgentChange = async (newAgentId: string) => {
-    if (!tabId) return;
+    if (!tabId || canvasMode) return;
     setActiveAgent(tabId, newAgentId);
     try {
       await agentSessionSet(tabId, newAgentId);
@@ -390,7 +420,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         attachTerminal?: boolean;
       }>;
       const { agentId, message, selection, autoSend, attachTerminal } = customEvent.detail;
-      if (!tabId) return;
+      if (!tabId || (canvasMode && agentId !== DEFAULT_AGENT_ID)) return;
       if (!isOpen) onToggle();
       // Set active agent for this tab (in-memory + persist)
       setActiveAgent(tabId, agentId);
@@ -423,7 +453,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       window.removeEventListener("ccie:invoke-agent", handleInvokeAgent);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabId, isOpen, onToggle, setActiveAgent]);
+  }, [tabId, canvasMode, isOpen, onToggle, setActiveAgent, awaitingCanvasHistory]);
 
   // Listen for "prefill agent input" events from API tab context menu
   useEffect(() => {
@@ -435,7 +465,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       }>;
       const { tabId: eventTabId, agentId, message } = customEvent.detail;
       // Only respond if this is the target tab
-      if (!tabId || tabId !== eventTabId) return;
+      if (!tabId || tabId !== eventTabId || (canvasMode && agentId !== DEFAULT_AGENT_ID)) return;
       if (!isOpen) onToggle();
       // Set active agent for this tab
       setActiveAgent(tabId, agentId);
@@ -455,7 +485,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     return () => {
       window.removeEventListener("ccie:prefill-agent-input", handlePrefillInput);
     };
-  }, [tabId, isOpen, onToggle, setActiveAgent]);
+  }, [tabId, canvasMode, isOpen, onToggle, setActiveAgent]);
 
   // ── Code block helpers for code-execution agents ──
   const addCodeBlock = (code: string) => {
@@ -483,13 +513,34 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     setCodeBlocks([]);
   };
 
+  const saveCanvasStatus = (turn: ReactCodeTurn | undefined, status: CanvasRun["status"]) =>
+    turn?.canvas
+      ? useCopilotCanvas.getState().finishRun(turn.canvas.workspace_id, turn.canvas.run_id, status).catch(() => {})
+      : Promise.resolve(); // Canvas save errors remain visible in workspace.save, not network errors.
+
   // Shared ReACT-Code event handler — used by both the initial run and a
   // resumed (post-approval) run so events land in the same conversation bucket.
   const handleReactCodeEvent = (
     event: ReactEvent,
     keyForTurn: string,
     streamOutput: boolean,
+    turn?: ReactCodeTurn,
+    invocation?: number,
   ) => {
+    if (turn && turn.invocation !== invocation) return;
+    if (event.type === "canvas_limitation") {
+      if (turn?.canvas) useCopilotCanvas.getState().noteLimitation(turn.canvas.workspace_id, turn.canvas.run_id, event.limitation);
+      return;
+    }
+    if (turn?.settled) return;
+    if (event.type === "canvas") {
+      if (turn?.canvas) {
+        if (event.workspace_id === turn.canvas.workspace_id && event.run_id === turn.canvas.run_id)
+          void useCopilotCanvas.getState().accept(event).catch(() => {});
+        else useCopilotCanvas.getState().noteLimitation(turn.canvas.workspace_id, turn.canvas.run_id, "Canvas presentation ownership mismatch; network execution was not changed.");
+      }
+      return;
+    }
     if (event.type === "terminal_control_started") {
       setTerminalLeaseId(event.lease_id);
     } else if (event.type === "terminal_investigation_plan") {
@@ -526,17 +577,22 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         return next;
       });
     } else if (event.type === "terminal_fix_approval_request") {
+      if (turn) turn.paused = true;
+      void saveCanvasStatus(turn, "awaiting_approval");
       setTerminalFixApproval({
         threadId: event.thread_id,
         preview: event.preview,
         bucketKey: keyForTurn,
         streamOutput,
+        turn,
         edited: false,
       });
     } else if (event.type === "terminal_lease_ended") {
       setTerminalLeaseId(null);
       appendToken(keyForTurn, `\n_Terminal control ended: ${event.reason}._\n`);
     } else if (event.type === "continuation_available") {
+      if (turn) turn.paused = true;
+      void saveCanvasStatus(turn, "awaiting_approval");
       setContinuationByBucket((current) => ({
         ...current,
         [keyForTurn]: event.thread_id,
@@ -568,6 +624,22 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       useDiagramStore.getState().addDiagram(event);
       window.dispatchEvent(new CustomEvent("ccie:open-diagram-panel"));
     } else if (event.type === "final") {
+      if (turn) {
+        if (turn.canvas) {
+          const runId = turn.canvas.run_id;
+          useChatStore.setState(state => ({ messages: { ...state.messages,
+            [keyForTurn]: (state.messages[keyForTurn] ?? []).map(message =>
+              message.role === "assistant" && message.canvasFinal?.runId === runId
+                ? { ...message, canvasFinal: { runId, response: event.response } } : message),
+          } }));
+        }
+        turn.settled = true;
+        void saveCanvasStatus(turn, "completed");
+        if (event.response.trim()) void saveAiMessage({
+          tabId: turn.tabId, agentId: turn.agentId, role: "assistant",
+          content: event.response, timestamp: Date.now(),
+        }).catch(saveError => setError(keyForTurn, `Answer save failed: ${String(saveError)}`));
+      }
       setContinuationByBucket((current) => {
         const next = { ...current };
         delete next[keyForTurn];
@@ -579,30 +651,33 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       delete streamedGenerationRef.current[keyForTurn];
       setStreaming(keyForTurn, false);
     } else if (event.type === "error") {
+      if (turn && !turn.paused) {
+        turn.settled = true;
+        void saveCanvasStatus(turn, "failed");
+      }
       delete streamedGenerationRef.current[keyForTurn];
       setError(keyForTurn, event.message);
       setStreaming(keyForTurn, false);
     } else if (event.type === "iac_approval_request") {
       if (event.tool === "zabbix") {
-        setZabbixApproval({ threadId:event.thread_id, bucketKey:keyForTurn, streamOutput, request:{ method:event.command, params:event.classification?.params ?? {}, rationale:event.classification?.rationale ?? "", risk:event.classification?.tier ?? "high" } });
-        return;
-      }
-      if (event.tool === "cisco_workflows_apply") {
+        setZabbixApproval({ threadId:event.thread_id, bucketKey:keyForTurn, streamOutput, turn, request:{ method:event.command, params:event.classification?.params ?? {}, rationale:event.classification?.rationale ?? "", risk:event.classification?.tier ?? "high" } });
+      } else if (event.tool === "cisco_workflows_apply") {
         const params = event.classification?.params as Record<string, unknown> | undefined;
         if (!params || typeof params !== "object" || Array.isArray(params) ||
             typeof params.method !== "string" || typeof params.path !== "string") {
-          setError(keyForTurn, "Workflow approval preview unavailable; no change was approved.");
+          handleReactCodeEvent({ type: "error", message: "Workflow approval preview unavailable; no change was approved." }, keyForTurn, streamOutput, turn, invocation);
           return;
         }
         const targetOrgId = event.classification?.target_org_id;
         if (!targetOrgId?.trim()) {
-          setError(keyForTurn, "Workflow approval pinned organization ID unavailable; no change was approved.");
+          handleReactCodeEvent({ type: "error", message: "Workflow approval pinned organization ID unavailable; no change was approved." }, keyForTurn, streamOutput, turn, invocation);
           return;
         }
         setWorkflowsApproval({
           threadId: event.thread_id,
           bucketKey: keyForTurn,
           streamOutput,
+          turn,
           request: {
             tier: event.classification?.tier ?? "high",
             method: params.method,
@@ -613,36 +688,39 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               (typeof params.rationale === "string" ? params.rationale : ""),
           },
         });
-        return;
-      }
-      // Agent paused on a gated apply — surface the approval modal. Streaming
-      // stays "on" (the turn isn't finished); resume continues it.
-      const tier = event.classification?.tier ?? "high";
-      setIacApproval({
-        threadId: event.thread_id,
-        bucketKey: keyForTurn,
-        streamOutput,
-        request: {
-          command: event.command,
-          workingDir: event.working_dir,
-          gitBranch: "",
-          blastRadius: tier,
-          plannedChanges: {
-            toCreate: Array((event.classification?.create as number) || 0).fill({
-              resourceType: "resource",
-              resourceName: "(see plan)",
-            }),
-            toUpdate: Array((event.classification?.update as number) || 0).fill({
-              resourceType: "resource",
-              resourceName: "(see plan)",
-            }),
-            toDestroy: Array((event.classification?.destroy as number) || 0).fill({
-              resourceType: "resource",
-              resourceName: "(see plan)",
-            }),
+      } else {
+        // Agent paused on a gated apply — surface the approval modal. Streaming
+        // stays "on" (the turn isn't finished); resume continues it.
+        const tier = event.classification?.tier ?? "high";
+        setIacApproval({
+          threadId: event.thread_id,
+          bucketKey: keyForTurn,
+          streamOutput,
+          turn,
+          request: {
+            command: event.command,
+            workingDir: event.working_dir,
+            gitBranch: "",
+            blastRadius: tier,
+            plannedChanges: {
+              toCreate: Array((event.classification?.create as number) || 0).fill({
+                resourceType: "resource",
+                resourceName: "(see plan)",
+              }),
+              toUpdate: Array((event.classification?.update as number) || 0).fill({
+                resourceType: "resource",
+                resourceName: "(see plan)",
+              }),
+              toDestroy: Array((event.classification?.destroy as number) || 0).fill({
+                resourceType: "resource",
+                resourceName: "(see plan)",
+              }),
+            },
           },
-        },
-      });
+        });
+      }
+      if (turn) turn.paused = true;
+      void saveCanvasStatus(turn, "awaiting_approval");
     }
   };
 
@@ -669,7 +747,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   ) => {
     const pending = terminalFixApproval;
     setTerminalFixApproval(null);
-    if (!pending) return;
+    if (!pending || pending.turn?.settled) return;
+    const invocation = pending.turn ? ++pending.turn.invocation : undefined;
+    if (pending.turn) pending.turn.paused = false;
+    await saveCanvasStatus(pending.turn, "collecting");
+    if (pending.turn && (pending.turn.settled || pending.turn.invocation !== invocation)) return;
     try {
       if (decision === "deny") {
         await agentTerminalCancel(pending.preview.lease_id);
@@ -682,6 +764,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             event,
             pending.bucketKey,
             pending.streamOutput,
+            pending.turn,
+            invocation,
           ),
         });
         return;
@@ -705,15 +789,14 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           event,
           pending.bucketKey,
           pending.streamOutput,
+          pending.turn,
+          invocation,
         ),
       });
     } catch (approvalError) {
-      setError(
-        pending.bucketKey,
-        approvalError instanceof Error ? approvalError.message : String(approvalError),
-      );
+      handleReactCodeEvent({ type: "error", message: approvalError instanceof Error ? approvalError.message : String(approvalError) }, pending.bucketKey, pending.streamOutput, pending.turn, invocation);
     } finally {
-      setStreaming(pending.bucketKey, false);
+      if (!pending.turn || (reactCodeTurns.current[pending.bucketKey] === pending.turn && pending.turn.invocation === invocation)) setStreaming(pending.bucketKey, false);
     }
   };
 
@@ -721,7 +804,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
   const handleIacDecision = async (decision: "approve" | "deny") => {
     const pending = iacApproval;
     setIacApproval(null);
-    if (!pending) return;
+    if (!pending || pending.turn?.settled) return;
+    const invocation = pending.turn ? ++pending.turn.invocation : undefined;
+    if (pending.turn) pending.turn.paused = false;
+    await saveCanvasStatus(pending.turn, "collecting");
+    if (pending.turn && (pending.turn.settled || pending.turn.invocation !== invocation)) return;
     appendToken(
       pending.bucketKey,
       decision === "approve"
@@ -737,34 +824,43 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           event,
           pending.bucketKey,
           pending.streamOutput,
+          pending.turn,
+          invocation,
         ),
       });
     } catch (e) {
-      setError(pending.bucketKey, e instanceof Error ? e.message : String(e));
+      handleReactCodeEvent({ type: "error", message: e instanceof Error ? e.message : String(e) }, pending.bucketKey, pending.streamOutput, pending.turn, invocation);
     } finally {
-      setStreaming(pending.bucketKey, false);
+      if (!pending.turn || (reactCodeTurns.current[pending.bucketKey] === pending.turn && pending.turn.invocation === invocation)) setStreaming(pending.bucketKey, false);
     }
   };
   const handleZabbixDecision = async (decision: "approve" | "deny") => {
-    const pending=zabbixApproval; setZabbixApproval(null); if(!pending)return;
-    try { await agentReactResume({threadId:pending.threadId,decision,streamOutput:pending.streamOutput,onEvent:(event)=>handleReactCodeEvent(event,pending.bucketKey,pending.streamOutput)}); }
-    catch(e){setError(pending.bucketKey,e instanceof Error?e.message:String(e));} finally {setStreaming(pending.bucketKey,false);}
+    const pending=zabbixApproval; setZabbixApproval(null); if(!pending || pending.turn?.settled)return;
+    const invocation = pending.turn ? ++pending.turn.invocation : undefined;
+    if (pending.turn) pending.turn.paused = false;
+    await saveCanvasStatus(pending.turn, "collecting");
+    if (pending.turn && (pending.turn.settled || pending.turn.invocation !== invocation)) return;
+    try { await agentReactResume({threadId:pending.threadId,decision,streamOutput:pending.streamOutput,onEvent:(event)=>handleReactCodeEvent(event,pending.bucketKey,pending.streamOutput,pending.turn,invocation)}); }
+    catch(e){handleReactCodeEvent({type:"error",message:e instanceof Error?e.message:String(e)},pending.bucketKey,pending.streamOutput,pending.turn,invocation);} finally {if (!pending.turn || (reactCodeTurns.current[pending.bucketKey] === pending.turn && pending.turn.invocation === invocation)) setStreaming(pending.bucketKey,false);}
   };
   const handleWorkflowsDecision = async (decision: "approve" | "deny") => {
     const pending = workflowsApproval;
-    if (!pending) return;
+    if (!pending || pending.turn?.settled) return;
+    const invocation = pending.turn ? ++pending.turn.invocation : undefined;
     setWorkflowsApproval(null);
+    if (pending.turn) pending.turn.paused = false;
+    await saveCanvasStatus(pending.turn, "collecting");
+    if (pending.turn && (pending.turn.settled || pending.turn.invocation !== invocation)) return;
     setStreaming(pending.bucketKey, true);
     try {
       await agentReactResume({
         threadId: pending.threadId,
         decision,
         streamOutput: pending.streamOutput,
-        onEvent: (event) => handleReactCodeEvent(event, pending.bucketKey, pending.streamOutput),
+        onEvent: (event) => handleReactCodeEvent(event, pending.bucketKey, pending.streamOutput, pending.turn, invocation),
       });
     } catch (error) {
-      setError(pending.bucketKey, error instanceof Error ? error.message : String(error));
-      setStreaming(pending.bucketKey, false);
+      handleReactCodeEvent({ type: "error", message: error instanceof Error ? error.message : String(error) }, pending.bucketKey, pending.streamOutput, pending.turn, invocation);
     }
   };
 
@@ -808,7 +904,9 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       terminalAttachRequested,
     );
     userMessage = terminalRequest.message;
-    if (!userMessage || !tabId || !bucketKey || streaming) return;
+    if (!userMessage || !tabId || !bucketKey || streaming || awaitingCanvasHistory) return;
+    const existingTurn = reactCodeTurns.current[bucketKey];
+    if (existingTurn && !existingTurn.settled) return;
 
     if (terminalRequest.requested && activeAgentForTab !== "network-architect") {
       setError(bucketKey, "Terminal attachment is available only to Network Architect.");
@@ -851,6 +949,8 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
     // events must still land in the conversation that started them.
     const keyForTurn = bucketKey;
     const persistForTurn = { tabId, agentId: persistAgentId };
+    const turn: ReactCodeTurn = { ...persistForTurn, settled: false, paused: false, invocation: 0 };
+    const invocation = turn.invocation;
     const streamOutputForTurn = aiChatPreferences.streamLlmOutput;
     streamedGenerationRef.current[keyForTurn] = false;
 
@@ -867,6 +967,39 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       )
       .slice(-HISTORY_WINDOW)
       .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+    let requestMessage = userMessage;
+    let contextAttribution = "";
+    if (canvasMode) {
+      const workspace = useCopilotCanvas.getState().workspaces[tabId];
+      if (!workspace || agents.find(agent => agent.id === DEFAULT_AGENT_ID)?.executionMode !== "react-code") {
+        setError(keyForTurn, "Canvas workspace or Network Architect is not loaded; nothing sent.");
+        return;
+      }
+      const ids = workspace.selection.attachedCardIds;
+      turn.canvas = { workspace_id: tabId, run_id: crypto.randomUUID() };
+      if (ids.length) {
+        // Stay within the existing bounded-output ceiling; never enlarge a model/transport limit.
+        const available = Math.max(0, 48_000 - userMessage.length - history.reduce((size, item) => size + item.content.length, 0));
+        const context = new CanvasContextBuilder(workspace.cards, workspace.evidence).build(tabId, ids, available);
+        if (!context.ok) { setError(keyForTurn, context.limitation); return; }
+        turn.canvas.selection = context.selection;
+        requestMessage += context.context;
+        contextAttribution = `Attached Canvas evidence: ${context.selection.card_ids.map(id => workspace.cards.find(card => card.card_id === id)?.title ?? id).join(", ")}.`;
+        if (context.selection.omitted) contextAttribution += ` ${context.selection.omitted.count} omitted: ${context.selection.omitted.reason}.`;
+      }
+      reactCodeTurns.current[keyForTurn] = turn;
+      setStreaming(keyForTurn, true);
+      try {
+        await useCopilotCanvas.getState().beginRun(turn.canvas.workspace_id, turn.canvas.run_id);
+      } catch {
+        turn.settled = true;
+        setStreaming(keyForTurn, false);
+        return; // The workspace exposes the independent save error; no network dispatch.
+      }
+      if (turn.settled) return; // Stop during initial save must not dispatch a delayed run.
+      useCopilotCanvas.getState().setSelection(tabId, { attachedCardIds: [] });
+    }
 
     setInput("");
     setTerminalAttachRequested(false);
@@ -896,6 +1029,10 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       persistForTurn
     );
 
+    if (contextAttribution) addMessage(keyForTurn, {
+      id: `context-${turn.canvas!.run_id}`, role: "tool_result", content: contextAttribution, timestamp: Date.now(),
+    });
+
     // Add empty assistant message for streaming (persisted — we'll save the final text at Done)
     addMessage(
       keyForTurn,
@@ -904,6 +1041,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         role: "assistant",
         content: "",
         timestamp: Date.now(),
+        ...(turn.canvas ? { canvasFinal: { runId: turn.canvas.run_id, response: "" } } : {}),
       }
       // intentionally don't persist the empty shell; when streaming ends, the content
       // will be persisted at "done" below.
@@ -931,19 +1069,23 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
         // ReACT loop with code execution tool — agent reasons, writes code, observes, iterates
         console.log("[AgentPanel] Using agentReactCodeRun for", activeAgentForTab);
         clearCodeBlocks();
+        reactCodeTurns.current[keyForTurn] = turn;
         await agentReactCodeRun({
           agentId: activeAgentForTab,
-          message: userMessage,
+          message: requestMessage,
           history,
           streamOutput: streamOutputForTurn,
           terminalAttachment,
+          ...(turn.canvas ? { canvas: turn.canvas } : {}),
           onEvent: (event) => handleReactCodeEvent(
             event,
             keyForTurn,
             streamOutputForTurn,
+            turn,
+            invocation,
           ),
         });
-        setStreaming(keyForTurn, false);
+        if (reactCodeTurns.current[keyForTurn] === turn && turn.invocation === invocation) setStreaming(keyForTurn, false);
       } else if (isCodeExecAgent) {
         // Code execution agent — runs code, observes results, iterates
         console.log("[AgentPanel] Using agentCodeExecRun for", activeAgentForTab);
@@ -1112,6 +1254,9 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
       });
       } // end if/else for hasAttachedTools
     } catch (err) {
+      const ownsBucket = !isReactCodeAgent || (reactCodeTurns.current[keyForTurn] === turn && turn.invocation === invocation && !turn.settled);
+      if (!ownsBucket) return;
+      if (!turn.settled && !turn.paused) { turn.settled = true; void saveCanvasStatus(turn, "failed"); }
       console.error("[AgentPanel] Error in handleSend:", err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error("[AgentPanel] Error message:", errorMsg);
@@ -1143,6 +1288,11 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   const handleStop = async () => {
     if (!tabId || !bucketKey) return;
+    const turn = reactCodeTurns.current[bucketKey];
+    if (turn && !turn.settled) {
+      turn.settled = true;
+      void saveCanvasStatus(turn, "cancelled");
+    }
     try {
       if (terminalLeaseId) await agentTerminalCancel(terminalLeaseId);
       await agentChatCancel(tabId);
@@ -1174,9 +1324,22 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   const handleRetry = async () => {
     if (!tabId || !bucketKey) return;
-    clearError(bucketKey);
     if (continuationThreadId) {
       const threadId = continuationThreadId;
+      const turn = reactCodeTurns.current[bucketKey];
+      if (turn?.settled) {
+        setContinuationByBucket((current) => {
+          const next = { ...current };
+          delete next[bucketKey];
+          return next;
+        });
+        return;
+      }
+      clearError(bucketKey);
+      const invocation = turn ? ++turn.invocation : undefined;
+      if (turn) turn.paused = false;
+      await saveCanvasStatus(turn, "collecting");
+      if (turn && (turn.settled || turn.invocation !== invocation)) return;
       setContinuationByBucket((current) => {
         const next = { ...current };
         delete next[bucketKey];
@@ -1191,24 +1354,18 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             event,
             bucketKey,
             aiChatPreferences.streamLlmOutput,
+            turn,
+            invocation,
           ),
         });
       } catch (continuationError) {
-        setContinuationByBucket((current) => ({
-          ...current,
-          [bucketKey]: threadId,
-        }));
-        setError(
-          bucketKey,
-          continuationError instanceof Error
-            ? continuationError.message
-            : String(continuationError),
-        );
+        handleReactCodeEvent({ type: "error", message: continuationError instanceof Error ? continuationError.message : String(continuationError) }, bucketKey, aiChatPreferences.streamLlmOutput, turn, invocation);
       } finally {
-        setStreaming(bucketKey, false);
+        if (!turn || (reactCodeTurns.current[bucketKey] === turn && turn.invocation === invocation)) setStreaming(bucketKey, false);
       }
       return;
     }
+    clearError(bucketKey);
     // Find the last user message and retry
     const lastUserMsg = messages
       .slice()
@@ -1222,9 +1379,9 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
 
   return (
     <div className={`agent-panel ${isOpen ? "open" : "collapsed"}`}>
-      <button ref={agentToggleRef} className="agent-toggle" onClick={onToggle} title="Toggle AI Chat">
+      {!canvasMode && <button ref={agentToggleRef} className="agent-toggle" onClick={onToggle} title="Toggle AI Chat">
         {isOpen ? "›" : "‹"}
-      </button>
+      </button>}
 
       {/* IaC Phase 2 — approval gate for agent-initiated terraform/ansible applies. */}
       <ZabbixApprovalModal request={zabbixApproval?.request ?? null} onApprove={() => handleZabbixDecision("approve")} onDeny={() => handleZabbixDecision("deny")} />
@@ -1233,7 +1390,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           request={workflowsApproval.request}
           onApprove={() => handleWorkflowsDecision("approve")}
           onDeny={() => handleWorkflowsDecision("deny")}
-          returnFocusRef={agentToggleRef}
+          returnFocusRef={canvasMode ? canvasHeadingRef : agentToggleRef}
         />
       )}
       {iacApproval && (
@@ -1264,7 +1421,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 gap: "6px",
               }}
             >
-              <h3>AI Chat</h3>
+              <h3 ref={canvasHeadingRef} tabIndex={canvasMode ? -1 : undefined}>{canvasMode ? "Network Architect conversation" : "AI Chat"}</h3>
               <div style={{ display: "flex", gap: 4 }}>
                 <button
                   type="button"
@@ -1304,7 +1461,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             <select
               value={activeAgentForTab}
               onChange={(e) => handleAgentChange(e.target.value)}
-              disabled={!tabId}
+              disabled={!tabId || canvasMode}
               title="Active agent for this tab"
               style={{
                 marginTop: "6px",
@@ -1495,6 +1652,10 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
             {streaming && (
               <AgentWorkingIndicator />
             )}
+            {awaitingCheckpoint && <p role="status">Awaiting approval or continuation for this conversation.</p>}
+
+            {canvasWorkspace?.save.error && <p role="status">Canvas save failed: {canvasWorkspace.save.error}. Network execution was not changed.{canvasWorkspace.save.unsavedCardIds.length > 0 ? ` ${canvasWorkspace.save.unsavedCardIds.length} cards are not saved.` : ""}</p>}
+            {canvasWorkspace?.limitations.map((notice, index) => <p role="status" key={`${notice.run_id}-${index}`}>{notice.limitation}</p>)}
 
             {error && (
               <div className="agent-error">
@@ -1511,14 +1672,23 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
           <div className="agent-dictation-status" role="status" aria-live="polite">
             {dictationStatus}
           </div>
-          <form className="agent-input" onSubmit={handleSend}>
+          {canvasWorkspace && canvasWorkspace.selection.attachedCardIds.length > 0 && <div aria-label="Attached Canvas evidence">
+            {canvasWorkspace.selection.attachedCardIds.map(id => {
+              const title = canvasWorkspace.cards.find(card => card.card_id === id)?.title ?? id;
+              return <button type="button" key={id} aria-label={`Remove attached evidence ${title}`} onClick={() => {
+                const current = useCopilotCanvas.getState().workspaces[canvasWorkspace.tab.id];
+                useCopilotCanvas.getState().setSelection(canvasWorkspace.tab.id, { attachedCardIds: current.selection.attachedCardIds.filter(cardId => cardId !== id) });
+              }}>{title} — Remove</button>;
+            })}
+          </div>}
+          <form className="agent-input" onSubmit={handleSend} aria-busy={awaitingCanvasHistory}>
             {activeAgentForTab === "network-architect" && (
               <button
                 type="button"
                 className={`terminal-attach-chip ${terminalAttachRequested ? "active" : ""}`}
                 aria-pressed={terminalAttachRequested}
                 onClick={() => setTerminalAttachRequested((current) => !current)}
-                disabled={streaming || !tabId}
+                disabled={streaming || awaitingCheckpoint || !tabId}
                 title="Allow Network Architect to use the focused verified SSH terminal for this turn"
               >
                 {terminalAttachRequested ? "Terminal attached" : "Attach terminal"}
@@ -1530,7 +1700,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               aria-label={isListening ? "Stop voice dictation" : "Start voice dictation"}
               aria-pressed={isListening}
               onClick={handleDictationToggle}
-              disabled={streaming || !tabId}
+              disabled={streaming || awaitingCheckpoint || !tabId}
               title="Dictate into the agent message"
             >
               🎙
@@ -1541,7 +1711,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask about your terminal..."
-              disabled={streaming || !tabId}
+              disabled={streaming || awaitingCheckpoint || !tabId}
               readOnly={isListening}
               rows={2}
             />
@@ -1555,7 +1725,7 @@ export function AgentPanel({ tabId, isOpen, onToggle }: AgentPanelProps) {
                 ■ Stop
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim() || !tabId || isListening}>
+              <button type="submit" disabled={!input.trim() || !tabId || isListening || awaitingCheckpoint || awaitingCanvasHistory} title={awaitingCanvasHistory ? "Loading saved conversation…" : undefined}>
                 Send
               </button>
             )}

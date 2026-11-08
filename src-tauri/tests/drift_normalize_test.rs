@@ -82,10 +82,7 @@ fn idempotent_when_run_twice() {
 
 #[test]
 fn vendor_parse_routing() {
-    assert_eq!(
-        Vendor::parse("cisco", "iosxe"),
-        Vendor::CiscoIosXe
-    );
+    assert_eq!(Vendor::parse("cisco", "iosxe"), Vendor::CiscoIosXe);
     assert_eq!(Vendor::parse("juniper", "junos"), Vendor::JuniperJunos);
     assert_eq!(Vendor::parse("arista", "eos"), Vendor::AristaEos);
     assert_eq!(Vendor::parse("unknown", "weird"), Vendor::Generic);

@@ -118,7 +118,11 @@ pub fn ensure_conclusion_shape(value: Value, symptom: &str) -> Value {
     let allowed = matches!(confidence.as_str(), "low" | "medium" | "high");
     obj.insert(
         "confidence".to_string(),
-        Value::String(if allowed { confidence } else { "low".to_string() }),
+        Value::String(if allowed {
+            confidence
+        } else {
+            "low".to_string()
+        }),
     );
     Value::Object(obj)
 }

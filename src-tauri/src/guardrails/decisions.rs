@@ -89,8 +89,11 @@ pub fn list_decisions(
         })
     };
     let rows: Vec<DecisionRow> = if has_filter {
-        stmt.query_map(params![session_id.unwrap(), limit as i64, offset as i64], map_row)?
-            .collect::<Result<Vec<_>, _>>()?
+        stmt.query_map(
+            params![session_id.unwrap(), limit as i64, offset as i64],
+            map_row,
+        )?
+        .collect::<Result<Vec<_>, _>>()?
     } else {
         stmt.query_map(params![limit as i64, offset as i64], map_row)?
             .collect::<Result<Vec<_>, _>>()?

@@ -26,7 +26,11 @@ pub struct LiveTransport {
 
 impl LiveTransport {
     pub fn new(executor: Arc<dyn PtyExecutor>, vendor: String, platform: String) -> Self {
-        Self { executor, vendor, platform }
+        Self {
+            executor,
+            vendor,
+            platform,
+        }
     }
 }
 

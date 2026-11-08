@@ -71,10 +71,7 @@ fn arista_eos_returns_eos_plus_generic() {
 
 #[test]
 fn unknown_vendor_returns_generic_only() {
-    assert_eq!(
-        derive_tags(Some("foo"), Some("bar"), None),
-        vec!["generic"]
-    );
+    assert_eq!(derive_tags(Some("foo"), Some("bar"), None), vec!["generic"]);
 }
 
 #[test]

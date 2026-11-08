@@ -52,7 +52,15 @@ impl ConfigSnapshotRepo {
             "INSERT INTO config_snapshots
                 (id, device_id, device_kind, vendor, platform, normalized_config, source)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, device_id, device_kind, vendor, platform, normalized_config, source],
+            params![
+                id,
+                device_id,
+                device_kind,
+                vendor,
+                platform,
+                normalized_config,
+                source
+            ],
         )
         .context("insert config_snapshots")?;
         Self::enforce_retention(conn, device_id, device_kind)?;

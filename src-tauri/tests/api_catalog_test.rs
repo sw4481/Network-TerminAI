@@ -47,7 +47,11 @@ fn seed_overwrites_stale_builtin_manifests() {
 
     // Corrupt the on-disk file (simulates either a stale old version or a
     // user edit inside the app-owned directory).
-    std::fs::write(&meraki, b"id: stale\ndisplay_name: old\nbase_url: https://x\n").unwrap();
+    std::fs::write(
+        &meraki,
+        b"id: stale\ndisplay_name: old\nbase_url: https://x\n",
+    )
+    .unwrap();
 
     seed_builtin_manifests(&dir).unwrap();
     let after = std::fs::read(&meraki).unwrap();

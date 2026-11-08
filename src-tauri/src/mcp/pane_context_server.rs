@@ -4,8 +4,8 @@
 //! and command state. Designed to be consumed by agents like Claude Code running
 //! in a terminal pane.
 
-use crate::pane_context::PaneContextManager;
 use crate::mcp::types::Tool;
+use crate::pane_context::PaneContextManager;
 use anyhow::Result;
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -16,15 +16,19 @@ pub struct PaneContextMcpServer {
 }
 
 impl PaneContextMcpServer {
-    pub fn new(manager: Arc<PaneContextManager>, browser_manager: Arc<crate::browser::BrowserManager>) -> Self {
-        Self { manager, browser_manager }
+    pub fn new(
+        manager: Arc<PaneContextManager>,
+        browser_manager: Arc<crate::browser::BrowserManager>,
+    ) -> Self {
+        Self {
+            manager,
+            browser_manager,
+        }
     }
 
     /// Get the list of MCP resources exposed by this server
     pub fn get_resources(&self) -> Vec<String> {
-        vec![
-            "pane://layout".to_string(),
-        ]
+        vec!["pane://layout".to_string()]
     }
 
     /// Get the list of MCP tools exposed by this server
@@ -32,7 +36,8 @@ impl PaneContextMcpServer {
         vec![
             Tool {
                 name: "get_pane_layout".to_string(),
-                description: "Get the current pane tree layout with all pane IDs and types".to_string(),
+                description: "Get the current pane tree layout with all pane IDs and types"
+                    .to_string(),
                 input_schema: json!({
                     "type": "object",
                     "properties": {}
@@ -70,12 +75,14 @@ impl PaneContextMcpServer {
             },
             Tool {
                 name: "browser_list".to_string(),
-                description: "List all open browser windows with their browser_id and url".to_string(),
+                description: "List all open browser windows with their browser_id and url"
+                    .to_string(),
                 input_schema: serde_json::json!({ "type": "object", "properties": {} }),
             },
             Tool {
                 name: "browser_get_content".to_string(),
-                description: "Get the current URL of an open browser window by browser_id".to_string(),
+                description: "Get the current URL of an open browser window by browser_id"
+                    .to_string(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": { "browser_id": { "type": "string" } },
@@ -97,7 +104,8 @@ impl PaneContextMcpServer {
                 Ok(serde_json::json!({ "windows": windows, "count": windows.len() }))
             }
             "browser_get_content" => {
-                let browser_id = arguments.get("browser_id")
+                let browser_id = arguments
+                    .get("browser_id")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing browser_id"))?;
                 match self.browser_manager.get_url(browser_id) {
@@ -117,7 +125,10 @@ impl PaneContextMcpServer {
         }
 
         // Pattern: pane://{pane_id}/activity
-        if let Some(pane_id) = uri.strip_prefix("pane://").and_then(|s| s.strip_suffix("/activity")) {
+        if let Some(pane_id) = uri
+            .strip_prefix("pane://")
+            .and_then(|s| s.strip_suffix("/activity"))
+        {
             return self.handle_get_pane_activity(json!({"pane_id": pane_id}));
         }
 
@@ -132,7 +143,8 @@ impl PaneContextMcpServer {
             std::collections::HashMap::new();
 
         for activity in &activities {
-            panes_by_tab.entry(activity.tab_id.clone())
+            panes_by_tab
+                .entry(activity.tab_id.clone())
                 .or_default()
                 .push(json!({
                     "paneId": activity.pane_id,
@@ -152,7 +164,8 @@ impl PaneContextMcpServer {
     }
 
     fn handle_get_pane_activity(&self, arguments: Value) -> Result<Value> {
-        let pane_id = arguments.get("pane_id")
+        let pane_id = arguments
+            .get("pane_id")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing pane_id"))?;
 
@@ -208,7 +221,10 @@ mod tests {
     #[test]
     fn test_get_tools() {
         let manager = Arc::new(PaneContextManager::new());
-        let server = PaneContextMcpServer::new(manager, std::sync::Arc::new(crate::browser::BrowserManager::new()));
+        let server = PaneContextMcpServer::new(
+            manager,
+            std::sync::Arc::new(crate::browser::BrowserManager::new()),
+        );
 
         let tools = server.get_tools();
         assert_eq!(tools.len(), 6);
@@ -223,7 +239,10 @@ mod tests {
     #[test]
     fn test_get_resources() {
         let manager = Arc::new(PaneContextManager::new());
-        let server = PaneContextMcpServer::new(manager, std::sync::Arc::new(crate::browser::BrowserManager::new()));
+        let server = PaneContextMcpServer::new(
+            manager,
+            std::sync::Arc::new(crate::browser::BrowserManager::new()),
+        );
 
         let resources = server.get_resources();
         assert_eq!(resources.len(), 1);
@@ -233,7 +252,10 @@ mod tests {
     #[test]
     fn test_handle_tool_call_unknown() {
         let manager = Arc::new(PaneContextManager::new());
-        let server = PaneContextMcpServer::new(manager, std::sync::Arc::new(crate::browser::BrowserManager::new()));
+        let server = PaneContextMcpServer::new(
+            manager,
+            std::sync::Arc::new(crate::browser::BrowserManager::new()),
+        );
 
         let result = server.handle_tool_call("unknown_tool", json!({}));
         assert!(result.is_err());
@@ -242,7 +264,10 @@ mod tests {
     #[test]
     fn test_handle_resource_request_layout() {
         let manager = Arc::new(PaneContextManager::new());
-        let server = PaneContextMcpServer::new(manager, std::sync::Arc::new(crate::browser::BrowserManager::new()));
+        let server = PaneContextMcpServer::new(
+            manager,
+            std::sync::Arc::new(crate::browser::BrowserManager::new()),
+        );
 
         let result = server.handle_resource_request("pane://layout");
         assert!(result.is_ok());
@@ -251,7 +276,10 @@ mod tests {
     #[test]
     fn test_handle_resource_request_unknown() {
         let manager = Arc::new(PaneContextManager::new());
-        let server = PaneContextMcpServer::new(manager, std::sync::Arc::new(crate::browser::BrowserManager::new()));
+        let server = PaneContextMcpServer::new(
+            manager,
+            std::sync::Arc::new(crate::browser::BrowserManager::new()),
+        );
 
         let result = server.handle_resource_request("pane://unknown");
         assert!(result.is_err());

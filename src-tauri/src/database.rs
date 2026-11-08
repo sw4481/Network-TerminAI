@@ -100,7 +100,7 @@ impl Database {
                     git_commit, git_branch, had_uncommitted_changes,
                     blast_radius, resources_changed, resources_failed,
                     metadata_json, created_at
-             FROM iac_executions WHERE id = ?1"
+             FROM iac_executions WHERE id = ?1",
         )?;
 
         let result = stmt.query_row(params![id], |row| {
@@ -184,7 +184,7 @@ impl Database {
 #[cfg(test)]
 mod iac_tests {
     use super::*;
-    use crate::iac::types::{IaCTool, IaCMetadata, ResourceEvent, ResourceAction};
+    use crate::iac::types::{IaCMetadata, IaCTool, ResourceAction, ResourceEvent};
 
     #[test]
     fn test_insert_and_get_iac_execution() {
@@ -207,31 +207,31 @@ mod iac_tests {
         let metadata = IaCMetadata {
             resources_changed: 2,
             resources_failed: 0,
-            resource_events: vec![
-                ResourceEvent {
-                    resource_type: "aws_security_group".to_string(),
-                    resource_name: "alb".to_string(),
-                    resource_id: Some("sg-abc123".to_string()),
-                    action: ResourceAction::Create,
-                    timestamp: 1234567890,
-                    duration_ms: None,
-                    error: None,
-                },
-            ],
+            resource_events: vec![ResourceEvent {
+                resource_type: "aws_security_group".to_string(),
+                resource_name: "alb".to_string(),
+                resource_id: Some("sg-abc123".to_string()),
+                action: ResourceAction::Create,
+                timestamp: 1234567890,
+                duration_ms: None,
+                error: None,
+            }],
             summary: "2 resources changed".to_string(),
         };
 
-        let exec_id = db.insert_iac_execution(
-            &block_id,
-            IaCTool::Terraform,
-            "apply",
-            "/test/project",
-            Some("abc123"),
-            Some("main"),
-            false,
-            Some("low"),
-            &metadata,
-        ).unwrap();
+        let exec_id = db
+            .insert_iac_execution(
+                &block_id,
+                IaCTool::Terraform,
+                "apply",
+                "/test/project",
+                Some("abc123"),
+                Some("main"),
+                false,
+                Some("low"),
+                &metadata,
+            )
+            .unwrap();
 
         let result = db.get_iac_execution(&exec_id).unwrap();
         assert!(result.is_some());

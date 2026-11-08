@@ -58,8 +58,14 @@ fn parses_openapi_3_1() {
 fn catalog_is_deterministically_ordered() {
     let a = parse_spec(SPEC_3_0).unwrap();
     let b = parse_spec(SPEC_3_0).unwrap();
-    let ids_a: Vec<_> = a.iter().map(|e| (e.method.clone(), e.path.clone())).collect();
-    let ids_b: Vec<_> = b.iter().map(|e| (e.method.clone(), e.path.clone())).collect();
+    let ids_a: Vec<_> = a
+        .iter()
+        .map(|e| (e.method.clone(), e.path.clone()))
+        .collect();
+    let ids_b: Vec<_> = b
+        .iter()
+        .map(|e| (e.method.clone(), e.path.clone()))
+        .collect();
     assert_eq!(ids_a, ids_b);
     // Sorted by method then path
     for w in ids_a.windows(2) {

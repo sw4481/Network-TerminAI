@@ -26,7 +26,10 @@ async fn ssh_transport_runs_command_via_injected_exec() {
         }),
     );
 
-    let out = transport.run_show("tab-ignored", "show version").await.unwrap();
+    let out = transport
+        .run_show("tab-ignored", "show version")
+        .await
+        .unwrap();
     assert_eq!(out, "output-of: show version");
     assert_eq!(calls.lock().as_slice(), &["show version".to_string()]);
 }

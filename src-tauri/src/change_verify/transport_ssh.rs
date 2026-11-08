@@ -25,9 +25,8 @@ use async_trait::async_trait;
 use super::transport::ShowTransport;
 
 /// Async command-runner: given a command string, return its raw output.
-pub type ExecFn = Arc<
-    dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<String>> + Send>> + Send + Sync,
->;
+pub type ExecFn =
+    Arc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Result<String>> + Send>> + Send + Sync>;
 
 pub struct SshTransport {
     vendor: String,
@@ -37,7 +36,11 @@ pub struct SshTransport {
 
 impl SshTransport {
     pub fn new(vendor: String, platform: String, exec: ExecFn) -> Self {
-        Self { vendor, platform, exec }
+        Self {
+            vendor,
+            platform,
+            exec,
+        }
     }
 
     /// Build a transport that runs commands against `target` via
@@ -51,13 +54,9 @@ impl SshTransport {
         let exec: ExecFn = Arc::new(move |cmd: String| {
             let target = target.clone();
             Box::pin(async move {
-                crate::ssh_exec::run_command(
-                    &target,
-                    &cmd,
-                    crate::ssh_exec::DEFAULT_CMD_TIMEOUT,
-                )
-                .await
-                .map_err(|e| anyhow::anyhow!(e.to_string()))
+                crate::ssh_exec::run_command(&target, &cmd, crate::ssh_exec::DEFAULT_CMD_TIMEOUT)
+                    .await
+                    .map_err(|e| anyhow::anyhow!(e.to_string()))
             })
         });
         Self::new(vendor, platform, exec)

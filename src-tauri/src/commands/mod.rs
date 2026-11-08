@@ -2,6 +2,7 @@ pub mod agent_catalog;
 pub mod ai;
 pub mod appearance;
 pub mod browser;
+pub mod copilot_canvas;
 pub mod dap;
 pub mod diagrams;
 pub mod drift;
@@ -331,6 +332,7 @@ pub struct AppState {
     pub parser_cache: crate::parsers::cache::ParseCache,
     /// Bridge to the Python sidecar's `parse.request` NDJSON method.
     pub parser_bridge: crate::parsers::bridge::ParserBridge,
+    pub topology_discovery: Arc<crate::topology::discovery::TopologyDiscoveryService>,
     /// Live notebook runs — control-channel senders keyed by run_id.
     pub notebook_runs: Arc<crate::commands::notebooks_runnable::RunRegistry>,
     /// Multi-device fan-out executor (Plan 07). Lazily initialized on first
@@ -510,6 +512,7 @@ impl AppState {
             lsp_manager: Arc::new(crate::lsp::LspManager::new()),
             dap_manager: Arc::new(crate::dap::DapManager::new()),
             parser_cache,
+            topology_discovery: Arc::new(crate::topology::discovery::TopologyDiscoveryService::new(db_arc.clone(), parser_bridge.clone()).with_snmp(vault.clone())),
             parser_bridge,
             notebook_runs: crate::commands::notebooks_runnable::RunRegistry::new(),
             fanout_executor: Arc::new(Mutex::new(None)),

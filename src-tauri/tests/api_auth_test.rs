@@ -78,7 +78,10 @@ fn apply_basic_handles_unicode_password() {
     let b64 = &got["Basic ".len()..];
     use base64::{engine::general_purpose::STANDARD, Engine};
     let decoded = STANDARD.decode(b64).unwrap();
-    assert_eq!(decoded, b"user:\xd0\xbf\xd0\xb0\xd1\x80\xd0\xbe\xd0\xbb\xd1\x8c");
+    assert_eq!(
+        decoded,
+        b"user:\xd0\xbf\xd0\xb0\xd1\x80\xd0\xbe\xd0\xbb\xd1\x8c"
+    );
 }
 
 #[test]

@@ -58,8 +58,8 @@ impl ParseCache {
 
     pub fn get(&self, key: &str) -> Result<Option<CacheHit>> {
         let conn = self.conn.lock();
-        let mut stmt = conn
-            .prepare("SELECT parser, data_json FROM parsers_cache WHERE key = ?1")?;
+        let mut stmt =
+            conn.prepare("SELECT parser, data_json FROM parsers_cache WHERE key = ?1")?;
         let row = stmt.query_row(params![key], |r| {
             Ok(CacheHit {
                 parser: r.get(0)?,

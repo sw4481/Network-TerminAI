@@ -81,13 +81,25 @@ fn workflows_source_lists_matching() {
     conn.execute(
         "INSERT INTO workflows (id, name, description, vendor, platform)
          VALUES (?, ?, ?, ?, ?)",
-        params!["wf1", "show-tech-light", "Light tech-support sweep", "cisco", "iosxe"],
+        params![
+            "wf1",
+            "show-tech-light",
+            "Light tech-support sweep",
+            "cisco",
+            "iosxe"
+        ],
     )
     .unwrap();
     conn.execute(
         "INSERT INTO workflows (id, name, description, vendor, platform)
          VALUES (?, ?, ?, ?, ?)",
-        params!["wf2", "ospf-neighbor-check", "Verify OSPF adjacency", "cisco", "iosxe"],
+        params![
+            "wf2",
+            "ospf-neighbor-check",
+            "Verify OSPF adjacency",
+            "cisco",
+            "iosxe"
+        ],
     )
     .unwrap();
 
@@ -100,8 +112,7 @@ fn workflows_source_lists_matching() {
 #[test]
 fn workflows_source_empty_when_table_missing() {
     let (_dir, conn) = open_test_db_at(28);
-    let hits =
-        workflows::search(&conn, "anything", PaletteScope::Global, None, None, 10).unwrap();
+    let hits = workflows::search(&conn, "anything", PaletteScope::Global, None, None, 10).unwrap();
     assert!(hits.is_empty(), "must feature-flag around missing table");
 }
 
@@ -111,7 +122,14 @@ fn notebooks_source_lists_matching() {
     conn.execute(
         "INSERT INTO notebooks (id, title, description, vendor, platform, body_markdown)
          VALUES (?, ?, ?, ?, ?, ?)",
-        params!["nb1", "BGP Audit", "Audit eBGP neighbors", "cisco", "iosxe", "# md"],
+        params![
+            "nb1",
+            "BGP Audit",
+            "Audit eBGP neighbors",
+            "cisco",
+            "iosxe",
+            "# md"
+        ],
     )
     .unwrap();
     let hits = notebooks::search(&conn, "BGP", PaletteScope::Global, None, None, 10).unwrap();

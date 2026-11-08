@@ -101,9 +101,7 @@ fn list_pipe_targets_contract_filters_by_tab_type_and_live_pty() {
     let stale = session::create_tab(&conn, "zsh", "/bin/zsh", "/").unwrap();
 
     // The pretend PTY map — only `live` is currently running.
-    let live_ptys: std::collections::HashSet<String> = [live.id.clone()]
-        .into_iter()
-        .collect();
+    let live_ptys: std::collections::HashSet<String> = [live.id.clone()].into_iter().collect();
 
     // The filter `list_pipe_targets` applies.
     let all = session::list_open_tabs(&conn).unwrap();

@@ -67,20 +67,31 @@ fn v0040_cascade_delete_removes_nodes_and_edges() {
     ).unwrap();
 
     // Delete the parent graph row.
-    conn.execute("DELETE FROM topology_graphs WHERE id = ?1", [g]).unwrap();
+    conn.execute("DELETE FROM topology_graphs WHERE id = ?1", [g])
+        .unwrap();
 
-    let nodes: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM topology_nodes WHERE graph_id = ?1",
-        [g],
-        |r| r.get(0),
-    ).unwrap();
-    let edges: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM topology_edges WHERE graph_id = ?1",
-        [g],
-        |r| r.get(0),
-    ).unwrap();
-    assert_eq!(nodes, 0, "expected ON DELETE CASCADE to remove topology_nodes");
-    assert_eq!(edges, 0, "expected ON DELETE CASCADE to remove topology_edges");
+    let nodes: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM topology_nodes WHERE graph_id = ?1",
+            [g],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let edges: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM topology_edges WHERE graph_id = ?1",
+            [g],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        nodes, 0,
+        "expected ON DELETE CASCADE to remove topology_nodes"
+    );
+    assert_eq!(
+        edges, 0,
+        "expected ON DELETE CASCADE to remove topology_edges"
+    );
 }
 
 #[test]
@@ -92,11 +103,13 @@ fn v0040_creates_expected_indexes() {
         "idx_topo_edges_proto",
         "idx_neighbor_cache_captured",
     ] {
-        let n: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name = ?1",
-            [idx],
-            |r| r.get(0),
-        ).unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name = ?1",
+                [idx],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(n, 1, "expected index {idx} after V0040");
     }
 }

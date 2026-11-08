@@ -168,11 +168,7 @@ pub fn create_subnet_tab(conn: &Connection, title: &str) -> Result<Tab> {
 }
 
 /// Create a new Editor tab (no PTY, no shell_cmd)
-pub fn create_editor_tab(
-    conn: &Connection,
-    title: &str,
-    file_path: Option<&str>,
-) -> Result<Tab> {
+pub fn create_editor_tab(conn: &Connection, title: &str, file_path: Option<&str>) -> Result<Tab> {
     let id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().timestamp();
     let cwd = std::env::current_dir()
@@ -224,7 +220,8 @@ fn detect_language_from_path(path: &str) -> String {
         "md" => "markdown",
         "sh" | "bash" | "zsh" => "shell",
         _ => "plaintext",
-    }.to_string()
+    }
+    .to_string()
 }
 
 pub fn list_open_tabs(conn: &Connection) -> Result<Vec<Tab>> {
@@ -891,11 +888,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationSummary>>
 
 /// Delete all messages for a (tab, agent) pair. Used by the "Clear chat" button.
 /// Returns the number of rows deleted.
-pub fn clear_ai_messages(
-    conn: &Connection,
-    tab_id: &str,
-    agent_id: Option<&str>,
-) -> Result<usize> {
+pub fn clear_ai_messages(conn: &Connection, tab_id: &str, agent_id: Option<&str>) -> Result<usize> {
     let n = match agent_id {
         Some(aid) => conn.execute(
             "DELETE FROM ai_messages WHERE tab_id = ? AND agent_id = ?",
@@ -1076,7 +1069,11 @@ mod scrollback_tests {
         let t2 = create_tab_with_id(&conn, "fixed-id-123", "zsh", "/bin/zsh", "/other").unwrap();
         assert_eq!(t2.id, "fixed-id-123");
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tabs WHERE id = ?", params!["fixed-id-123"], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM tabs WHERE id = ?",
+                params!["fixed-id-123"],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 1);
     }
@@ -1089,9 +1086,15 @@ mod scrollback_tests {
             .unwrap();
         save_session_snapshot(&conn, "__last__", Some(&tab.id), None).unwrap();
 
-        let snap = load_session_snapshot(&conn, "__last__").unwrap().expect("snapshot");
+        let snap = load_session_snapshot(&conn, "__last__")
+            .unwrap()
+            .expect("snapshot");
         assert_eq!(snap.active_tab_id.as_deref(), Some("rt-1"));
-        let restored = snap.tabs.iter().find(|t| t.id == "rt-1").expect("tab present");
+        let restored = snap
+            .tabs
+            .iter()
+            .find(|t| t.id == "rt-1")
+            .expect("tab present");
         assert_eq!(restored.cwd, "/work");
         assert_eq!(restored.scrollback, b"hello world");
     }
@@ -1102,15 +1105,26 @@ mod scrollback_tests {
         let tab = create_tab_with_id(&conn, "reopen-1", "zsh", "/bin/zsh", "/work").unwrap();
         close_tab(&conn, &tab.id).unwrap();
         // Closed tabs are excluded from the open list (and thus from snapshots).
-        assert!(list_open_tabs(&conn).unwrap().iter().all(|t| t.id != "reopen-1"));
+        assert!(list_open_tabs(&conn)
+            .unwrap()
+            .iter()
+            .all(|t| t.id != "reopen-1"));
 
         // Reopening via create_tab_with_id must clear closed_at so it persists again.
         create_tab_with_id(&conn, "reopen-1", "zsh", "/bin/zsh", "/work").unwrap();
-        assert!(list_open_tabs(&conn).unwrap().iter().any(|t| t.id == "reopen-1"));
+        assert!(list_open_tabs(&conn)
+            .unwrap()
+            .iter()
+            .any(|t| t.id == "reopen-1"));
 
         save_session_snapshot(&conn, "__last__", Some("reopen-1"), None).unwrap();
-        let snap = load_session_snapshot(&conn, "__last__").unwrap().expect("snapshot");
-        assert!(snap.tabs.iter().any(|t| t.id == "reopen-1"), "reopened tab must be in snapshot");
+        let snap = load_session_snapshot(&conn, "__last__")
+            .unwrap()
+            .expect("snapshot");
+        assert!(
+            snap.tabs.iter().any(|t| t.id == "reopen-1"),
+            "reopened tab must be in snapshot"
+        );
     }
 
     #[test]
@@ -1128,7 +1142,9 @@ mod scrollback_tests {
         let live = vec!["live-2".to_string(), "live-1".to_string()];
         save_session_snapshot(&conn, "__last__", Some("live-2"), Some(&live)).unwrap();
 
-        let snap = load_session_snapshot(&conn, "__last__").unwrap().expect("snapshot");
+        let snap = load_session_snapshot(&conn, "__last__")
+            .unwrap()
+            .expect("snapshot");
         assert_eq!(snap.tabs.len(), 2, "leaked row must not be snapshotted");
         assert!(snap.tabs.iter().all(|t| t.id != "leaked-old"));
         // Order is preserved from the passed ids.
@@ -1144,7 +1160,9 @@ mod scrollback_tests {
         let ids = vec!["live-1".to_string(), "ghost".to_string()];
         save_session_snapshot(&conn, "__last__", Some("live-1"), Some(&ids)).unwrap();
 
-        let snap = load_session_snapshot(&conn, "__last__").unwrap().expect("snapshot");
+        let snap = load_session_snapshot(&conn, "__last__")
+            .unwrap()
+            .expect("snapshot");
         assert_eq!(snap.tabs.len(), 1);
         assert_eq!(snap.tabs[0].id, "live-1");
     }

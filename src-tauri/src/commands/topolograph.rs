@@ -17,9 +17,7 @@ use tauri::State;
 use crate::commands::AppState;
 
 pub(crate) mod pyats_import;
-pub use pyats_import::{
-    topolograph_import_lsdb_from_pyats, TopolographPyatsLsdbImportRequest,
-};
+pub use pyats_import::{topolograph_import_lsdb_from_pyats, TopolographPyatsLsdbImportRequest};
 
 pub const TOPOLOGRAPH_SINGLETON_ID: &str = "topolograph";
 pub const MAX_UPLOAD_BYTES: u64 = 32 * 1024 * 1024;
@@ -495,17 +493,33 @@ fn connection_report_from_agent_response(
             if let Some(extra) = object.get("warnings").and_then(Value::as_array) {
                 warnings.extend(extra.iter().filter_map(Value::as_str).map(str::to_string));
             }
-            let strings = |field: &str| object
-                .get(field)
-                .and_then(Value::as_array)
-                .map(|items| items.iter().filter_map(Value::as_str).map(str::to_string).collect())
-                .unwrap_or_default();
+            let strings = |field: &str| {
+                object
+                    .get(field)
+                    .and_then(Value::as_array)
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            };
             Ok(ConnectionReport {
                 ok,
                 message,
                 warnings,
-                server_name: object.get("server_name").and_then(Value::as_str).unwrap_or_default().to_string(),
-                server_version: object.get("server_version").and_then(Value::as_str).unwrap_or_default().to_string(),
+                server_name: object
+                    .get("server_name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                server_version: object
+                    .get("server_version")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
                 latency_ms: object.get("latency_ms").and_then(Value::as_f64),
                 tools: strings("tools"),
                 missing_tools: strings("missing_tools"),
@@ -865,7 +879,9 @@ mod tests {
         let wrong_extension = temp.path().join("capture.csv");
         std::fs::write(&wrong_extension, "router ospf output").unwrap();
 
-        assert!(validate_native_upload(Path::new("capture.log"), TopolographUploadKind::Lsdb).is_err());
+        assert!(
+            validate_native_upload(Path::new("capture.log"), TopolographUploadKind::Lsdb).is_err()
+        );
         assert!(validate_native_upload(&directory, TopolographUploadKind::Lsdb).is_err());
         assert!(validate_native_upload(&wrong_extension, TopolographUploadKind::Lsdb).is_err());
     }
@@ -894,12 +910,9 @@ mod tests {
                 ]
             }),
         };
-        let report = connection_report_from_agent_response(
-            done,
-            Vec::new(),
-            "synthetic-direct-key",
-        )
-        .unwrap();
+        let report =
+            connection_report_from_agent_response(done, Vec::new(), "synthetic-direct-key")
+                .unwrap();
         assert!(report.ok);
         assert!(report.message.contains("Topolograph MCP"));
         assert_eq!(
@@ -925,12 +938,9 @@ mod tests {
         let error = crate::agent_bridge::AgentResponse::Error {
             message: "UPSTREAM_RPC_ERROR: Topolograph rejected the MCP request.".into(),
         };
-        let failed = connection_report_from_agent_response(
-            error,
-            Vec::new(),
-            "synthetic-direct-key",
-        )
-        .unwrap();
+        let failed =
+            connection_report_from_agent_response(error, Vec::new(), "synthetic-direct-key")
+                .unwrap();
         assert!(!failed.ok);
         assert!(failed.message.contains("UPSTREAM_RPC_ERROR"));
         assert!(!failed.message.contains("selected-token"));
@@ -953,12 +963,9 @@ mod tests {
             }),
         };
 
-        let report = connection_report_from_agent_response(
-            response,
-            Vec::new(),
-            "synthetic-direct-key",
-        )
-        .unwrap();
+        let report =
+            connection_report_from_agent_response(response, Vec::new(), "synthetic-direct-key")
+                .unwrap();
         let serialized = serde_json::to_string(&report).unwrap();
         assert!(!serialized.contains("synthetic-direct-key"));
         assert!(serialized.contains("[REDACTED]"));
@@ -1109,7 +1116,10 @@ mod tests {
             .unwrap();
         assert_eq!(
             stored,
-            ("legacy-vault-reference".into(), "synthetic-direct-key".into())
+            (
+                "legacy-vault-reference".into(),
+                "synthetic-direct-key".into()
+            )
         );
 
         let loaded = read_config(&connection).unwrap().unwrap();
@@ -1167,7 +1177,10 @@ mod tests {
             updated_at: 0,
         };
         let cases = [
-            ("missing persisted configuration", Err("not saved".to_string())),
+            (
+                "missing persisted configuration",
+                Err("not saved".to_string()),
+            ),
             (
                 "disabled connector",
                 Ok(TopolographConfig {
@@ -1220,12 +1233,9 @@ mod tests {
                 "token": "synthetic-direct-key",
             }),
         };
-        let report = connection_report_from_agent_response(
-            response,
-            Vec::new(),
-            "synthetic-direct-key",
-        )
-        .unwrap();
+        let report =
+            connection_report_from_agent_response(response, Vec::new(), "synthetic-direct-key")
+                .unwrap();
         assert!(!serde_json::to_string(&report)
             .unwrap()
             .contains("synthetic-direct-key"));
@@ -1234,15 +1244,7 @@ mod tests {
         connection
             .execute_batch(include_str!("../../migrations/V0089__topolograph.sql"))
             .unwrap();
-        insert_audit(
-            &connection,
-            "connection.test",
-            "topolograph",
-            "ok",
-            1,
-            "",
-        )
-        .unwrap();
+        insert_audit(&connection, "connection.test", "topolograph", "ok", 1, "").unwrap();
         let audit_text: String = connection
             .query_row(
                 "SELECT caller_kind || caller_id || action || target_label || outcome || error_code

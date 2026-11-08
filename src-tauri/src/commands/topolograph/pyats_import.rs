@@ -165,8 +165,7 @@ pub async fn topolograph_import_lsdb_from_pyats(
     let warnings = security_warnings(&config.base_url, config.verify_tls);
     let started = std::time::Instant::now();
     let response = call_topolograph(&state, "topolograph.import_lsdb_from_pyats", params).await?;
-    let result =
-        pyats_lsdb_import_result_from_agent_response(response, warnings, &config.api_key)?;
+    let result = pyats_lsdb_import_result_from_agent_response(response, warnings, &config.api_key)?;
     let connection = state.db.lock();
     insert_pyats_lsdb_import_audit(
         &connection,
@@ -365,17 +364,13 @@ mod tests {
             warnings: Vec::new(),
         };
 
-        insert_pyats_lsdb_import_audit(
-            &connection,
-            "CORE1",
-            &result,
-            37,
-            &audit_shaped_key,
-        )
-        .unwrap();
+        insert_pyats_lsdb_import_audit(&connection, "CORE1", &result, 37, &audit_shaped_key)
+            .unwrap();
 
         let error_code: String = connection
-            .query_row("SELECT error_code FROM topolograph_audit", [], |row| row.get(0))
+            .query_row("SELECT error_code FROM topolograph_audit", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(error_code, "SIDECAR_ERROR");
     }
@@ -393,14 +388,8 @@ mod tests {
             warnings: Vec::new(),
         };
 
-        insert_pyats_lsdb_import_audit(
-            &connection,
-            "CORE1",
-            &result,
-            37,
-            "synthetic-direct-key",
-        )
-        .unwrap();
+        insert_pyats_lsdb_import_audit(&connection, "CORE1", &result, 37, "synthetic-direct-key")
+            .unwrap();
 
         let event: (String, String, String, i64, String) = connection
             .query_row(

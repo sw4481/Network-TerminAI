@@ -24,7 +24,11 @@ pub fn create_netconf_tab(conn: &Connection, title: &str) -> Result<Tab> {
     )
     .context("insert netconf_tab_state")?;
     let created_at: i64 = conn
-        .query_row("SELECT created_at FROM tabs WHERE id = ?", params![id], |r| r.get(0))
+        .query_row(
+            "SELECT created_at FROM tabs WHERE id = ?",
+            params![id],
+            |r| r.get(0),
+        )
         .context("read created_at")?;
     Ok(Tab {
         id,

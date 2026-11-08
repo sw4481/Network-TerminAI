@@ -39,10 +39,9 @@ pub async fn second_opinion(
 
     match resp {
         AgentResponse::Done { result } => {
-            let tier_raw = result
-                .get("tier")
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| anyhow::anyhow!("missing/invalid `tier` in second-opinion response"))?;
+            let tier_raw = result.get("tier").and_then(|v| v.as_u64()).ok_or_else(|| {
+                anyhow::anyhow!("missing/invalid `tier` in second-opinion response")
+            })?;
             let tier = (tier_raw as u8).min(3);
             let reasoning = result
                 .get("reasoning")

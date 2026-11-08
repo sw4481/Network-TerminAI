@@ -86,9 +86,11 @@ fn csv_warns_on_bad_kind() {
 fn resolve_identifier_returns_none_for_unknown() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     let conn = ccie_terminal_lib::db::open_and_migrate(tmp.path()).unwrap();
-    assert!(FanoutStore::resolve_identifier(&conn, DeviceKind::Ssh, "nope")
-        .unwrap()
-        .is_none());
+    assert!(
+        FanoutStore::resolve_identifier(&conn, DeviceKind::Ssh, "nope")
+            .unwrap()
+            .is_none()
+    );
     assert!(
         FanoutStore::resolve_identifier(&conn, DeviceKind::Netconf, "nope")
             .unwrap()

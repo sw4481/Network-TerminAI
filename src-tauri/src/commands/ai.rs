@@ -116,7 +116,11 @@ pub(crate) fn resolve_topolograph_runtime_binding(
     )
 }
 
-fn should_retrieve_attached_tool_vault(_agent_id: &str, tool_id: &str, vault_entry: &str) -> bool {
+fn should_retrieve_attached_tool_vault(
+    _agent_id: &str,
+    tool_id: &str,
+    vault_entry: &str,
+) -> bool {
     !vault_entry.is_empty() && tool_id != "topolograph"
 }
 
@@ -364,6 +368,14 @@ pub async fn ai_analyze_error(
 #[derive(Debug, serde::Serialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ReactEvent {
+    Canvas {
+        version: u64,
+        workspace_id: String,
+        run_id: String,
+        seq: u64,
+        kind: String,
+        payload: serde_json::Value,
+    },
     ThoughtStart {
         thought: String,
         step: i32,
@@ -394,6 +406,10 @@ pub enum ReactEvent {
     },
     Error {
         message: String,
+    },
+    /// Presentation-only rejection; no persisted sequence or execution failure.
+    CanvasLimitation {
+        limitation: String,
     },
     /// The DeepAgents run reached one bounded execution segment while still
     /// progressing. The opaque thread id resumes the exact saved checkpoint.
@@ -437,6 +453,130 @@ pub enum ReactEvent {
     TerminalLeaseEnded {
         reason: String,
     },
+}
+
+/// Data-only forwarding on the existing run/resume channel. Persistence belongs to the FE queue.
+fn canvas_transport_event(event: &serde_json::Value) -> Option<ReactEvent> {
+    if event["type"] != "canvas" { return None; }
+    // The supervisor already used the RPC id to route this event to its request.
+    let mut event = event.clone();
+    event.as_object_mut()?.remove("id");
+    if crate::copilot_canvas::validate_event(&event).is_err() {
+        return Some(ReactEvent::CanvasLimitation {
+            limitation: "Canvas presentation was not accepted; network execution was not changed.".into(),
+        });
+    }
+    Some(ReactEvent::Canvas {
+        version: event["version"].as_u64()?,
+        workspace_id: event["workspace_id"].as_str()?.to_string(),
+        run_id: event["run_id"].as_str()?.to_string(),
+        seq: event["seq"].as_u64()?,
+        kind: event["kind"].as_str()?.to_string(),
+        payload: event["payload"].clone(),
+    })
+}
+
+fn attach_canvas_request(
+    params: &mut serde_json::Value,
+    agent_id: &str,
+    canvas: Option<serde_json::Value>,
+    conn: &rusqlite::Connection,
+) -> Result<(), String> {
+    let Some(canvas) = canvas else { return Ok(()); };
+    if agent_id != "network-architect" {
+        return Err("Canvas is restricted to Network Architect".into());
+    }
+    let object = canvas.as_object().ok_or("Invalid Canvas request")?;
+    if !object.keys().all(|key| matches!(key.as_str(), "workspace_id" | "run_id" | "selection"))
+        || serde_json::to_vec(&canvas).map_err(|e| e.to_string())?.len() > 2 * 1024 * 1024 {
+        return Err("Invalid Canvas request".into());
+    }
+    let workspace = canvas["workspace_id"].as_str().ok_or("Missing Canvas workspace")?;
+    let run = canvas["run_id"].as_str().ok_or("Missing Canvas run")?;
+    let owned: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM copilot_canvas_runs r JOIN tabs t ON t.id=r.tab_id WHERE t.id=? AND t.tab_type='canvas' AND r.id=? AND r.status IN ('collecting','awaiting_approval'))",
+        rusqlite::params![workspace,run], |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    if !owned { return Err("Unknown or inactive Canvas run".into()); }
+    params["run_id"] = serde_json::json!(run);
+    params["canvas"] = canvas;
+    Ok(())
+}
+
+#[cfg(test)]
+mod copilot_canvas_transport_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn copilot_canvas_transport_preserves_fixture_and_ordinary_events() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../tests/fixtures/copilot_canvas/v1.json")).unwrap();
+        let event = json!({"type":"canvas","version":1,"workspace_id":"canvas-tab-1","run_id":"run-1","seq":1,"kind":"card","payload":{"card":fixture["cards"][0],"snapshots":fixture["snapshots"]}});
+        let forwarded = canvas_transport_event(&event).unwrap();
+        assert_eq!(serde_json::to_value(forwarded).unwrap(),event);
+        assert_eq!(serde_json::to_value(ReactEvent::ToolResult { success:true,result:"unchanged".into() }).unwrap(),json!({"type":"tool_result","success":true,"result":"unchanged"}));
+        assert!(canvas_transport_event(&json!({"type":"tool_result","success":true,"result":"unchanged"})).is_none());
+    }
+
+    #[test]
+    fn copilot_canvas_transport_accepts_native_rpc_envelope_without_mutating_input() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../tests/fixtures/copilot_canvas/v1.json")).unwrap();
+        let event = json!({"type":"canvas","version":1,"workspace_id":"canvas-tab-1","run_id":"run-1","seq":1,"kind":"card","payload":{"card":fixture["cards"][0],"snapshots":fixture["snapshots"]}});
+        let mut native = event.clone(); native["id"] = json!("314");
+        let original = native.clone();
+        assert_eq!(serde_json::to_value(canvas_transport_event(&native).unwrap()).unwrap(),event);
+        assert_eq!(native,original);
+        assert!(canvas_transport_event(&json!({"id":"314","type":"tool_result","success":true,"result":"unchanged"})).is_none());
+    }
+
+    #[test]
+    fn copilot_canvas_transport_accepts_payload_bound_and_surfaces_fixed_rejection_notice() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!("../../../tests/fixtures/copilot_canvas/v1.json")).unwrap();
+        let mut event = json!({"type":"canvas","version":1,"workspace_id":"00000000-0000-4000-8000-000000000001","run_id":"00000000-0000-4000-8000-000000000002","seq":1,"kind":"card","payload":{"card":fixture["cards"][0],"snapshots":[fixture["snapshots"][0]]}});
+        event["payload"]["snapshots"][0]["data"]["padding"] = json!("");
+        let remaining = 2 * 1024 * 1024 - 128 - serde_json::to_vec(&event["payload"]).unwrap().len();
+        event["payload"]["snapshots"][0]["data"]["padding"] = json!("x".repeat(remaining));
+        assert!(serde_json::to_vec(&event).unwrap().len() > 2 * 1024 * 1024);
+        assert_eq!(serde_json::to_value(canvas_transport_event(&event).expect("near-limit payload silently dropped")).unwrap(),event);
+        let mut native = event.clone(); native["id"] = json!("315");
+        assert_eq!(serde_json::to_value(canvas_transport_event(&native).expect("native near-limit payload silently dropped")).unwrap(),event);
+        let mut rejected = Vec::new();
+        let mut invalid = event.clone(); invalid["payload"]["padding"] = json!("x".repeat(256)); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["version"] = json!(2); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["version"] = json!("1"); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["seq"] = json!(0); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["seq"] = json!(1.5); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["seq"] = json!(9_007_199_254_740_992u64); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid.as_object_mut().unwrap().remove("payload"); rejected.push(invalid);
+        let mut invalid = event.clone(); invalid["extra"] = json!(true); rejected.push(invalid);
+        let mut invalid = event; invalid["workspace_id"] = json!("foreign-untrusted-id"); invalid["payload"] = json!({"untrusted":"must-not-be-echoed"}); invalid["extra"] = json!(true); rejected.push(invalid);
+        for mut invalid in rejected {
+            invalid["id"] = json!("315");
+            let notice = serde_json::to_value(canvas_transport_event(&invalid).expect("rejection was silently dropped")).unwrap();
+            assert_eq!(notice,json!({"type":"canvas_limitation","limitation":"Canvas presentation was not accepted; network execution was not changed."}));
+        }
+    }
+
+    #[test]
+    fn copilot_canvas_optional_request_requires_live_owned_run_and_uses_same_run_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_and_migrate_to(&dir.path().join("synthetic.db"),96).unwrap();
+        let repo = crate::copilot_canvas::CanvasRepository::new(&conn);
+        let a = repo.create_workspace("Synthetic A").unwrap(); let b = repo.create_workspace("Synthetic B").unwrap();
+        let mut params = json!({"message":"Synthetic","run_id":"ordinary-run"});
+        let ordinary = params.clone();
+        attach_canvas_request(&mut params,"meraki",None,&conn).unwrap(); assert_eq!(params,ordinary);
+        let request = json!({"workspace_id":a.id,"run_id":"run-1"});
+        assert!(attach_canvas_request(&mut params,"network-architect",Some(request.clone()),&conn).is_err());
+        repo.save_run(&a.id,&json!({"workspace_id":a.id,"run_id":"run-1","status":"collecting","started_at":"2026-10-25T12:00:00Z","ended_at":null,"scope":null,"coverage":null})).unwrap();
+        assert!(attach_canvas_request(&mut params,"meraki",Some(request.clone()),&conn).is_err());
+        assert!(attach_canvas_request(&mut params,"network-architect",Some(json!({"workspace_id":b.id,"run_id":"run-1"})),&conn).is_err());
+        attach_canvas_request(&mut params,"network-architect",Some(request.clone()),&conn).unwrap();
+        assert_eq!(params["canvas"],request); assert_eq!(params["run_id"],"run-1");
+        assert_eq!(repo.open_workspace(&a.id).unwrap()["cards"],json!([]));
+        repo.interrupt_orphan_runs().unwrap();
+        assert!(attach_canvas_request(&mut params,"network-architect",Some(request),&conn).is_err());
+    }
 }
 
 fn now_seconds() -> i64 {
@@ -973,6 +1113,7 @@ pub async fn agent_react_code_run(
     pane_id: Option<String>,
     stream_output: Option<bool>,
     terminal_attachment: Option<crate::terminal_agent::TerminalAttachment>,
+    canvas: Option<serde_json::Value>,
     state: State<'_, AppState>,
     on_event: tauri::ipc::Channel<ReactEvent>,
 ) -> Result<(), String> {
@@ -1039,6 +1180,7 @@ pub async fn agent_react_code_run(
         uuid::Uuid::new_v4().to_string(),
         topolograph_runtime,
     );
+    attach_canvas_request(&mut params, &agent_id, canvas, &state.db.lock())?;
     let mut issued_terminal_lease_id: Option<String> = None;
 
     if !pane_context.is_empty() {
@@ -1100,6 +1242,11 @@ pub async fn agent_react_code_run(
             tracing::debug!(event_type = %ev_type, "Received ReACT-Code event");
 
             match ev_type {
+                "canvas" => {
+                    if let Some(event) = canvas_transport_event(ev) {
+                        let _ = on_event_clone.send(event);
+                    }
+                }
                 "thought_start" => {
                     let step = ev.get("step").and_then(|v| v.as_u64()).unwrap_or(0) as i32;
                     let thought = ev
@@ -1410,6 +1557,11 @@ pub async fn agent_react_resume(
         .call_stream_ex("agent.react_resume", params, move |ev| {
             let ev_type = ev.get("type").and_then(|v| v.as_str()).unwrap_or("");
             match ev_type {
+                "canvas" => {
+                    if let Some(event) = canvas_transport_event(ev) {
+                        let _ = on_event_clone.send(event);
+                    }
+                }
                 "thought_start" => {
                     let step = ev.get("step").and_then(|v| v.as_u64()).unwrap_or(0) as i32;
                     let thought = ev

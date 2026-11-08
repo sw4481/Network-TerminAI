@@ -72,11 +72,7 @@ impl TroubleshootState {
 
     /// Stash a oneshot sender that `answer_prompt` will use to
     /// resume a paused user_prompt step.
-    pub fn install_prompt_tx(
-        &self,
-        run_id: &str,
-        tx: oneshot::Sender<Option<String>>,
-    ) -> bool {
+    pub fn install_prompt_tx(&self, run_id: &str, tx: oneshot::Sender<Option<String>>) -> bool {
         if let Some(h) = self.get(run_id) {
             *h.prompt_tx.lock() = Some(tx);
             true

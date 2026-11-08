@@ -5,7 +5,9 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 
 fn has_column(conn: &Connection, table: &str, column: &str) -> bool {
-    let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table)).unwrap();
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({})", table))
+        .unwrap();
     let cols: Vec<String> = stmt
         .query_map([], |r| r.get::<_, String>(1))
         .unwrap()
@@ -93,7 +95,8 @@ fn cascading_delete_removes_netconf_tab_state() {
     )
     .unwrap();
 
-    conn.execute("DELETE FROM tabs WHERE id = ?", ["nc-1"]).unwrap();
+    conn.execute("DELETE FROM tabs WHERE id = ?", ["nc-1"])
+        .unwrap();
     let remaining: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM netconf_tab_state WHERE tab_id = ?",

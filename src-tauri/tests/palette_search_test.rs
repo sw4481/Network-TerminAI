@@ -35,7 +35,13 @@ fn seed_full_fixture() -> (TempDir, Connection) {
     conn.execute(
         "INSERT INTO workflows (id, name, description, vendor, platform)
          VALUES (?, ?, ?, ?, ?)",
-        params!["wf1", "show-tech", "Run show tech-support", "cisco", "iosxe"],
+        params![
+            "wf1",
+            "show-tech",
+            "Run show tech-support",
+            "cisco",
+            "iosxe"
+        ],
     )
     .unwrap();
 
@@ -43,7 +49,14 @@ fn seed_full_fixture() -> (TempDir, Connection) {
     conn.execute(
         "INSERT INTO notebooks (id, title, description, vendor, platform, body_markdown)
          VALUES (?, ?, ?, ?, ?, ?)",
-        params!["nb1", "BGP show audit", "show neighbors audit", "cisco", "iosxe", "# md"],
+        params![
+            "nb1",
+            "BGP show audit",
+            "show neighbors audit",
+            "cisco",
+            "iosxe",
+            "# md"
+        ],
     )
     .unwrap();
 
@@ -80,10 +93,19 @@ fn palette_search_fanout_returns_hits_from_all_kinds_global() {
     let hits = palette::search::run(&conn, args).unwrap();
     let kinds: std::collections::HashSet<_> = hits.iter().map(|h| h.kind).collect();
 
-    assert!(kinds.contains(&PaletteKind::Command), "missing command hits");
+    assert!(
+        kinds.contains(&PaletteKind::Command),
+        "missing command hits"
+    );
     assert!(kinds.contains(&PaletteKind::Block), "missing block hits");
-    assert!(kinds.contains(&PaletteKind::Workflow), "missing workflow hits");
-    assert!(kinds.contains(&PaletteKind::Notebook), "missing notebook hits");
+    assert!(
+        kinds.contains(&PaletteKind::Workflow),
+        "missing workflow hits"
+    );
+    assert!(
+        kinds.contains(&PaletteKind::Notebook),
+        "missing notebook hits"
+    );
     assert!(kinds.contains(&PaletteKind::Ssh), "missing ssh hits");
     assert!(kinds.contains(&PaletteKind::Device), "missing device hits");
 }

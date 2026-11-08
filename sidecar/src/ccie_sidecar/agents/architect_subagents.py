@@ -22,6 +22,7 @@ from typing import Any, Callable, List, Optional
 
 from langchain_core.tools import StructuredTool
 
+from ccie_sidecar.agents.copilot_canvas import CanvasContext
 from ccie_sidecar.agents.deepagents_tools import (
     create_catalog_search_tool,
     create_execute_python_code_tool,
@@ -674,6 +675,8 @@ def build_vendor_subagents(
     include_unconfigured: bool = False,
     catalogs: Optional[List[dict[str, Any]]] = None,
     topolograph_binding: TopolographAgentBinding | None = None,
+    *,
+    canvas: CanvasContext | None = None,
 ) -> List[Any]:
     """Build one DeepAgents SubAgent per configured vendor.
 
@@ -703,6 +706,7 @@ def build_vendor_subagents(
                 vault_secrets={},
                 emit_callback=emit or (lambda e: None),
                 catalogs=[c for c in catalogs if c.get("id") == spec["id"]],
+                **({"canvas": canvas} if canvas is not None else {}),
             )
         except Exception:
             continue
@@ -727,6 +731,7 @@ def build_vendor_subagents(
     topolograph_specialist = build_topolograph_specialist(
         topolograph_binding,
         catalogs=[c for c in catalogs if c.get("id") == "topolograph"],
+        **({"canvas": canvas} if canvas is not None else {}),
     )
     if topolograph_specialist is not None:
         subagents.append(topolograph_specialist)
@@ -737,6 +742,7 @@ def build_topolograph_specialist(
     binding: TopolographAgentBinding | None,
     *,
     catalogs: Optional[List[dict[str, Any]]] = None,
+    canvas: CanvasContext | None = None,
 ) -> Any | None:
     """Build a delegate-only specialist with an in-process token closure."""
     if binding is None or not binding.usable:
@@ -784,7 +790,10 @@ def build_topolograph_specialist(
         """Call one exact certified Topolograph MCP tool."""
         if operation == "delete_lsp" and not ((arguments or {}).get("lsp_name") or (arguments or {}).get("delete_all") is True):
             raise ValueError("delete_lsp requires lsp_name or delete_all=true")
-        return bounded_result(client.call_tool(operation, arguments or {}))
+        result = client.call_tool(operation, arguments or {})
+        from ccie_sidecar.agents.code_exec import _capture_canvas_result
+        _capture_canvas_result(canvas, "topolograph_mcp_call", result)
+        return bounded_result(result)
 
     tool = StructuredTool.from_function(
         func=topolograph_mcp_call,
@@ -824,6 +833,8 @@ def build_architect_direct_tool(
     user_msg: str = "",
     catalogs: Optional[List[dict[str, Any]]] = None,
     delegate_only_configured_ids: Optional[set[str]] = None,
+    *,
+    canvas: CanvasContext | None = None,
 ) -> tuple[StructuredTool, List[str]]:
     """Build ONE execute_python_code tool whose sandbox binds EVERY configured
     vendor helper at once, so the orchestrator can query any platform directly —
@@ -841,6 +852,8 @@ def build_architect_direct_tool(
         _build_sandbox_globals,
         _execute_code_with_timeout,
         _build_env_overrides,
+        _capture_canvas_result,
+        CANVAS_PRESENTATION_GUIDANCE,
     )
 
     # Delegate-only vendors (e.g. cisco_xdr) are deliberately NOT bound inline —
@@ -857,10 +870,10 @@ def build_architect_direct_tool(
     # call _build_sandbox_globals per vendor and copy the vendor-specific keys
     # over — this reuses every existing install_* (incl. meraki's inline SDK init)
     # with zero duplication.
-    sandbox_globals = _build_sandbox_globals(None, {}, emit=emit or (lambda e: None))
+    sandbox_globals = _build_sandbox_globals(None, {}, emit=emit or (lambda e: None), **({"canvas": canvas} if canvas is not None else {}))
     for vid in ids:
         try:
-            vg = _build_sandbox_globals(vid, {}, emit=emit or (lambda e: None))
+            vg = _build_sandbox_globals(vid, {}, emit=emit or (lambda e: None), **({"canvas": canvas} if canvas is not None else {}))
             for k, v in vg.items():
                 if k not in sandbox_globals:
                     sandbox_globals[k] = v
@@ -896,6 +909,7 @@ def build_architect_direct_tool(
             timeout=30,
             label="network-architect",
         )
+        _capture_canvas_result(canvas, "execute_python_code", result.get("output", ""), origin="execution_output")
         return output_policy.format_execution_result(result, tool_output)
 
     # Keep the parent Architect prompt bounded. Every raw catalog and helper stays
@@ -986,6 +1000,9 @@ def build_architect_direct_tool(
         f"CONFIGURED PLATFORMS (compact bindings):\n{helpers_doc}"
         f"{delegate_doc}"
     )
+
+    if canvas is not None:
+        description += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
 
     tool = StructuredTool.from_function(
         func=execute_python_code,

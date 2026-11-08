@@ -48,10 +48,7 @@ fn changed_line_is_destructive() {
     let p = diff_intent_vs_running(intent, running);
     assert_eq!(p.severity, DriftSeverity::Destructive);
     // The change touches the interface block
-    assert!(p
-        .blocks
-        .iter()
-        .any(|b| b.block_path == "interface Lo0"));
+    assert!(p.blocks.iter().any(|b| b.block_path == "interface Lo0"));
 }
 
 #[test]
@@ -69,10 +66,7 @@ fn block_path_resolves_to_nearest_iosxe_header() {
         })
         .collect();
     assert!(added.iter().any(|l| l.contains("neighbor 1.1.1.1")));
-    assert!(p
-        .blocks
-        .iter()
-        .any(|b| b.block_path == "router bgp 65001"));
+    assert!(p.blocks.iter().any(|b| b.block_path == "router bgp 65001"));
 }
 
 #[test]
@@ -108,8 +102,7 @@ fn json_roundtrip() {
     let running = "hostname b\n";
     let p = diff_intent_vs_running(intent, running);
     let json = serde_json::to_string(&p).unwrap();
-    let back: ccie_terminal_lib::drift::diff::DriftPatch =
-        serde_json::from_str(&json).unwrap();
+    let back: ccie_terminal_lib::drift::diff::DriftPatch = serde_json::from_str(&json).unwrap();
     assert_eq!(back.status, p.status);
     assert_eq!(back.severity, p.severity);
     assert_eq!(back.blocks.len(), p.blocks.len());

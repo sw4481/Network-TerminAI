@@ -12,9 +12,14 @@
 //! without importing a submodule. Submodules contain only logic.
 
 pub mod cache;
+pub mod discovery;
+pub mod discovery_transport;
+pub mod evidence;
 pub mod graph;
 pub mod ingest;
+pub mod interchange;
 pub mod lookup;
+pub mod snmp;
 
 /// Stable id of the seeded "Global" graph. Migration `V0040` inserts a
 /// `topology_graphs` row with this id; ingest always writes into it so the
@@ -36,6 +41,8 @@ pub struct NeighborRecord {
     pub neighbor_vendor: Option<String>,
     #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing: Option<evidence::RoutingEvidence>,
 }
 
 /// One node in a topology graph. PK = `(graph_id, device_ref, device_kind)`.
@@ -85,6 +92,78 @@ pub struct IngestSummary {
     pub cache_updated: bool,
 }
 
+/// Per-protocol manual collection outcome. Errors are fixed application messages,
+/// never raw transport stderr, parser output, or credentials.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CaptureOutcome {
+    pub protocol: String,
+    pub status: CaptureStatus,
+    pub records: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CaptureStatus {
+    Completed,
+    Failed,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiscoveryStatus {
+    Completed,
+    Partial,
+    Failed,
+}
+
+/// Compatibility counters count processed rows, not newly inserted entities.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiscoverySummary {
+    pub nodes_added: u32,
+    pub edges_added: u32,
+    pub cache_updated: bool,
+    pub status: DiscoveryStatus,
+    pub captures: Vec<CaptureOutcome>,
+}
+
+impl DiscoverySummary {
+    pub fn from_captures(captures: Vec<CaptureOutcome>) -> Self {
+        let completed = captures
+            .iter()
+            .filter(|c| c.status == CaptureStatus::Completed)
+            .count();
+        let processed = captures
+            .iter()
+            .filter(|c| c.status == CaptureStatus::Completed)
+            .map(|c| c.records)
+            .sum();
+        Self {
+            nodes_added: processed,
+            edges_added: processed,
+            cache_updated: completed > 0,
+            status: if completed == 0 {
+                DiscoveryStatus::Failed
+            } else if completed == captures.len() {
+                DiscoveryStatus::Completed
+            } else {
+                DiscoveryStatus::Partial
+            },
+            captures,
+        }
+    }
+}
+
+/// Durable arrangement for one rendered graph/reference, regardless of node kind.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NodePosition {
+    pub device_ref: String,
+    pub x: f64,
+    pub y: f64,
+}
+
 /// One row of `neighbor_cache` — the latest CDP/LLDP output captured for
 /// a `(device_ref, device_kind, source_cmd)` triple.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -104,6 +183,45 @@ pub struct GraphSnapshot {
     pub graph: TopologyGraph,
     pub nodes: Vec<TopologyNode>,
     pub edges: Vec<TopologyEdge>,
+    pub positions: Vec<NodePosition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import_provenance: Option<ImportProvenance>,
+    /// Local collection receipts, deliberately outside native interchange v1.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capture_evidence: Vec<evidence::CaptureEvidence>,
+}
+
+/// Graph import-origin receipt, not an assertion about every present/future edge.
+/// Later native observations can coexist with file claims in the same graph.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ImportProvenance {
+    pub format: String,
+    pub imported_at: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_graph_id: Option<String>,
+    pub node_metadata: Vec<ImportedNodeMetadata>,
+    pub unsupported_protocols: Vec<UnsupportedProtocol>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ImportedNodeMetadata {
+    pub device_ref: String,
+    pub placeholder: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serial: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub os_version: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct UnsupportedProtocol {
+    pub a_device_ref: String,
+    pub a_port: String,
+    pub b_device_ref: String,
+    pub b_port: String,
+    pub raw_protocol: String,
 }
 
 /// Result of `device_lookup_by_ref` (Plan 13 Phase 3.2). Mirrors the

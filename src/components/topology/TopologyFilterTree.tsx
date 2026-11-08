@@ -129,7 +129,7 @@ export function TopologyFilterTree({
         )}
       </details>
 
-      <details className="topology-filter-tree__group" open>
+      <details className="topology-filter-tree__group">
         <summary className="topology-filter-tree__summary">Platform</summary>
         {sortedPlatforms.length === 0 ? (
           <div className="topology-filter-tree__empty">— none —</div>

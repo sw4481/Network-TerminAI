@@ -157,11 +157,7 @@ pub async fn on_block_completed(
     if !cmd_trimmed.to_lowercase().starts_with("show ") {
         return Ok(());
     }
-    if vendor.is_empty()
-        || platform.is_empty()
-        || vendor == "unknown"
-        || platform == "unknown"
-    {
+    if vendor.is_empty() || platform.is_empty() || vendor == "unknown" || platform == "unknown" {
         tracing::debug!(%block_id, "auto_parse skipped: no vendor/platform on tab");
         return Ok(());
     }
@@ -268,13 +264,7 @@ pub mod testing {
 
     #[async_trait::async_trait]
     impl Parser for FakeParser {
-        async fn parse(
-            &self,
-            _v: &str,
-            _p: &str,
-            _c: &str,
-            _r: &str,
-        ) -> Result<ParsedOutput> {
+        async fn parse(&self, _v: &str, _p: &str, _c: &str, _r: &str) -> Result<ParsedOutput> {
             Ok(ParsedOutput {
                 parser: self.parser_name.clone(),
                 data: serde_json::from_str(&self.payload)?,
@@ -287,13 +277,7 @@ pub mod testing {
 
     #[async_trait::async_trait]
     impl Parser for FailingParser {
-        async fn parse(
-            &self,
-            _v: &str,
-            _p: &str,
-            _c: &str,
-            _r: &str,
-        ) -> Result<ParsedOutput> {
+        async fn parse(&self, _v: &str, _p: &str, _c: &str, _r: &str) -> Result<ParsedOutput> {
             Err(anyhow!("no template"))
         }
     }

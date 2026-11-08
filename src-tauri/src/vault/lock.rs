@@ -37,12 +37,7 @@ impl VaultLock {
         self.idle_timeout
     }
 
-    pub fn unlock(
-        &self,
-        envelope_id: &str,
-        key: Zeroizing<[u8; 32]>,
-        session_id: String,
-    ) {
+    pub fn unlock(&self, envelope_id: &str, key: Zeroizing<[u8; 32]>, session_id: String) {
         let mut g = self.inner.lock();
         g.unlocked.insert(
             envelope_id.to_string(),

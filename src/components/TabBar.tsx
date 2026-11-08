@@ -27,6 +27,7 @@ export function TabBar({
   onNewVault,
   onNewRecordings,
   onNewTroubleshoot,
+  onNewCanvas,
   onSettings,
   onSaveSession,
   onDetach,
@@ -39,6 +40,7 @@ export function TabBar({
   onNewVault?: () => void;
   onNewRecordings?: () => void;
   onNewTroubleshoot?: () => void;
+  onNewCanvas?: () => void;
   onSettings?: () => void;
   onSaveSession?: () => void;
   onDetach?: (tab: Tab) => void | Promise<void>;
@@ -53,6 +55,14 @@ export function TabBar({
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const chooserRef = useRef<HTMLDivElement | null>(null);
+  const canvasSelections = useRef(new Map<string, HTMLButtonElement>());
+  const newTabButton = useRef<HTMLButtonElement>(null);
+  const recoverCanvasCloseFocus = useRef(false);
+  useEffect(() => {
+    if (!recoverCanvasCloseFocus.current) return;
+    recoverCanvasCloseFocus.current = false;
+    (canvasSelections.current.get(activeTabId ?? "") ?? newTabButton.current)?.focus();
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     if (!chooserOpen) return;
@@ -84,7 +94,8 @@ export function TabBar({
     !!onNewTopology ||
     !!onNewVault ||
     !!onNewRecordings ||
-    !!onNewTroubleshoot;
+    !!onNewTroubleshoot ||
+    !!onNewCanvas;
 
   const handleSplitVertical = () => {
     if (focusedPaneId) {
@@ -115,6 +126,7 @@ export function TabBar({
         // Heartbeat is a permanent tab — no close button.
         const isHeartbeat = t.tab_type === "heartbeat";
         const isKanban = t.tab_type === "kanban";
+        const isCanvas = t.tab_type === "canvas";
         const isRecording = !!activeRecordings[t.id];
         const isTerminalTab =
           !isApi &&
@@ -127,7 +139,8 @@ export function TabBar({
           !isTroubleshoot &&
           !isTroubleshootEditor &&
           !isHeartbeat &&
-          !isKanban;
+          !isKanban &&
+          !isCanvas;
         const isTabCloseable = !isHeartbeat && !isKanban;
         const layout = layoutsByTab.get(t.id);
         const canDetach =
@@ -187,6 +200,7 @@ export function TabBar({
             data-testid={`tab-${t.id}`}
             data-tab-type={t.tab_type ?? "terminal"}
           >
+            {isCanvas && <span className="tab-type-badge" title="Canvas investigation">CANVAS</span>}
             {isApi && (
               <span className="tab-type-badge" title="API Runner tab">
                 API
@@ -256,7 +270,7 @@ export function TabBar({
                 data-testid={`tab-activity-dot-${t.id}`}
               />
             )}
-            <span>{t.title}</span>
+            {isCanvas ? <button ref={node => { if (node) canvasSelections.current.set(t.id, node); else canvasSelections.current.delete(t.id); }} className="canvas-tab-select" aria-label={`Select Canvas investigation ${t.title}`} aria-pressed={t.id === activeTabId} onClick={event => { event.stopPropagation(); setActive(t.id); }}>{t.title}</button> : <span>{t.title}</span>}
             {canDetach && onDetach && (
               <button
                 className="tab-detach"
@@ -273,6 +287,8 @@ export function TabBar({
             {isTabCloseable && (
               <button
                 className="tab-close"
+                aria-label={isCanvas ? `Close Canvas investigation ${t.title}` : undefined}
+                title={isCanvas ? `Close Canvas investigation ${t.title}` : undefined}
                 onClick={async (e) => {
                   e.stopPropagation();
                   if (isApi) {
@@ -295,7 +311,8 @@ export function TabBar({
                     isRecordings ||
                     isRecordingPlayer ||
                     isTroubleshoot ||
-                    isTroubleshootEditor
+                    isTroubleshootEditor ||
+                    isCanvas
                   ) {
                     // Pure-frontend tabs; no Rust-side close.
                   } else if (isManagedSshTab(t.shell_cmd, connections[t.id]?.managed)) {
@@ -315,6 +332,7 @@ export function TabBar({
                       await ptyKill(t.id).catch(() => {});
                     }
                   }
+                  if (isCanvas && document.activeElement === e.currentTarget) recoverCanvasCloseFocus.current = true;
                   removeTab(t.id);
                 }}
               >
@@ -328,7 +346,7 @@ export function TabBar({
         className={`tab-new-group ${chooserOpen ? "tab-new-group-open" : ""}`}
         ref={chooserRef}
       >
-        <button className="tab-new" onClick={onNew} title="New terminal tab">
+        <button ref={newTabButton} className="tab-new" onClick={onNew} title="New terminal tab">
           +
         </button>
         {hasSecondaryChooser && (
@@ -420,6 +438,15 @@ export function TabBar({
                     Recordings
                   </button>
                 )}
+              </div>
+            )}
+            {onNewCanvas && (
+              <div className="tab-chooser-section">
+                <div className="tab-chooser-label">Investigate</div>
+                <button className="tab-chooser-item" onClick={() => pickAndClose(onNewCanvas)} role="menuitem">
+                  <span className="tab-chooser-badge">CANVAS</span>
+                  Canvas investigation
+                </button>
               </div>
             )}
             {onNewTroubleshoot && (

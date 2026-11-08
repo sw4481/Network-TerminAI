@@ -17,9 +17,7 @@
 //!     and the run finalizes as `failed`.
 
 use ccie_terminal_lib::fanout::events::{FailureKind, FanoutEvent};
-use ccie_terminal_lib::fanout::executor::{
-    EventSink, ExecuteArgs, Executor, MemberRef, NoopParse,
-};
+use ccie_terminal_lib::fanout::executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse};
 use ccie_terminal_lib::fanout::model::DeviceKind;
 use ccie_terminal_lib::fanout::store::FanoutStore;
 use ccie_terminal_lib::fanout::worker::MockWorkerFactory;
@@ -68,7 +66,9 @@ fn seed_ssh(db: &Arc<Mutex<rusqlite::Connection>>, n: usize) -> Vec<MemberRef> {
 }
 
 fn ruleset() -> Arc<RwLock<RuleSet>> {
-    Arc::new(RwLock::new(RuleSet::load_builtin().expect("builtin rules load")))
+    Arc::new(RwLock::new(
+        RuleSet::load_builtin().expect("builtin rules load"),
+    ))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

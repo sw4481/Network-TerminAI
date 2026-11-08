@@ -359,7 +359,8 @@ def test_install_is_read_only_and_loads_meraki_config_at_install_time(monkeypatc
     monkeypatch.setattr(meraki_config, "get_meraki_config", config)
     scope = {}
     installed = cisco_workflows.install_cisco_workflows(scope)
-    assert installed is None
+    assert isinstance(installed, cisco_workflows.CiscoWorkflowsClient)
+    assert installed._config == {"api_key": "synthetic-key", "org_id": "12345"}
     assert calls == [True]
     assert set(scope) == {"cisco_workflows_api_call"}
     replies.append(response(200, ["workflow"] ))

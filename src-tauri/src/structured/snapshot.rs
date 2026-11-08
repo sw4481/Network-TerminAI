@@ -77,9 +77,6 @@ pub fn rename(conn: &Connection, id: i64, new_name: &str) -> Result<()> {
 }
 
 pub fn delete(conn: &Connection, id: i64) -> Result<()> {
-    conn.execute(
-        "DELETE FROM parsed_snapshots WHERE id = ?1",
-        params![id],
-    )?;
+    conn.execute("DELETE FROM parsed_snapshots WHERE id = ?1", params![id])?;
     Ok(())
 }

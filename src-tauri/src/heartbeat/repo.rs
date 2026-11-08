@@ -31,8 +31,7 @@ impl HeartbeatRepo {
         )
         .context("insert heartbeat")?;
 
-        Self::get_heartbeat(conn, &id)?
-            .ok_or_else(|| anyhow::anyhow!("readback after insert"))
+        Self::get_heartbeat(conn, &id)?.ok_or_else(|| anyhow::anyhow!("readback after insert"))
     }
 
     pub fn get_heartbeat(conn: &Connection, id: &str) -> Result<Option<Heartbeat>> {
@@ -79,8 +78,7 @@ impl HeartbeatRepo {
         )
         .context("insert heartbeat_check")?;
 
-        Self::get_check(conn, &id)?
-            .ok_or_else(|| anyhow::anyhow!("readback after insert"))
+        Self::get_check(conn, &id)?.ok_or_else(|| anyhow::anyhow!("readback after insert"))
     }
 
     pub fn get_check(conn: &Connection, id: &str) -> Result<Option<HeartbeatCheck>> {
@@ -129,7 +127,10 @@ impl HeartbeatRepo {
         Ok(rows)
     }
 
-    pub fn get_heartbeat_with_checks(conn: &Connection, id: &str) -> Result<Option<HeartbeatDetail>> {
+    pub fn get_heartbeat_with_checks(
+        conn: &Connection,
+        id: &str,
+    ) -> Result<Option<HeartbeatDetail>> {
         let heartbeat = match Self::get_heartbeat(conn, id)? {
             Some(h) => h,
             None => return Ok(None),
@@ -167,12 +168,26 @@ impl HeartbeatRepo {
         Ok(())
     }
 
-    pub fn update_checks(conn: &Connection, heartbeat_id: &str, checks: Vec<(String, String, String, i32)>) -> Result<()> {
+    pub fn update_checks(
+        conn: &Connection,
+        heartbeat_id: &str,
+        checks: Vec<(String, String, String, i32)>,
+    ) -> Result<()> {
         let tx = conn.unchecked_transaction()?;
-        tx.execute("DELETE FROM heartbeat_checks WHERE heartbeat_id = ?1", [heartbeat_id])?;
+        tx.execute(
+            "DELETE FROM heartbeat_checks WHERE heartbeat_id = ?1",
+            [heartbeat_id],
+        )?;
 
         for (group_name, agent_id, prompt, sort_order) in checks {
-            Self::add_check(&tx, heartbeat_id, &group_name, &agent_id, &prompt, sort_order)?;
+            Self::add_check(
+                &tx,
+                heartbeat_id,
+                &group_name,
+                &agent_id,
+                &prompt,
+                sort_order,
+            )?;
         }
 
         tx.commit()?;
@@ -224,7 +239,11 @@ impl HeartbeatRepo {
     }
 
     // Execution methods
-    pub fn get_execution_history(conn: &Connection, heartbeat_id: &str, limit: Option<u32>) -> Result<Vec<HeartbeatExecution>> {
+    pub fn get_execution_history(
+        conn: &Connection,
+        heartbeat_id: &str,
+        limit: Option<u32>,
+    ) -> Result<Vec<HeartbeatExecution>> {
         let limit_val = limit.unwrap_or(u32::MAX) as i64;
         let mut stmt = conn.prepare(
             "SELECT id, heartbeat_id, status, started_at, completed_at, duration_ms, overall_severity
@@ -239,7 +258,10 @@ impl HeartbeatRepo {
         Ok(rows)
     }
 
-    pub fn get_execution_detail(conn: &Connection, execution_id: &str) -> Result<Option<ExecutionDetail>> {
+    pub fn get_execution_detail(
+        conn: &Connection,
+        execution_id: &str,
+    ) -> Result<Option<ExecutionDetail>> {
         let execution = match Self::get_execution(conn, execution_id)? {
             Some(e) => e,
             None => return Ok(None),
@@ -269,7 +291,8 @@ impl HeartbeatRepo {
             .collect::<Result<Vec<_>, _>>()?;
 
         // Group by check_id
-        let mut groups_map: std::collections::HashMap<String, (String, Vec<FindingDetail>)> = std::collections::HashMap::new();
+        let mut groups_map: std::collections::HashMap<String, (String, Vec<FindingDetail>)> =
+            std::collections::HashMap::new();
 
         for (f_id, check_id, severity, title, message, metadata_json, group_name) in findings {
             let metadata = serde_json::from_str(&metadata_json).ok();
@@ -292,7 +315,12 @@ impl HeartbeatRepo {
             .into_iter()
             .map(|(check_id, (group_name, findings))| {
                 // Compute overall severity for this group
-                let severity = Self::compute_max_severity(&findings.iter().map(|f| f.severity.as_str()).collect::<Vec<_>>());
+                let severity = Self::compute_max_severity(
+                    &findings
+                        .iter()
+                        .map(|f| f.severity.as_str())
+                        .collect::<Vec<_>>(),
+                );
                 CheckGroup {
                     id: check_id,
                     name: group_name,
@@ -323,7 +351,11 @@ impl HeartbeatRepo {
         Ok(row)
     }
 
-    pub fn prune_old_executions(conn: &Connection, heartbeat_id: &str, retention_days: u32) -> Result<usize> {
+    pub fn prune_old_executions(
+        conn: &Connection,
+        heartbeat_id: &str,
+        retention_days: u32,
+    ) -> Result<usize> {
         let cutoff = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs() as i64
@@ -368,11 +400,14 @@ impl HeartbeatRepo {
         )
         .context("insert heartbeat_suggestion")?;
 
-        Self::get_suggestion(conn, &id)?
-            .ok_or_else(|| anyhow::anyhow!("readback after insert"))
+        Self::get_suggestion(conn, &id)?.ok_or_else(|| anyhow::anyhow!("readback after insert"))
     }
 
-    pub fn get_suggestions(conn: &Connection, heartbeat_id: &str, include_dismissed: bool) -> Result<Vec<HeartbeatSuggestion>> {
+    pub fn get_suggestions(
+        conn: &Connection,
+        heartbeat_id: &str,
+        include_dismissed: bool,
+    ) -> Result<Vec<HeartbeatSuggestion>> {
         let sql = if include_dismissed {
             "SELECT id, heartbeat_id, suggestion_type, description, proposed_checks_json, created_at, dismissed_at
              FROM heartbeat_suggestions

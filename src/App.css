@@ -43,6 +43,9 @@ html, body, #root {
   color: var(--text-primary);
 }
 
+.canvas-tab-select { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.canvas-tab-select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
 .tab-close, .tab-new, .tab-new-chooser {
   background: transparent;
   border: none;
@@ -230,6 +233,35 @@ html, body, #root {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+}
+
+.workspace-chat { grid-column: 3; grid-row: 1; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
+.workspace-chat > .agent-panel { width: 100%; min-width: 0; }
+.workspace > .term-col { grid-column: 1; grid-row: 1; }
+.workspace > .resize-handle { grid-column: 2; grid-row: 1; }
+.workspace-canvas > .term-col { grid-column: 3; padding: 0; }
+.workspace-canvas > .workspace-chat { grid-column: 1; }
+.workspace-canvas .agent-header > select { display: none; }
+.workspace-canvas .agent-content { padding-left: 0; }
+.workspace-canvas .agent-panel { border-left: 0; border-right: 1px solid var(--border-default); }
+.canvas-pane-tabs { display: none; }
+.canvas-entry-error { margin: 0; padding: 8px 16px; background: var(--surface-2); color: var(--text-primary); }
+.resize-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (max-width: 760px) {
+  .shell:has(> .workspace-canvas) > .tabbar { flex-wrap: wrap; position: relative; }
+  .shell:has(> .workspace-canvas) > .tabbar .tab-new-group { position: static; }
+  .shell:has(> .workspace-canvas) > .tabbar .tab-chooser-popover { left: 10px; right: 10px; min-width: 0; }
+  .canvas-pane-tabs { display: flex; gap: 8px; padding: 8px 16px; background: var(--surface-2); }
+  .canvas-pane-tabs button { font: inherit; padding: 6px 12px; border: 1px solid var(--border-default); border-radius: 6px; background: var(--surface-1); color: var(--text-primary); }
+  .canvas-pane-tabs button[aria-pressed="true"] { border-color: var(--accent); text-decoration: underline; }
+  .canvas-pane-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .workspace-canvas { grid-template-columns: minmax(0, 1fr) !important; }
+  .workspace-canvas > .term-col, .workspace-canvas > .workspace-chat { grid-column: 1; grid-row: 1; }
+  .workspace-canvas > .resize-handle { display: none; }
+  .workspace-canvas[data-canvas-pane="chat"] > .term-col,
+  .workspace-canvas[data-canvas-pane="evidence"] > .workspace-chat { visibility: hidden; pointer-events: none; }
+  /* Approval dialogs remain visible even when the narrow layout shows evidence. */
+  .workspace-canvas .workspace-chat [role="dialog"] { visibility: visible; pointer-events: auto; }
 }
 
 .resize-handle {

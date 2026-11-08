@@ -72,7 +72,15 @@ pub fn update_template(conn: &Connection, t: &PcapTemplate) -> Result<()> {
         "UPDATE pcap_templates
          SET name = ?2, vendor = ?3, platform = ?4, interface = ?5, acl = ?6, duration_s = ?7
          WHERE id = ?1 AND builtin = 0",
-        params![t.id, t.name, t.vendor, t.platform, t.interface, t.acl, t.duration_s],
+        params![
+            t.id,
+            t.name,
+            t.vendor,
+            t.platform,
+            t.interface,
+            t.acl,
+            t.duration_s
+        ],
     )?;
     if n == 0 {
         return Err(anyhow!("template {} not updated", t.id));
