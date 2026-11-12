@@ -3,7 +3,7 @@ use super::{
     catalog::ProtocolClassifier,
     definition::{parse_document, DefinitionValidator},
     model::*,
-    parser::TelemetryParser,
+    parser::{validate_binding, TelemetryParser},
     processing::{FrameNormalizer, MAX_FRAME_ROWS, MAX_WORKSPACE_BYTES},
 };
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,93 @@ pub struct TelemetryConfigRepository {
     test_now: std::sync::atomic::AtomicI64,
     #[cfg(test)]
     fail_write: std::sync::atomic::AtomicBool,
+    #[cfg(test)]
+    pub(crate) publication_pause:
+        Mutex<Option<Arc<(std::sync::atomic::AtomicBool, std::sync::atomic::AtomicBool)>>>,
+}
+
+/// Backend-only admission plan; neither this nor its sealed proof is an IPC value.
+pub(crate) struct DraftSamplePlan {
+    workspace: String,
+    generation: u64,
+    base: Revision,
+    source: Revision,
+    scope: ConfigScope,
+    target: TargetRef,
+    template: TemplateAsset,
+    origin: String,
+}
+impl DraftSamplePlan {
+    pub(crate) fn request(&self) -> Result<CaptureRequest, Diagnostic> {
+        Ok(CaptureRequest {
+            command: super::policy::CommandPolicy::admit(
+                self.target.platform,
+                &self.template.command,
+            )?,
+            parser_id: self.template.id.clone(),
+            revision: self.source.clone(),
+        })
+    }
+}
+#[derive(Clone)]
+pub(crate) struct DraftCaptureProof {
+    workspace: String,
+    generation: u64,
+    base: Revision,
+    source: Revision,
+    scope: ConfigScope,
+    target: TargetRef,
+    command: String,
+    capture_id: String,
+    parser_id: String,
+    raw_hash: String,
+    observed_at_ms: i64,
+    monotonic_ms: u64,
+    origin: String,
+    template_hash: String,
+}
+impl DraftCaptureProof {
+    pub(crate) fn bytes(&self) -> usize {
+        2048 + 4
+            * (self.workspace.len()
+                + self.base.len()
+                + self.source.len()
+                + self.target.connection_id.len()
+                + self.command.len()
+                + self.capture_id.len()
+                + self.parser_id.len()
+                + self.raw_hash.len()
+                + self.origin.len()
+                + self.template_hash.len())
+    }
+    fn matches(&self, capture: &Capture, context: &PreviewSourceContext<'_>) -> bool {
+        self.workspace == context.workspace
+            && self.generation == context.generation
+            && self.base == context.base
+            && &self.scope == context.scope
+            && self.source == capture.revision
+            && self.target.connection_id == capture.target_id
+            && self.target.platform == capture.platform
+            && self.command == capture.command
+            && self.capture_id == capture.capture_id
+            && self.parser_id == capture.parser_id
+            && self.raw_hash == hash(capture.raw.as_bytes())
+            && self.observed_at_ms == capture.observed_at_ms
+            && self.monotonic_ms == capture.monotonic_ms
+            && valid_hash(&self.origin)
+            && valid_hash(&self.template_hash)
+            && capture.raw.len() <= 2 * 1024 * 1024
+    }
+}
+struct PreviewSourceContext<'a> {
+    catalogs: &'a BTreeMap<String, Catalog>,
+    revisions: &'a BTreeMap<String, Revision>,
+    workspace: &'a str,
+    generation: u64,
+    base: &'a str,
+    scope: &'a ConfigScope,
+    proofs: &'a [DraftCaptureProof],
+    retained_bytes: usize,
 }
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -109,6 +196,8 @@ impl TelemetryConfigRepository {
             test_now: std::sync::atomic::AtomicI64::new(0),
             #[cfg(test)]
             fail_write: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            publication_pause: Mutex::new(None),
         };
         {
             let mut state = repo.lock();
@@ -164,6 +253,9 @@ impl TelemetryConfigRepository {
     /// Global bundle authority for draft/token CAS, independent of source content revisions.
     pub fn base_revision(&self) -> Revision {
         self.lock().revision.clone()
+    }
+    pub(crate) fn uses_parser(&self, parser: &Arc<TelemetryParser>) -> bool {
+        Arc::ptr_eq(&self.parser, parser)
     }
 
     pub fn validate(&self, draft: &ConfigDraft) -> ValidationReport {
@@ -266,6 +358,117 @@ impl TelemetryConfigRepository {
         captures: Vec<Capture>,
         local_samples: Vec<LocalSample>,
     ) -> PreviewReport {
+        self.preview_owned(
+            workspace_id,
+            generation,
+            draft,
+            captures,
+            local_samples,
+            vec![],
+            0,
+        )
+        .await
+    }
+
+    pub(crate) fn prepare_draft_sample(
+        &self,
+        workspace: &str,
+        generation: u64,
+        target: &TargetRef,
+        draft: &ConfigDraft,
+        parser_id: &str,
+    ) -> Result<DraftSamplePlan, Diagnostic> {
+        let state = self.lock();
+        if workspace.is_empty()
+            || state.targets.get(&target.connection_id) != Some(&target.platform)
+            || !match &draft.scope {
+                ConfigScope::Local => false,
+                ConfigScope::Profile(platform) => *platform == target.platform,
+                ConfigScope::Device(id) => id == &target.connection_id,
+            }
+        {
+            return Err(error(
+                "sample_binding",
+                "Draft sample requires a registered target in the selected scope",
+            ));
+        }
+        let candidate = self
+            .candidate(&state, draft)
+            .map_err(|mut diagnostics| diagnostics.remove(0))?;
+        let catalog = self.scoped_catalog(&state, &candidate, &draft.scope)?;
+        let template = catalog
+            .templates
+            .get(parser_id)
+            .filter(|asset| asset.platform == target.platform)
+            .ok_or_else(|| {
+                error(
+                    "template_missing",
+                    "Draft sample parser is not a validated candidate asset",
+                )
+            })?;
+        if !catalog.widgets.values().any(|widget| matches!(&widget.source, WidgetSource::Ssh { commands, templates }
+            if commands.get(&target.platform) == Some(&template.command) && templates.get(&target.platform).is_some_and(|id| id == parser_id))) {
+            return Err(error("sample_binding", "Draft sample parser has no admitted widget binding"));
+        }
+        super::policy::CommandPolicy::admit(target.platform, &template.command)?;
+        Ok(DraftSamplePlan {
+            workspace: workspace.into(),
+            generation,
+            base: state.revision.clone(),
+            source: effective(self.network_catalog(&state.overrides, target, true)).revision,
+            scope: draft.scope.clone(),
+            target: target.clone(),
+            template: template.clone(),
+            origin: DefinitionValidator::draft_hash(draft),
+        })
+    }
+
+    pub(crate) fn seal_draft_sample(
+        &self,
+        plan: DraftSamplePlan,
+        capture: &Capture,
+    ) -> Result<DraftCaptureProof, Diagnostic> {
+        let state = self.lock();
+        if state.revision != plan.base
+            || effective(self.network_catalog(&state.overrides, &plan.target, true)).revision
+                != plan.source
+            || capture.revision != plan.source
+            || capture.target_id != plan.target.connection_id
+        {
+            return Err(error(
+                "sample_binding",
+                "Draft sample admission became obsolete during collection",
+            ));
+        }
+        validate_binding(capture, &plan.template)?;
+        Ok(DraftCaptureProof {
+            workspace: plan.workspace,
+            generation: plan.generation,
+            base: plan.base,
+            source: plan.source,
+            scope: plan.scope,
+            target: plan.target,
+            command: capture.command.clone(),
+            capture_id: capture.capture_id.clone(),
+            parser_id: capture.parser_id.clone(),
+            raw_hash: hash(capture.raw.as_bytes()),
+            observed_at_ms: capture.observed_at_ms,
+            monotonic_ms: capture.monotonic_ms,
+            origin: plan.origin,
+            template_hash: plan.template.sha256,
+        })
+    }
+
+    pub(crate) async fn preview_owned(
+        &self,
+        workspace_id: &str,
+        generation: u64,
+        draft: &ConfigDraft,
+        captures: Vec<Capture>,
+        local_samples: Vec<LocalSample>,
+        proofs: Vec<DraftCaptureProof>,
+        retained_bytes: usize,
+    ) -> PreviewReport {
         let mut report = PreviewReport {
             token: None,
             frames: vec![],
@@ -283,6 +486,7 @@ impl TelemetryConfigRepository {
                     .scoped_catalog(&state, &candidate, &draft.scope)
                     .map_err(|d| vec![d])?;
                 let mut source_revisions = BTreeMap::new();
+                let mut source_catalogs = BTreeMap::new();
                 for capture in &captures {
                     if !source_revisions.contains_key(&capture.target_id) {
                         if let Some(platform) = state.targets.get(&capture.target_id) {
@@ -290,11 +494,12 @@ impl TelemetryConfigRepository {
                                 connection_id: capture.target_id.clone(),
                                 platform: *platform,
                             };
+                            let source = self.network_catalog(&state.overrides, &target, true);
                             source_revisions.insert(
                                 target.connection_id.clone(),
-                                effective(self.network_catalog(&state.overrides, &target, true))
-                                    .revision,
+                                effective(source.clone()).revision,
                             );
+                            source_catalogs.insert(target.connection_id, source);
                         }
                     }
                 }
@@ -304,13 +509,33 @@ impl TelemetryConfigRepository {
                     state.targets.clone(),
                     source_revisions,
                     local_revision,
+                    source_catalogs,
+                    state.revision.clone(),
                 ))
             })
         };
-        let (catalog, targets, source_revisions, local_revision) = match prepared {
-            Ok(value) => value,
-            Err(diagnostics) => {
-                report.diagnostics = diagnostics;
+        let (catalog, targets, source_revisions, local_revision, source_catalogs, base) =
+            match prepared {
+                Ok(value) => value,
+                Err(diagnostics) => {
+                    report.diagnostics = diagnostics;
+                    return report;
+                }
+            };
+        let source_context = PreviewSourceContext {
+            catalogs: &source_catalogs,
+            revisions: &source_revisions,
+            workspace: workspace_id,
+            generation,
+            base: &base,
+            scope: &draft.scope,
+            proofs: &proofs,
+            retained_bytes,
+        };
+        let captures = match preview_interpretations(captures, &catalog, &source_context) {
+            Ok(captures) => captures,
+            Err(diagnostic) => {
+                report.diagnostics.push(diagnostic);
                 return report;
             }
         };
@@ -322,6 +547,10 @@ impl TelemetryConfigRepository {
             return report;
         }
         let mut budget = ByteBudget::default();
+        if let Err(diagnostic) = budget.reserve(retained_bytes) {
+            report.diagnostics.push(diagnostic);
+            return report;
+        }
         let mut sample_hashes = BTreeMap::new();
         for capture in &captures {
             if source_revisions.get(&capture.target_id) != Some(&capture.revision)
@@ -354,7 +583,10 @@ impl TelemetryConfigRepository {
                 return report;
             }
             if sample_hashes
-                .insert(format!("capture:{}", capture.capture_id), capture_hash)
+                .insert(
+                    format!("capture:{}:{}", capture.capture_id, capture.parser_id),
+                    capture_hash,
+                )
                 .is_some()
             {
                 report.diagnostics.push(error(
@@ -469,7 +701,13 @@ impl TelemetryConfigRepository {
                             previous,
                             MAX_WORKSPACE_BYTES.saturating_sub(budget.used),
                         );
-                        if !sample.diagnostics.is_empty() {
+                        if frame.state == CollectionState::Failed {
+                            admit_frame(&mut report, frame, &mut budget);
+                            return report;
+                        }
+                        if sample.diagnostics.iter().any(|diagnostic| {
+                            local_diagnostic_blocks(diagnostic, *collector, &frame)
+                        }) {
                             report.diagnostics.push(error(
                                 "sample_diagnostic",
                                 "Local sample contains collection diagnostics",
@@ -522,7 +760,7 @@ impl TelemetryConfigRepository {
                         }
                         let records = match self
                             .parser
-                            .parse(capture, template, CancellationToken::new())
+                            .parse_preview(capture, template, CancellationToken::new())
                             .await
                         {
                             Ok(rows) => rows,
@@ -997,6 +1235,14 @@ impl TelemetryConfigRepository {
         overrides: &Overrides,
         expected_pointer: Option<&str>,
     ) -> Result<String, Diagnostic> {
+        #[cfg(test)]
+        if let Some(pause) = self.publication_pause.lock().unwrap().clone() {
+            use std::sync::atomic::Ordering;
+            pause.0.store(true, Ordering::SeqCst);
+            while !pause.1.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        }
         fs::create_dir_all(self.root.join("revisions")).map_err(io_error)?;
         let lock = OpenOptions::new()
             .read(true)
@@ -1050,6 +1296,110 @@ impl TelemetryConfigRepository {
         atomic_write(&self.root.join("current"), revision.as_bytes())?;
         Ok(revision)
     }
+}
+
+fn preview_interpretations(
+    captures: Vec<Capture>,
+    candidate: &Catalog,
+    context: &PreviewSourceContext<'_>,
+) -> Result<Vec<Capture>, Diagnostic> {
+    let mut physical: BTreeMap<String, Capture> = BTreeMap::new();
+    let mut bytes = context.retained_bytes;
+    let mut identities = BTreeSet::new();
+    for capture in captures {
+        bytes = bytes.saturating_add(capture.raw.len()).saturating_add(4096);
+        if bytes > MAX_WORKSPACE_BYTES {
+            return Err(error(
+                "sample_limit",
+                "Physical samples exceed the available workspace memory",
+            ));
+        }
+        if !identities.insert((capture.capture_id.clone(), capture.parser_id.clone())) {
+            return Err(error(
+                "sample_identity",
+                "Capture/parser identity must be unique",
+            ));
+        }
+        if context.revisions.get(&capture.target_id) != Some(&capture.revision) {
+            return Err(error(
+                "sample_binding",
+                "Physical capture source revision is obsolete",
+            ));
+        }
+        if let Some(proof) = context
+            .proofs
+            .iter()
+            .find(|proof| proof.capture_id == capture.capture_id)
+        {
+            if !proof.matches(&capture, context) {
+                return Err(error(
+                    "sample_binding",
+                    "Owned draft capture proof is stale or does not match this context",
+                ));
+            }
+        } else {
+            let source = context.catalogs.get(&capture.target_id).and_then(|source| source.templates.get(&capture.parser_id))
+                .ok_or_else(|| error("sample_binding", "Physical capture parser is not a current source asset or sealed draft sample"))?;
+            validate_binding(&capture, source)?;
+        }
+        if let Some(before) = physical.get(&capture.capture_id) {
+            if before.target_id != capture.target_id
+                || before.platform != capture.platform
+                || before.command != capture.command
+                || before.revision != capture.revision
+                || before.observed_at_ms != capture.observed_at_ms
+                || before.monotonic_ms != capture.monotonic_ms
+                || before.raw != capture.raw
+            {
+                return Err(error(
+                    "sample_identity",
+                    "Physical capture identity has conflicting observations",
+                ));
+            }
+        } else {
+            physical.insert(capture.capture_id.clone(), capture);
+        }
+    }
+    let mut interpretations = vec![];
+    for capture in physical.into_values() {
+        let parsers: BTreeSet<_> = candidate
+            .widgets
+            .values()
+            .filter_map(|widget| match &widget.source {
+                WidgetSource::Ssh {
+                    commands,
+                    templates,
+                } if commands.get(&capture.platform) == Some(&capture.command) => {
+                    templates.get(&capture.platform)
+                }
+                _ => None,
+            })
+            .collect();
+        if parsers.is_empty() {
+            return Err(error(
+                "sample_binding",
+                "Physical capture command has no candidate interpretation",
+            ));
+        }
+        for parser in parsers {
+            bytes = bytes.saturating_add(capture.raw.len()).saturating_add(4096);
+            if bytes > MAX_WORKSPACE_BYTES {
+                return Err(error(
+                    "sample_limit",
+                    "Candidate capture interpretations exceed the memory limit",
+                ));
+            }
+            let mut derived = capture.clone();
+            derived.parser_id = parser.clone();
+            let template = candidate
+                .templates
+                .get(parser)
+                .ok_or_else(|| error("template_missing", "Candidate parser is missing"))?;
+            validate_binding(&derived, template)?;
+            interpretations.push(derived);
+        }
+    }
+    Ok(interpretations)
 }
 
 fn error(code: &str, message: &str) -> Diagnostic {
@@ -1334,6 +1684,33 @@ fn sample_hash(value: &impl Serialize, budget: &mut ByteBudget) -> Result<String
 fn bounded_hash(value: &impl Serialize) -> Result<String, Diagnostic> {
     sample_hash(value, &mut ByteBudget::default())
 }
+fn local_diagnostic_blocks(
+    diagnostic: &Diagnostic,
+    collector: LocalCollector,
+    frame: &WidgetFrame,
+) -> bool {
+    let known_source = [
+        LocalCollector::Cpu,
+        LocalCollector::Memory,
+        LocalCollector::Filesystems,
+        LocalCollector::Network,
+        LocalCollector::Processes,
+    ]
+    .into_iter()
+    .any(|source| source.as_str() == diagnostic.path);
+    if !known_source {
+        return true;
+    }
+    if diagnostic.path != collector.as_str() {
+        return false;
+    }
+    let partial = diagnostic.code == "local_rows_disappeared"
+        || (diagnostic.code == "local_process_access_limited"
+            && collector == LocalCollector::Processes);
+    // Fresh rows have already passed composite-key and arithmetic validation.
+    !partial || frame.state != CollectionState::Fresh || frame.rows.is_empty()
+}
+
 fn admit_frame(report: &mut PreviewReport, frame: WidgetFrame, budget: &mut ByteBudget) -> bool {
     if frame.state == CollectionState::Failed {
         report.diagnostics.extend(frame.diagnostics);
@@ -1418,6 +1795,144 @@ mod tests {
                 raw: format!("Gi1 {}\n", if at == 1000 { u64::MAX - 2 } else { u64::MAX }),
             })
             .collect()
+    }
+    #[tokio::test]
+    async fn preview_coalesced_interpretations_preserve_physical_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut catalog = builtin();
+        let mut alternate = catalog.widgets["traffic"].clone();
+        alternate.widget = "alternate".into();
+        if let WidgetSource::Ssh { templates, .. } = &mut alternate.source {
+            templates.insert(Platform::Iosxe, "alternate".into());
+        }
+        let mut asset = catalog.templates["traffic"].clone();
+        asset.id = "alternate".into();
+        catalog.templates.insert(asset.id.clone(), asset);
+        catalog.widgets.insert(alternate.widget.clone(), alternate);
+        let widgets = catalog.widgets.values().cloned().collect();
+        let repo = TelemetryConfigRepository::load(
+            directory.path().into(),
+            catalog,
+            Arc::new(TelemetryParser::new()),
+        )
+        .unwrap();
+        repo.register_targets(&[target("one")]).unwrap();
+        let mut draft = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Traffic");
+        draft.widgets_yaml = serde_yaml::to_string(&WidgetDocument {
+            schema_version: 1,
+            widgets,
+        })
+        .unwrap();
+        let source = captures(&repo.effective(&target("one")).revision);
+        let mut interpretations = source.clone();
+        interpretations.extend(source.iter().cloned().map(|mut capture| {
+            capture.parser_id = "alternate".into();
+            capture
+        }));
+        let preview = repo
+            .preview("ws", 1, &draft, interpretations.clone(), vec![])
+            .await;
+        assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
+        assert_eq!(preview.frames.len(), 4);
+        assert_eq!(preview.frames[1].rows, preview.frames[3].rows);
+        interpretations[2].raw.push_str("different");
+        let conflict = repo.preview("ws", 1, &draft, interpretations, vec![]).await;
+        assert!(conflict.token.is_none());
+        assert!(conflict
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "sample_identity"));
+        let duplicate = repo
+            .preview(
+                "ws",
+                1,
+                &draft,
+                vec![source[0].clone(), source[0].clone()],
+                vec![],
+            )
+            .await;
+        assert!(duplicate.token.is_none());
+        repo.parser.shutdown().await.unwrap();
+    }
+    #[tokio::test]
+    async fn draft_capture_proofs_reject_wrong_context_base_raw_and_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = repository(directory.path());
+        let mut draft = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Draft source");
+        draft.widgets_yaml = draft
+            .widgets_yaml
+            .replace("show interfaces", "show version")
+            .replace("iosxe: traffic", "iosxe: new.version");
+        draft
+            .templates
+            .insert("new.version".into(), TEMPLATE.into());
+        let plan = repo
+            .prepare_draft_sample("ws", 1, &target("one"), &draft, "new.version")
+            .unwrap();
+        let request = plan.request().unwrap();
+        let mut capture = captures(&request.revision).remove(0);
+        capture.command = request.command.as_str().into();
+        capture.parser_id = request.parser_id;
+        let proof = repo.seal_draft_sample(plan, &capture).unwrap();
+        let report = repo
+            .preview_owned(
+                "ws",
+                1,
+                &draft,
+                vec![capture.clone()],
+                vec![],
+                vec![proof.clone()],
+                0,
+            )
+            .await;
+        assert!(report.token.is_some(), "{:?}", report.diagnostics);
+        let mut wrong_base = proof.clone();
+        wrong_base.base = "0".repeat(64);
+        let mut wrong_scope = proof.clone();
+        wrong_scope.scope = ConfigScope::Device("one".into());
+        let mut changed_raw = capture.clone();
+        changed_raw.raw.push_str("private changed bytes");
+        let mut changed_command = capture.clone();
+        changed_command.command = "show inventory".into();
+        for (workspace, generation, capture, proof) in [
+            ("other", 1, capture.clone(), proof.clone()),
+            ("ws", 2, capture.clone(), proof.clone()),
+            ("ws", 1, capture.clone(), wrong_base),
+            ("ws", 1, capture.clone(), wrong_scope),
+            ("ws", 1, changed_raw, proof.clone()),
+            ("ws", 1, changed_command, proof.clone()),
+        ] {
+            let report = repo
+                .preview_owned(
+                    workspace,
+                    generation,
+                    &draft,
+                    vec![capture],
+                    vec![],
+                    vec![proof],
+                    0,
+                )
+                .await;
+            assert!(report.token.is_none());
+            assert!(report
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "sample_binding"));
+        }
+        let report = repo
+            .preview_owned(
+                "ws",
+                1,
+                &draft,
+                vec![capture],
+                vec![],
+                vec![proof],
+                MAX_WORKSPACE_BYTES,
+            )
+            .await;
+        assert!(report.token.is_none());
+        assert!(report.diagnostics.iter().any(|d| d.code == "sample_limit"));
+        repo.parser.shutdown().await.unwrap();
     }
     async fn token(repo: &TelemetryConfigRepository, draft: &ConfigDraft) -> PreviewToken {
         let preview = repo
@@ -1918,6 +2433,7 @@ mod tests {
                 .code,
             "revision_busy"
         );
+        std::fs::File::unlock(&lock).unwrap();
         drop(lock);
         let applied = other.apply("ws", 1, b, b_token).unwrap();
         assert_eq!(
@@ -2020,6 +2536,70 @@ mod tests {
                 )]),
             },
         )
+    }
+    #[tokio::test]
+    async fn local_quality_warnings_preserve_facts_without_granting_invalid_samples() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = repository(directory.path());
+        let (draft, original) = local_fixture(&repo);
+        for (code, path, valid) in [
+            ("local_process_access_limited", "local.processes", true),
+            ("local_rows_disappeared", "local.cpu", true),
+            ("local_process_access_limited", "local.cpu", false),
+            ("source_unavailable", "local.cpu", false),
+            ("local_rows_disappeared", "local", false),
+            ("local_rows_disappeared", "unknown", false),
+        ] {
+            let mut sample = original.clone();
+            sample
+                .diagnostics
+                .push(Diagnostic::new(code, "Visible partial-data quality", path));
+            let report = repo.preview("local", 1, &draft, vec![], vec![sample]).await;
+            assert_eq!(
+                report.token.is_some(),
+                valid,
+                "{code}/{path}: {:?}",
+                report.diagnostics
+            );
+            if valid {
+                assert!(report.frames[0]
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code && diagnostic.path == path));
+            }
+        }
+        let mut empty = original.clone();
+        empty.sources.get_mut("local.cpu").unwrap().clear();
+        empty.diagnostics.push(Diagnostic::new(
+            "local_rows_disappeared",
+            "No current facts",
+            "local.cpu",
+        ));
+        assert!(repo
+            .preview("empty", 1, &draft, vec![], vec![empty])
+            .await
+            .token
+            .is_none());
+        let mut invalid = draft.clone();
+        invalid.widgets_yaml = invalid.widgets_yaml.replace("key: []", "key: [usage]");
+        let mut sample = original;
+        sample.sources.get_mut("local.cpu").unwrap()[0]
+            .fields
+            .clear();
+        sample.diagnostics.push(Diagnostic::new(
+            "local_rows_disappeared",
+            "Missing keyed fact",
+            "local.cpu",
+        ));
+        let report = repo
+            .preview("missing", 1, &invalid, vec![], vec![sample])
+            .await;
+        assert!(report.token.is_none());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "missing_key"));
+        repo.parser.shutdown().await.unwrap();
     }
     #[tokio::test]
     async fn unrelated_scope_applies_preserve_effective_content_revisions() {

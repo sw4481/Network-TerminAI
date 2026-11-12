@@ -409,6 +409,12 @@ pub struct WidgetDefinition {
     pub title: String,
     pub source: WidgetSource,
     pub interval: u32,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "selected_interval"
+    )]
+    pub selected_interval: Option<u32>,
     pub key: Vec<String>,
     pub fields: BTreeMap<String, Vec<String>>,
     pub view: WidgetView,
@@ -422,6 +428,11 @@ pub struct WidgetDefinition {
     pub alerts: Vec<AlertPredicate>,
     #[serde(default)]
     pub history: Option<HistoryDefinition>,
+}
+fn selected_interval<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error> {
+    u32::deserialize(deserializer).map(Some)
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]

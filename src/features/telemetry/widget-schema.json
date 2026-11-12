@@ -437,6 +437,11 @@
               "type": "null"
             }
           ]
+        },
+        "selected_interval": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 3600
         }
       },
       "required": [
@@ -465,6 +470,32 @@
             "properties": {
               "interval": {
                 "minimum": 5
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "selected_interval"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "kind": {
+                    "const": "ssh"
+                  },
+                  "commands": {
+                    "additionalProperties": {
+                      "const": "show interfaces"
+                    }
+                  }
+                },
+                "required": [
+                  "commands"
+                ]
               }
             }
           }

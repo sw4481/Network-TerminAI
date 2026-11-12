@@ -6,19 +6,20 @@ use super::{
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-#[cfg(test)]
-use std::sync::Arc;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,
     process::Stdio,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc, Mutex as StdMutex,
+    },
     time::Duration,
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::{Child, ChildStdin, ChildStdout, Command},
-    sync::{mpsc, oneshot, Mutex},
+    sync::{mpsc, oneshot, Mutex, Notify},
     task::JoinHandle,
     time::Instant,
 };
@@ -44,12 +45,71 @@ pub struct TelemetryParser {
     sequence: AtomicU64,
     timeout: Duration,
     cleanup_budget: Duration,
+    draining: AtomicBool,
+    admission: Arc<StdMutex<Admission>>,
+    available: Arc<Notify>,
 }
 
 #[derive(Default)]
 struct Pool {
     senders: Vec<mpsc::Sender<Job>>,
     owners: Vec<JoinHandle<()>>,
+    stop: CancellationToken,
+}
+
+#[derive(Default)]
+struct Admission {
+    epoch: u64,
+    busy: [bool; 2],
+    pending_cleanup: [bool; 2],
+    preview_active: bool,
+    preview_waiting: usize,
+    collection_waiting: usize,
+}
+#[derive(Clone, Copy)]
+enum Priority {
+    Collection,
+    Preview,
+}
+struct AdmissionGuard {
+    state: Arc<StdMutex<Admission>>,
+    available: Arc<Notify>,
+    priority: Priority,
+    slot: Option<usize>,
+    epoch: u64,
+}
+impl AdmissionGuard {
+    fn mark_cleanup_pending(&self) {
+        let mut state = self.state.lock().unwrap();
+        if state.epoch == self.epoch {
+            if let Some(slot) = self.slot {
+                if state.busy[slot] {
+                    state.pending_cleanup[slot] = true;
+                }
+            }
+        }
+    }
+}
+impl Drop for AdmissionGuard {
+    fn drop(&mut self) {
+        let mut state = self.state.lock().unwrap();
+        if state.epoch != self.epoch {
+            return;
+        }
+        if let Some(slot) = self.slot {
+            state.busy[slot] = false;
+            state.pending_cleanup[slot] = false;
+            if matches!(self.priority, Priority::Preview) {
+                state.preview_active = false;
+            }
+        } else {
+            match self.priority {
+                Priority::Preview => state.preview_waiting -= 1,
+                Priority::Collection => state.collection_waiting -= 1,
+            }
+        }
+        self.available.notify_waiters();
+    }
 }
 
 struct Job {
@@ -82,6 +142,9 @@ impl TelemetryParser {
             sequence: AtomicU64::new(0),
             timeout: Duration::from_secs(3),
             cleanup_budget: Duration::from_secs(3),
+            draining: AtomicBool::new(false),
+            admission: Arc::new(StdMutex::new(Admission::default())),
+            available: Arc::new(Notify::new()),
         }
     }
 
@@ -91,6 +154,110 @@ impl TelemetryParser {
         template: &TemplateAsset,
         cancel: CancellationToken,
     ) -> ParseResult {
+        self.parse_priority(capture, template, cancel, Priority::Collection)
+            .await
+    }
+
+    pub(crate) async fn parse_preview(
+        &self,
+        capture: &Capture,
+        template: &TemplateAsset,
+        cancel: CancellationToken,
+    ) -> ParseResult {
+        self.parse_priority(capture, template, cancel, Priority::Preview)
+            .await
+    }
+
+    async fn admit(
+        &self,
+        priority: Priority,
+        cancel: &CancellationToken,
+        deadline: Instant,
+    ) -> Result<AdmissionGuard, Diagnostic> {
+        let mut guard = {
+            let mut state = self.admission.lock().unwrap();
+            let full = match priority {
+                Priority::Preview => state.preview_waiting >= 1,
+                Priority::Collection => state.collection_waiting >= 4,
+            };
+            if full {
+                return Err(failure(
+                    "parser_busy",
+                    "Parser admission is full; retry after current work completes",
+                ));
+            }
+            match priority {
+                Priority::Preview => state.preview_waiting += 1,
+                Priority::Collection => state.collection_waiting += 1,
+            }
+            AdmissionGuard {
+                state: self.admission.clone(),
+                available: self.available.clone(),
+                priority,
+                slot: None,
+                epoch: state.epoch,
+            }
+        };
+        loop {
+            let available = self.available.notified();
+            tokio::pin!(available);
+            available.as_mut().enable();
+            if self.stop.is_cancelled() {
+                return Err(failure("parser_shutdown", "Parser is shut down"));
+            }
+            if self.draining.load(Ordering::Acquire) {
+                return Err(failure(
+                    "parser_quiescing",
+                    "Parser cleanup is pending; retry after quiescence",
+                ));
+            }
+            if cancel.is_cancelled() {
+                return Err(failure("parser_cancelled", "Parsing was cancelled"));
+            }
+            {
+                let mut state = self.admission.lock().unwrap();
+                if state.epoch != guard.epoch {
+                    return Err(failure(
+                        "parser_quiescing",
+                        "Parser pool generation changed during admission",
+                    ));
+                }
+                let free = state.busy.iter().filter(|busy| !**busy).count();
+                let ready = match priority {
+                    Priority::Preview => !state.preview_active && free > 0,
+                    Priority::Collection => {
+                        free > 0
+                            && (state.preview_waiting == 0 || state.preview_active || free == 2)
+                    }
+                };
+                if ready {
+                    let slot = state.busy.iter().position(|busy| !*busy).unwrap();
+                    state.busy[slot] = true;
+                    match priority {
+                        Priority::Preview => {
+                            state.preview_waiting -= 1;
+                            state.preview_active = true;
+                        }
+                        Priority::Collection => state.collection_waiting -= 1,
+                    }
+                    guard.slot = Some(slot);
+                    return Ok(guard);
+                }
+            }
+            tokio::select! {
+                _ = self.stop.cancelled() => {}, _ = cancel.cancelled() => {}, _ = &mut available => {},
+                _ = tokio::time::sleep_until(deadline) => return Err(failure("parser_timeout", "Parser admission deadline exceeded")),
+            }
+        }
+    }
+
+    async fn parse_priority(
+        &self,
+        capture: &Capture,
+        template: &TemplateAsset,
+        cancel: CancellationToken,
+        priority: Priority,
+    ) -> ParseResult {
         let deadline = Instant::now() + self.timeout;
         validate_binding(capture, template)?;
         if self.stop.is_cancelled() {
@@ -99,6 +266,7 @@ impl TelemetryParser {
         if cancel.is_cancelled() {
             return Err(failure("parser_cancelled", "Parsing was cancelled"));
         }
+        let admission = self.admit(priority, &cancel, deadline).await?;
         let ordinal = self.sequence.fetch_add(1, Ordering::Relaxed);
         let id = ordinal.to_string();
         let mut payload = serde_json::to_vec(&serde_json::json!({
@@ -114,19 +282,23 @@ impl TelemetryParser {
             if self.stop.is_cancelled() {
                 return Err(failure("parser_shutdown", "Parser is shut down"));
             }
+            if self.draining.load(Ordering::Acquire) {
+                return Err(failure(
+                    "parser_quiescing",
+                    "Parser cleanup is pending; retry after quiescence",
+                ));
+            }
             if pool.senders.is_empty() {
                 // Tasks own only their channels/spec/token, never the parser itself.
                 for _ in 0..2 {
                     let (tx, rx) = mpsc::channel(1);
                     pool.senders.push(tx);
-                    pool.owners.push(tokio::spawn(owner(
-                        rx,
-                        self.spec.clone(),
-                        self.stop.clone(),
-                    )));
+                    let stop = pool.stop.clone();
+                    pool.owners
+                        .push(tokio::spawn(owner(rx, self.spec.clone(), stop)));
                 }
             }
-            pool.senders[ordinal as usize % 2].clone()
+            pool.senders[admission.slot.unwrap()].clone()
         };
         let local_cancel = cancel.child_token();
         let _guard = CancelOnDrop(local_cancel.clone());
@@ -154,13 +326,30 @@ impl TelemetryParser {
             result = &mut receive => return result.unwrap_or_else(|_| Err(failure("parser_shutdown", "Parser owner exited"))),
         };
         local_cancel.cancel();
-        match tokio::time::timeout(self.cleanup_budget, receive).await {
+        match tokio::time::timeout(self.cleanup_budget, &mut receive).await {
             Ok(_) => Err(reason),
-            Err(_) => Err(failure(
-                "parser_cleanup_pending",
-                "Parser cleanup is pending; retry shutdown",
-            )),
+            Err(_) => {
+                // Keep this actor unavailable until its actual cleanup acknowledgement.
+                admission.mark_cleanup_pending();
+                tokio::spawn(async move {
+                    let _ = receive.await;
+                    drop(admission);
+                });
+                Err(failure(
+                    "parser_cleanup_pending",
+                    "Parser cleanup is pending; retry shutdown",
+                ))
+            }
         }
+    }
+
+    pub(crate) fn has_pending_cleanup(&self) -> bool {
+        self.admission
+            .lock()
+            .unwrap()
+            .pending_cleanup
+            .iter()
+            .any(|pending| *pending)
     }
 
     pub async fn test_template(
@@ -169,19 +358,38 @@ impl TelemetryParser {
         template: &TemplateAsset,
         cancel: CancellationToken,
     ) -> ParseResult {
-        self.parse(capture, template, cancel).await
+        self.parse_preview(capture, template, cancel).await
     }
 
     pub async fn shutdown(&self) -> Result<(), Diagnostic> {
         self.stop.cancel();
+        self.drain().await
+    }
+
+    pub async fn quiesce(&self) -> Result<(), Diagnostic> {
+        self.drain().await
+    }
+
+    async fn drain(&self) -> Result<(), Diagnostic> {
+        self.draining.store(true, Ordering::Release);
+        self.available.notify_waiters();
         tokio::time::timeout(self.cleanup_budget, async {
             let mut pool = self.pool.lock().await;
+            pool.stop.cancel();
             pool.senders.clear();
             // Pending handles survive timeout; later calls await these same owners.
             while let Some(owner) = pool.owners.last_mut() {
                 let _ = owner.await;
                 pool.owners.pop();
             }
+            pool.stop = CancellationToken::new();
+            let mut admission = self.admission.lock().unwrap();
+            *admission = Admission {
+                epoch: admission.epoch.wrapping_add(1),
+                ..Admission::default()
+            };
+            self.draining.store(false, Ordering::Release);
+            self.available.notify_waiters();
         })
         .await
         .map_err(|_| {
@@ -196,10 +404,14 @@ impl TelemetryParser {
 impl Drop for TelemetryParser {
     fn drop(&mut self) {
         self.stop.cancel();
+        self.pool.get_mut().stop.cancel();
     }
 }
 
-fn validate_binding(capture: &Capture, template: &TemplateAsset) -> Result<(), Diagnostic> {
+pub(crate) fn validate_binding(
+    capture: &Capture,
+    template: &TemplateAsset,
+) -> Result<(), Diagnostic> {
     if capture.raw.len() > MAX_CAPTURE || template.text.len() > MAX_TEMPLATE_BYTES {
         return Err(failure(
             "parser_limit",
@@ -473,11 +685,17 @@ fn decode(bytes: &[u8], expected_id: &str) -> ParseResult {
 
 #[cfg(test)]
 impl TelemetryParser {
-    fn fixture(script: &str, timeout: Duration) -> Self {
+    pub(crate) fn fixture(script: &str, timeout: Duration) -> Self {
         let mut parser = Self::new();
         parser.spec.script = Some(script.into());
         parser.timeout = timeout;
         parser
+    }
+    pub(crate) fn set_cleanup_budget_for_test(&mut self, budget: Duration) {
+        self.cleanup_budget = budget;
+    }
+    pub(crate) fn block_cleanup_for_test(&self, blocked: bool) {
+        self.spec.wait_blocked.store(blocked, Ordering::SeqCst);
     }
 }
 
@@ -540,6 +758,156 @@ for line in sys.stdin:
  if raw=='wrong': r['id']='stale-id'
  print(json.dumps({'id':r['id'],'headers':['name'],'records':[[raw]]}),flush=True)
 "#;
+
+    #[test]
+    fn pending_cleanup_mark_cannot_outlive_or_reuse_its_epoch() {
+        let state = Arc::new(StdMutex::new(Admission {
+            busy: [true, false],
+            ..Admission::default()
+        }));
+        let guard = AdmissionGuard {
+            state: state.clone(),
+            available: Arc::new(Notify::new()),
+            priority: Priority::Collection,
+            slot: Some(0),
+            epoch: 0,
+        };
+        guard.mark_cleanup_pending();
+        assert_eq!(state.lock().unwrap().pending_cleanup, [true, false]);
+        drop(guard);
+        assert_eq!(state.lock().unwrap().pending_cleanup, [false, false]);
+        let stale = AdmissionGuard {
+            state: state.clone(),
+            available: Arc::new(Notify::new()),
+            priority: Priority::Collection,
+            slot: Some(0),
+            epoch: 0,
+        };
+        *state.lock().unwrap() = Admission {
+            epoch: 1,
+            busy: [true, false],
+            ..Admission::default()
+        };
+        stale.mark_cleanup_pending();
+        drop(stale);
+        let state = state.lock().unwrap();
+        assert_eq!(state.pending_cleanup, [false, false]);
+        assert_eq!(state.busy, [true, false]);
+    }
+
+    #[tokio::test]
+    async fn nonterminal_quiesce_reaps_real_children_and_later_parse_restarts() {
+        let parser = TelemetryParser::fixture(FIXTURE, Duration::from_secs(3));
+        let (capture, template) = sample("first");
+        parser
+            .parse(&capture, &template, CancellationToken::new())
+            .await
+            .unwrap();
+        parser.quiesce().await.unwrap();
+        assert_eq!(
+            parser.spec.started.load(Ordering::SeqCst),
+            parser.spec.exited.lock().unwrap().len()
+        );
+        let (capture, template) = sample("second");
+        parser
+            .test_template(&capture, &template, CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(parser.spec.started.load(Ordering::SeqCst), 2);
+        parser.shutdown().await.unwrap();
+        assert_eq!(
+            parser.spec.started.load(Ordering::SeqCst),
+            parser.spec.exited.lock().unwrap().len()
+        );
+    }
+
+    #[tokio::test]
+    async fn nonterminal_quiesce_retains_pending_owners_and_blocks_admission() {
+        let mut parser = TelemetryParser::fixture(FIXTURE, Duration::from_secs(3));
+        parser.cleanup_budget = Duration::from_millis(30);
+        let (capture, template) = sample("first");
+        parser
+            .parse(&capture, &template, CancellationToken::new())
+            .await
+            .unwrap();
+        parser.spec.wait_blocked.store(true, Ordering::SeqCst);
+        assert_eq!(
+            parser.quiesce().await.unwrap_err().code,
+            "parser_cleanup_pending"
+        );
+        assert!(!parser.pool.lock().await.owners.is_empty());
+        assert_eq!(
+            parser
+                .parse(&capture, &template, CancellationToken::new())
+                .await
+                .unwrap_err()
+                .code,
+            "parser_quiescing"
+        );
+        parser.spec.wait_blocked.store(false, Ordering::SeqCst);
+        parser.quiesce().await.unwrap();
+        parser
+            .parse(&capture, &template, CancellationToken::new())
+            .await
+            .unwrap();
+        parser.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn preview_admission_is_bounded_and_collection_uses_other_real_actor() {
+        let parser = Arc::new(TelemetryParser::fixture(FIXTURE, Duration::from_secs(3)));
+        let active_parser = parser.clone();
+        let active_cancel = CancellationToken::new();
+        let cancel = active_cancel.clone();
+        let active = tokio::spawn(async move {
+            let (capture, template) = sample("hang");
+            active_parser
+                .test_template(&capture, &template, cancel)
+                .await
+        });
+        wait_started(&parser).await;
+        let waiting_parser = parser.clone();
+        let waiting_cancel = CancellationToken::new();
+        let cancel = waiting_cancel.clone();
+        let waiting = tokio::spawn(async move {
+            let (capture, template) = sample("waiting");
+            waiting_parser
+                .test_template(&capture, &template, cancel)
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while parser.admission.lock().unwrap().preview_waiting == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        let (capture, template) = sample("excess");
+        assert_eq!(
+            parser
+                .test_template(&capture, &template, CancellationToken::new())
+                .await
+                .unwrap_err()
+                .code,
+            "parser_busy"
+        );
+        let records = parser
+            .parse(&capture, &template, CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(records.len(), 1);
+        assert!(!parser.has_pending_cleanup());
+        assert_eq!(parser.spec.started.load(Ordering::SeqCst), 2);
+        waiting_cancel.cancel();
+        assert_eq!(waiting.await.unwrap().unwrap_err().code, "parser_cancelled");
+        active_cancel.cancel();
+        active.await.unwrap().unwrap_err();
+        parser.shutdown().await.unwrap();
+        assert_eq!(
+            parser.spec.started.load(Ordering::SeqCst),
+            parser.spec.exited.lock().unwrap().len()
+        );
+    }
 
     async fn wait_started(parser: &TelemetryParser) {
         tokio::time::timeout(Duration::from_secs(3), async {
@@ -672,13 +1040,13 @@ for line in sys.stdin:
         let parser = Arc::new(TelemetryParser::fixture(FIXTURE, Duration::from_secs(3)));
         assert_eq!(parser.spec.started.load(Ordering::SeqCst), 0);
         let mut jobs = Vec::new();
-        for i in 0..8 {
+        for i in 0..4 {
             let parser = parser.clone();
             jobs.push(tokio::spawn(async move {
                 let name = format!("request-{i}");
                 let (capture, template) = sample(&name);
                 let rows = parser
-                    .test_template(&capture, &template, CancellationToken::new())
+                    .parse(&capture, &template, CancellationToken::new())
                     .await
                     .unwrap();
                 assert_eq!(rows[0].fields["name"], MetricValue::Text { value: name });
@@ -704,6 +1072,7 @@ for line in sys.stdin:
             .await
             .unwrap_err();
         assert_eq!(diagnostic.code, "parser_cleanup_pending");
+        assert!(parser.has_pending_cleanup());
         assert!(start.elapsed() < Duration::from_secs(1));
         assert!(parser.spec.exited.lock().unwrap().is_empty());
         assert_eq!(parser.spec.started.load(Ordering::SeqCst), 1);
@@ -716,6 +1085,7 @@ for line in sys.stdin:
         assert_eq!(parser.pool.lock().await.owners.len(), 1);
         parser.spec.wait_blocked.store(false, Ordering::SeqCst);
         parser.shutdown().await.unwrap();
+        assert!(!parser.has_pending_cleanup());
         assert_eq!(parser.spec.exited.lock().unwrap().len(), 1);
         assert_eq!(parser.spec.started.load(Ordering::SeqCst), 1);
     }

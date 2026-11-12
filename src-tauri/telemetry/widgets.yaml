@@ -240,6 +240,7 @@ widgets:
       ios: ios.interface_bytes
       iosxe: iosxe.interface_bytes
   interval: 30
+  selected_interval: 5
   key:
   - interface
   fields:

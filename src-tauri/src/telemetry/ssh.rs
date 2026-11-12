@@ -61,6 +61,7 @@ enum SavedAuth {
 }
 pub struct TelemetrySshTarget {
     id: String,
+    display_name: String,
     platform: Platform,
     host: String,
     port: u16,
@@ -203,6 +204,7 @@ impl TelemetrySshTargetResolver {
                 .collect();
         Ok(TelemetrySshTarget {
             id: saved.id,
+            display_name: saved.name,
             platform,
             host: saved.host,
             port,
@@ -214,6 +216,11 @@ impl TelemetrySshTargetResolver {
     }
     pub async fn shutdown(&self) -> Result<(), Diagnostic> {
         self.owners.shutdown(CLEANUP_BUDGET).await
+    }
+}
+impl TelemetrySshTarget {
+    pub fn display_name(&self) -> &str {
+        &self.display_name
     }
 }
 #[derive(Default)]
@@ -1620,6 +1627,7 @@ mod tests {
     #[tokio::test]
     async fn ssh_saved_platform_trust_and_encrypted_identity_fail_closed() {
         let peer = Peer::new(Reply::Complete).await;
+        assert_eq!(peer.resolve().unwrap().display_name(), "Fixture");
         peer.db
             .lock()
             .execute("UPDATE ssh_connections SET platform = 'generic'", [])

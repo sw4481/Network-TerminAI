@@ -203,6 +203,15 @@ impl DefinitionValidator {
             format!("Interval must be {minimum}–3600 seconds for this source"),
             path,
         )?;
+        if let Some(interval) = widget.selected_interval {
+            ensure(
+                (5..=3600).contains(&interval)
+                    && matches!(&widget.source, WidgetSource::Ssh { commands, .. } if !commands.is_empty() && commands.values().all(|command| command == "show interfaces")),
+                "selected_interval",
+                "Selected interval requires exact show interfaces bindings and 5–3600 seconds",
+                path,
+            )?;
+        }
         ensure(
             !widget.fields.is_empty(),
             "fields",
@@ -968,6 +977,56 @@ mod tests {
                 );
             }
         }
+    }
+    #[test]
+    fn selected_interval_is_explicit_bounded_and_interface_only() {
+        for (command, selected, valid) in [
+            ("show interfaces", 5, true),
+            ("show interfaces", 7, true),
+            ("show interfaces", 3600, true),
+            ("show interfaces", 4, false),
+            ("show interfaces", 3601, false),
+            ("show version", 5, false),
+        ] {
+            let source = format!(
+                "{{kind: ssh, commands: {{iosxe: {command}}}, templates: {{iosxe: sample}}}}"
+            );
+            let widgets = WIDGETS
+                .replace("{kind: local, collector: local.cpu}", &source)
+                .replace(
+                    "interval: 2",
+                    &format!("interval: 30\n    selected_interval: {selected}"),
+                );
+            let mut draft = draft(&widgets, LAYOUTS);
+            draft.scope = ConfigScope::Profile(Platform::Iosxe);
+            draft.templates.insert("sample".into(), "template".into());
+            let result = DefinitionValidator.validate(&draft, &Catalog::default());
+            assert_eq!(
+                result.valid, valid,
+                "{command}/{selected}: {:?}",
+                result.diagnostics
+            );
+        }
+        let local = WIDGETS.replace("interval: 2", "interval: 2\n    selected_interval: 5");
+        assert!(
+            !DefinitionValidator
+                .validate(&draft(&local, LAYOUTS), &Catalog::default())
+                .valid
+        );
+        let widgets = WIDGETS
+            .replace(
+                "{kind: local, collector: local.cpu}",
+                "{kind: ssh, commands: {iosxe: show interfaces}, templates: {iosxe: sample}}",
+            )
+            .replace("interval: 2", "interval: 30\n    selected_interval: null");
+        let mut invalid = draft(&widgets, LAYOUTS);
+        invalid.scope = ConfigScope::Profile(Platform::Iosxe);
+        invalid.templates.insert("sample".into(), "template".into());
+        assert!(
+            !DefinitionValidator
+                .validate(&invalid, &Catalog::default())
+                .valid
+        );
     }
     #[test]
     fn source_and_derived_references_are_validated() {

@@ -197,7 +197,7 @@ export type WidgetView = { type: 'table' | 'kv'; columns: ViewField[] } | { type
 export interface AlertPredicate { field: string; op: 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le'; value: number | boolean | string; severity: ObservationSeverity; message: string }
 export interface HistoryDefinition { fields: string[] }
 export interface WidgetDefinition {
-  widget: string; title: string; source: WidgetSource; interval: number; key: string[];
+  widget: string; title: string; source: WidgetSource; interval: number; selected_interval?: number; key: string[];
   fields: Record<string, string[]>; view: WidgetView;
   rates?: Record<string, NumericTransform>; deltas?: Record<string, NumericTransform>;
   computes?: Record<string, string>; alerts?: AlertPredicate[]; history?: HistoryDefinition | null;

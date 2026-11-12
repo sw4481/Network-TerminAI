@@ -839,6 +839,7 @@ impl<'a> UpstreamWidgetImporter<'a> {
                 templates,
             },
             interval,
+            selected_interval: None,
             key,
             fields,
             view,
