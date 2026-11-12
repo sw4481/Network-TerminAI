@@ -294,10 +294,9 @@ impl ProtocolClassifier {
         alias: &str,
         value: &MetricValue,
     ) -> Option<MetricValue> {
-        if definition.widget != "bgp_peers"
-            || !source_matches(definition, capture, "show ip bgp summary")
-            || !alias.eq_ignore_ascii_case("state_or_prefixes_received")
-            || !matches!(field, "state" | "prefixes_received")
+        if !source_matches(definition, capture, "show ip bgp summary")
+            || !bgp_summary_parser(capture.platform, &capture.parser_id)
+            || !bgp_canonical_alias(field, alias)
         {
             return None;
         }
@@ -351,8 +350,26 @@ impl ProtocolClassifier {
         if frame.state != CollectionState::Fresh {
             return;
         }
+        if source_matches(definition, capture, "show ip bgp summary")
+            && bgp_summary_parser(capture.platform, &capture.parser_id)
+        {
+            if ["state", "prefixes_received"].iter().any(|field| {
+                definition.fields.get(*field).is_some_and(|aliases| {
+                    aliases
+                        .iter()
+                        .any(|alias| !bgp_canonical_alias(field, alias))
+                })
+            }) {
+                frame.diagnostics.push(Diagnostic::new("classification_binding", "Edited aliases require context; canonicalization applies only to selected known aliases", &frame.widget_id));
+            }
+            frame.diagnostics.push(Diagnostic::new(
+                "routing_context_missing",
+                "BGP summary does not establish VRF; address family is retained only when parsed",
+                &frame.widget_id,
+            ));
+            return;
+        }
         let binding = match frame.widget_id.as_str() {
-            "bgp_peers" => ("show ip bgp summary", "state", "state_or_prefixes_received"),
             "bgp_vrf_peers" => ("show ip bgp vpnv4 all neighbors", "state", "bgp_state"),
             "ospf_neighbors" => ("show ip ospf neighbor", "state", "state"),
             "ospf_interfaces" => ("show ip ospf interface brief", "process", "process"),
@@ -375,9 +392,6 @@ impl ProtocolClassifier {
         let mut notes = BTreeSet::new();
         for row in &frame.rows {
             match frame.widget_id.as_str() {
-                "bgp_peers" => {
-                    notes.insert(("routing_context_missing","BGP summary does not establish VRF; address family is retained only when parsed"));
-                }
                 "bgp_vrf_peers" => {
                     notes.insert(("routing_context_missing","VRF detail does not establish address family, uptime or prefixes; never join summary by peer address alone"));
                 }
@@ -427,6 +441,16 @@ impl ProtocolClassifier {
                 .push(Diagnostic::new(code, message, &frame.widget_id));
         }
     }
+}
+fn bgp_summary_parser(platform: Platform, parser_id: &str) -> bool {
+    matches!(
+        (platform, parser_id),
+        (Platform::Ios, "ios.show_ip_bgp_summary") | (Platform::Iosxe, "iosxe.show_ip_bgp_summary")
+    )
+}
+fn bgp_canonical_alias(field: &str, alias: &str) -> bool {
+    matches!(field, "state" | "prefixes_received")
+        && alias.eq_ignore_ascii_case("state_or_prefixes_received")
 }
 fn source_matches(definition: &WidgetDefinition, capture: &Capture, command: &str) -> bool {
     capture.command == command
@@ -616,6 +640,21 @@ impl<'a> UpstreamWidgetImporter<'a> {
             }
             fields.insert(name, normalized);
         }
+        if commands.iter().any(|(platform, command)| {
+            command == "show ip bgp summary"
+                && templates
+                    .get(platform)
+                    .is_some_and(|id| bgp_summary_parser(*platform, id))
+        }) {
+            for (field, aliases) in &fields {
+                if aliases
+                    .iter()
+                    .any(|alias| bgp_canonical_alias(field, alias))
+                {
+                    return Err(unsupported(&format!("fields.{field}"), "Native BGP canonicalization changes upstream raw values; use a distinct raw output field name or author native canonical YAML explicitly"));
+                }
+            }
+        }
         let key = match map.get("key") {
             None => vec![],
             Some(Value::String(v)) => vec![v.clone()],
@@ -669,6 +708,11 @@ impl<'a> UpstreamWidgetImporter<'a> {
             }
         }
         let view_map = mapping(required(map, "view", "")?, "view")?;
+        if let Some(alerts) = view_map.get("alerts") {
+            if !sequence(alerts, "view.alerts")?.is_empty() {
+                return Err(unsupported("view.alerts[0]", "Upstream alert coercion, precision and fallback semantics are unsupported; author native YAML alerts explicitly"));
+            }
+        }
         let kind = string(required(view_map, "type", "view")?, "view.type")?;
         let labels = view_map
             .get("labels")
@@ -773,11 +817,6 @@ impl<'a> UpstreamWidgetImporter<'a> {
                 ))
             }
         };
-        let alerts = view_map
-            .get("alerts")
-            .map(|v| Self::alerts(v))
-            .transpose()?
-            .unwrap_or_default();
         let interval = map
             .get("interval")
             .map(|v| {
@@ -806,68 +845,9 @@ impl<'a> UpstreamWidgetImporter<'a> {
             rates,
             deltas,
             computes,
-            alerts,
+            alerts: vec![],
             history: None,
         })
-    }
-    fn alerts(value: &Value) -> Result<Vec<AlertPredicate>, Diagnostic> {
-        sequence(value, "view.alerts")?
-            .iter()
-            .enumerate()
-            .map(|(index, value)| {
-                let path = format!("view.alerts[{index}]");
-                let map = mapping(value, &path)?;
-                keys(map, &["field", "op", "value", "style"], &path)?;
-                let field = string(required(map, "field", &path)?, &format!("{path}.field"))?;
-                let op = match string(required(map, "op", &path)?, &format!("{path}.op"))?.as_str()
-                {
-                    "eq" => PredicateOp::Eq,
-                    "ne" => PredicateOp::Ne,
-                    "gt" => PredicateOp::Gt,
-                    "ge" => PredicateOp::Ge,
-                    "lt" => PredicateOp::Lt,
-                    "le" => PredicateOp::Le,
-                    _ => {
-                        return Err(unsupported(
-                            &format!("{path}.op"),
-                            "Regex/conditional alert operators are unsupported",
-                        ))
-                    }
-                };
-                let number = required(map, "value", &path)?
-                    .as_f64()
-                    .filter(|v| v.is_finite())
-                    .ok_or_else(|| {
-                        unsupported(
-                            &format!("{path}.value"),
-                            "Only numeric alert thresholds are supported",
-                        )
-                    })?;
-                let severity = match string(
-                    required(map, "style", &path)?,
-                    &format!("{path}.style"),
-                )?
-                .as_str()
-                {
-                    "ok" => ObservationSeverity::Ok,
-                    "warn" => ObservationSeverity::Warn,
-                    "alert" => ObservationSeverity::Alert,
-                    _ => {
-                        return Err(unsupported(
-                            &format!("{path}.style"),
-                            "Only ok/warn/alert severities are supported",
-                        ))
-                    }
-                };
-                Ok(AlertPredicate {
-                    field,
-                    op,
-                    value: ThresholdValue::Number(number),
-                    severity,
-                    message: "Imported numeric threshold".into(),
-                })
-            })
-            .collect()
     }
     fn layout(map: &Mapping) -> Result<LayoutDefinition, Diagnostic> {
         keys(map, &["layout", "platforms", "rows"], "")?;
@@ -1552,18 +1532,20 @@ mod tests {
         let importer = UpstreamWidgetImporter::new(&repo, ConfigScope::Profile(Platform::Ios));
         let accepted=IMPORT.replace("labels: {interface: Interface}","labels: {interface: Interface}, alerts: [{field: pps, op: gt, value: 12, style: warn}]");
         let report = importer.import(&accepted);
-        assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
-        let doc: WidgetDocument =
-            serde_yaml::from_str(&report.draft.unwrap().widgets_yaml).unwrap();
-        assert_eq!(doc.widgets[0].alerts.len(), 1);
-        assert_eq!(doc.widgets[0].alerts[0].severity, ObservationSeverity::Warn);
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|d| d.path == "view.alerts[0]"));
+        let draft = report.draft.unwrap();
+        assert!(draft.widgets_yaml.starts_with(&accepted));
+        assert!(!repo.validate(&draft).valid);
         for (extra, path) in [
             ("sort: interface", "view.sort"),
             ("limit: 12", "view.limit"),
             ("cells: {}", "view.cells"),
             (
                 "alerts: [{field: pps, op: match, value: '^up', style: alert}]",
-                "view.alerts[0].op",
+                "view.alerts[0]",
             ),
         ] {
             let input = IMPORT.replace(
@@ -1987,6 +1969,326 @@ mod tests {
                 .unwrap()
                 .contains("PRIVATE_MARKER"));
         }
+        parser.shutdown().await.unwrap();
+    }
+    #[test]
+    fn fix1_numeric_ne_import_is_blocked_for_numeric_text_and_missing_inputs() {
+        // Pinned upstream ne falls back to string inequality for nonnumeric/missing input.
+        let predicate = AlertPredicate {
+            field: "value".into(),
+            op: PredicateOp::Ne,
+            value: ThresholdValue::Number(0.0),
+            severity: ObservationSeverity::Warn,
+            message: "Native semantics are unchanged".into(),
+        };
+        for (value, native_matches, upstream_matches) in [
+            (MetricValue::Number { value: 1.0 }, true, true),
+            (MetricValue::Number { value: 0.0 }, false, false),
+            (MetricValue::Text { value: "1".into() }, true, true),
+            (
+                MetricValue::Text {
+                    value: "notconnect".into(),
+                },
+                false,
+                true,
+            ),
+            (
+                MetricValue::Missing {
+                    reason: "field_missing".into(),
+                },
+                false,
+                true,
+            ),
+        ] {
+            assert_eq!(predicate.matches(&value), native_matches);
+            if matches!(value, MetricValue::Missing { .. })
+                || matches!(&value,MetricValue::Text{value} if value=="notconnect")
+            {
+                assert!(upstream_matches && !native_matches);
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let repo = repository(root.path());
+        let input="widget: status_rule\ncommands: {cisco_ios: show interfaces status}\nkey: interface\nfields: {interface: [PORT], value: [STATUS]}\nview: {type: table, columns: [interface, value], alerts: [{field: value, op: ne, value: 0, style: warn}]}\n";
+        let report =
+            UpstreamWidgetImporter::new(&repo, ConfigScope::Profile(Platform::Iosxe)).import(input);
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .any(|d| d.path == "view.alerts[0]"),
+            "{:?}",
+            report.diagnostics
+        );
+        let draft = report.draft.unwrap();
+        assert!(draft.widgets_yaml.starts_with(input));
+        assert!(!repo.validate(&draft).valid);
+    }
+    #[test]
+    fn fix1_all_nonempty_upstream_alerts_are_blocked_while_native_predicates_remain_exact() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repository(root.path());
+        let importer = UpstreamWidgetImporter::new(&repo, ConfigScope::Profile(Platform::Iosxe));
+        for (op, threshold, numeric, expected) in [
+            ("eq", 1, 1.0, true),
+            ("eq", 1, 2.0, false),
+            ("gt", 0, 1.0, true),
+            ("gt", 1, 1.0, false),
+            ("ge", 1, 1.0, true),
+            ("ge", 2, 1.0, false),
+            ("lt", 2, 1.0, true),
+            ("lt", 1, 1.0, false),
+            ("le", 1, 1.0, true),
+            ("le", 0, 1.0, false),
+        ] {
+            let input=format!("widget: supported_rule\ncommands: {{cisco_ios: show interfaces status}}\nkey: interface\nfields: {{interface: [PORT], value: [STATUS]}}\nview: {{type: table, columns: [interface, value], alerts: [{{field: value, op: {op}, value: {threshold}, style: warn}}]}}\n");
+            let report = importer.import(&input);
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.path == "view.alerts[0]"),
+                "{op}: {:?}",
+                report.diagnostics
+            );
+            let draft = report.draft.unwrap();
+            assert!(draft.widgets_yaml.starts_with(&input));
+            assert!(!repo.validate(&draft).valid);
+            let alert = AlertPredicate {
+                field: "value".into(),
+                op: match op {
+                    "eq" => PredicateOp::Eq,
+                    "gt" => PredicateOp::Gt,
+                    "ge" => PredicateOp::Ge,
+                    "lt" => PredicateOp::Lt,
+                    "le" => PredicateOp::Le,
+                    _ => unreachable!(),
+                },
+                value: ThresholdValue::Number(threshold as f64),
+                severity: ObservationSeverity::Warn,
+                message: "Native behavior is unchanged".into(),
+            };
+            assert_eq!(
+                alert.matches(&MetricValue::Number { value: numeric }),
+                expected,
+                "{op}"
+            );
+            assert_eq!(
+                alert.matches(&MetricValue::Text {
+                    value: numeric.to_string()
+                }),
+                expected,
+                "{op}"
+            );
+            assert!(
+                !alert.matches(&MetricValue::Text {
+                    value: "notconnect".into()
+                }),
+                "{op}"
+            );
+            assert!(
+                !alert.matches(&MetricValue::Missing {
+                    reason: "field_missing".into()
+                }),
+                "{op}"
+            );
+        }
+        let threshold = 9007199254740992.0;
+        let large = "9007199254740993";
+        let exact = AlertPredicate {
+            field: "counter".into(),
+            op: PredicateOp::Eq,
+            value: ThresholdValue::Number(threshold),
+            severity: ObservationSeverity::Warn,
+            message: "Exact native u64".into(),
+        };
+        assert!(!exact.matches(&MetricValue::Unsigned {
+            value: large.into()
+        }));
+        assert_eq!(large.parse::<f64>().unwrap(), threshold); // Pinned upstream converts both operands to float.
+        let numeric = AlertPredicate {
+            op: PredicateOp::Gt,
+            value: ThresholdValue::Number(500.0),
+            ..exact
+        };
+        for text in ["1,000", " 1000 "] {
+            assert!(!numeric.matches(&MetricValue::Text { value: text.into() }));
+            assert!(text.trim().replace(',', "").parse::<f64>().unwrap() > 500.0);
+        }
+        for input in [
+            IMPORT.to_string(),
+            IMPORT.replace(
+                "labels: {interface: Interface}",
+                "labels: {interface: Interface}, alerts: []",
+            ),
+        ] {
+            let report = importer.import(&input);
+            assert!(report.diagnostics.is_empty(), "{:?}", report.diagnostics);
+            let draft = report.draft.unwrap();
+            assert!(repo.validate(&draft).valid);
+            let parsed: WidgetDocument = serde_yaml::from_str(&draft.widgets_yaml).unwrap();
+            assert!(parsed.widgets[0].alerts.is_empty());
+        }
+    }
+    #[test]
+    fn fix1_upstream_bgp_canonical_mappings_are_blocked_for_all_widget_ids() {
+        let root = tempfile::tempdir().unwrap();
+        let repo = repository(root.path());
+        let importer = UpstreamWidgetImporter::new(&repo, ConfigScope::Profile(Platform::Iosxe));
+        for id in ["bgp_peers", "copied_bgp", "unrelated_id"] {
+            for field in ["state", "prefixes_received"] {
+                for aliases in [
+                    "[STATE_OR_PREFIXES_RECEIVED]",
+                    "[NEIGHBOR_AS, state_or_prefixes_received]",
+                ] {
+                    let input=format!("widget: {id}\ncommands: {{cisco_ios: show ip bgp summary}}\ntemplates: {{cisco_ios: cisco_ios_show_ip_bgp_summary}}\nkey: neighbor\nfields: {{neighbor: [BGP_NEIGHBOR], {field}: {aliases}}}\nview: {{type: table, columns: [neighbor, {field}]}}\n");
+                    let report = importer.import(&input);
+                    assert!(
+                        report
+                            .diagnostics
+                            .iter()
+                            .any(|d| d.path == format!("fields.{field}")),
+                        "{id}/{field}: {:?}",
+                        report.diagnostics
+                    );
+                    let draft = report.draft.unwrap();
+                    assert!(draft.widgets_yaml.starts_with(&input));
+                    assert!(!repo.validate(&draft).valid);
+                }
+            }
+            let raw=format!("widget: {id}\ncommands: {{cisco_ios: show ip bgp summary}}\nkey: neighbor\nfields: {{neighbor: [BGP_NEIGHBOR], raw_state: [STATE_OR_PREFIXES_RECEIVED]}}\nview: {{type: table, columns: [neighbor, raw_state]}}\n");
+            assert!(importer.import(&raw).diagnostics.is_empty());
+            let custom = raw
+                .replace(
+                    "raw_state: [STATE_OR_PREFIXES_RECEIVED]",
+                    "state: [NEIGHBOR_AS]",
+                )
+                .replace("neighbor, raw_state", "neighbor, state");
+            assert!(importer.import(&custom).diagnostics.is_empty());
+        }
+    }
+    #[tokio::test]
+    async fn fix1_real_parser_native_copies_and_renames_preserve_canonical_finalization() {
+        let catalog = Catalog::builtin().unwrap();
+        let parser = TelemetryParser::new();
+        let asset = &catalog.templates["iosxe.show_ip_bgp_summary"];
+        let original = include_str!("../../../sidecar/tests/telemetry/fixtures/bgp_summary.raw");
+        let changed = original.replacen("00:20:06        7", "00:20:06        5", 1);
+        assert_ne!(changed, original);
+        let context = FrameContext {
+            workspace_id: "rename".into(),
+            target_id: "t".into(),
+            revision: "r".into(),
+            generation: 1,
+        };
+        let mut definition = catalog.widgets["bgp_peers"].clone();
+        definition.key = vec!["neighbor".into(), "state".into()];
+        definition.computes = BTreeMap::from([
+            ("state_number".into(), "state * 2".into()),
+            ("prefix_plus_one".into(), "prefixes_received + 1".into()),
+        ]);
+        definition.alerts = vec![
+            AlertPredicate {
+                field: "state".into(),
+                op: PredicateOp::Eq,
+                value: ThresholdValue::Text("Established".into()),
+                severity: ObservationSeverity::Alert,
+                message: "First canonical match".into(),
+            },
+            AlertPredicate {
+                field: "state".into(),
+                op: PredicateOp::Eq,
+                value: ThresholdValue::Text("Established".into()),
+                severity: ObservationSeverity::Warn,
+                message: "Later must not win".into(),
+            },
+        ];
+        let mut canonical = None;
+        for id in ["bgp_peers", "copied_bgp", "renamed_bgp"] {
+            definition.widget = id.into();
+            let mut frames = Vec::new();
+            for (index, raw) in [original, changed.as_str()].into_iter().enumerate() {
+                let capture = Capture {
+                    capture_id: format!("capture{index}"),
+                    target_id: "t".into(),
+                    platform: Platform::Iosxe,
+                    command: asset.command.clone(),
+                    parser_id: asset.id.clone(),
+                    revision: "r".into(),
+                    observed_at_ms: 1000 + index as i64 * 1000,
+                    monotonic_ms: 1000 + index as u64 * 1000,
+                    raw: raw.into(),
+                };
+                let records = parser
+                    .parse(&capture, asset, tokio_util::sync::CancellationToken::new())
+                    .await
+                    .unwrap();
+                let observed =
+                    ProtocolClassifier::normalize(&context, &definition, &capture, records, None);
+                assert_eq!(observed.state, CollectionState::Fresh);
+                assert_eq!(
+                    observed.rows[0].fields["state"],
+                    MetricValue::Text {
+                        value: "Established".into()
+                    },
+                    "{id}"
+                );
+                assert_eq!(observed.severity, ObservationSeverity::Alert);
+                assert!(matches!(
+                    observed.rows[0].fields["state_number"],
+                    MetricValue::Missing { .. }
+                ));
+                assert_eq!(
+                    observed.rows[0].fields["prefix_plus_one"],
+                    MetricValue::Number {
+                        value: if index == 0 { 8.0 } else { 6.0 }
+                    }
+                );
+                frames.push(observed);
+            }
+            assert_eq!(frames[0].rows[0].key, frames[1].rows[0].key);
+            let values = frames
+                .into_iter()
+                .map(|frame| (frame.rows, frame.units, frame.severity))
+                .collect::<Vec<_>>();
+            if let Some(expected) = &canonical {
+                assert_eq!(&values, expected, "{id}");
+            } else {
+                canonical = Some(values);
+            }
+        }
+        // A different parser ID has its own declared raw contract even with the same command/headers.
+        definition.widget = "bgp_peers".into();
+        let mut custom = asset.clone();
+        custom.id = "custom_summary".into();
+        if let WidgetSource::Ssh { templates, .. } = &mut definition.source {
+            templates.insert(Platform::Iosxe, custom.id.clone());
+        }
+        let capture = Capture {
+            capture_id: "custom".into(),
+            target_id: "t".into(),
+            platform: Platform::Iosxe,
+            command: custom.command.clone(),
+            parser_id: custom.id.clone(),
+            revision: "r".into(),
+            observed_at_ms: 1000,
+            monotonic_ms: 1000,
+            raw: original.into(),
+        };
+        let records = parser
+            .parse(
+                &capture,
+                &custom,
+                tokio_util::sync::CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let observed =
+            ProtocolClassifier::normalize(&context, &definition, &capture, records, None);
+        assert_eq!(
+            observed.rows[0].fields["state"],
+            MetricValue::Text { value: "7".into() }
+        );
         parser.shutdown().await.unwrap();
     }
 }
