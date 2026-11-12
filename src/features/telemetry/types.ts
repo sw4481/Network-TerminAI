@@ -97,6 +97,7 @@ export interface TemplateAsset {
   sha256: string;
 }
 export interface EffectiveConfig {
+  /** Content revision of these effective assets, independent of the global bundle. */
   revision: Revision;
   widgets: Array<WidgetDefinition>;
   layouts: Array<LayoutDefinition>;
@@ -137,6 +138,7 @@ export interface ConfigDraft {
   widgets_yaml: string;
   layouts_yaml: string;
   templates: Record<TemplateId, string>;
+  /** Global bundle authority, supplied separately from EffectiveConfig.revision. */
   expected_revision: Revision;
   reset_assets?: ResetAsset[];
 }
@@ -151,6 +153,7 @@ export interface ValidationReport {
 export interface PreviewToken {
   id: string;
   draft_hash: string;
+  /** Global bundle authority; captures and frames use effective source revisions. */
   base_revision: Revision;
   sample_hashes: Record<string, string>;
   expires_at_ms: number;
@@ -161,6 +164,7 @@ export interface PreviewReport {
   diagnostics: Array<Diagnostic>;
 }
 export interface ApplyResult {
+  /** Global published bundle authority, not an effective target revision. */
   revision: Revision;
   affected_targets: Array<TargetId>;
   masked_device_overrides: Array<TargetId>;

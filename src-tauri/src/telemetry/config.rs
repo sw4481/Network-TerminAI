@@ -153,14 +153,16 @@ impl TelemetryConfigRepository {
 
     pub fn effective(&self, target: &TargetRef) -> EffectiveConfig {
         let state = self.lock();
-        effective(
-            self.network_catalog(&state.overrides, target, true),
-            &state.revision,
-        )
+        effective(self.network_catalog(&state.overrides, target, true))
     }
     pub fn effective_local(&self) -> EffectiveConfig {
         let state = self.lock();
-        effective(self.local_catalog(&state.overrides), &state.revision)
+        effective(self.local_catalog(&state.overrides))
+    }
+
+    /// Global bundle authority for draft/token CAS, independent of source content revisions.
+    pub fn base_revision(&self) -> Revision {
+        self.lock().revision.clone()
     }
 
     pub fn validate(&self, draft: &ConfigDraft) -> ValidationReport {
@@ -279,10 +281,32 @@ impl TelemetryConfigRepository {
                 let catalog = self
                     .scoped_catalog(&state, &candidate, &draft.scope)
                     .map_err(|d| vec![d])?;
-                Ok((catalog, state.targets.clone()))
+                let mut source_revisions = BTreeMap::new();
+                for capture in &captures {
+                    if !source_revisions.contains_key(&capture.target_id) {
+                        if let Some(platform) = state.targets.get(&capture.target_id) {
+                            let target = TargetRef {
+                                connection_id: capture.target_id.clone(),
+                                platform: *platform,
+                            };
+                            source_revisions.insert(
+                                target.connection_id.clone(),
+                                effective(self.network_catalog(&state.overrides, &target, true))
+                                    .revision,
+                            );
+                        }
+                    }
+                }
+                let local_revision = effective(self.local_catalog(&state.overrides)).revision;
+                Ok((
+                    catalog,
+                    state.targets.clone(),
+                    source_revisions,
+                    local_revision,
+                ))
             })
         };
-        let (catalog, targets) = match prepared {
+        let (catalog, targets, source_revisions, local_revision) = match prepared {
             Ok(value) => value,
             Err(diagnostics) => {
                 report.diagnostics = diagnostics;
@@ -299,7 +323,7 @@ impl TelemetryConfigRepository {
         let mut budget = ByteBudget::default();
         let mut sample_hashes = BTreeMap::new();
         for capture in &captures {
-            if capture.revision != draft.expected_revision
+            if source_revisions.get(&capture.target_id) != Some(&capture.revision)
                 || capture.raw.len() > 2 * 1024 * 1024
                 || [&capture.capture_id, &capture.target_id, &capture.command, &capture.parser_id].iter().any(|id| id.is_empty() || id.len() > 512)
                 || capture.observed_at_ms < 0
@@ -431,7 +455,7 @@ impl TelemetryConfigRepository {
                         let context = FrameContext {
                             workspace_id: workspace_id.into(),
                             target_id: "local".into(),
-                            revision: draft.expected_revision.clone(),
+                            revision: local_revision.clone(),
                             generation,
                         };
                         let previous = baseline
@@ -509,7 +533,7 @@ impl TelemetryConfigRepository {
                         let context = FrameContext {
                             workspace_id: workspace_id.into(),
                             target_id: capture.target_id.clone(),
-                            revision: draft.expected_revision.clone(),
+                            revision: capture.revision.clone(),
                             generation,
                         };
                         let previous = baseline
@@ -1035,9 +1059,12 @@ fn merge(base: &mut Catalog, overlay: &Catalog) {
     base.layouts.extend(overlay.layouts.clone());
     base.templates.extend(overlay.templates.clone());
 }
-fn effective(catalog: Catalog, revision: &str) -> EffectiveConfig {
+fn effective(catalog: Catalog) -> EffectiveConfig {
+    let mut writer = HashWriter(Sha256::new());
+    serde_json::to_writer(&mut writer, &catalog)
+        .expect("validated asset catalogs serialize to JSON");
     EffectiveConfig {
-        revision: revision.into(),
+        revision: format!("{:x}", writer.0.finalize()),
         widgets: catalog.widgets.into_values().collect(),
         layouts: catalog.layouts.into_values().collect(),
         templates: catalog.templates,
@@ -1365,7 +1392,7 @@ mod tests {
             .unwrap(),
             layouts_yaml: "schema_version: 1\nlayouts: []".into(),
             templates: BTreeMap::new(),
-            expected_revision: repo.effective(&target("one")).revision,
+            expected_revision: repo.base_revision(),
             reset_assets: vec![],
         }
     }
@@ -1387,7 +1414,13 @@ mod tests {
     }
     async fn token(repo: &TelemetryConfigRepository, draft: &ConfigDraft) -> PreviewToken {
         let preview = repo
-            .preview("ws", 1, draft, captures(&draft.expected_revision), vec![])
+            .preview(
+                "ws",
+                1,
+                draft,
+                captures(&repo.effective(&target("one")).revision),
+                vec![],
+            )
             .await;
         assert!(preview.diagnostics.is_empty(), "{:?}", preview.diagnostics);
         preview.token.unwrap()
@@ -1449,6 +1482,8 @@ mod tests {
         repo.apply("ws", 1, device.clone(), token(&repo, &device).await)
             .unwrap();
         let profile = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Profile");
+        let masked_before = repo.effective(&target("one"));
+        let affected_before = repo.effective(&target("two"));
         let report = repo.validate(&profile);
         assert_eq!(report.affected_targets, vec!["two"]);
         assert_eq!(report.masked_device_overrides, vec!["one"]);
@@ -1458,6 +1493,14 @@ mod tests {
         assert_eq!(applied.affected_targets, vec!["two"]);
         assert_eq!(repo.effective(&target("one")).widgets[0].title, "Device");
         assert_eq!(repo.effective(&target("two")).widgets[0].title, "Profile");
+        assert_eq!(
+            repo.effective(&target("one")).revision,
+            masked_before.revision
+        );
+        assert_ne!(
+            repo.effective(&target("two")).revision,
+            affected_before.revision
+        );
         let loaded = repository(dir.path());
         assert_eq!(
             loaded.effective(&target("one")),
@@ -1588,14 +1631,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let repo = repository(dir.path());
         let draft = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Preview");
-        let samples = captures(&draft.expected_revision);
+        let samples = captures(&repo.effective(&target("one")).revision);
         let preview = repo.preview("ws", 1, &draft, samples.clone(), vec![]).await;
         assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
         let ctx = FrameContext {
             workspace_id: "ws".into(),
             generation: 1,
             target_id: "one".into(),
-            revision: draft.expected_revision.clone(),
+            revision: samples[0].revision.clone(),
         };
         let def = network("Preview");
         let asset = &builtin().templates["traffic"];
@@ -1637,7 +1680,7 @@ mod tests {
         let repo = repository(dir.path());
         let draft = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "A");
         let old = token(&repo, &draft).await;
-        let mut samples = captures(&draft.expected_revision);
+        let mut samples = captures(&repo.effective(&target("one")).revision);
         samples[1].raw = "Gi1 100\n".into();
         let newer = repo
             .preview("ws", 1, &draft, samples.clone(), vec![])
@@ -1716,7 +1759,13 @@ mod tests {
         .unwrap();
         assert!(repo.validate(&draft).valid);
         let preview = repo
-            .preview("ws", 1, &draft, captures(&draft.expected_revision), vec![])
+            .preview(
+                "ws",
+                1,
+                &draft,
+                captures(&repo.effective(&target("one")).revision),
+                vec![],
+            )
             .await;
         assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
         repo.parser.shutdown().await.unwrap();
@@ -1942,5 +1991,107 @@ mod tests {
             Arc::new(TelemetryParser::new())
         )
         .is_err());
+    }
+    fn local_fixture(repo: &TelemetryConfigRepository) -> (ConfigDraft, LocalSample) {
+        let mut draft = draft(repo, ConfigScope::Local, "Unused");
+        draft.widgets_yaml = "schema_version: 1\nwidgets: [{widget: cpu, title: CPU, source: {kind: local, collector: local.cpu}, interval: 2, key: [], fields: {usage: [usage]}, view: {type: stat, field: usage, aggregation: first, label: CPU}}]".into();
+        (
+            draft,
+            LocalSample {
+                observed_at_ms: 1,
+                monotonic_ms: 1,
+                diagnostics: vec![],
+                sources: BTreeMap::from([(
+                    "local.cpu".into(),
+                    vec![MetricRow {
+                        key: String::new(),
+                        fields: BTreeMap::from([(
+                            "usage".into(),
+                            MetricValue::Number { value: 5.0 },
+                        )]),
+                    }],
+                )]),
+            },
+        )
+    }
+    #[tokio::test]
+    async fn unrelated_scope_applies_preserve_effective_content_revisions() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = repository(dir.path());
+        let local_before = repo.effective_local();
+        let network = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Network");
+        repo.apply("ws", 1, network.clone(), token(&repo, &network).await)
+            .unwrap();
+        let local_after_network = repo.effective_local();
+        let network_before_local = repo.effective(&target("one"));
+        let (local, sample) = local_fixture(&repo);
+        let preview = repo
+            .preview("local_ws", 1, &local, vec![], vec![sample])
+            .await;
+        assert_eq!(preview.frames[0].revision, local_after_network.revision);
+        repo.apply("local_ws", 1, local, preview.token.unwrap())
+            .unwrap();
+        assert_eq!(local_after_network, local_before);
+        assert_eq!(repo.effective(&target("one")), network_before_local);
+        repo.parser.shutdown().await.unwrap();
+    }
+    #[tokio::test]
+    async fn preview_uses_source_content_revision_and_global_grant_authority() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = repository(dir.path());
+        let source_revision = {
+            let state = repo.lock();
+            bounded_hash(&repo.network_catalog(&state.overrides, &target("one"), true)).unwrap()
+        };
+        let mut network = draft(&repo, ConfigScope::Profile(Platform::Iosxe), "Network");
+        let samples = captures(&source_revision);
+        assert!(repo
+            .preview(
+                "ws",
+                1,
+                &network,
+                captures(&network.expected_revision),
+                vec![]
+            )
+            .await
+            .token
+            .is_none());
+        let preview = repo
+            .preview("ws", 1, &network, samples.clone(), vec![])
+            .await;
+        assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
+        assert!(preview
+            .frames
+            .iter()
+            .all(|frame| frame.revision == source_revision));
+        let old_token = preview.token.unwrap();
+        assert_eq!(old_token.base_revision, network.expected_revision);
+        let (local, sample) = local_fixture(&repo);
+        let local_preview = repo
+            .preview("local_ws", 1, &local, vec![], vec![sample])
+            .await;
+        repo.apply("local_ws", 1, local, local_preview.token.unwrap())
+            .unwrap();
+        assert!(repo.apply("ws", 1, network.clone(), old_token).is_err());
+        network.expected_revision = repo.base_revision();
+        let refreshed = repo
+            .preview("ws", 1, &network, samples.clone(), vec![])
+            .await;
+        assert!(refreshed.token.is_some(), "{:?}", refreshed.diagnostics);
+        repo.apply("ws", 1, network.clone(), refreshed.token.unwrap())
+            .unwrap();
+        network.expected_revision = repo.base_revision();
+        assert!(repo
+            .preview("ws", 1, &network, samples, vec![])
+            .await
+            .token
+            .is_none());
+        let fresh = captures(&repo.effective(&target("one")).revision);
+        assert!(repo
+            .preview("ws", 1, &network, fresh, vec![])
+            .await
+            .token
+            .is_some());
+        repo.parser.shutdown().await.unwrap();
     }
 }

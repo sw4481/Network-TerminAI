@@ -265,12 +265,6 @@ impl FrameNormalizer {
                                 value: counter.to_string(),
                             };
                         }
-                    } else if definition.alerts.iter().any(|alert| {
-                        &alert.field == name && matches!(alert.value, ThresholdValue::Number(_))
-                    }) {
-                        if let Some(numeric) = number(&value) {
-                            value = MetricValue::Number { value: numeric };
-                        }
                     }
                 }
                 fields.insert(name.clone(), value);
@@ -568,7 +562,9 @@ mod tests {
         assert_ne!(frame.rows[0].key, frame.rows[1].key);
         assert_eq!(
             frame.rows[0].fields["usage"],
-            MetricValue::Number { value: 12.5 }
+            MetricValue::Text {
+                value: "12.5".into()
+            }
         );
         assert_eq!(frame.severity, ObservationSeverity::Warn);
         input.sources.get_mut("local.network").unwrap()[0]
@@ -647,6 +643,52 @@ mod tests {
         assert_eq!(
             frame.rows[0].fields["bytes"],
             MetricValue::Unsigned { value: "4".into() }
+        );
+    }
+    #[test]
+    fn counter_transform_alerts_keep_counter_and_key_identity_and_first_match() {
+        let mut def = definition();
+        let first = AlertPredicate {
+            field: "bytes".into(),
+            op: PredicateOp::Gt,
+            value: ThresholdValue::Number(100.0),
+            severity: ObservationSeverity::Warn,
+            message: "First counter alert".into(),
+        };
+        def.alerts = vec![
+            first.clone(),
+            AlertPredicate {
+                severity: ObservationSeverity::Alert,
+                message: "Later counter alert".into(),
+                ..first
+            },
+        ];
+        let frame = FrameNormalizer::local(&context(), &def, &sample(101, 1000), None);
+        assert_eq!(frame.severity, ObservationSeverity::Warn);
+        assert_eq!(
+            frame.rows[0].fields["bytes"],
+            MetricValue::Unsigned {
+                value: "101".into()
+            }
+        );
+        assert_eq!(
+            def.first_alert(&frame.rows[0].fields).unwrap().message,
+            "First counter alert"
+        );
+        def.key.push("bytes".into());
+        let frame = FrameNormalizer::local(&context(), &def, &sample(101, 1000), None);
+        assert_eq!(frame.severity, ObservationSeverity::Warn);
+        assert_eq!(
+            frame.rows[0].fields["bytes"],
+            MetricValue::Text {
+                value: "101".into()
+            }
+        );
+        assert_eq!(
+            frame.rows[0].fields["interface"],
+            MetricValue::Text {
+                value: "001".into()
+            }
         );
     }
 }

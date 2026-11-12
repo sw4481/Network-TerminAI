@@ -191,6 +191,7 @@ pub struct TemplateAsset {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EffectiveConfig {
+    /// Content revision of these effective assets, independent of the global bundle.
     pub revision: Revision,
     pub widgets: Vec<WidgetDefinition>,
     pub layouts: Vec<LayoutDefinition>,
@@ -250,6 +251,7 @@ pub struct ConfigDraft {
     pub widgets_yaml: String,
     pub layouts_yaml: String,
     pub templates: BTreeMap<TemplateId, String>,
+    /// Global authority from TelemetryConfigRepository::base_revision().
     pub expected_revision: Revision,
     #[serde(default)]
     pub reset_assets: Vec<ResetAsset>,
@@ -278,6 +280,7 @@ pub struct ValidationReport {
 pub struct PreviewToken {
     pub id: String,
     pub draft_hash: String,
+    /// Global bundle authority; captures and frames use effective source revisions.
     pub base_revision: Revision,
     pub sample_hashes: BTreeMap<String, String>,
     pub expires_at_ms: i64,
@@ -294,6 +297,7 @@ pub struct PreviewReport {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApplyResult {
+    /// Global published bundle authority, not a target's effective content revision.
     pub revision: Revision,
     pub affected_targets: Vec<TargetId>,
     pub masked_device_overrides: Vec<TargetId>,
@@ -523,10 +527,8 @@ impl AlertPredicate {
     pub fn matches(&self, value: &MetricValue) -> bool {
         use std::cmp::Ordering;
         let order = match (&self.value, value) {
-            (ThresholdValue::Number(a), MetricValue::Number { value: b })
-                if a.is_finite() && b.is_finite() =>
-            {
-                b.partial_cmp(a)
+            (ThresholdValue::Number(threshold), value) if threshold.is_finite() => {
+                Self::numeric_order(value, *threshold)
             }
             (ThresholdValue::Bool(a), MetricValue::Bool { value: b }) => Some(b.cmp(a)),
             (ThresholdValue::Text(a), MetricValue::Text { value: b }) => Some(b.cmp(a)),
@@ -540,6 +542,39 @@ impl AlertPredicate {
             | (PredicateOp::Lt, Some(Ordering::Less))
             | (PredicateOp::Le, Some(Ordering::Equal | Ordering::Less)) => true,
             _ => false,
+        }
+    }
+
+    fn numeric_order(value: &MetricValue, threshold: f64) -> Option<std::cmp::Ordering> {
+        use std::cmp::Ordering;
+        // u64::MAX rounds to 2^64 as f64; keep the counter integral for comparisons.
+        let unsigned_order = |counter: u64| {
+            if threshold < 0.0 {
+                Ordering::Greater
+            } else if threshold >= u64::MAX as f64 {
+                Ordering::Less
+            } else {
+                let order = counter.cmp(&(threshold as u64));
+                if order == Ordering::Equal && threshold.fract() > 0.0 {
+                    Ordering::Less
+                } else {
+                    order
+                }
+            }
+        };
+        match value {
+            MetricValue::Unsigned { value } => value.parse::<u64>().ok().map(unsigned_order),
+            MetricValue::Text { value } => {
+                value.parse::<u64>().ok().map(unsigned_order).or_else(|| {
+                    value
+                        .parse::<f64>()
+                        .ok()
+                        .filter(|v| v.is_finite())
+                        .and_then(|v| v.partial_cmp(&threshold))
+                })
+            }
+            MetricValue::Number { value } if value.is_finite() => value.partial_cmp(&threshold),
+            _ => None,
         }
     }
 }
@@ -662,6 +697,37 @@ mod tests {
         ];
         assert_ne!(rows[0].key, rows[1].key);
         assert!(MetricRow::from_fields(BTreeMap::new(), &key).is_err());
+    }
+    #[test]
+    fn numeric_predicates_use_counter_views_without_rounding_u64_boundaries() {
+        let predicate = |op, threshold| AlertPredicate {
+            field: "bytes".into(),
+            op,
+            value: ThresholdValue::Number(threshold),
+            severity: ObservationSeverity::Warn,
+            message: "Counter".into(),
+        };
+        let largest = MetricValue::Unsigned {
+            value: u64::MAX.to_string(),
+        };
+        assert!(predicate(PredicateOp::Lt, 18446744073709551616.0).matches(&largest));
+        assert!(!predicate(PredicateOp::Eq, 18446744073709551616.0).matches(&largest));
+        assert!(
+            predicate(PredicateOp::Gt, 100.0).matches(&MetricValue::Unsigned {
+                value: "101".into()
+            })
+        );
+        assert!(
+            predicate(PredicateOp::Gt, 100.0).matches(&MetricValue::Text {
+                value: "00101".into()
+            })
+        );
+        assert!(
+            predicate(PredicateOp::Lt, 1.5).matches(&MetricValue::Unsigned { value: "1".into() })
+        );
+        assert!(
+            predicate(PredicateOp::Gt, -0.5).matches(&MetricValue::Unsigned { value: "0".into() })
+        );
     }
 }
 
