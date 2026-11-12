@@ -1,0 +1,278 @@
+# Telemetry Workspace Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build the approved native, read-only Fleet/Device/Local PC dashboard and YAML/TextFSM widget studio for ten IOS/IOS-XE targets and local macOS/Windows/Linux monitoring.
+
+**Architecture:** One telemetry-owned Rust service owns configuration revisions, local collection, saved-target SSH sessions, bounded parser workers, scheduling and one-hour memory history. A feature-local React workspace uses existing tabs, Zustand, Recharts and Monaco/YAML patterns. Reuse dependencies and narrow identity/parsing helpers; do not turn topology, Canvas or the shared AI sidecar into a polling backend.
+
+**Tech Stack:** Existing React 19/TypeScript, Tauri 2, Tokio, russh 0.60.2 (locked), serde_yaml, TextFSM/ntc-templates, Monaco/monaco-yaml, Recharts 3.3.0, Vitest/Pytest/Cargo. Proposed sole new runtime dependency: Rust `sysinfo = "=0.39.6"`, default features disabled, features `system,disk,network`; see verified toolchain compatibility below.
+
+**Spec:** `docs/superpowers/specs/2026-11-11-telemetry-workspace-design.md` — approved by Shaun; read both documents before execution.
+
+## Global Constraints
+
+- “Local macOS, Windows and Linux; initial network scope Cisco IOS/IOS-XE.”
+- “Fleet, Device, Local PC and Widgets authoring workspace.”
+- “Design and acceptance baseline: 10 simultaneous network targets.”
+- “Read-only; saved SSH connections for network devices, built-in OS collectors for the local PC.”
+- “No AI/model, external monitoring server or remote PC agent required.”
+- “Rolling one hour in memory; no history across tab close/app exit.”
+- “Explicit Start/Stop; continues across view/tab switches; stops on closing Telemetry or quitting.”
+- “Configuration precedence is bundled defaults → user platform profile → explicit device override.”
+- “Validate → Preview → Apply”; invalid drafts preserve the effective definition. Editing does not execute commands.
+- “Full upstream compatibility is not promised.” Import diagnostics must identify unsupported behavior.
+- Default intervals: local 2s; network 30s; selected interface 5s; inventory 60s.
+- Use existing object/service conventions and React functional components. No general plugin framework, unrelated refactors, device configuration, auto-remediation, external notifications, graph database, new chart/editor library or production mock-data fallback.
+- Preserve current dirty `Plans/Mistakes.MD` and `.playwright-mcp/`. Before each task read the relevant ledger entries and current status. Commit only owned files. No push, deployment, app replacement or remote-device changes implied by this plan.
+
+## Review Focus
+
+1. An editor reply arriving after a newer draft/profile selection must never validate or apply the wrong revision — Tasks 4/11 test out-of-order replies and stale tokens.
+2. Windows parser/SSH cleanup must work without Unix process groups or Genie wheels — Tasks 3/6/12 test the standalone worker and native transport on Windows.
+3. An empty neighbor table does not establish that no peers are configured — Task 7 tests supported-empty, parse failure, unconfigured and expected-state distinctions.
+4. A background tab, removed target or resumed laptop must not leave hidden polling or backfill fabricated traffic — Tasks 8/9 test ownership, generation fencing and sleep gaps.
+5. A shared Monaco YAML singleton must not apply widget schemas to playbooks or other YAML files — Task 11 opens both editors in both mount orders.
+
+## Evidence, decisions and execution gates
+
+Planning baseline: local `037910fd` (approved design commit), application source still at its preceding baseline. Graphify queries identified actual producers/callers; direct source reads confirmed the following. Graph queries can be truncated and are navigation, not proof of a complete call graph. Root code graph before this plan: 47,301 nodes / 152,352 edges. SQL coverage is absent because `tree_sitter_sql` is not installed. Do not infer schema absence from that gap.
+
+| Verified existing location | Finding and surgical consequence |
+| --- | --- |
+| `src/lib/types.ts:1`, `src/App.tsx:1360–1380,1540–1557`, `src/components/TabBar.tsx:1–100,290–347` | Explicit tab union, creation, hidden-but-mounted body and close dispatch must all be reached. Telemetry close must await backend ownership cleanup before `removeTab`. |
+| `src/state/tabsStore.ts`, `src/lib/sessionRestore.ts`, `src-tauri/src/session.rs` | Frontend-only special tabs are not normal restorable terminals. Follow that pattern; closing/reopening starts a new stopped workspace. Do not add a DB migration or terminal session restore behavior. |
+| `src-tauri/src/commands/mod.rs:367–595`, `src-tauri/src/lib.rs`, `src-tauri/src/app_lifecycle.rs:334–370`, `src/lib/appShutdown.ts` | AppState service ownership, invoke registration, frontend shutdown acknowledgements and final native cleanup already exist. Integrate telemetry at these seams. |
+| `src-tauri/src/ssh_exec/mod.rs:68–110,130–205` | Password resolver excludes saved `identity_file`; generic execution uses `StrictHostKeyChecking=no` and is one-shot. Reuse decryption/read helpers where sufficient; do not call this executor from telemetry or change its legacy behavior. |
+| `src-tauri/src/commands/ssh.rs:21–39`, `src-tauri/src/fanout/worker_live.rs`, `src-tauri/src/netconf_runner/transport.rs` | Saved records include identity files. Existing russh callers demonstrate APIs but accept all keys. Telemetry requires its own verified-host handler and saved password/key resolution. |
+| `src-tauri/src/topology/discovery_transport.rs:1–95`, `src-tauri/src/topology/snmp.rs:383–470` | Good owned worker/deadline patterns and bundled Python resolution; transport is Unix-only. Do not extract/refactor its lifecycle into a new shared framework. Implement the smaller cross-platform telemetry owner. |
+| `src-tauri/src/parsers/bridge.rs`, `sidecar/src/ccie_sidecar/parsers/{textfsm_adapter,genie_adapter}.py` | Shared bridge is AI-sidecar-backed; adapter aliases IOS-XE to `cisco_ios` and rejects zero rows. Reuse installed TextFSM assets and mapping knowledge, not its zero-row behavior or shared serial runtime. |
+| `src/features/troubleshoot/PlaybookEditor{,Monaco}.tsx`, `playbook-validate.ts` | Existing import/export/dialog/diagnostic patterns. YAML configuration is singleton/global with `fileMatch:["*"]`; targeted shared schema registration is the one justified adjacent edit. |
+| `src/components/canvas/CanvasChart.tsx`, `package.json`, `vite.config.ts` | Recharts and theme-aware examples already installed; Canvas requires evidence snapshots. Use Recharts directly for telemetry without changing Canvas contracts. Vitest is configured through Vite, not a separate vitest.config.ts. |
+| `src-tauri/Cargo.toml`, `rust-toolchain.toml`, `.github/workflows/{ci,release}.yml` | russh, Tokio and serde_yaml installed; Rust pinned 1.97.0. sysinfo 0.39.6 declares Rust 1.95, so the documented floor fits. Compile/platform behavior still needs verification. |
+| `e2e/browser/{playwright.config.ts,vite.config.ts,transport.ts}` | Existing Canvas surrogate has Canvas-only guards and testMatch; add a telemetry-specific harness instead of pretending this config already runs telemetry. |
+
+**External documentation checked:** [sysinfo 0.39.6 manifest](https://github.com/GuillaumeGomez/sysinfo/blob/v0.39.6/Cargo.toml) and [README](https://github.com/GuillaumeGomez/sysinfo/blob/v0.39.6/README.md) (Context7 plus primary source); [russh 0.60 exec example](https://github.com/eugeny/russh/blob/v0.60.0/russh/examples/client_exec_simple.rs) (Context7 current examples have API drift, use installed 0.60.2 source); [monaco-yaml 5.5.0 README](https://github.com/remcohaszing/monaco-yaml/blob/v5.5.0/README.md) (one configured instance, URI-scoped schemas). No docs lookup proves a working lab collector.
+
+**Hard evidence gates:** Task 1 needs authorized saved IOS/IOS-XE targets, their actual releases/features and access to real macOS/Windows/Linux app environments. Missing access is recorded as OPEN, never replaced by synthetic success. Planning does not authorize querying devices now. Never weaken host verification, choose imaginary CLI output or silently omit an agreed panel to pass a gate.
+
+One cohesive plan is appropriate: editor, collectors, lifecycle and views share configuration/sample contracts. Task 5 produces the first useful local collector; Tasks 6–8 add network monitoring; Tasks 9–11 integrate the UI. No slice is called complete delivery until Task 12 covers the full approved scope.
+
+## File ownership map
+
+New files listed below are proposed, not claims of existing APIs. Put tests beside the owned module or in the named existing test roots.
+
+| Responsibility | New files |
+| --- | --- |
+| Wire types, validation/policy | `src-tauri/src/telemetry/{mod,model,definition,policy}.rs`; `src/features/telemetry/{types.ts,widget-schema.json}` |
+| Parser process and template tests | `src-tauri/src/telemetry/parser.rs`; `sidecar/src/ccie_sidecar/telemetry/{__init__,worker}.py`; `sidecar/tests/telemetry/{test_worker,test_templates}.py` |
+| Effective definitions and persistence | `src-tauri/src/telemetry/config.rs` |
+| Local host metrics | `src-tauri/src/telemetry/local.rs` |
+| Saved SSH capture | `src-tauri/src/telemetry/ssh.rs` |
+| Bundled profiles/templates and import adapter | `src-tauri/src/telemetry/catalog.rs`; `src-tauri/telemetry/{catalog.json,widgets.yaml,layouts.yaml}`; new independent `.textfsm` assets only for demonstrated gaps |
+| Scheduling, counters/history | `src-tauri/src/telemetry/{service,history}.rs` |
+| IPC and frontend owner | `src-tauri/src/commands/telemetry.rs`; `src/features/telemetry/{api,store}.ts`; `TelemetryTab.tsx` |
+| Dashboard renderer | `src/features/telemetry/{FleetView,DeviceView,LocalPcView,WidgetPanel,TelemetryChart}.tsx`; `telemetry.css` |
+| Authoring | `src/features/telemetry/{WidgetStudio,TemplateEditor}.tsx`; `src/components/editor/yamlSchemaRegistry.ts` |
+| Evidence/browser acceptance | `docs/telemetry/{validation,widgets}.md`; `e2e/telemetry/{playwright.config,vite.config,transport}.ts`; `e2e/tests/telemetry.spec.ts` |
+
+Modify only the existing paths named by a task. No source-tree reorganization. `src-tauri/telemetry` assets are compiled with `include_str!`/`include_bytes!`, avoiding a new runtime resource search path; Python worker lives in the existing sidecar package. Persist user assets beneath the existing app-data directory's new `telemetry/` child, outside the credential DB.
+
+## Shared contracts fixed by this plan
+
+Rust types in `model.rs` and matching TypeScript types in `types.ts` use snake_case wire names:
+
+- `TargetId = String`; `WorkspaceId = String` (tab UUID); `Revision = String` (SHA-256 of canonical validated bundle); `Generation = u64` (changes at Start/Stop/remove/reconfigure).
+- `TargetRef { connection_id: String, platform: Platform }`; `Platform = ios | iosxe`; local target ID is the reserved `local`, not an SSH connection.
+- `CollectionState = stopped | collecting | fresh | stale | unsupported | not_configured | failed`; `ObservationSeverity = info | ok | warn | alert`. Connection failure does not equal physical device-down.
+- `Capture { capture_id, target_id, platform, command, parser_id, revision, observed_at_ms:i64, monotonic_ms:u64, raw:String }`. Raw text is bounded/private to workspace; it is never an event payload or log field.
+- `MetricValue = Unsigned{value:String} | Number{value:f64} | Text{value:String} | Bool{value:bool} | Missing{reason:String}` (tagged wire enum). Integer counters stay decimal strings; do not round u64 through JavaScript before calculating deltas in Rust. `MetricRow { key:String, fields:BTreeMap<String,MetricValue> }`.
+- `WidgetFrame { workspace_id, target_id, widget_id, revision, generation, observed_at_ms, last_success_at_ms:Option<i64>, state, severity, units, rows:Vec<MetricRow>, diagnostics:Vec<Diagnostic> }`. `Diagnostic { code, message, path, line:Option<u32>, column:Option<u32> }`, with no credentials.
+- `TargetStatus { target_id, display_name, platform:Option<Platform>, state:CollectionState, last_success_at_ms:Option<i64>, diagnostics }`; `WidgetSummary` carries WidgetFrame metadata but replaces rows with `row_count:u32`. `SeriesSummary { target_id, widget_id, row_key, field, unit, point_count:u32 }`.
+- `TelemetrySnapshot { workspace_id, generation, sequence:u64, running:bool, targets:Vec<TargetStatus>, widgets:Vec<WidgetSummary>, series:Vec<SeriesSummary>, diagnostics }`. It contains summaries, not raw captures, full tables or hourly histories; numeric history contains gaps, not invented zeroes.
+- `TemplateId = String`; `TemplateAsset { id:TemplateId, platform:Platform, command:String, text:String, sha256:String }`; `EffectiveConfig { revision:Revision, widgets:Vec<WidgetDefinition>, layouts:Vec<LayoutDefinition>, templates:BTreeMap<TemplateId,TemplateAsset> }`. Define Catalog as an asset map of these definitions in Task2; Task7 supplies its built-in contents.
+- `SeriesQuery { workspace_id, target_id, widget_id, row_key, field, after_ms:Option<i64>, limit:u32 }`; `SeriesPage { points:Vec<SeriesPoint>, next_after_ms:Option<i64> }`; `SeriesPoint { at_ms:i64, value:Option<f64>, reason:Option<String> }`. `WidgetQuery { workspace_id, target_id, widget_id, offset:u32, limit:u32 }`; `WidgetPage { metadata:WidgetSummary, rows:Vec<MetricRow>, next_offset:Option<u32> }`. Max1000 rows/points per page.
+- `ConfigDraft { scope:Profile(Platform)|Device(connection_id), widgets_yaml:String, layouts_yaml:String, templates:BTreeMap<TemplateId,String>, expected_revision:Revision }`.
+- `ValidationReport { valid:bool, draft_hash:String, diagnostics, affected_targets:Vec<TargetId> }`; `PreviewToken { draft_hash, base_revision, sample_hashes, expires_at_ms }`; `PreviewReport { token:Option<PreviewToken>, frames, diagnostics }`; `ApplyResult { revision, affected_targets }`.
+- `StartRequest { workspace_id, targets:Vec<TargetRef>, local_enabled:bool, monitored_interfaces:BTreeMap<TargetId,Vec<String>> }`. Default local-enabled true, but Start remains explicit; no collection begins when merely opening the tab/editor.
+
+Authoritative YAML envelopes are `{schema_version:1, widgets:[WidgetDefinition...]}` and `{schema_version:1, layouts:[LayoutDefinition...]}`. A widget has `widget,title,source,interval,key,fields,view` and optional `rates,deltas,computes,alerts,history`; source is tagged `kind:local` with `collector` or `kind:ssh` with platform `commands` and `templates`. `fields` maps output names to ordered alias arrays; `key` is an array of field names. View `type` is table/kv/stat/chart with explicitly typed columns/labels/aggregation/series configuration. Layout has `layout,platforms,sections`, each section `id,title,rows`; a row contains `{widget,span}` entries. Unknown keys fail rather than disappear. Task2 must encode those exact keys and their typed variants in Rust/JSON schema; Task7's importer translates upstream differences before validation.
+
+`FrameContext { workspace_id,target_id,revision,generation }` is supplied by the service, never the worker or UI. `LocalSample { observed_at_ms,monotonic_ms,sources:BTreeMap<String,Vec<MetricRow>>,diagnostics }` contains source data without a workspace identity. `CaptureRequest { command:AdmittedCommand, parser_id:TemplateId, revision:Revision }` binds admitted CLI work to its parser revision.
+
+**Engineering limits to implement/test:** max 10 network targets per workspace; one admitted network command per target, at most 4 target commands in flight globally; 2 parser workers; connect/auth 10s, command 10s, parse 3s; cleanup budget 3s within existing 8s app shutdown; YAML 256KiB/document, template 64KiB, capture 2MiB, 10,000 rows/frame; network interval 5–3600s, local 1–3600s; preview token 5min. Cap history at 3600s plus one boundary sample, 512 numeric series and 64MiB/workspace including latest tables/raw captures. Refuse additional admissions with visible limit diagnostics rather than silently truncate live facts. UI renders at most 600 gap-preserving/min-max chart points but exact retained values stay available through a paged table. Use the installed virtual table dependency for large tables. Auth/host-key failures suspend automatic retry until explicit retry/config correction; transport backoff 5/15/30/60s capped at60, reset after success. Stale after max(3×scheduled interval,15s).
+
+### Task 1: Establish the device/platform feasibility record
+
+**Files:** Create `docs/telemetry/validation.md`; read the approved spec, installed templates and existing source from the evidence table. No product code.
+
+**Interfaces:** Consumes approved panel/source requirements. Produces a checked evidence matrix with `platform, release, feature, command, template, capture_path, outcome, ssh_channel_mode`, plus explicit OPEN gates.
+
+- [ ] **Step 1:** Record available authorized IOS/IOS-XE targets and actual desktop test environments; do not read credential files or choose substitute devices. Record unavailable inputs as OPEN.
+- [ ] **Step 2:** On authorized targets during execution, capture the required read-only commands and test SSH exec-channel support, output framing/pagination and prompt/privilege requirements. Distinguish session-only pagination control from persistent device configuration; do not send configuration commands.
+- [ ] **Step 3:** Record whether exec channels suffice. If a target rejects exec, capture the actual rejection and implement a telemetry-owned shell-channel collector only for that demonstrated mode in Task 6. Do not invent a generic terminal-emulation fallback. If supported read-only collection cannot be established, stop network execution at this gate and bring the evidence back to Shaun.
+- [ ] **Step 4:** Enumerate installed `ntc_templates` assets via package location; record parser field names and real sample coverage, including empty and multi-VRF output. Synthetic fixtures must say synthetic and never close this gate.
+- [ ] **Step 5:** Commit only the evidence document and sanitized explicitly approved captures. Expected result: each required panel has either a demonstrated command/template path or an OPEN/FAILED row with evidence. No “all supported” assertion based on filenames.
+
+### Task 2: Define and validate widgets, layouts and safe source bindings
+
+**Files:** Create `telemetry/{mod,model,definition,policy}.rs`, `src/features/telemetry/{types.ts,widget-schema.json}`; module-local Rust tests. Modify `src-tauri/src/lib.rs` only to register the module.
+
+**Interfaces:** Produces `DefinitionValidator::validate(&self, draft:&ConfigDraft, catalog:&Catalog) -> ValidationReport` and `CommandPolicy::admit(platform:Platform, command:&str) -> Result<AdmittedCommand,Diagnostic>`. `AdmittedCommand` has private fields and exposes `as_str()`; transport accepts this type, never raw UI text. `Catalog` is the validated built-in/user asset map consumed by later tasks.
+
+- [ ] **Step 1:** Add failing tests `schema_rejects_duplicate_keys_unknown_fields_and_references`, `policy_rejects_write_shell_and_expensive_unadmitted_show`, `counter_wire_roundtrip_preserves_u64`, `composite_key_keeps_vrf_and_interface`. Assert duplicate title keys fail; `show tech-support`, `show x; reload`, multiline input, shell pipes and `py:` hooks are rejected; `18446744073709551615` survives as a counter string; repeated neighbor IDs in different VRFs remain separate.
+
+  Required assertion form: `assert!(CommandPolicy::admit(Platform::Iosxe, "show tech-support").is_err());` and `assert_ne!(rows[0].key, rows[1].key);` for equal neighbor IDs with different VRFs.
+- [ ] **Step 2:** Run `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::definition` and `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::policy`; first run must fail for the missing implementation, not a fixture/import mistake.
+- [ ] **Step 3:** Implement schema version1 using typed serde structures and `serde_yaml`, deny unknown keys and duplicate mappings, reject YAML aliases/custom tags and excessive nesting (max32) before constructing the typed document. Local sources are enumerated collector IDs, not commands. Define table/kv/stat/chart views; field aliases, composite keys, numeric rates/deltas, bounded arithmetic AST (operators +,-,*,/, unary signs and numeric literals/field references only), ordered threshold predicates. Max64 AST nodes/expression; missing/nonfinite/divide-by-zero produces a diagnostic/gap, never code execution.
+- [ ] **Step 4:** Admit exact command families established in Task1, with parsed/validated interface/VRF arguments and explicit output costs. Known families below are a seed, not universal platform proof. Bind every definition to a source/template and check layout references and interval bounds. Publish matching JSON schema for editor hints; Rust validation is authoritative.
+- [ ] **Step 5:** Rerun the focused tests and `bunx tsc --project tsconfig.build.json --noEmit`. Commit the types/schema/policy slice only.
+
+### Task 3: Isolate TextFSM parsing and template tests from the AI runtime
+
+**Files:** Create `telemetry/parser.rs`, Python `telemetry/{__init__,worker}.py`, `sidecar/tests/telemetry/test_worker.py`; add direct `textfsm` declaration to `sidecar/pyproject.toml` only if needed by dependency ownership, lock the already-installed resolved version in `sidecar/uv.lock`. No `server.py` dispatch or AgentBridge change.
+
+**Interfaces:** `TelemetryParser::parse(&self, capture:&Capture, template:&TemplateAsset, cancel:CancellationToken) -> Result<Vec<MetricRow>,Diagnostic>`; `test_template(&self,capture:&Capture,template:&TemplateAsset,cancel:CancellationToken)->Result<Vec<MetricRow>,Diagnostic>` uses the same bounded path. Python `TelemetryParserWorker.handle(request:dict)->dict` accepts only `parse` with request ID, capture metadata, raw text and template text; returns normalized headers/records or diagnostic JSON. No subprocess/import hook supplied by YAML.
+
+- [ ] **Step 1:** Write `test_worker_parses_textfsm_without_server_startup`, `test_zero_records_are_not_automatically_unsupported`, `test_bad_template_and_oversize_input`, and Rust `parser_timeout_cancel_and_shutdown_reap_owned_worker`. Assert no `ccie_sidecar.server` import/startup, valid empty results distinguish from mismatched samples, bad regex terminates within parse deadline, canceled replies cannot enter a later revision.
+
+  Required assertions: `assert "ccie_sidecar.server" not in sys.modules`; `assert records == []` for a valid matched capture with no data rows; `assert!(owned_worker_exited)` after cancel/deadline (a test-observed process status, not a dropped-future assumption).
+- [ ] **Step 2:** Run `sidecar/.venv/bin/pytest -q sidecar/tests/telemetry/test_worker.py` and `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::parser`; record genuine initial failures.
+- [ ] **Step 3:** Use installed `textfsm.TextFSM` over supplied template text and existing NTC assets; normalize field headers without guessing aliases. Rust owns at most two lazy dedicated Python workers, resolves packaged Python via existing `bundled_python_path()`/development-source pattern, and exchanges bounded NDJSON with matched request IDs. Worker processes do no child spawning, networking, local YAML execution or AI initialization.
+- [ ] **Step 4:** On timeout/cancel/protocol overflow terminate and await the owned worker on all three OSes, then lazily replace it; do not assume dropping a future kills a process. Include isolated environment/startup tests and a packaged-module smoke test. Do not borrow Unix-only DiscoveryProcesses.
+- [ ] **Step 5:** Run the focused tests and packaged import smoke; commit only parser/worker files and any necessary declared dependency/lock change.
+
+### Task 4: Persist validated overrides and apply complete revisions atomically
+
+**Files:** Create `telemetry/config.rs`, module-local config tests; temporary test roots only, never user's app-data config.
+
+**Interfaces:** `TelemetryConfigRepository::load(root:PathBuf,builtin:Catalog)->Result<Self,Diagnostic>`, `effective(target:&TargetRef)->EffectiveConfig`, `validate(draft:&ConfigDraft)->ValidationReport`, async `preview(draft:&ConfigDraft,samples:Vec<Capture>)->PreviewReport`, `apply(draft:ConfigDraft,token:PreviewToken)->Result<ApplyResult,Diagnostic>`. Repository exposes immutable revision snapshots, not mutable shared maps.
+
+- [ ] **Step 1:** Write `invalid_draft_keeps_effective_revision`, `stale_preview_token_cannot_apply`, `profile_override_precedence_and_affected_targets`, `atomic_save_failure_keeps_old_bundle`, `reset_loads_draft_without_applying`, `external_import_never_hot_applies`. Assert profile→device precedence, a draft/title/template/sample change invalidates tokens, missing fixtures block Preview, disk-write failure leaves both effective revision and durable pointer unchanged.
+
+  Required assertions: `assert!(!report.valid); assert_eq!(repo.effective(&target).revision, before);` and `assert!(repo.apply(changed_draft, old_token).is_err());` using temporary config roots and a deliberately changed draft hash.
+- [ ] **Step 2:** Run `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::config`; observe the missing behaviors fail.
+- [ ] **Step 3:** Persist content-addressed revision bundles beneath app-data `telemetry/revisions/<sha>/` and atomically advance a small current-revision pointer only after all definitions/layout/templates validate and write. Use existing atomic-write pattern discovered at execution; on Windows test replacement semantics rather than assuming Unix rename overwrite. Never mutate bundled assets. Ignore incomplete unreferenced revision directories on load; no automatic deletion/garbage collector in this scope.
+- [ ] **Step 4:** Preview validates source/platform/command/template metadata and content hashes against explicit samples; no network access. Token records base revision, draft hash and sample hashes with5min expiry. Apply rechecks token/base revision and reports affected targets plus masked device overrides. Never accept a client-created token as authority.
+- [ ] **Step 5:** Rerun focused tests; commit only repository and tests. Configuration persists; metric history does not enter these bundles.
+
+### Task 5: Implement actual cross-platform local metrics
+
+**Files:** Create `telemetry/local.rs`; modify `src-tauri/{Cargo.toml,Cargo.lock}` for the single sysinfo dependency. Add module-local tests and evidence rows in `docs/telemetry/validation.md`.
+
+**Interfaces:** `LocalCollector::new()->Self`, `sample(&mut self, now:SampleTime)->Result<LocalSample,Diagnostic>`. `SampleTime { wall_ms:i64, monotonic_ms:u64 }` is shared in model.rs. Source IDs: `local.cpu`, `local.memory`, `local.filesystems`, `local.network`, `local.processes`. Service supplies FrameContext and configured definitions when normalizing this source sample into widget frames.
+
+- [ ] **Step 1:** Add `local_first_cpu_sample_is_warming_up`, `process_cpu_is_normalized_by_logical_cores`, `process_exit_and_adapter_disappearance_are_not_zeroes`, `local_units_are_bytes_and_percent`. Assert per-process100% means whole-machine utilization, memory/disk values stay bytes, missing permission/adapter data is explicit.
+
+  Required numeric assertion: for a synthetic4-core process observation consuming200% of one core, `assert_eq!(normalized_percent, 50.0);`. For the first CPU observation assert Missing/warming-up rather than Number0. These are algorithm tests; they do not close actual-OS gates.
+- [ ] **Step 2:** Run `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::local`; confirm initial failures.
+- [ ] **Step 3:** Add `sysinfo = { version = "=0.39.6", default-features = false, features = ["system","disk","network"] }`. Keep System/Networks/Disks instances alive, refresh only required fields, honor CPU minimum observation interval, sample on a blocking worker rather than GUI/Tokio core. Disk inventory refreshes60s; process/CPU/memory/network2s. Top processes are a bounded top50 view, not hourly history for every PID. No process environment/command-line collection.
+- [ ] **Step 4:** Run focused tests, `cargo check --manifest-path src-tauri/Cargo.toml --locked`, and real native OS metric smoke checks on macOS, Windows and Linux with normal-user privileges. Record unavailable environments OPEN; mocked OS flags do not close this gate.
+- [ ] **Step 5:** Commit collector/dependency changes; do not claim all-OS acceptance until real runs are recorded.
+
+### Task 6: Add telemetry-owned saved-target SSH transport
+
+**Files:** Create `telemetry/ssh.rs`; read `commands/ssh.rs`, `ssh_exec/mod.rs`, existing russh callers and installed0.60 sources. No edits to legacy SSH executors/fanout/NETCONF behavior.
+
+**Interfaces:** `TelemetrySshTargetResolver::resolve(connection_id:&str)->Result<TelemetrySshTarget,Diagnostic>` returns a private zeroizing auth object from the existing DB/decrypt helpers, including saved host/port/user/password or identity_file. `TelemetrySshSession::connect(target:TelemetrySshTarget,cancel:CancellationToken)->Result<Self,Diagnostic>`, `capture(&mut self,request:&CaptureRequest,cancel:CancellationToken)->Result<Capture,Diagnostic>`, `close(&mut self)->Result<(),Diagnostic>`. Exactly one command per session at a time; saved target identity/platform and CaptureRequest supply the capture metadata.
+
+- [ ] **Step 1:** Add Rust local-SSH-server tests `ssh_rejects_unknown_or_changed_host_key`, `ssh_resolves_saved_identity_and_password_without_logging`, `ssh_output_timeout_and_cancel_close_owned_channels`, `ssh_does_not_touch_interactive_terminal`. Assert EOF/exit status/output bounds, no all-keys acceptance, no retry loop after auth failure, no credentials in errors/events/debug output.
+
+  Required assertions: `assert!(connection_result.is_err()); assert_eq!(server_command_count, 0);` for an unknown key; after cancel, `assert_eq!(owned_open_channels, 0); assert_eq!(interactive_terminal_command_count, 0);`. Use the existing russh dev dependency to host the isolated test peer; no real target in unit tests.
+- [ ] **Step 2:** Run `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::ssh` and record initial failures.
+- [ ] **Step 3:** Use existing russh0.60.2 for cross-platform owned sessions with strict known-host checking. Unknown keys fail with a fingerprint and instruction to establish trust explicitly; never auto-learn. Verify installed0.60.2 handler signatures, key loading and known-host lookup directly, not newer Context7 example types. Resolve only actual saved auth; encrypted keys without available passphrase and unsupported authentication methods produce explicit errors, not password downgrades.
+- [ ] **Step 4:** Implement the command channel mode proven by Task1. Preserve that channel's framing/deadline/output evidence. Each canceled/timed-out channel is closed, its owned session disconnected and terminal state isolated; await session task completion within cleanup budget and report failure if unfinished. Session-only setup must be a fixed validated operation, not YAML arbitrary shell. No speculative exec→shell fallback or global SSH config changes.
+- [ ] **Step 5:** Run local server tests on all three OSes, then Task1 authorized device smoke and record actual channel mode. Commit the isolated transport. If required saved-target auth cannot work safely, report the specific gate rather than claiming saved-connection parity.
+
+### Task 7: Build truthful IOS/IOS-XE widgets and upstream YAML import
+
+**Files:** Create `telemetry/catalog.rs`, compiled `src-tauri/telemetry/{catalog.json,widgets.yaml,layouts.yaml}`, `sidecar/tests/telemetry/test_templates.py`, sanitized fixtures below `sidecar/tests/telemetry/fixtures/`, and `docs/telemetry/widgets.md`. Independent `.textfsm` assets only where captures demonstrate a gap.
+
+**Interfaces:** `Catalog::builtin()->Result<Catalog,Diagnostic>`; `UpstreamWidgetImporter::import(yaml:&str)->ImportReport { draft:Option<ConfigDraft>, diagnostics }`; `FrameNormalizer::normalize(context:&FrameContext,definition:&WidgetDefinition,capture:&Capture,records:Vec<MetricRow>)->WidgetFrame`, `local(context:&FrameContext,definition:&WidgetDefinition,sample:&LocalSample)->WidgetFrame`. Source/template provenance is recorded in catalog.json.
+
+- [ ] **Step 1:** Write `test_required_panel_capture_matrix`, `protocol_states_are_not_blanket_faults`, `upstream_unsupported_behavior_is_not_silently_dropped`, `empty_neighbors_do_not_prove_no_configuration`. Assert correct fields/units for every agreed panel, OSPF2-Way context, normal STP alternate/discarding, BGP prefix/state distinction, legitimate duplicate VRF neighbors and missing-interface capacity.
+
+  Required assertions: `assert_ne!(normal_stp.severity, ObservationSeverity::Alert);`, `assert_ne!(empty_neighbors.state, CollectionState::NotConfigured);`, and `assert!(unsupported_import.diagnostics.iter().any(|d| d.path.contains("requires")));`. Establish supported-empty through capture/template evidence, not merely empty records.
+- [ ] **Step 2:** Run `sidecar/.venv/bin/pytest -q sidecar/tests/telemetry/test_templates.py` and `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::catalog`; observe failures before authoring definitions.
+- [ ] **Step 3:** Seed exact captured commands for version, processes CPU, processes memory sorted, interfaces/status/switchport, BGP summary, OSPF neighbors, EIGRP neighbors, VLAN, spanning-tree/root, EtherChannel summary, CDP/LLDP and MAC table. Installed template names include `cisco_ios_show_mac-address-table`, `cisco_ios_show_spanning-tree`, `cisco_ios_show_spanning-tree_root`; CLI hyphens/aliases and trunk command availability must come from Task1. For commands lacking a suitable NTC template, write a small independent template against a real capture. Do not silently drop trunks, routing context, drops/counters or any agreed panel.
+- [ ] **Step 4:** Explicitly map parser keys (NTC lowercase and custom headers) through aliases; never guess that IOS show-interfaces contains octets for rate calculation. Add dedicated counter capture/template when the demonstrated parser lacks it. Detect unsupported/permission output, parse mismatch and supported-empty separately. Unconfigured status requires explicit evidence. Snapshot current neighbor absence is not an expected-peer list.
+- [ ] **Step 5:** Implement a strict import adapter for supported upstream widget/layout keys. Translate platform IDs, fields, rates/deltas/computes/views/alerts/spans only where semantic equivalence is implemented/tested; otherwise return field-path diagnostics and block Apply. Reject hooks such as `py:` and `requires` shell execution; preserve unsupported input in the editable draft. Do not ship upstream GPL source/templates as independent app assets without the spec's provenance review.
+- [ ] **Step 6:** Rerun both focused suites and capture matrix; document network/local/routing/switching YAML examples and compatibility table. Commit definitions, adapter, fixtures and docs only.
+
+### Task 8: Own scheduling, revision fencing, counters and memory history
+
+**Files:** Create `telemetry/{service,history}.rs`, module-local tests. No heartbeat or shared-sidecar scheduler modifications.
+
+**Interfaces:** `TelemetryService::new(repository:TelemetryConfigRepository,local_factory:LocalCollectorFactory,ssh_factory:TelemetrySshFactory,parser:TelemetryParser,clock:TelemetryClock)->Self`; async `start(request:StartRequest)->Result<TelemetrySnapshot,Diagnostic>`, `stop(workspace_id:&str)->Result<(),Diagnostic>`, `close(workspace_id:&str)->Result<(),Diagnostic>`, `snapshot(workspace_id:&str)->Result<TelemetrySnapshot,Diagnostic>`, `apply(workspace_id:&str,draft:ConfigDraft,token:PreviewToken)->Result<ApplyResult,Diagnostic>`, `shutdown()->Result<(),Diagnostic>`, and synchronous `shutdown_sync(timeout:Duration)->Result<(),Diagnostic>` for the native final-exit boundary. Task8 defines the three named factory/clock test seams, not a plugin bus. `TelemetryHistory::append(frame:&WidgetFrame)`, `series(query:SeriesQuery)->SeriesPage`; service `widget(query:WidgetQuery)->Result<WidgetPage,Diagnostic>` supplies paged latest rows. Explicit `capture_sample(workspace_id:&str,target:TargetRef,request:CaptureRequest)->Result<Capture,Diagnostic>` uses the same policy/ownership limits without starting periodic scheduling.
+
+- [ ] **Step 1:** Add fake-clock tests `ten_targets_one_slow_never_starves_local`, `dedup_fastest_interval_without_overlapping_or_backlog`, `stop_remove_apply_fence_late_replies`, `counter_reset_reconnect_and_sleep_create_gaps`, `memory_hour_and_capacity_are_bounded`, `auth_failure_suspends_retry`. Assert defaults2/30/5/60, max4 network captures/max2 parses, one command/target, successful target progress during a stalled target, invalidated generations never append, history expires after3600s and stop retains it.
+
+  Required assertions: `assert_eq!(max_in_flight_per_target, 1); assert!(max_global_in_flight <= 4); assert_eq!(late_revision_append_count, 0);`, `assert_eq!(reset_point.value, None);`, `assert_eq!(history_count_after_stop, history_count_before_stop);`. Add `sync_shutdown_does_not_depend_on_callers_tokio_runtime` on a current-thread runtime.
+- [ ] **Step 2:** Run `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::service` and `cargo test --manifest-path src-tauri/Cargo.toml --lib telemetry::history`; record real failures.
+- [ ] **Step 3:** Implement one service owner on a dedicated runtime thread, with workspaces keyed by tab UUID. This gives `shutdown_sync` a runtime-independent cancellation/join boundary rather than blocking the app's current Tokio runtime. Each workspace owns tasks/resources and uses generation+config revision fencing. Repeated Start reconciles explicit target/interface selection, preserving compatible retained samples. Coalesce identical `(target, command)` polls at fastest interval; different templates may parse the same capture without another device command. Use skip/coalesce scheduling, per-target serialization and fair bounded admission; do not accumulate missed ticks. Preview jobs have bounded separate priority so editing cannot stall collection.
+- [ ] **Step 4:** Use actual monotonic elapsed time and integer counters for deltas; convert to finite display rates afterward. Record gaps on initial baseline/reset/wrap uncertainty/reconnect/sleep. Keep latest bounded tables plus configured numeric histories, not a copy of every MAC table at each poll. Apply presentation-only changes without wiping history; source/key/unit changes start new series. Implement stated resource/retry/freshness limits and expose diagnostics when limits are reached.
+- [ ] **Step 5:** Stop/close/shutdown await owned SSH and parser cleanup. Removing a target cancels its resources and late replies. Closing clears history; stopping does not. Closing one workspace leaves others untouched. A profile Apply fences all affected open workspaces, including those not currently visible; unaffected device overrides retain their effective revisions. Cleanup failure stays visible and retryable rather than pretending the tab is safely gone. `shutdown_sync` signals the owner and awaits its thread completion within the3s budget, reporting incomplete cleanup instead of deadlocking or claiming success.
+- [ ] **Step 6:** Rerun focused suites including isolated process tests on all OSes; commit service/history only.
+
+### Task 9: Integrate IPC, Telemetry tab ownership and app shutdown
+
+**Files:** Create `commands/telemetry.rs`, frontend `api.ts`, `store.ts`, `TelemetryTab.tsx` and tests. Modify `commands/mod.rs`, `src-tauri/src/lib.rs`, `app_lifecycle.rs`, `src/lib/types.ts`, `src/App.tsx`, `src/components/TabBar.tsx`, existing `TabBar.test.tsx`, `src/lib/appShutdown.test.ts` only at telemetry seams.
+
+**Interfaces:** IPC functions named `telemetry_start`, `telemetry_stop`, `telemetry_close`, `telemetry_snapshot`, `telemetry_validate`, `telemetry_preview`, `telemetry_apply`, `telemetry_catalog`, `telemetry_series`, `telemetry_widget`, `telemetry_capture_sample`, `telemetry_test_template`, `telemetry_import`. Typed `TelemetryApi` methods correspond1:1; all calls include workspace identity. Start/stop/close/snapshot/apply/widget/series/capture_sample use Task8's signatures; validate/preview use Task4; test_template uses Task3; import/catalog use Task7. Capture/import/test-template return private data only to their requesting workspace, with no broadcast event. `useTelemetryStore` is keyed by workspace; `TelemetryTab({tabId:string})` mounts the view and registers shutdown cleanup.
+
+- [ ] **Step 1:** Add `TelemetryTab.test.tsx`, `store.test.ts`, and native command tests proving explicit Start, no initial collection, StrictMode double-mount safety, hidden-tab continuity, close-awaits-cleanup, close-error-retains-tab, no PTY spawn/kill for telemetry, unknown workspace errors and restart/reopen yields a stopped empty history. Extend app shutdown recording tests to include telemetry cleanup before process exit.
+
+  Required assertions: `expect(api.start).not.toHaveBeenCalled()` on mount; `expect(removeTab).not.toHaveBeenCalled()` before deferred close resolves or after close rejects; `expect(ptyKill).not.toHaveBeenCalled()` for telemetry. Native shutdown tests assert the telemetry owner was awaited, not only that a message was sent.
+- [ ] **Step 2:** Run `bunx vitest run src/features/telemetry/TelemetryTab.test.tsx src/features/telemetry/store.test.ts src/components/TabBar.test.tsx src/lib/appShutdown.test.ts`; Rust `cargo test --manifest-path src-tauri/Cargo.toml --lib app_lifecycle` and `cargo test --manifest-path src-tauri/Cargo.toml --lib commands::telemetry`; observe failures.
+- [ ] **Step 3:** Add `telemetry` to TabType and chooser props/badge/body/close dispatch. Follow topology's client UUID and hidden-mounted body, but await native close before frontend removal. Open a new stopped workspace; do not modify terminal restore or add DB rows/migrations merely to restore telemetry. A bootstrap/error placeholder must render without falsely reporting monitoring.
+- [ ] **Step 4:** Store owns one lightweight snapshot refresh loop while workspace exists, capped at once/second, independent of active view. Every reply is generation/revision checked; raw captures/credentials never enter global events. On failure back off UI reads and show transport status. Large exact histories/tables use paged queries rather than dumping every sample into each render. Native service remains authoritative if frontend timers are suspended.
+- [ ] **Step 5:** Register `registerAppShutdownTask('telemetry:<id>', close)` plus authoritative native final cleanup through existing ProcessExitServices. Keep the8s coordinator behavior, existing editor/terminal tasks and discovery/STP cleanup unchanged. A disappearing UI is not cleanup proof.
+- [ ] **Step 6:** Rerun scoped tests plus existing tabs/session restore tests and production typecheck. Commit only registration/ownership changes and tests; no restyling adjacent tabs.
+
+### Task 10: Implement Fleet, Device and Local PC with shared widget presentation
+
+**Files:** Create `FleetView.tsx`, `DeviceView.tsx`, `LocalPcView.tsx`, `WidgetPanel.tsx`, `TelemetryChart.tsx`, `telemetry.css` and corresponding feature-local tests. Modify TelemetryTab composition only. Keep CanvasChart unchanged.
+
+**Interfaces:** Each view consumes `{snapshot:TelemetrySnapshot, api:TelemetryApi, workspaceId:string}` and emits explicit selection/monitor actions. `WidgetPanel({definition:WidgetDefinition,page:WidgetPage,series:SeriesPage})` implements the four initial view types; uses page.metadata for state and page.rows for display. `TelemetryChart({series:SeriesPage,unit:string,title:string})` consumes real timestamps, units and null gaps; no synthetic telemetry default.
+
+- [ ] **Step 1:** Write tests `fleet_separates_condition_from_collection_failure`, `device_keeps_protocol_and_vrf_context`, `local_renders_unavailable_metrics_without_zero`, `port_layout_comes_from_inventory`, `yaml_columns_thresholds_and_chart_units_drive_rendering`. Assert10 target rows, unknown totals/coverage, valid STP/OSPF states, MAC filtering, source-derived ports, stopped/stale timestamps, finite axes and null gaps; missing capacity hides utilization rather than dividing by zero.
+
+  Required assertions: `expect(screen.getByText('Unknown')).toBeVisible()` for an absent counter; assert a fixture with24 actual interfaces renders24 port entries, not48; `expect(renderedChartPoints.some(p => p.value === null)).toBe(true)` for a collection gap. Exact labels follow approved user-facing copy and source data, not opaque UUIDs.
+- [ ] **Step 2:** Run `bunx vitest run src/features/telemetry/FleetView.test.tsx src/features/telemetry/DeviceView.test.tsx src/features/telemetry/LocalPcView.test.tsx src/features/telemetry/WidgetPanel.test.tsx src/features/telemetry/TelemetryChart.test.tsx`; record failures.
+- [ ] **Step 3:** Translate the approved mockup hierarchy using existing theme tokens and controls. Provide target picker using saved connection list APIs already discovered during execution; display names plus explicit unavailable-identity diagnostics. Device sections Overview/Routing/Switching/Interfaces use the same configured widgets, not a parallel hardcoded renderer.
+- [ ] **Step 4:** Use installed TanStack table/virtualization patterns for large tables and Recharts directly for charts, with actual time axes, units, legend, no animation obscuring freshness, accessible description and exact-value table. Keep grid children min-width0 and table scrolling inside panels. Keyboard focus works across view changes, dialogs and close. Normal STP blocked ports do not become fault colors merely due to state strings.
+- [ ] **Step 5:** Run scoped suites, `bun run check:structural-colors`, `bun run check:theme-contrast`, `bun run build`; inspect real browser screenshots at1440×1000 and680×950 in actual app themes. Commit UI slice. A screenshot using fixture IPC is presentation evidence only.
+
+### Task 11: Deliver YAML/layout studio, TextFSM lab and scoped Monaco schemas
+
+**Files:** Create `WidgetStudio.tsx`, `TemplateEditor.tsx`, editor/store tests, `src/components/editor/yamlSchemaRegistry.ts` and tests. Modify `PlaybookEditorMonaco.tsx` only to use the shared scoped schema registry; retain all playbook behavior/tests. Extend TelemetryTab composition and telemetry API imports as necessary.
+
+**Interfaces:** `WidgetStudio({workspaceId,api,catalog})` owns editable widgets/layouts/template bundle drafts. `TemplateEditor({draft, sample, onChange, onTest})` uses actual TextFSM test results. `YamlSchemaRegistry.acquire(monaco, uri:string, schema:object)->{release():void}` maintains one monaco-yaml configuration with URI-specific schema entries and updates; never registers a wildcard telemetry schema.
+
+- [ ] **Step 1:** Add `studio_draft_change_invalidates_preview_and_apply`, `stale_validate_and_preview_replies_are_ignored`, `apply_shows_affected_and_masked_overrides`, `import_export_preserves_yaml_and_reports_unsupported`, `template_test_matches_capture_identity`, `reset_and_disk_failure_keep_effective_widget`, `playbook_and_widget_schemas_are_isolated_in_both_mount_orders`. Assert no collection IPC while typing/previewing, exact imported text remains editable, token/draft hash match, explicit applying of profile vs device scope, cleanup/disposal of models/diagnostics and secret-free exports.
+
+  Required assertions: after editing a previewed draft, `expect(screen.getByRole('button', {name:'Apply'})).toBeDisabled()`; after an old preview promise resolves, it stays disabled; `expect(api.captureSample).not.toHaveBeenCalled()` during typing/Validate/Preview. For actual Monaco models assert a widget-only invalid field marks the widget URI, not the concurrently open playbook URI.
+- [ ] **Step 2:** Run `bunx vitest run src/features/telemetry/WidgetStudio.test.tsx src/features/telemetry/TemplateEditor.test.tsx src/components/editor/yamlSchemaRegistry.test.ts` plus the existing PlaybookEditor tests discovered by `rg --files src/features/troubleshoot`. Do not guess test filenames or assert Monaco worked when only a textarea mock ran.
+- [ ] **Step 3:** Implement the accepted library/editor/preview layout with widget/layout/template modes, new/duplicate/reset, profile/device scope, import/export using existing Tauri dialog/fs pattern, validation diagnostics with line navigation, raw/parsed sample inspection and affected-target review. Keep dirty drafts intact on import/read/test/write failure. Closing with a dirty draft uses the existing unsaved-editor interaction pattern; do not silently discard edits.
+- [ ] **Step 4:** Wire backend Validate→Preview→Apply as authoritative; a new draft/selection/sample changes the request generation and invalidates old replies/tokens. Include template and layout edits in the same complete revision. Preview compatibility diagnostics block false-ready UI. Existing applied frame remains visible during bad drafts. Explicit sample acquisition is a separate user action against admitted read-only commands; editing never triggers it.
+- [ ] **Step 5:** Replace the existing one-off PlaybookEditorMonaco wildcard initialization with the small reference-counted registry and stable per-document URIs. Preserve existing worker setup, disabled remote schema fetch, playbook validation and theme behavior. Verify installed `configureMonacoYaml` return/update/dispose APIs before use; do not instantiate a second global YAML language service.
+- [ ] **Step 6:** Run scoped editor/playbook tests, native config/worker suites, production build, then a real browser test of Monaco completions/diagnostics and native import/export dialogs with both editors open. Commit studio plus the justified schema-registry seam. Mockup import was unverified; actual file round-trip must be demonstrated here.
+
+### Task 12: Whole-feature verification and surgical completion record
+
+**Files:** Create telemetry-specific `e2e/telemetry/{playwright.config,vite.config,transport}.ts`, `e2e/tests/telemetry.spec.ts`; update `docs/telemetry/{validation,widgets}.md`. Modify `.github/workflows/ci.yml` only if new suites are not already discovered; keep release matrix behavior unchanged.
+
+**Interfaces:** Browser harness uses the real App entry and a `SyntheticTelemetryBackend` implementing the exact IPC contract with deny-by-default unknown/external operations. Artifact roots must be fresh task-owned directories; no user's current native app takeover. Validation document records distinct source, unit, browser, native, live-device and OS outcomes.
+
+- [ ] **Step 1:** Add browser flows for New Telemetry, explicit Start/Stop, Fleet→Device→Local, all routing/switching sections, MAC search, editor/template/layout changes, invalid YAML, upstream diagnostics, Apply scopes, dark/light themes,680px layout, stopped/reopen state and delayed/stale callbacks. Browser test fails on unknown IPC and external requests. Add authentic native close/shutdown checks and10-target soak separately; surrogate IPC is not network proof.
+- [ ] **Step 2:** Run the full new Rust/Python/frontend telemetry suites and impacted existing suites once focused tests pass. Use fresh empty HOME for Python startup/worker tests and correct dev-venv path on each OS. Run `cargo fmt --manifest-path src-tauri/Cargo.toml --check`, `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings`, production typecheck/build and existing theme guards. Record unrelated baseline failures rather than broadening the feature to fix them.
+- [ ] **Step 3:** Run telemetry browser acceptance using the new config: `bunx playwright test --config e2e/telemetry/playwright.config.ts`. New config must validate its own fresh artifact-root/chromium environment inputs and use the real Vite worker/CSP pipeline; do not reuse Canvas-only guard variables or silently attach to an existing dev server. Visually inspect screenshots, not just DOM assertions.
+- [ ] **Step 4:** Launch the actual built app on each OS, interact with local metrics and Monaco, exercise file dialogs, Start/Stop/tab close/quit/reopen and real saved-target auth. On authorized IOS/IOS-XE lab devices, validate every required panel against captured command output and repeat10-target monitoring with a slow/unreachable target. Record intervals as intended and observed; verify no overlap, burst backlog, resource leaks, terminal interference or writes. A Windows/Linux environment that is absent remains an open acceptance gate.
+- [ ] **Step 5:** Verify packaged Python worker/assets from the release-like app bundle without checkout/PYTHONPATH access. No AI credentials/models/requests required for telemetry. Check app upgrade preserves overrides and missing/bad revision pointer recovery is explicit. Confirm no metric database or private captures are accidentally committed.
+- [ ] **Step 6:** Review the final diff against the file map and spec; remove only new orphans, record actual mistakes/RCA/fixes in Plans/Mistakes.MD, refresh Graphify and source-verify any changed integration claims. Produce a requirement→test/evidence table with OPEN gates visible. Commit only the completed owned slice and validation docs. Do not mark whole-feature acceptance while any required OS/device/parser/cleanup gate remains open.
+
+## Self-review and handoff
+
+Coverage: scope/views Task10; YAML/layout/model Task2; parser editing/testing Task3/11; persistent defaults/overrides/atomic apply Task4; local desktop source Task5; verified saved SSH Task1/6; complete routing/switching/counter catalog Task7; rates/history/lifecycle Task8; tab/IPC/shutdown Task9; native/multi-OS/real-device acceptance Task12. The five Review Focus conditions each have named task tests.
+
+Before implementation, confirm this plan captures the approved design and choose execution method. Recommend subagent-driven execution because transport, parser isolation, configuration revisions and UI ownership cross distinct trust/lifecycle boundaries and benefit from independent per-task review. Native execution is also available; it still requires the same evidence gates. No method choice waives missing device/OS access or permits guesses.

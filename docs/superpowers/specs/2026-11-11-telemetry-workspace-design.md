@@ -1,6 +1,6 @@
 # Telemetry workspace design
 
-Status: design draft for Shaun's final review. Q1–Q18 and the dashboard/editor visual directions are accepted. An independent builder check found nothing important left unanswered for planning. This document is not an implementation plan or authorization to implement.
+Status: approved by Shaun on 2026-11-11; implementation planning authorized. Q1–Q18 and the dashboard/editor visual directions are accepted. An independent builder check found nothing important left unanswered for planning. Product implementation remains a separate execution step.
 
 ## Intent
 
