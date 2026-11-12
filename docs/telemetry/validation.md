@@ -1,7 +1,7 @@
 # Telemetry feasibility and validation record
 
 Recorded 2026-11-11 on `feat/telemetry-workspace`, starting baseline `1047e5d8`.
-This is a source/installed-asset record before collector implementation. **No live network or native Telemetry acceptance gate is closed.**
+The initial source/installed-asset feasibility record is supplemented by Task5's direct native local-sampler evidence below. **No live network or integrated native Telemetry acceptance gate is closed.**
 
 ## Inputs and authorization
 
@@ -113,7 +113,7 @@ Graphify root query `graphify query 'textfsm_adapter VENDOR_MAP parse_output' --
 
 | platform | release | feature | command | template | capture_path | outcome | ssh_channel_mode |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| macOS arm64 | 27.2 / 26B123 | Overall/per-core CPU, memory, filesystem, adapter traffic, processes | Built-in OS collector; not arbitrary shell | Not applicable | — | OPEN: host identified; collector/native app/permissions/units not exercised | Not applicable |
+| macOS arm64 | 27.2 / 26B123 | Overall/per-core CPU, memory, filesystem, adapter traffic, processes | `telemetry::local::tests::native_os_metric_smoke` (actual sysinfo sampler, UID501) | Not applicable | — | Native sampler PASS; first CPU Missing, warmed CPU finite, byte counters exact, top50 bounded; app/lifecycle acceptance remains OPEN | Not applicable |
 | Windows | OPEN | Same agreed local panels and parser-process cleanup | Built-in OS collector | Not applicable | — | OPEN: native environment not supplied | Not applicable |
 | Linux | OPEN | Same agreed local panels and parser-process cleanup | Built-in OS collector | Not applicable | — | OPEN: native environment not supplied | Not applicable |
 
@@ -122,3 +122,19 @@ Before network execution, Shaun must identify authorized saved targets and actua
 Try exec on authorized targets; if rejected, retain the actual rejection before considering a telemetry-owned shell collector. Exec sufficiency and shell fallback necessity are both OPEN. If a supported read-only collection path cannot be established, stop network execution and report the evidence; do not substitute a generic terminal emulator or weaken host verification.
 
 Remaining acceptance evidence: real empty/multi-VRF captures, each agreed panel on actual IOS/IOS-XE releases, ten simultaneous targets with slow/failing target isolation, command/parser deadlines and cancellation, native app Start/Stop/tab/app-close behavior, one-hour history bounds and counter gaps, and actual local/parser/cleanup behavior on macOS/Windows/Linux. Source checks and offline fixtures cannot close these gates.
+
+## Task 5 local collector evidence
+
+The synchronous `LocalCollector` uses pinned `sysinfo=0.39.6` with only `system,disk,network` features. Retained instances refresh CPU/memory/process/network on invocation (2s default belongs to the service); CPU respects the platform's real `MINIMUM_CPU_UPDATE_INTERVAL`. First/too-early CPU and newly observed process CPU are Missing/warming_up. Disk inventory refreshes every60s; capacity refreshes on each sample. Process command lines/environments/executable paths and process tasks are disabled. The native smoke asserts retained process command/environment vectors stay empty.
+
+| gate | evidence | result |
+| --- | --- | --- |
+| Numeric semantics | Focused tests require synthetic200% single-core process observation /4logical cores =50.0% whole-machine usage; exact `u64::MAX` decimal string; memory/filesystem bytes; unavailable/zero process memory stays Missing | PASS (algorithm tests, not other-OS evidence) |
+| Disappearance | Previous reported identity compared with refreshed full process map; leaving top50 is not an exit. Removed adapter/process rows remain absent, with no_longer_observed diagnostics and no zero tombstones. Unknown process start times are omitted with an aggregate access/data limitation diagnostic | PASS (algorithm tests) |
+| macOS normal-user sampler | UID501, Darwin27.2.0arm64/macOS27.2build26B123; real two-observation library test;15CPU rows/2filesystems/23adapters/50process rows;25769803776total memory bytes; first49ms/next32ms on the initial run | PASS for native sampler only; final rerun recorded in Task5 report |
+| Windows/Linux sampler | No actual native environments supplied | OPEN; no simulated OS flags used |
+| Blocking worker and cleanup | This module has no scheduler/runtime, GUI call site, thread owner or cancellation promise. `sysinfo` refreshes can block, including slow mounted filesystems; the later service must own its blocking worker and establish shutdown behavior | OPEN integration gate |
+
+Permission limitations are reported only where data supports them: sysinfo exposes process memory/start integers without per-field error status, so zero is described as unavailable_or_zero, never proof of permission denial. Valid zero swap/network counters stay zero. Networks/System refresh APIs have no complete per-field success status; cached unchanged counters alone do not prove failure, and this collector cannot independently detect every OS enumeration/access failure. Disk capacity uses its returned refresh result and emits Missing when unavailable. These pinned-library limitations do not establish Windows/Linux behavior.
+
+Source field names/units/row keys, exact commands and retained outputs are documented in `.superpowers/sdd/2026-11-11-telemetry-workspace/task-5-report.md`. No native app was launched/replaced; no saved devices or user configuration were accessed.

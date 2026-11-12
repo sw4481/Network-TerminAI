@@ -331,6 +331,12 @@ pub struct LocalSample {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SampleTime {
+    pub wall_ms: i64,
+    pub monotonic_ms: u64,
+}
+
 #[derive(Debug, Clone)]
 pub struct CaptureRequest {
     pub command: super::policy::AdmittedCommand,
