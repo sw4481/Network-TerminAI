@@ -54,6 +54,28 @@ pub struct TelemetrySshTargetResolver {
     known_hosts: PathBuf,
     owners: Arc<SshOwners>,
 }
+
+pub(crate) struct SavedTargetMetadata {
+    pub reference: TargetRef,
+    pub display_name: String,
+}
+fn saved_platform(saved: &str, selected: Platform) -> Result<Platform, Diagnostic> {
+    let platform = match saved {
+        "ios" => Platform::Ios,
+        "iosxe" => Platform::Iosxe,
+        "generic" => selected,
+        _ => return Err(failure("ssh_platform_unsupported", "Saved platform is unsupported by telemetry")),
+    };
+    if platform != selected { return Err(failure("ssh_platform_mismatch", "Saved platform differs from the selected telemetry profile")); }
+    Ok(platform)
+}
+/// Metadata admission deliberately selects no authentication or filesystem fields.
+pub(crate) fn saved_target_metadata(db: &Connection, target: TargetRef) -> Result<SavedTargetMetadata, Diagnostic> {
+    let (name, platform): (String, String) = db.query_row("SELECT name, platform FROM ssh_connections WHERE id = ?1", [&target.connection_id], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|_| failure("ssh_saved_target", "Saved SSH connection could not be read"))?;
+    saved_platform(&platform, target.platform)?;
+    Ok(SavedTargetMetadata { reference: target, display_name: name })
+}
 // Deliberately neither Debug nor Serialize: saved auth never becomes diagnostics/events.
 enum SavedAuth {
     Password(Zeroizing<String>),
@@ -87,23 +109,7 @@ impl TelemetrySshTargetResolver {
                 .map_err(|_| {
                     failure("ssh_saved_target", "Saved SSH connection could not be read")
                 })?;
-        let platform = match saved.platform.as_str() {
-            "ios" => Platform::Ios,
-            "iosxe" => Platform::Iosxe,
-            "generic" => target.platform,
-            _ => {
-                return Err(failure(
-                    "ssh_platform_unsupported",
-                    "Saved platform is unsupported by telemetry",
-                ))
-            }
-        };
-        if platform != target.platform {
-            return Err(failure(
-                "ssh_platform_mismatch",
-                "Saved platform differs from the selected telemetry profile",
-            ));
-        }
+        let platform = saved_platform(&saved.platform, target.platform)?;
         let port = u16::try_from(saved.port.unwrap_or(22))
             .ok()
             .filter(|p| *p != 0)

@@ -1,6 +1,6 @@
 //! One runtime owns collection, authoring, revision fences and observable cleanup.
 use super::{
-    catalog::ProtocolClassifier,
+    catalog::{ProtocolClassifier, UpstreamWidgetImporter},
     config::{DraftCaptureProof, DraftSamplePlan, TelemetryConfigRepository},
     history::TelemetryHistory,
     local::LocalCollector,
@@ -8,7 +8,7 @@ use super::{
     parser::{validate_binding, TelemetryParser},
     policy::CommandPolicy,
     processing::{FrameNormalizer, MAX_WORKSPACE_BYTES},
-    ssh::{TelemetrySshSession, TelemetrySshTargetResolver},
+    ssh::{SavedTargetMetadata, TelemetrySshSession, TelemetrySshTargetResolver},
 };
 use parking_lot::{Condvar, Mutex};
 use sha2::Digest;
@@ -219,15 +219,21 @@ enum Request {
     #[cfg(test)]
     TargetRevision(String, String, Reply<Revision>),
     Establish(String, Reply<TelemetrySnapshot>),
-    Start(StartRequest, Reply<TelemetrySnapshot>),
+    Start(StartRequest, Vec<SavedTargetMetadata>, Reply<TelemetrySnapshot>),
+    Select(String, SavedTargetMetadata, Reply<TelemetrySnapshot>),
+    Catalog(String, ConfigScope, Reply<TelemetryRead<AuthoringCatalog>>),
+    Validate(String, ConfigDraft, Reply<TelemetryRead<ValidationReport>>),
+    Import(String, ConfigScope, String, Reply<TelemetryRead<ImportReport>>),
+    Reset(String, ConfigScope, ResetAsset, Reply<TelemetryRead<ConfigDraft>>),
+    Test(String, String, TemplateAsset, Reply<TelemetryRead<ParsedInterpretation>>),
     Stop(String, bool, Reply<()>),
     Snapshot(String, Reply<TelemetrySnapshot>),
-    Widget(WidgetQuery, Reply<WidgetPage>),
-    Series(SeriesQuery, Reply<SeriesPage>),
-    Preview(String, ConfigDraft, Reply<PreviewReport>),
-    Apply(String, ConfigDraft, PreviewToken, Reply<ApplyResult>),
-    Capture(String, TargetRef, CaptureRequest, Reply<Capture>),
-    CaptureDraft(String, TargetRef, ConfigDraft, String, Reply<Capture>),
+    Widget(WidgetQuery, Reply<TelemetryRead<WidgetPage>>),
+    Series(SeriesQuery, Reply<TelemetryRead<SeriesPage>>),
+    Preview(String, ConfigDraft, Reply<TelemetryRead<PreviewReport>>),
+    Apply(String, ConfigDraft, PreviewToken, Reply<TelemetryRead<ApplyResult>>),
+    Capture(String, TargetRef, CaptureRequest, Reply<TelemetryRead<Capture>>),
+    CaptureDraft(String, TargetRef, ConfigDraft, String, Reply<TelemetryRead<Capture>>),
 }
 impl TelemetryService {
     /// Repository and service must receive the same parser Arc at construction.
@@ -324,7 +330,7 @@ impl TelemetryService {
             .await
     }
     pub async fn start(&self, request: StartRequest) -> Result<TelemetrySnapshot, Diagnostic> {
-        self.request(|r| Request::Start(request, r)).await
+        self.request(|r| Request::Start(request, vec![], r)).await
     }
     pub async fn stop(&self, workspace_id: &str) -> Result<(), Diagnostic> {
         self.request(|r| Request::Stop(workspace_id.into(), false, r))
@@ -339,18 +345,20 @@ impl TelemetryService {
             .await
     }
     pub async fn widget(&self, query: WidgetQuery) -> Result<WidgetPage, Diagnostic> {
+        self.widget_read(query).await.map(|read| read.value)
+    }
+    pub async fn widget_read(&self, query: WidgetQuery) -> Result<TelemetryRead<WidgetPage>, Diagnostic> {
         self.request(|r| Request::Widget(query, r)).await
     }
     pub async fn series(&self, query: SeriesQuery) -> Result<SeriesPage, Diagnostic> {
-        self.request(|r| Request::Series(query, r)).await
+        self.series_read(query).await.map(|read| read.value)
     }
     pub async fn preview(
         &self,
         workspace_id: &str,
         draft: &ConfigDraft,
     ) -> Result<PreviewReport, Diagnostic> {
-        self.request(|r| Request::Preview(workspace_id.into(), draft.clone(), r))
-            .await
+        self.preview_read(workspace_id, draft).await.map(|read| read.value)
     }
     pub async fn apply(
         &self,
@@ -358,8 +366,7 @@ impl TelemetryService {
         draft: ConfigDraft,
         token: PreviewToken,
     ) -> Result<ApplyResult, Diagnostic> {
-        self.request(|r| Request::Apply(workspace_id.into(), draft, token, r))
-            .await
+        self.apply_read(workspace_id, draft, token).await.map(|read| read.value)
     }
     pub async fn capture_sample(
         &self,
@@ -367,8 +374,7 @@ impl TelemetryService {
         target: TargetRef,
         request: CaptureRequest,
     ) -> Result<Capture, Diagnostic> {
-        self.request(|r| Request::Capture(workspace_id.into(), target, request, r))
-            .await
+        self.capture_read(workspace_id, target, request).await.map(|read| read.value)
     }
     pub async fn capture_draft_sample(
         &self,
@@ -377,17 +383,45 @@ impl TelemetryService {
         draft: &ConfigDraft,
         parser_id: &str,
     ) -> Result<Capture, Diagnostic> {
-        self.request(|reply| {
-            Request::CaptureDraft(
-                workspace_id.into(),
-                target,
-                draft.clone(),
-                parser_id.into(),
-                reply,
-            )
-        })
-        .await
+        self.capture_draft_read(workspace_id, target, draft, parser_id).await.map(|read| read.value)
     }
+    pub(crate) async fn start_admitted(&self, request: StartRequest, names: Vec<SavedTargetMetadata>) -> Result<TelemetrySnapshot, Diagnostic> {
+        self.request(|r| Request::Start(request, names, r)).await
+    }
+    pub(crate) async fn select(&self, id: &str, target: SavedTargetMetadata) -> Result<TelemetrySnapshot, Diagnostic> {
+        self.request(|r| Request::Select(id.into(), target, r)).await
+    }
+    pub async fn catalog(&self, id: &str, scope: ConfigScope) -> Result<TelemetryRead<AuthoringCatalog>, Diagnostic> {
+        self.request(|r| Request::Catalog(id.into(), scope, r)).await
+    }
+    pub async fn validate(&self, id: &str, draft: ConfigDraft) -> Result<TelemetryRead<ValidationReport>, Diagnostic> {
+        self.request(|r| Request::Validate(id.into(), draft, r)).await
+    }
+    pub async fn import(&self, id: &str, scope: ConfigScope, yaml: String) -> Result<TelemetryRead<ImportReport>, Diagnostic> {
+        self.request(|r| Request::Import(id.into(), scope, yaml, r)).await
+    }
+    pub async fn reset(&self, id: &str, scope: ConfigScope, asset: ResetAsset) -> Result<TelemetryRead<ConfigDraft>, Diagnostic> {
+        self.request(|r| Request::Reset(id.into(), scope, asset, r)).await
+    }
+    pub async fn test_template(&self, id: &str, capture: &str, template: TemplateAsset) -> Result<TelemetryRead<ParsedInterpretation>, Diagnostic> {
+        self.request(|r| Request::Test(id.into(), capture.into(), template, r)).await
+    }
+    pub async fn series_read(&self, query: SeriesQuery) -> Result<TelemetryRead<SeriesPage>, Diagnostic> {
+        self.request(|r| Request::Series(query, r)).await
+    }
+    pub async fn preview_read(&self, id: &str, draft: &ConfigDraft) -> Result<TelemetryRead<PreviewReport>, Diagnostic> {
+        self.request(|r| Request::Preview(id.into(), draft.clone(), r)).await
+    }
+    pub async fn apply_read(&self, id: &str, draft: ConfigDraft, token: PreviewToken) -> Result<TelemetryRead<ApplyResult>, Diagnostic> {
+        self.request(|r| Request::Apply(id.into(), draft, token, r)).await
+    }
+    pub async fn capture_read(&self, id: &str, target: TargetRef, request: CaptureRequest) -> Result<TelemetryRead<Capture>, Diagnostic> {
+        self.request(|r| Request::Capture(id.into(), target, request, r)).await
+    }
+    pub async fn capture_draft_read(&self, id: &str, target: TargetRef, draft: &ConfigDraft, parser_id: &str) -> Result<TelemetryRead<Capture>, Diagnostic> {
+        self.request(|r| Request::CaptureDraft(id.into(), target, draft.clone(), parser_id.into(), r)).await
+    }
+
     pub async fn shutdown(&self) -> Result<(), Diagnostic> {
         self.stop.cancel();
         let deadline = tokio::time::Instant::now() + CLEANUP;
@@ -462,7 +496,7 @@ struct Target {
     retry_ms: u64,
     status: TargetStatus,
     success_ms: Option<u64>,
-    manual: Option<(CaptureRequest, Option<DraftSamplePlan>, Reply<Capture>)>,
+    manual: Option<(CaptureRequest, Option<DraftSamplePlan>, Reply<TelemetryRead<Capture>>)>,
     monitored_interfaces: Vec<String>,
 }
 struct Workspace {
@@ -489,7 +523,14 @@ struct Workspace {
     retiring: BTreeMap<u64, (SshOwner, bool)>,
     waiters: Vec<Waiter>,
 }
+fn read_value<T>(id: &str, workspace: &Workspace, revision: Revision, value: T) -> TelemetryRead<T> {
+    TelemetryRead { workspace_id: id.into(), generation: workspace.generation, sequence: workspace.sequence, revision, value }
+}
 impl Workspace {
+    fn source_revision(&self, target: &str) -> Result<Revision, Diagnostic> {
+        if target == "local" { Ok(self.local_config.revision.clone()) }
+        else { self.targets.get(target).map(|target| target.config.revision.clone()).ok_or_else(|| failure("target_unknown", "Target is not enrolled")) }
+    }
     fn discard_draft_captures(&mut self) {
         if self.proofs.is_empty() {
             return;
@@ -520,19 +561,21 @@ enum Output {
         command: String,
         result: Result<CollectedCapture, Diagnostic>,
         frames: Vec<WidgetFrame>,
-        sample: Option<Reply<Capture>>,
+        sample: Option<Reply<TelemetryRead<Capture>>>,
         plan: Option<DraftSamplePlan>,
         display_name: Option<String>,
     },
     Preview {
+        base: Revision,
         result: PreviewReport,
         sample: Option<LocalSample>,
-        reply: Reply<PreviewReport>,
+        reply: Reply<TelemetryRead<PreviewReport>>,
     },
+    Test { result: Result<ParsedInterpretation, Diagnostic>, base: Revision, reply: Reply<TelemetryRead<ParsedInterpretation>> },
     Apply {
         base: Revision,
         result: Result<ApplyResult, Diagnostic>,
-        reply: Reply<ApplyResult>,
+        reply: Reply<TelemetryRead<ApplyResult>>,
     },
 }
 struct Completed {
@@ -826,7 +869,13 @@ impl Owner {
                 )
             };
             match request {
-                Request::Start(_, reply) => {
+                Request::Select(_, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Catalog(_, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Validate(_, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Import(_, _, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Reset(_, _, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Test(_, _, _, reply) => { let _ = reply.send(Err(busy())); return; }
+                Request::Start(_, _, reply) => {
                     let _ = reply.send(Err(busy()));
                     return;
                 }
@@ -916,12 +965,44 @@ impl Owner {
                 let result = self.snapshot(&id);
                 let _ = reply.send(result);
             }
+            Request::Select(id, metadata, reply) => {
+                let result = self.enroll(&id, &metadata.reference).and_then(|_| {
+                    self.workspaces.get_mut(&id).unwrap().targets.get_mut(&metadata.reference.connection_id).unwrap().status.display_name = metadata.display_name;
+                    self.snapshot(&id)
+                });
+                let _ = reply.send(result);
+            }
+            Request::Catalog(id, scope, reply) => {
+                let result = self.authoring(&id, |repository| {
+                    let value = repository.authoring_catalog(scope)?;
+                    Ok((value.own.expected_revision.clone(), value))
+                });
+                let _ = reply.send(result);
+            }
+            Request::Validate(id, draft, reply) => {
+                let result = self.authoring(&id, |repository| Ok((repository.base_revision(), repository.validate(&draft))));
+                let _ = reply.send(result);
+            }
+            Request::Import(id, scope, yaml, reply) => {
+                let result = self.authoring(&id, |repository| Ok((repository.base_revision(), UpstreamWidgetImporter::new(repository, scope).import(&yaml))));
+                let _ = reply.send(result);
+            }
+            Request::Reset(id, scope, asset, reply) => {
+                let result = self.authoring(&id, |repository| {
+                    let draft = repository.reset_draft(scope, asset)?;
+                    Ok((draft.expected_revision.clone(), draft))
+                });
+                let _ = reply.send(result);
+            }
+            Request::Test(id, capture_id, template, reply) => self.test_template(id, capture_id, template, reply),
             Request::Widget(query, reply) => {
+                let id = query.workspace_id.clone();
                 let result = self
                     .workspaces
                     .get(&query.workspace_id)
                     .ok_or_else(unknown)
                     .and_then(|workspace| {
+                        if workspace.closing || workspace.stopping { return Err(pending()); }
                         let baseline = workspace
                             .latest
                             .get(&(query.target_id.clone(), query.widget_id.clone()))
@@ -946,28 +1027,33 @@ impl Owner {
                             .cloned()
                             .collect::<Vec<_>>();
                         let end = offset.saturating_add(rows.len());
-                        Ok(WidgetPage {
+                        let revision = workspace.source_revision(&query.target_id)?;
+                        Ok(read_value(&id, workspace, revision, WidgetPage {
                             metadata,
                             rows,
                             next_offset: (limit > 0 && end < baseline.frame.rows.len())
                                 .then_some(end as u32),
-                        })
+                        }))
                     });
                 let _ = reply.send(result);
             }
             Request::Series(query, reply) => {
+                let id = query.workspace_id.clone();
                 let result = self
                     .workspaces
                     .get_mut(&query.workspace_id)
                     .ok_or_else(unknown)
-                    .map(|workspace| {
+                    .and_then(|workspace| {
+                        if workspace.closing || workspace.stopping { return Err(pending()); }
+                        let revision = workspace.source_revision(&query.target_id)?;
                         workspace.history.advance(self.clock.now().monotonic_ms);
-                        workspace.history.series(query)
+                        let value = workspace.history.series(query);
+                        Ok(read_value(&id, workspace, revision, value))
                     });
                 let _ = reply.send(result);
             }
-            Request::Start(request, reply) => {
-                let result = self.start(request);
+            Request::Start(request, names, reply) => {
+                let result = self.start(request, names);
                 let _ = reply.send(result);
             }
             Request::Stop(id, close, reply) => {
@@ -1131,7 +1217,39 @@ impl Owner {
             }
         }
     }
-    fn start(&mut self, request: StartRequest) -> Result<TelemetrySnapshot, Diagnostic> {
+    fn authoring<T>(&self, id: &str, action: impl FnOnce(&TelemetryConfigRepository) -> Result<(Revision, T), Diagnostic>) -> Result<TelemetryRead<T>, Diagnostic> {
+        let workspace = self.workspaces.get(id).ok_or_else(unknown)?;
+        if workspace.closing || workspace.stopping { return Err(pending()); }
+        let (revision, value) = action(&self.repository)?;
+        Ok(read_value(id, workspace, revision, value))
+    }
+    fn test_template(&mut self, id: String, capture_id: String, template: TemplateAsset, reply: Reply<TelemetryRead<ParsedInterpretation>>) {
+        let result = self.authoring(&id, |repository| Ok((repository.base_revision(), ())));
+        let base = match result { Ok(read) => read.revision, Err(error) => { let _ = reply.send(Err(error)); return; } };
+        let workspace = self.workspaces.get_mut(&id).unwrap();
+        if self.preview_jobs >= 2 { let _ = reply.send(Err(failure("preview_busy", "Preview admission is full; retry"))); return; }
+        let Some(capture) = workspace.captures.values().flatten().find(|capture| capture.capture_id == capture_id) else { let _ = reply.send(Err(failure("capture_unknown", "No retained sample exists for this workspace"))); return; };
+        if capture.platform != template.platform || capture.command != template.command || template.id.is_empty() || template.id.len() > 512 || template.text.len() > super::definition::MAX_TEMPLATE_BYTES {
+            let _ = reply.send(Err(failure("sample_binding", "Template does not match the retained sample"))); return;
+        }
+        if retained_bytes(workspace).saturating_add(encoded_bytes(capture)).saturating_add(2 * 1024 * 1024) > MAX_WORKSPACE_BYTES { let _ = reply.send(Err(failure("workspace_memory_limit", "No memory budget for a private template test"))); return; }
+        let mut capture = capture.clone();
+        let target = capture.target_id.clone();
+        let revision = capture.revision.clone();
+        if !workspace.targets.get(&target).is_some_and(|target| target.config.revision == revision) { let _ = reply.send(Err(failure("sample_obsolete", "Sample source changed; capture again"))); return; }
+        capture.parser_id = template.id.clone();
+        let generation = workspace.generation;
+        let parser = self.parser.clone();
+        let cancel = workspace.cancel.child_token();
+        workspace.active_jobs += 1;
+        self.preview_jobs += 1;
+        self.drain_ok = false;
+        self.jobs.spawn(async move {
+            let result = parser.test_template(&capture, &template, cancel).await.map(|rows| ParsedInterpretation { capture_id, parser_id: template.id, template_sha256: template.sha256, rows });
+            Completed { workspace: id, generation, target, revision, output: Output::Test { result, base, reply } }
+        });
+    }
+    fn start(&mut self, request: StartRequest, names: Vec<SavedTargetMetadata>) -> Result<TelemetrySnapshot, Diagnostic> {
         let existing = self
             .workspaces
             .get(&request.workspace_id)
@@ -1158,6 +1276,7 @@ impl Owner {
             }
             let mut target = self.target(reference)?;
             target.periodic = true;
+            if let Some(saved) = names.iter().find(|saved| saved.reference == target.reference) { target.status.display_name = saved.display_name.clone(); }
             selected.insert(target.reference.connection_id.clone(), target);
         }
         for (id, interfaces) in &request.monitored_interfaces {
@@ -1201,7 +1320,7 @@ impl Owner {
         self.register()?;
         self.snapshot(&request.workspace_id)
     }
-    fn preview(&mut self, id: String, draft: ConfigDraft, reply: Reply<PreviewReport>) {
+    fn preview(&mut self, id: String, draft: ConfigDraft, reply: Reply<TelemetryRead<PreviewReport>>) {
         let Some(workspace) = self.workspaces.get_mut(&id) else {
             let _ = reply.send(Err(unknown()));
             return;
@@ -1212,11 +1331,13 @@ impl Owner {
         }
         let validation = self.repository.validate(&draft);
         if !validation.valid {
-            let _ = reply.send(Ok(PreviewReport {
+            let report = PreviewReport {
                 token: None,
                 frames: vec![],
                 diagnostics: validation.diagnostics,
-            }));
+                captures: vec![], local_samples: vec![], interpretations: vec![], frame_sources: vec![],
+            };
+            let _ = reply.send(Ok(read_value(&id, workspace, self.repository.base_revision(), report)));
             return;
         }
         if self.preview_jobs >= 2 {
@@ -1282,6 +1403,7 @@ impl Owner {
         });
         let now = self.clock.now();
         let generation = workspace.generation;
+        let base = draft.expected_revision.clone();
         let repository = self.repository.clone();
         workspace.active_jobs += 1;
         workspace.local_busy += usize::from(local);
@@ -1304,10 +1426,12 @@ impl Owner {
                             target: "local".into(),
                             revision: String::new(),
                             output: Output::Preview {
+                                base,
                                 result: PreviewReport {
                                     token: None,
                                     frames: vec![],
                                     diagnostics: vec![error],
+                                    captures: vec![], local_samples: vec![], interpretations: vec![], frame_sources: vec![],
                                 },
                                 sample: None,
                                 reply,
@@ -1335,6 +1459,7 @@ impl Owner {
                 target: if local { "local" } else { "" }.into(),
                 revision: String::new(),
                 output: Output::Preview {
+                    base,
                     result,
                     sample,
                     reply,
@@ -1599,7 +1724,7 @@ impl Owner {
         }
     }
     fn complete(&mut self, completed: Completed) {
-        if matches!(completed.output, Output::Preview { .. }) {
+        if matches!(completed.output, Output::Preview { .. } | Output::Test { .. }) {
             self.preview_jobs = self.preview_jobs.saturating_sub(1);
         }
         if matches!(completed.output, Output::Network { .. }) {
@@ -1612,8 +1737,8 @@ impl Owner {
         if completed.target == "local" {
             workspace.local_busy = workspace.local_busy.saturating_sub(1);
         }
-        if let Some(target) = workspace.targets.get_mut(&completed.target) {
-            target.busy = false;
+        if !matches!(completed.output, Output::Test { .. }) {
+            if let Some(target) = workspace.targets.get_mut(&completed.target) { target.busy = false; }
         }
         let now = self.clock.now();
         let current = workspace.generation == completed.generation
@@ -1768,7 +1893,7 @@ impl Owner {
                             retain_capture(workspace, collected.capture.clone(), proof)
                         });
                         if let Some(reply) = sample {
-                            let _ = reply.send(retained.map(|_| collected.capture));
+                            let _ = reply.send(retained.map(|_| read_value(&completed.workspace, workspace, completed.revision.clone(), collected.capture)));
                         }
                     }
                     Err(error) => {
@@ -1796,6 +1921,7 @@ impl Owner {
                 }
             }
             Output::Preview {
+                base,
                 mut result,
                 sample,
                 reply,
@@ -1811,7 +1937,15 @@ impl Owner {
                         "Workspace generation changed during Preview",
                     ));
                 }
-                let _ = reply.send(Ok(result));
+                if !current || self.apply_busy || base != self.repository.base_revision() {
+                    let _ = reply.send(Err(failure("preview_obsolete", "Preview authority changed; retry")));
+                } else {
+                    let _ = reply.send(Ok(read_value(&completed.workspace, workspace, base, result)));
+                }
+            }
+            Output::Test { result, base, reply } => {
+                let result = if !current || self.apply_busy || self.repository.base_revision() != base { Err(failure("template_obsolete", "Template test authority changed; retry")) } else { result };
+                let _ = reply.send(result.map(|value| read_value(&completed.workspace, workspace, completed.revision, value)));
             }
             Output::Apply {
                 base,
@@ -1872,6 +2006,10 @@ impl Owner {
                         }
                     }
                 }
+                let result = result.and_then(|value| {
+                    let workspace = self.workspaces.get(&completed.workspace).ok_or_else(unknown)?;
+                    Ok(read_value(&completed.workspace, workspace, value.revision.clone(), value))
+                });
                 let _ = reply.send(result);
             }
             _ => {}
@@ -2884,6 +3022,20 @@ mod tests {
         authoring_target_stays_one_shot(false).await;
     }
     #[tokio::test]
+    async fn metadata_selection_while_running_remains_authoring_only() {
+        let h = Harness::new();
+        h.start(&["one"], true).await;
+        h.wait(|snapshot| snapshot.widgets.len() == 3).await;
+        h.service.select("workspace", SavedTargetMetadata { reference: TargetRef { connection_id: "editor-only".into(), platform: Platform::Iosxe }, display_name: "Editor target".into() }).await.unwrap();
+        let selected = h.service.snapshot("workspace").await.unwrap();
+        assert_eq!(selected.targets.iter().find(|target| target.target_id == "editor-only").unwrap().display_name, "Editor target");
+        assert!(h.service.catalog("workspace", ConfigScope::Device("editor-only".into())).await.is_ok());
+        h.clock.advance(Duration::from_secs(60));
+        h.wait(|snapshot| snapshot.widgets.iter().any(|widget| widget.observed_at_ms >= 1_060_000)).await;
+        assert!(h.probe.calls.lock().iter().all(|(target, _)| target == "one"));
+        h.finish().await;
+    }
+    #[tokio::test]
     async fn review_draft_authoring_capture_does_not_enable_polling() {
         authoring_target_stays_one_shot(true).await;
     }
@@ -3335,8 +3487,18 @@ mod tests {
         assert_eq!(h.probe.local_calls.load(Ordering::SeqCst), 0);
         let mut draft = h.draft.clone();
         draft.scope = ConfigScope::Local;
-        draft.widgets_yaml = "schema_version: 1\nwidgets: []\n".into();
-        h.service.preview("workspace", &draft).await.unwrap();
+        draft.widgets_yaml = serde_yaml::to_string(&WidgetDocument { schema_version: 1, widgets: h.service.catalog("workspace", ConfigScope::Local).await.unwrap().value.effective.widgets }).unwrap();
+        let report = h.service.preview("workspace", &draft).await.unwrap();
+        assert_eq!(report.local_samples.len(), 1);
+        assert!(report.captures.is_empty() && report.interpretations.is_empty());
+        assert_eq!(report.frames[0].observed_at_ms, report.local_samples[0].observed_at_ms);
+        assert_eq!(report.frame_sources.len(), report.frames.len());
+        for link in &report.frame_sources {
+            let PreviewSampleSource::Local { sample_index, collector } = link.source else { panic!("Local frame must not pretend to be a CLI capture") };
+            assert_eq!(collector, super::super::model::LocalCollector::Network);
+            assert!(report.local_samples[sample_index as usize].sources.contains_key(collector.as_str()));
+            assert_eq!(report.frames[link.frame_index as usize].observed_at_ms, report.local_samples[sample_index as usize].observed_at_ms);
+        }
         assert_eq!(h.probe.local_calls.load(Ordering::SeqCst), 1);
         assert!(h.probe.calls.lock().is_empty());
         assert!(!h.service.snapshot("workspace").await.unwrap().running);
@@ -3473,6 +3635,23 @@ mod tests {
         let count = h.probe.calls.lock().len();
         let report = h.service.preview("workspace", &h.draft).await.unwrap();
         assert!(report.token.is_some(), "{:?}", report.diagnostics);
+        assert_eq!(report.captures.len(), 1);
+        assert_eq!(report.interpretations.len(), 1);
+        let original = report.captures[0].clone();
+        let interpretation = &report.interpretations[0];
+        assert_eq!(interpretation.capture_id, original.capture_id);
+        assert_eq!(interpretation.parser_id, "test.interfaces");
+        assert_eq!(report.frames[0].observed_at_ms, original.observed_at_ms);
+        assert_eq!(report.frames[0].rows[0].fields["bytes"], MetricValue::Unsigned { value: "100".into() });
+        assert_eq!(interpretation.rows[0].fields["bytes"], MetricValue::Text { value: "100".into() });
+        let catalog = h.service.catalog("workspace", ConfigScope::Profile(Platform::Iosxe)).await.unwrap();
+        let mut template = catalog.value.effective.templates["test.interfaces"].clone();
+        template.id = "edited.name".into();
+        let tested = h.service.test_template("workspace", &original.capture_id, template.clone()).await.unwrap();
+        assert_eq!(tested.value.capture_id, original.capture_id);
+        assert_eq!(tested.value.parser_id, "edited.name");
+        h.service.establish("private-other").await.unwrap();
+        assert_eq!(h.service.test_template("private-other", &original.capture_id, template).await.unwrap_err().code, "capture_unknown");
         assert_eq!(h.probe.calls.lock().len(), count);
         let mut draft = h.draft.clone();
         draft.widgets_yaml = draft
@@ -3548,6 +3727,126 @@ mod tests {
         );
         h.probe.local_hold.store(false, Ordering::SeqCst);
         h.service.close("workspace").await.unwrap();
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn app_lifecycle_waits_for_actual_telemetry_owner_before_sidecar_exit() {
+        use crate::app_lifecycle::{cleanup_process_services, ProcessExitServices};
+        struct ExitServices { service: Arc<TelemetryService>, entered: Arc<AtomicBool>, sidecar: Arc<AtomicBool> }
+        impl ProcessExitServices for ExitServices {
+            fn shutdown_telemetry(&self) -> Result<(), String> { self.entered.store(true, Ordering::SeqCst); self.service.shutdown_sync(Duration::from_secs(3)).map_err(|d| d.code) }
+            fn shutdown_discovery(&self) -> Result<(), String> { Ok(()) }
+            fn shutdown_stp(&self) -> Result<(), String> { Ok(()) }
+            fn stop_sidecar(&self) { self.sidecar.store(true, Ordering::SeqCst); }
+        }
+        struct Release(Arc<Probe>);
+        impl Drop for Release { fn drop(&mut self) { self.0.local_hold.store(false, Ordering::SeqCst); } }
+        let h = Harness::new();
+        h.probe.local_hold.store(true, Ordering::SeqCst);
+        let release = Release(h.probe.clone());
+        h.start(&[], true).await;
+        tokio::time::timeout(Duration::from_secs(2), async { while h.probe.local_calls.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; } }).await.unwrap();
+        let entered = Arc::new(AtomicBool::new(false));
+        let sidecar = Arc::new(AtomicBool::new(false));
+        let services = ExitServices { service: h.service.clone(), entered: entered.clone(), sidecar: sidecar.clone() };
+        let cleanup = tokio::task::spawn_blocking(move || cleanup_process_services(&services));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(!cleanup.is_finished(), "native cleanup returned while the real Local owner was held");
+        assert!(entered.load(Ordering::SeqCst));
+        assert!(!sidecar.load(Ordering::SeqCst));
+        drop(release);
+        tokio::time::timeout(Duration::from_secs(2), cleanup).await.unwrap().unwrap();
+        assert!(sidecar.load(Ordering::SeqCst));
+        h.service.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn private_preview_cannot_relabel_a_failed_old_base_after_unrelated_publication() {
+        struct Release(Arc<Probe>);
+        impl Drop for Release { fn drop(&mut self) { self.0.local_hold.store(false, Ordering::SeqCst); } }
+        let h = Harness::new();
+        h.start(&["one"], false).await;
+        h.wait(|snapshot| snapshot.widgets.len() == 2).await;
+        let mut changed = h.draft.clone();
+        changed.widgets_yaml = changed.widgets_yaml.replace("title: Traffic", "title: Changed");
+        let token = h.service.preview("workspace", &changed).await.unwrap().token.unwrap();
+        h.service.establish("local-editor").await.unwrap();
+        let local = h.service.catalog("local-editor", ConfigScope::Local).await.unwrap().value.own;
+        h.probe.local_hold.store(true, Ordering::SeqCst);
+        let release = Release(h.probe.clone());
+        let service = h.service.clone();
+        let preview = tokio::spawn(async move { service.preview_read("local-editor", &local).await });
+        tokio::time::timeout(Duration::from_secs(2), async { while h.probe.local_calls.load(Ordering::SeqCst) == 0 { tokio::task::yield_now().await; } }).await.unwrap();
+        h.service.apply("workspace", changed, token).await.unwrap();
+        drop(release);
+        assert_eq!(preview.await.unwrap().unwrap_err().code, "preview_obsolete");
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn retained_widget_page_separates_current_authority_from_original_stopped_sample() {
+        let h = Harness::new();
+        h.start(&["one"], false).await;
+        let before = h.wait(|snapshot| snapshot.widgets.len() == 2).await;
+        let original = before.widgets.iter().find(|widget| widget.widget_id == "traffic").unwrap().clone();
+        h.service.stop("workspace").await.unwrap();
+        let mut draft = h.draft.clone();
+        draft.widgets_yaml = draft.widgets_yaml.replace("title: Traffic", "title: Renamed");
+        let preview = h.service.preview("workspace", &draft).await.unwrap();
+        h.service.apply("workspace", draft, preview.token.unwrap()).await.unwrap();
+        let catalog = h.service.catalog("workspace", ConfigScope::Device("one".into())).await.unwrap();
+        let page = h.service.widget_read(WidgetQuery { workspace_id: "workspace".into(), target_id: "one".into(), widget_id: "traffic".into(), offset: 0, limit: 1 }).await.unwrap();
+        assert_eq!(page.revision, catalog.value.effective.revision);
+        assert_ne!(page.revision, original.revision);
+        assert_eq!(page.value.metadata.revision, original.revision);
+        assert_eq!(page.value.metadata.generation, original.generation);
+        assert_eq!(page.value.metadata.observed_at_ms, original.observed_at_ms);
+        assert!(page.generation > original.generation);
+        assert_eq!(page.value.metadata.state, CollectionState::Stopped);
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn equal_wall_time_preview_frames_join_exact_physical_samples_and_candidate_parsers() {
+        let h = Harness::new();
+        h.service.establish("workspace").await.unwrap();
+        let catalog = h.service.catalog("workspace", ConfigScope::Profile(Platform::Iosxe)).await.unwrap();
+        let target = TargetRef { connection_id: "one".into(), platform: Platform::Iosxe };
+        let request = CaptureRequest { command: CommandPolicy::admit(Platform::Iosxe, "show interfaces").unwrap(), parser_id: "test.interfaces".into(), revision: catalog.value.effective.revision };
+        let first = h.service.capture_sample("workspace", target.clone(), request.clone()).await.unwrap();
+        h.probe.counter.store(200, Ordering::SeqCst);
+        let second = h.service.capture_sample("workspace", target, request).await.unwrap();
+        assert_eq!(first.observed_at_ms, second.observed_at_ms);
+        assert_ne!(first.capture_id, second.capture_id);
+        assert_ne!(first.raw, second.raw);
+        let mut draft = h.draft.clone();
+        draft.widgets_yaml = serde_yaml::to_string(&WidgetDocument { schema_version: 1, widgets: catalog.value.effective.widgets.clone() }).unwrap().replace("test.interfaces", "candidate.interfaces");
+        draft.templates.insert("candidate.interfaces".into(), catalog.value.effective.templates["test.interfaces"].text.clone());
+        let report = h.service.preview("workspace", &draft).await.unwrap();
+        assert!(report.token.is_some(), "{:?}", report.diagnostics);
+        assert_eq!(report.captures.len(), 2);
+        assert_eq!(report.interpretations.len(), 4);
+        assert_eq!(report.frames.len(), 4);
+        let wire = serde_json::to_value(&report).unwrap();
+        let links = wire.get("frame_sources").and_then(|value| value.as_array()).expect("Preview must explicitly link frames to samples; timestamps can collide");
+        assert_eq!(links.len(), report.frames.len());
+        let mut seen = BTreeSet::new();
+        for link in links {
+            let index = link["frame_index"].as_u64().unwrap() as usize;
+            assert!(seen.insert(index));
+            let source = &link["source"]["capture"];
+            let capture_id = source["capture_id"].as_str().unwrap();
+            let parser_id = source["parser_id"].as_str().unwrap();
+            assert_eq!(parser_id, if report.frames[index].widget_id == "traffic" { "candidate.interfaces" } else { "test.other" });
+            let physical = report.captures.iter().find(|capture| capture.capture_id == capture_id).unwrap();
+            assert_eq!(physical.parser_id, "test.interfaces");
+            let parsed = report.interpretations.iter().find(|parsed| parsed.capture_id == capture_id && parsed.parser_id == parser_id).unwrap();
+            let raw_value = physical.raw.split_whitespace().nth(1).unwrap().to_string();
+            assert_eq!(parsed.rows[0].fields["bytes"], MetricValue::Text { value: raw_value.clone() });
+            assert_eq!(report.frames[index].rows[0].fields["bytes"], if report.frames[index].widget_id == "traffic" { MetricValue::Unsigned { value: raw_value } } else { MetricValue::Text { value: raw_value } });
+        }
+        assert_eq!(h.probe.calls.lock().len(), 2);
         h.finish().await;
     }
 
@@ -3708,6 +4007,10 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
+        assert_eq!(h.service.catalog("workspace", ConfigScope::Local).await.unwrap_err().code, "config_busy");
+        assert_eq!(h.service.validate("workspace", h.draft.clone()).await.unwrap_err().code, "config_busy");
+        assert_eq!(h.service.import("workspace", ConfigScope::Local, "widget: x".into()).await.unwrap_err().code, "config_busy");
+        assert_eq!(h.service.reset("workspace", ConfigScope::Local, ResetAsset::Widget("x".into())).await.unwrap_err().code, "config_busy");
         assert_eq!(
             tokio::time::timeout(
                 Duration::from_millis(500),

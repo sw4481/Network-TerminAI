@@ -314,6 +314,22 @@ pub fn run() {
         .manage(config_manager)
         .manage(shutdown)
         .invoke_handler(tauri::generate_handler![
+            commands::telemetry::telemetry_establish,
+            commands::telemetry::telemetry_start,
+            commands::telemetry::telemetry_select,
+            commands::telemetry::telemetry_stop,
+            commands::telemetry::telemetry_close,
+            commands::telemetry::telemetry_snapshot,
+            commands::telemetry::telemetry_validate,
+            commands::telemetry::telemetry_preview,
+            commands::telemetry::telemetry_apply,
+            commands::telemetry::telemetry_catalog,
+            commands::telemetry::telemetry_series,
+            commands::telemetry::telemetry_widget,
+            commands::telemetry::telemetry_capture_sample,
+            commands::telemetry::telemetry_test_template,
+            commands::telemetry::telemetry_import,
+            commands::telemetry::telemetry_reset,
             commands::ping_cmd,
             commands::agent_catalog::agent_catalog_update_start,
             commands::agent_catalog::agent_catalog_update_status,

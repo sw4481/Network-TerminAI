@@ -4,6 +4,35 @@ export type WorkspaceId = string;
 export type Revision = string;
 export type Generation = number;
 export type TemplateId = string;
+export interface TelemetryRead<T> {
+  workspace_id: WorkspaceId;
+  generation: Generation;
+  sequence: number;
+  /** Effective source for target reads; global bundle for authoring. */
+  revision: Revision;
+  value: T;
+}
+export type AssetOrigin = 'builtin' | 'local' | { profile: Platform } | { device: string };
+export interface AuthoringCatalog {
+  effective: EffectiveConfig;
+  own: ConfigDraft;
+  inherited: Catalog;
+  builtin: Catalog;
+  origins: { widgets: Record<string, AssetOrigin>; layouts: Record<string, AssetOrigin>; templates: Record<string, AssetOrigin> };
+}
+export interface ParsedInterpretation {
+  capture_id: string;
+  parser_id: TemplateId;
+  template_sha256: string;
+  rows: MetricRow[];
+}
+export interface PreviewFrameSource {
+  frame_index: number;
+  source: { capture: { capture_id: string; parser_id: TemplateId } } | { local: { sample_index: number; collector: LocalCollector } };
+}
+export type CaptureSampleRequest =
+  | { kind: 'current'; target: TargetRef; command: string; parser_id: string; revision: Revision }
+  | { kind: 'draft'; target: TargetRef; draft: ConfigDraft; parser_id: string };
 export type Platform = 'ios' | 'iosxe';
 export type ConfigScope = 'local' | { profile: Platform } | { device: string };
 export type CollectionState = 'stopped' | 'collecting' | 'fresh' | 'stale' | 'unsupported' | 'not_configured' | 'failed';
@@ -162,6 +191,10 @@ export interface PreviewReport {
   token: PreviewToken | null;
   frames: Array<WidgetFrame>;
   diagnostics: Array<Diagnostic>;
+  captures: Capture[];
+  local_samples: LocalSample[];
+  interpretations: ParsedInterpretation[];
+  frame_sources: PreviewFrameSource[];
 }
 export interface ApplyResult {
   /** Global published bundle authority, not an effective target revision. */

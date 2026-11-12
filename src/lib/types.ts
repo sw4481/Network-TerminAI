@@ -5,6 +5,7 @@ export type TabType =
   | "editor"
   | "iac-studio"
   | "topology"
+  | "telemetry"
   | "vault"
   | "recordings"
   | "recording-player"

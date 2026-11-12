@@ -1,0 +1,321 @@
+import { createStore, useStore } from "zustand";
+import { registerAppShutdownTask } from "../../lib/appShutdown";
+import { telemetryApi, type TelemetryApi } from "./api";
+import type {
+  ConfigDraft,
+  PreviewToken,
+  SeriesQuery,
+  StartRequest,
+  TargetRef,
+  TelemetryRead,
+  TelemetrySnapshot,
+  WidgetQuery,
+  WidgetSummary,
+} from "./types";
+
+export interface TelemetryWorkspaceState {
+  snapshot: TelemetrySnapshot | null;
+  error: string | null;
+  busy: boolean;
+  closing: boolean;
+}
+interface Owner {
+  epoch: number;
+  ready: Promise<void>;
+  control: Promise<unknown>;
+  close?: Promise<void>;
+  timer?: ReturnType<typeof setTimeout>;
+  failures: number;
+  unregister: () => void;
+  reads: Map<string, number>;
+  refreshing: boolean;
+}
+const message = (error: unknown) =>
+  error &&
+  typeof error === "object" &&
+  "message" in error &&
+  typeof error.message === "string"
+    ? error.message
+    : String(error);
+
+export class TelemetryWorkspaceStore {
+  readonly state = createStore<{
+    workspaces: Record<string, TelemetryWorkspaceState>;
+  }>(() => ({ workspaces: {} }));
+  private readonly owners = new Map<string, Owner>();
+  constructor(
+    private readonly api: TelemetryApi,
+    private readonly register = registerAppShutdownTask,
+  ) {}
+
+  private patch(id: string, value: Partial<TelemetryWorkspaceState>) {
+    this.state.setState((state) => ({
+      workspaces: {
+        ...state.workspaces,
+        [id]: { ...state.workspaces[id], ...value },
+      },
+    }));
+  }
+  establish(id: string): Promise<void> {
+    const existing = this.owners.get(id);
+    if (existing) return existing.ready;
+    this.patch(id, { snapshot: null, busy: true, error: null, closing: false });
+    const owner: Owner = {
+      epoch: 0,
+      ready: Promise.resolve(),
+      control: Promise.resolve(),
+      failures: 0,
+      refreshing: false,
+      reads: new Map(),
+      unregister: this.register(`telemetry:${id}`, () => this.close(id)),
+    };
+    this.owners.set(id, owner);
+    owner.ready = this.api
+      .establish(id)
+      .then((snapshot) => {
+        if (owner.epoch === 0) this.accept(id, snapshot);
+      })
+      .catch((error) => {
+        if (owner.epoch === 0) this.patch(id, { error: message(error) });
+      })
+      .finally(() => {
+        if (!this.state.getState().workspaces[id]?.closing) {
+          this.patch(id, { busy: false });
+          this.schedule(id, owner);
+        }
+      });
+    return owner.ready;
+  }
+  private accept(id: string, snapshot: TelemetrySnapshot) {
+    const current = this.state.getState().workspaces[id]?.snapshot;
+    if (
+      this.state.getState().workspaces[id]?.closing ||
+      snapshot.workspace_id !== id ||
+      (current &&
+        (snapshot.generation < current.generation ||
+          (snapshot.generation === current.generation &&
+            snapshot.sequence < current.sequence)))
+    )
+      return;
+    this.patch(id, { snapshot, error: null });
+  }
+  private schedule(id: string, owner: Owner) {
+    clearTimeout(owner.timer);
+    if (
+      this.owners.get(id) !== owner ||
+      owner.refreshing ||
+      this.state.getState().workspaces[id]?.closing
+    )
+      return;
+    owner.timer = setTimeout(
+      () => {
+        void this.refresh(id, owner);
+      },
+      Math.min(30_000, 1000 * 2 ** owner.failures),
+    );
+  }
+  private async refresh(id: string, owner: Owner) {
+    owner.refreshing = true;
+    const epoch = owner.epoch;
+    try {
+      const snapshot = await this.api.snapshot(id);
+      if (this.owners.get(id) === owner && epoch === owner.epoch) {
+        this.accept(id, snapshot);
+        owner.failures = 0;
+      }
+    } catch (error) {
+      if (this.owners.get(id) === owner && epoch === owner.epoch) {
+        owner.failures = Math.min(5, owner.failures + 1);
+        this.patch(id, { error: message(error) });
+      }
+    } finally {
+      owner.refreshing = false;
+      this.schedule(id, owner);
+    }
+  }
+  private async control<T>(id: string, action: () => Promise<T>): Promise<T> {
+    const owner = this.owners.get(id);
+    if (!owner || this.state.getState().workspaces[id].closing)
+      throw new Error("Telemetry workspace is unavailable");
+    owner.epoch++;
+    owner.reads.clear();
+    clearTimeout(owner.timer);
+    this.patch(id, { busy: true, error: null });
+    const run = owner.control
+      .catch(() => {})
+      .then(() => owner.ready)
+      .then(() => {
+        if (this.state.getState().workspaces[id]?.closing)
+          throw new Error("Telemetry workspace is closing");
+        return action();
+      });
+    owner.control = run;
+    try {
+      return await run;
+    } catch (error) {
+      if (owner.control === run) this.patch(id, { error: message(error) });
+      throw error;
+    } finally {
+      if (
+        owner.control === run &&
+        !this.state.getState().workspaces[id]?.closing
+      ) {
+        this.patch(id, { busy: false });
+        this.schedule(id, owner);
+      }
+    }
+  }
+  start(request: StartRequest) {
+    return this.control(request.workspace_id, async () =>
+      this.accept(request.workspace_id, await this.api.start(request)),
+    );
+  }
+  stop(id: string) {
+    return this.control(id, async () => {
+      await this.api.stop(id);
+      this.accept(id, await this.api.snapshot(id));
+    });
+  }
+  select(id: string, target: TargetRef) {
+    return this.control(id, async () =>
+      this.accept(id, await this.api.select(id, target)),
+    );
+  }
+  apply(id: string, draft: ConfigDraft, token: PreviewToken) {
+    return this.control(id, async () => {
+      const applied = await this.api.apply(id, draft, token);
+      if (
+        applied.workspace_id !== id ||
+        applied.generation <
+          (this.state.getState().workspaces[id]?.snapshot?.generation ??
+            Infinity) ||
+        applied.revision !== applied.value.revision
+      )
+        throw new Error(
+          "Telemetry Apply reply is obsolete; reload configuration",
+        );
+      const snapshot = await this.api.snapshot(id);
+      if (
+        this.state.getState().workspaces[id]?.closing ||
+        snapshot.workspace_id !== id ||
+        snapshot.generation < applied.generation
+      )
+        throw new Error(
+          "Telemetry Apply reply is obsolete; reload configuration",
+        );
+      this.accept(id, snapshot);
+      return applied;
+    });
+  }
+  async read<T>(
+    id: string,
+    key: string,
+    request: () => Promise<TelemetryRead<T>>,
+    revision?: string,
+  ): Promise<TelemetryRead<T>> {
+    const owner = this.owners.get(id);
+    const state = this.state.getState().workspaces[id];
+    if (!owner || !state?.snapshot || state.closing || state.busy)
+      throw new Error("Telemetry workspace is unavailable");
+    const epoch = owner.epoch,
+      generation = state.snapshot.generation,
+      sequence = state.snapshot.sequence;
+    const operation = (owner.reads.get(key) ?? 0) + 1;
+    owner.reads.set(key, operation);
+    const response = await request();
+    const current = this.state.getState().workspaces[id];
+    if (
+      this.owners.get(id) !== owner ||
+      owner.epoch !== epoch ||
+      owner.reads.get(key) !== operation ||
+      current?.closing ||
+      current?.snapshot?.generation !== generation ||
+      response.workspace_id !== id ||
+      response.generation !== generation ||
+      response.sequence < sequence ||
+      (revision !== undefined && response.revision !== revision)
+    )
+      throw new Error("Telemetry reply is obsolete; retry");
+    return response;
+  }
+  async widget(
+    query: WidgetQuery,
+    sourceRevision: string,
+    previous?: WidgetSummary,
+  ) {
+    const summary = this.state
+      .getState()
+      .workspaces[
+        query.workspace_id
+      ]?.snapshot?.widgets.find((widget) => widget.target_id === query.target_id && widget.widget_id === query.widget_id);
+    if (!summary || (query.offset > 0 && !previous))
+      throw new Error("Telemetry table needs a first page");
+    const response = await this.read(
+      query.workspace_id,
+      `widget:${query.target_id}:${query.widget_id}`,
+      () => this.api.widget(query),
+      sourceRevision,
+    );
+    const metadata = response.value.metadata;
+    if (
+      metadata.workspace_id !== query.workspace_id ||
+      metadata.target_id !== query.target_id ||
+      metadata.widget_id !== query.widget_id ||
+      metadata.generation !== summary.generation ||
+      metadata.revision !== summary.revision ||
+      (previous &&
+        (metadata.observed_at_ms !== previous.observed_at_ms ||
+          metadata.generation !== previous.generation ||
+          metadata.revision !== previous.revision))
+    )
+      throw new Error("Telemetry table changed; reload its first page");
+    return response;
+  }
+  series(query: SeriesQuery, sourceRevision: string) {
+    const summary = this.state
+      .getState()
+      .workspaces[
+        query.workspace_id
+      ]?.snapshot?.widgets.find((widget) => widget.target_id === query.target_id && widget.widget_id === query.widget_id);
+    if (!summary)
+      return Promise.reject(new Error("Telemetry series has no sample"));
+    return this.read(
+      query.workspace_id,
+      `series:${query.target_id}:${query.widget_id}:${query.row_key}:${query.field}`,
+      () => this.api.series(query),
+      sourceRevision,
+    );
+  }
+  close(id: string): Promise<void> {
+    const owner = this.owners.get(id);
+    if (!owner)
+      return Promise.reject(new Error("Telemetry workspace is unavailable"));
+    if (owner.close) return owner.close;
+    owner.epoch++;
+    owner.reads.clear();
+    clearTimeout(owner.timer);
+    this.patch(id, { closing: true, busy: true });
+    owner.close = owner.control
+      .catch(() => {})
+      .then(() => owner.ready)
+      .then(() => this.api.close(id))
+      .then(() => {
+        owner.unregister();
+        this.owners.delete(id);
+        this.state.setState((state) => {
+          const workspaces = { ...state.workspaces };
+          delete workspaces[id];
+          return { workspaces };
+        });
+      })
+      .catch((error) => {
+        owner.close = undefined;
+        this.patch(id, { busy: false, error: message(error) });
+        throw error;
+      });
+    return owner.close;
+  }
+}
+export const telemetryWorkspaces = new TelemetryWorkspaceStore(telemetryApi);
+export const useTelemetryStore = (id: string) =>
+  useStore(telemetryWorkspaces.state, (state) => state.workspaces[id]);

@@ -23,6 +23,7 @@ describe("app shutdown preparation", () => {
   it("acknowledges only after every registered save and flush completes", async () => {
     const session = deferred();
     const editor = deferred();
+    const telemetry = deferred();
     const order: string[] = [];
     const tasks = new AppShutdownTaskRegistry();
     tasks.register("session", async () => {
@@ -32,6 +33,10 @@ describe("app shutdown preparation", () => {
     tasks.register("editor:tab-1", async () => {
       await editor.promise;
       order.push("editor");
+    });
+    tasks.register('telemetry:tab-2', async () => {
+      await telemetry.promise;
+      order.push('telemetry');
     });
     const handle = createAppShutdownRequestHandler(tasks, async () => {
       order.push("ack");
@@ -46,8 +51,11 @@ describe("app shutdown preparation", () => {
     expect(order).toEqual(["session"]);
 
     editor.resolve();
+    await Promise.resolve();
+    expect(order).toEqual(['session', 'editor']);
+    telemetry.resolve();
     await pending;
-    expect(order).toEqual(["session", "editor", "ack"]);
+    expect(order).toEqual(["session", "editor", "telemetry", "ack"]);
   });
 
   it("runs and acknowledges a repeated request id exactly once", async () => {

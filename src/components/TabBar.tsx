@@ -17,6 +17,7 @@ import * as terminalRegistry from "../lib/terminalRegistry";
 import { isManagedSshTab } from "../lib/sessionRestore";
 import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import NotificationCenter from "./NotificationCenter";
+import { telemetryWorkspaces } from '../features/telemetry/store';
 
 export function TabBar({
   onNew,
@@ -24,6 +25,7 @@ export function TabBar({
   onNewNetconf,
   onNewEditor,
   onNewTopology,
+  onNewTelemetry,
   onNewVault,
   onNewRecordings,
   onNewTroubleshoot,
@@ -37,6 +39,7 @@ export function TabBar({
   onNewNetconf?: () => void;
   onNewEditor?: () => void;
   onNewTopology?: () => void;
+  onNewTelemetry?: () => void;
   onNewVault?: () => void;
   onNewRecordings?: () => void;
   onNewTroubleshoot?: () => void;
@@ -92,6 +95,7 @@ export function TabBar({
     !!onNewNetconf ||
     !!onNewEditor ||
     !!onNewTopology ||
+    !!onNewTelemetry ||
     !!onNewVault ||
     !!onNewRecordings ||
     !!onNewTroubleshoot ||
@@ -118,6 +122,7 @@ export function TabBar({
         const isNetconf = t.tab_type === "netconf";
         const isEditor = t.tab_type === "editor";
         const isTopology = t.tab_type === "topology";
+        const isTelemetry = t.tab_type === 'telemetry';
         const isVault = t.tab_type === "vault";
         const isRecordings = t.tab_type === "recordings";
         const isRecordingPlayer = t.tab_type === "recording-player";
@@ -133,6 +138,7 @@ export function TabBar({
           !isNetconf &&
           !isEditor &&
           !isTopology &&
+          !isTelemetry &&
           !isVault &&
           !isRecordings &&
           !isRecordingPlayer &&
@@ -201,6 +207,7 @@ export function TabBar({
             data-tab-type={t.tab_type ?? "terminal"}
           >
             {isCanvas && <span className="tab-type-badge" title="Canvas investigation">CANVAS</span>}
+            {isTelemetry && <span className="tab-type-badge" title="Telemetry workspace">TELEMETRY</span>}
             {isApi && (
               <span className="tab-type-badge" title="API Runner tab">
                 API
@@ -291,7 +298,10 @@ export function TabBar({
                 title={isCanvas ? `Close Canvas investigation ${t.title}` : undefined}
                 onClick={async (e) => {
                   e.stopPropagation();
-                  if (isApi) {
+                  if (isTelemetry) {
+                    try { await telemetryWorkspaces.close(t.id); }
+                    catch { return; }
+                  } else if (isApi) {
                     await tabCloseApi(t.id).catch(() => {});
                   } else if (isNetconf) {
                     await tabCloseNetconf(t.id).catch(() => {});
@@ -409,7 +419,7 @@ export function TabBar({
                 </button>
               )}
             </div>
-            {(onNewTopology || onNewRecordings) && (
+            {(onNewTopology || onNewTelemetry || onNewRecordings) && (
               <div className="tab-chooser-section">
                 <div className="tab-chooser-label">View</div>
                 {onNewTopology && (
@@ -425,6 +435,7 @@ export function TabBar({
                     Topology
                   </button>
                 )}
+                {onNewTelemetry && <button className="tab-chooser-item" role="menuitem" onClick={() => pickAndClose(onNewTelemetry)}>Telemetry</button>}
                 {onNewRecordings && (
                   <button
                     className="tab-chooser-item"

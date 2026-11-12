@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { listen } from '@tauri-apps/api/event';
 import { TabBar } from "./components/TabBar";
+import { telemetryWorkspaces } from './features/telemetry/store';
 import { CommandBlock } from "./components/CommandBlock";
 import { AgentPanel } from "./components/AgentPanel";
 import { CanvasWorkspace } from "./components/canvas/CanvasWorkspace";
@@ -21,6 +22,7 @@ import { NetconfTab } from "./components/netconf/NetconfTab";
 const EditorTab = lazy(() => import("./components/editor/EditorTab").then(m => ({ default: m.EditorTab })));
 const IacStudioTab = lazy(() => import("./components/iac/IacStudioTab").then(m => ({ default: m.IacStudioTab })));
 const TopologyTab = lazy(() => import("./components/topology/TopologyTab").then(m => ({ default: m.TopologyTab })));
+const TelemetryTab = lazy(() => import('./features/telemetry/TelemetryTab').then(m => ({ default: m.TelemetryTab })));
 const VaultTab = lazy(() => import("./components/vault/VaultTab").then(m => ({ default: m.VaultTab })));
 const RecordingsTab = lazy(() => import("./components/recording/RecordingsTab").then(m => ({ default: m.RecordingsTab })));
 const CastPlayer = lazy(() => import("./components/recording/CastPlayer").then(m => ({ default: m.CastPlayer })));
@@ -1372,6 +1374,12 @@ export default function App() {
     addTab(tab);
   }, [addTab]);
 
+  const handleNewTelemetry = useCallback(() => {
+    const id = crypto.randomUUID();
+    void telemetryWorkspaces.establish(id);
+    addTab({ id, title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: Math.floor(Date.now() / 1000), tab_type: 'telemetry' });
+  }, [addTab]);
+
   // Pair a freshly-spawned Terminal's tab_id back into its slot. If the slot
   // carried a run-in-terminal command, hand it to the terminal registry keyed
   // by the tab id. We do NOT pipe to the PTY directly here: the slot that first
@@ -1429,6 +1437,7 @@ export default function App() {
           onNewNetconf={handleNewNetconfTab}
           onNewEditor={handleNewEditor}
           onNewTopology={handleNewTopology}
+          onNewTelemetry={handleNewTelemetry}
           onNewVault={handleOpenVault}
           onNewRecordings={handleOpenRecordings}
           onNewTroubleshoot={handleOpenTroubleshoot}
@@ -1537,6 +1546,11 @@ export default function App() {
                     <IacStudioTab tab={tab} />
                   </div>
                 ))}
+              {tabs.filter(t => t.tab_type === 'telemetry').map(tab => (
+                <div key={tab.id} style={{ height: '100%', display: tab.id === activeTabId ? 'block' : 'none' }}>
+                  <TelemetryTab tabId={tab.id} />
+                </div>
+              ))}
               {tabs
                 .filter((t) => t.tab_type === "topology")
                 .map((tab) => (

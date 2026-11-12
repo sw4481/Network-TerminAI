@@ -8,6 +8,58 @@ pub type Revision = String;
 pub type Generation = u64;
 pub type TemplateId = String;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TelemetryRead<T> {
+    pub workspace_id: WorkspaceId,
+    pub generation: Generation,
+    pub sequence: u64,
+    /// Effective source authority for target reads; global bundle authority for authoring.
+    pub revision: Revision,
+    pub value: T,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoringCatalog {
+    pub effective: EffectiveConfig,
+    pub own: ConfigDraft,
+    pub inherited: Catalog,
+    pub builtin: Catalog,
+    pub origins: CatalogOrigins,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct CatalogOrigins {
+    pub widgets: BTreeMap<String, AssetOrigin>,
+    pub layouts: BTreeMap<String, AssetOrigin>,
+    pub templates: BTreeMap<String, AssetOrigin>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetOrigin { Builtin, Local, Profile(Platform), Device(String) }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParsedInterpretation {
+    pub capture_id: String,
+    pub parser_id: TemplateId,
+    pub template_sha256: String,
+    pub rows: Vec<MetricRow>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PreviewFrameSource {
+    pub frame_index: u32,
+    pub source: PreviewSampleSource,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum PreviewSampleSource {
+    Capture { capture_id: String, parser_id: TemplateId },
+    Local { sample_index: u32, collector: LocalCollector },
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Platform {
@@ -299,6 +351,14 @@ pub struct PreviewReport {
     pub token: Option<PreviewToken>,
     pub frames: Vec<WidgetFrame>,
     pub diagnostics: Vec<Diagnostic>,
+    #[serde(default)]
+    pub captures: Vec<Capture>,
+    #[serde(default)]
+    pub local_samples: Vec<LocalSample>,
+    #[serde(default)]
+    pub interpretations: Vec<ParsedInterpretation>,
+    #[serde(default)]
+    pub frame_sources: Vec<PreviewFrameSource>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

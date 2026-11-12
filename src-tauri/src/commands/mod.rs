@@ -31,6 +31,7 @@ pub mod stp;
 pub mod structured;
 pub mod topolograph;
 pub mod topology;
+pub mod telemetry;
 pub mod troubleshoot;
 pub mod vault;
 #[cfg(any(target_os = "windows", test))]
@@ -464,6 +465,7 @@ pub struct AppState {
         Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
     /// Native STP persistence and full-interval scheduler boundary.
     pub stp: Arc<crate::commands::stp::StpService>,
+    pub telemetry: Result<Arc<crate::telemetry::service::TelemetryService>, crate::telemetry::model::Diagnostic>,
     pub dictation: Arc<crate::dictation::DictationService>,
 }
 
@@ -494,6 +496,7 @@ impl AppState {
         let agent = Arc::new(AgentBridge::new(python, args));
 
         let db_arc = Arc::new(Mutex::new(db));
+        let telemetry = telemetry::create_service(db_arc.clone(), db_path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf());
 
         // Wire sidecar heartbeats into the DB-backed status row so the
         // frontend status chip has something to read. The worker thread owns
@@ -571,6 +574,7 @@ impl AppState {
         let github_auth_manager = Arc::new(crate::git::GitHubAuthManager::production());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
+            telemetry,
             pty_output_drains: Mutex::new(HashMap::new()),
             pty_spawn_lock: Arc::new(tokio::sync::Mutex::new(())),
             terminal_agent: Arc::new(crate::terminal_agent::TerminalAgentManager::default()),

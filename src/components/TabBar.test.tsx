@@ -19,6 +19,9 @@ import { useEditorStore } from "../state/editorStore";
 import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import { MANAGED_SSH_SHELL_MARKER } from "../lib/sessionRestore";
 
+vi.mock('../features/telemetry/store', () => ({ telemetryWorkspaces: { close: vi.fn().mockResolvedValue(undefined) } }));
+import { telemetryWorkspaces } from '../features/telemetry/store';
+
 // Mock the Tauri IPC wrappers so we can assert on them.
 vi.mock("../lib/tauri", () => ({
   ptyKill: vi.fn().mockResolvedValue(undefined),
@@ -56,6 +59,45 @@ describe("TabBar — regression + tab types", () => {
   beforeEach(() => {
     resetStore();
     vi.clearAllMocks();
+  });
+
+  it('offers Telemetry in the chooser', () => {
+    const onNewTelemetry = vi.fn();
+    render(<TabBar onNew={vi.fn()} onNewTelemetry={onNewTelemetry} />);
+    fireEvent.click(screen.getByTitle('More tab types…'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Telemetry/ }));
+    expect(onNewTelemetry).toHaveBeenCalledOnce();
+  });
+
+  it('awaits Telemetry Close before removing the tab, without PTY cleanup', async () => {
+    let resolve!: () => void;
+    vi.mocked(telemetryWorkspaces.close).mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    act(() => useTabs.getState().addTab({ id: 'telemetry', title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' }));
+    const removeTab = vi.spyOn(useTabs.getState(), 'removeTab');
+    render(<TabBar onNew={vi.fn()} onDetach={vi.fn()} />);
+    const tab = screen.getByTestId('tab-telemetry');
+    expect(tab.querySelector('.tab-type-badge')?.textContent).toBe('TELEMETRY');
+    expect(tab.querySelector('.tab-detach')).toBeNull();
+    await act(async () => fireEvent.click(tab.querySelector('.tab-close')!));
+    expect(removeTab).not.toHaveBeenCalled();
+    await act(async () => resolve());
+    expect(useTabs.getState().tabs).toHaveLength(0);
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    removeTab.mockRestore();
+  });
+
+  it('retains Telemetry after rejected Close without falling through to PTY cleanup', async () => {
+    vi.mocked(telemetryWorkspaces.close).mockRejectedValueOnce(new Error('cleanup pending'));
+    act(() => useTabs.getState().addTab({ id: 'telemetry', title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' }));
+    const removeTab = vi.spyOn(useTabs.getState(), 'removeTab');
+    render(<TabBar onNew={vi.fn()} />);
+    await act(async () => fireEvent.click(screen.getByTestId('tab-telemetry').querySelector('.tab-close')!));
+    expect(removeTab).not.toHaveBeenCalled();
+    expect(useTabs.getState().tabs).toHaveLength(1);
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    removeTab.mockRestore();
   });
 
   it("offers Canvas in the visible tab chooser without creating a terminal", () => {

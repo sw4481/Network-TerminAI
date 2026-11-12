@@ -333,13 +333,20 @@ pub async fn app_shutdown_acknowledge(
     Ok(())
 }
 
-trait ProcessExitServices {
+pub(crate) trait ProcessExitServices {
+    fn shutdown_telemetry(&self) -> Result<(), String>;
     fn shutdown_discovery(&self) -> Result<(), String>;
     fn shutdown_stp(&self) -> Result<(), String>;
     fn stop_sidecar(&self);
 }
 
 impl ProcessExitServices for crate::commands::AppState {
+    fn shutdown_telemetry(&self) -> Result<(), String> {
+        match &self.telemetry {
+            Ok(service) => service.shutdown_sync(std::time::Duration::from_secs(3)).map_err(|error| error.message),
+            Err(_) => Ok(()),
+        }
+    }
     fn shutdown_discovery(&self) -> Result<(), String> {
         self.topology_discovery.shutdown()
     }
@@ -353,7 +360,10 @@ impl ProcessExitServices for crate::commands::AppState {
     }
 }
 
-fn cleanup_process_services(services: &impl ProcessExitServices) {
+pub(crate) fn cleanup_process_services(services: &impl ProcessExitServices) {
+    if let Err(error) = services.shutdown_telemetry() {
+        tracing::warn!(error = %error, "application exit cleanup could not stop telemetry cleanly");
+    }
     if let Err(error) = services.shutdown_discovery() {
         tracing::warn!(error = %error, "application exit cleanup could not stop topology discovery cleanly");
     }
@@ -367,7 +377,7 @@ pub(super) fn cleanup_before_process_exit(app: &AppHandle) {
     let state = app.state::<crate::commands::AppState>();
     state.terminal_logging.shutdown();
     cleanup_process_services(&*state);
-    tracing::info!("application exit cleanup finished topology discovery, STP and sidecar cleanup attempts");
+    tracing::info!("application exit cleanup finished telemetry, topology discovery, STP and sidecar cleanup attempts");
 }
 
 #[cfg(test)]
@@ -385,6 +395,10 @@ mod tests {
     }
 
     impl ProcessExitServices for RecordingExitServices {
+        fn shutdown_telemetry(&self) -> Result<(), String> {
+            self.calls.lock().push("telemetry");
+            Ok(())
+        }
         fn shutdown_discovery(&self) -> Result<(), String> {
             self.calls.lock().push("discovery");
             Ok(())
@@ -408,7 +422,7 @@ mod tests {
 
         cleanup_process_services(&services);
 
-        assert_eq!(*services.calls.lock(), vec!["discovery", "stp", "sidecar"]);
+        assert_eq!(*services.calls.lock(), vec!["telemetry", "discovery", "stp", "sidecar"]);
     }
 
     #[test]
