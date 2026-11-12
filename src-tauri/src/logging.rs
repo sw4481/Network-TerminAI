@@ -1,8 +1,69 @@
 use anyhow::{Context, Result};
-use std::path::PathBuf;
-use tracing::Level;
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
+use tracing::{
+    field::{Field, Visit},
+    Event, Level, Metadata, Subscriber,
+};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{
+    fmt,
+    layer::{Context as LayerContext, SubscriberExt},
+    util::SubscriberInitExt,
+    EnvFilter, Layer,
+};
+
+static SSH_PRIVACY_INSTALLED: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn ssh_privacy_installed() -> bool {
+    SSH_PRIVACY_INSTALLED.load(Ordering::Acquire)
+}
+
+// Pinned russh 0.60.2 wire diagnostics include auth packets and raw capture bytes.
+struct SshWirePrivacy;
+fn private_wire(target: &str, level: Level) -> bool {
+    match target {
+        "russh::client::encrypted" | "russh::server::encrypted" => {
+            matches!(level, Level::DEBUG | Level::TRACE)
+        }
+        "russh::session" => level == Level::TRACE,
+        _ => false,
+    }
+}
+struct LogTarget {
+    wire: bool,
+    level: Level,
+}
+impl Visit for LogTarget {
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "log.target" {
+            self.wire = private_wire(value, self.level);
+        }
+    }
+    fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}
+}
+impl<S: Subscriber> Layer<S> for SshWirePrivacy {
+    fn enabled(&self, metadata: &Metadata<'_>, _: LayerContext<'_, S>) -> bool {
+        !private_wire(metadata.target(), *metadata.level())
+    }
+    fn event_enabled(&self, event: &Event<'_>, _: LayerContext<'_, S>) -> bool {
+        if !matches!(*event.metadata().level(), Level::DEBUG | Level::TRACE) {
+            return true;
+        }
+        if private_wire(event.metadata().target(), *event.metadata().level()) {
+            return false;
+        }
+        // tracing-log events use target `log`; the real target is a string field.
+        let mut target = LogTarget {
+            wire: false,
+            level: *event.metadata().level(),
+        };
+        event.record(&mut target);
+        !target.wire
+    }
+}
 
 /// Log level configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -131,6 +192,7 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .with_current_span(true)
                     .with_span_list(true),
             )
+            .with(SshWirePrivacy)
             .try_init()
     } else {
         // Pretty print for development
@@ -145,22 +207,13 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .with_thread_ids(true)
                     .with_target(true),
             )
+            .with(SshWirePrivacy)
             .try_init()
     };
 
-    // Handle the case where subscriber is already initialized (in tests)
-    if let Err(e) = result {
-        // Check if it's because a subscriber is already set
-        if e.to_string().contains("already been set") {
-            // Silently ignore in tests - subscriber is already initialized
-            return Ok(());
-        } else {
-            return Err(anyhow::anyhow!(
-                "Failed to initialize tracing subscriber: {}",
-                e
-            ));
-        }
-    }
+    result.map_err(|e| anyhow::anyhow!("Failed to initialize tracing subscriber: {e}"))?;
+    // try_init also installs LogTracer; a partial/conflicting installation is unsafe.
+    SSH_PRIVACY_INSTALLED.store(true, Ordering::Release);
 
     tracing::info!(
         log_dir = ?log_dir,
@@ -223,4 +276,11 @@ mod tests {
         assert!(dir.to_string_lossy().contains("ccie-terminal"));
         assert!(dir.to_string_lossy().contains("logs"));
     }
+}
+
+// Reuse the integration cases without Cargo building the application's binary.
+#[cfg(test)]
+mod integration_tests {
+    use crate as ccie_terminal_lib;
+    include!("../tests/logging_test.rs");
 }

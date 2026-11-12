@@ -5,3 +5,4 @@ pub mod model;
 pub mod parser;
 pub mod policy;
 pub mod processing;
+pub mod ssh;
