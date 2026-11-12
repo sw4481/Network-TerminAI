@@ -57,6 +57,7 @@ impl FrameNormalizer {
             capture.monotonic_ms,
             previous,
             maximum_bytes,
+            Some(capture),
         );
         frame
     }
@@ -124,6 +125,7 @@ impl FrameNormalizer {
             sample.monotonic_ms,
             previous,
             maximum_bytes - diagnostic_bytes,
+            None,
         );
         if frame.state != CollectionState::Failed {
             frame.diagnostics = sample.diagnostics.clone();
@@ -177,8 +179,9 @@ impl FrameNormalizer {
         at: u64,
         previous: Option<(&[MetricRow], u64)>,
         maximum_bytes: usize,
+        capture: Option<&Capture>,
     ) {
-        let result = Self::rows(definition, records, at, previous, maximum_bytes);
+        let result = Self::rows(definition, records, at, previous, maximum_bytes, capture);
         match result {
             Ok(rows) => {
                 frame.rows = rows;
@@ -207,6 +210,7 @@ impl FrameNormalizer {
         at: u64,
         previous: Option<(&[MetricRow], u64)>,
         maximum_bytes: usize,
+        capture: Option<&Capture>,
     ) -> Result<Vec<MetricRow>, Diagnostic> {
         let limit = || {
             Diagnostic::new(
@@ -232,13 +236,23 @@ impl FrameNormalizer {
         for record in records {
             let mut fields = BTreeMap::new();
             for (name, aliases) in &definition.fields {
-                let value = aliases
+                let selected = aliases
                     .iter()
-                    .filter_map(|alias| record.fields.get(alias))
-                    .find(|value| {
+                    .filter_map(|alias| record.fields.get(alias).map(|value| (alias, value)))
+                    .find(|(_, value)| {
                         !matches!(value, MetricValue::Missing { .. })
                             && !matches!(value, MetricValue::Text { value } if value.is_empty())
                     });
+                let canonical = capture.and_then(|capture| {
+                    selected.and_then(|(alias, value)| {
+                        super::catalog::ProtocolClassifier::field_value(
+                            definition, capture, name, alias, value,
+                        )
+                    })
+                });
+                let value = canonical
+                    .as_ref()
+                    .or_else(|| selected.map(|(_, value)| value));
                 let bytes = 128usize
                     .saturating_add(name.len().saturating_mul(6))
                     .saturating_add(value.map(value_bytes).unwrap_or(128));

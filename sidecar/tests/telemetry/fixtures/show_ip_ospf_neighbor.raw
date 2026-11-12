@@ -1,0 +1,5 @@
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+192.0.2.1        1   FULL/BDR        00:00:04    192.0.2.2     GigabitEthernet0/2.101
+192.0.2.3        1   FULL/DR         00:00:04    192.0.2.4     GigabitEthernet0/2.101
+192.0.2.1        1   FULL/BDR        00:00:04    192.0.2.5      GigabitEthernet0/2.100
+192.0.2.3        1   FULL/DR         00:00:04    192.0.2.6      GigabitEthernet0/2.100

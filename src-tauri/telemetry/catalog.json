@@ -1,0 +1,623 @@
+{
+  "schema_version": 1,
+  "ntc_version": "9.1.0",
+  "ntc_commit": "e60dae39a28d148253e751176bd3ff15e35bfd56",
+  "upstream_import_commit": "09d2a0b3f9c77e2b85bd5b48a055b7bedb40fe98",
+  "templates": [
+    {
+      "id": "ios.show_version",
+      "platform": "ios",
+      "command": "show version",
+      "path": "templates/cisco_ios_show_version.textfsm",
+      "sha256": "00ec4a1fabf7f83781c85c205ae8656b5fbee4abff5a30c1d19783d7e218303e",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_version.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_version",
+      "platform": "iosxe",
+      "command": "show version",
+      "path": "templates/cisco_ios_show_version.textfsm",
+      "sha256": "00ec4a1fabf7f83781c85c205ae8656b5fbee4abff5a30c1d19783d7e218303e",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_version.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_processes_cpu",
+      "platform": "ios",
+      "command": "show processes cpu",
+      "path": "templates/cisco_ios_show_processes_cpu.textfsm",
+      "sha256": "580ba59ca0c2b0d09091fb0ccaca5cf2b618404e6b45f336f3bcafdb5bc3abe9",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_processes_cpu.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_processes_cpu",
+      "platform": "iosxe",
+      "command": "show processes cpu",
+      "path": "templates/cisco_ios_show_processes_cpu.textfsm",
+      "sha256": "580ba59ca0c2b0d09091fb0ccaca5cf2b618404e6b45f336f3bcafdb5bc3abe9",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_processes_cpu.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_processes_memory_sorted",
+      "platform": "ios",
+      "command": "show processes memory sorted",
+      "path": "templates/cisco_ios_show_processes_memory_sorted.textfsm",
+      "sha256": "0066110987a52e13378a6bbb01ea1d90041347e93c4389d08a3edfa86490a57e",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_processes_memory_sorted.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_processes_memory_sorted",
+      "platform": "iosxe",
+      "command": "show processes memory sorted",
+      "path": "templates/cisco_ios_show_processes_memory_sorted.textfsm",
+      "sha256": "0066110987a52e13378a6bbb01ea1d90041347e93c4389d08a3edfa86490a57e",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_processes_memory_sorted.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_interfaces",
+      "platform": "ios",
+      "command": "show interfaces",
+      "path": "templates/cisco_ios_show_interfaces.textfsm",
+      "sha256": "2ff15cc3e01d84d9882b48aaf14c67205653a10515ae476f62c8079f69290f16",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_interfaces",
+      "platform": "iosxe",
+      "command": "show interfaces",
+      "path": "templates/cisco_ios_show_interfaces.textfsm",
+      "sha256": "2ff15cc3e01d84d9882b48aaf14c67205653a10515ae476f62c8079f69290f16",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_interfaces_description",
+      "platform": "ios",
+      "command": "show interfaces description",
+      "path": "templates/cisco_ios_show_interfaces_description.textfsm",
+      "sha256": "2ddda5185110e5f7cdc2514314c8b1d781f8c84ae84ea199f93bbd72ca2abddf",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_description.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_interfaces_description",
+      "platform": "iosxe",
+      "command": "show interfaces description",
+      "path": "templates/cisco_ios_show_interfaces_description.textfsm",
+      "sha256": "2ddda5185110e5f7cdc2514314c8b1d781f8c84ae84ea199f93bbd72ca2abddf",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_description.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_interfaces_status",
+      "platform": "ios",
+      "command": "show interfaces status",
+      "path": "templates/cisco_ios_show_interfaces_status.textfsm",
+      "sha256": "0a5e8753aa96cb490b79559978995599db7cadf73e791110fde7da0744ee0a38",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_status.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_interfaces_status",
+      "platform": "iosxe",
+      "command": "show interfaces status",
+      "path": "templates/cisco_ios_show_interfaces_status.textfsm",
+      "sha256": "0a5e8753aa96cb490b79559978995599db7cadf73e791110fde7da0744ee0a38",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_status.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_interface",
+      "platform": "ios",
+      "command": "show ip interface",
+      "path": "templates/cisco_ios_show_ip_interface.textfsm",
+      "sha256": "c1c199c7e64ea1e1e4a11f8e955b7be48c6133e676b49eeb298bb63a54f796b3",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_interface.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_interface",
+      "platform": "iosxe",
+      "command": "show ip interface",
+      "path": "templates/cisco_ios_show_ip_interface.textfsm",
+      "sha256": "c1c199c7e64ea1e1e4a11f8e955b7be48c6133e676b49eeb298bb63a54f796b3",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_interface.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_interface_brief",
+      "platform": "ios",
+      "command": "show ip interface brief",
+      "path": "templates/cisco_ios_show_ip_interface_brief.textfsm",
+      "sha256": "3b3d244b3cecfb9a7e8679bb83245abfbf805a2c690ddd13dfe8675da74573a7",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_interface_brief.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_interface_brief",
+      "platform": "iosxe",
+      "command": "show ip interface brief",
+      "path": "templates/cisco_ios_show_ip_interface_brief.textfsm",
+      "sha256": "3b3d244b3cecfb9a7e8679bb83245abfbf805a2c690ddd13dfe8675da74573a7",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_interface_brief.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_bgp_summary",
+      "platform": "ios",
+      "command": "show ip bgp summary",
+      "path": "templates/cisco_ios_show_ip_bgp_summary.textfsm",
+      "sha256": "7760ba1df5b203667ebb0b078f88fa75ab7b70c754f4f267c08497e7216be9d2",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_bgp_summary.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_bgp_summary",
+      "platform": "iosxe",
+      "command": "show ip bgp summary",
+      "path": "templates/cisco_ios_show_ip_bgp_summary.textfsm",
+      "sha256": "7760ba1df5b203667ebb0b078f88fa75ab7b70c754f4f267c08497e7216be9d2",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_bgp_summary.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_bgp_vpnv4_all_neighbors",
+      "platform": "ios",
+      "command": "show ip bgp vpnv4 all neighbors",
+      "path": "templates/cisco_ios_show_ip_bgp_vpnv4_all_neighbors.textfsm",
+      "sha256": "6ecf153c9437ab0224b992d913ff8e80db778f0f56cbf3ed0893d2215cccc7eb",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_bgp_vpnv4_all_neighbors.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_bgp_vpnv4_all_neighbors",
+      "platform": "iosxe",
+      "command": "show ip bgp vpnv4 all neighbors",
+      "path": "templates/cisco_ios_show_ip_bgp_vpnv4_all_neighbors.textfsm",
+      "sha256": "6ecf153c9437ab0224b992d913ff8e80db778f0f56cbf3ed0893d2215cccc7eb",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_bgp_vpnv4_all_neighbors.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_ospf_neighbor",
+      "platform": "ios",
+      "command": "show ip ospf neighbor",
+      "path": "templates/cisco_ios_show_ip_ospf_neighbor.textfsm",
+      "sha256": "1a61431665ef698666ee57172ed8c84183281fb962f45ec6b7c12b5dc9ff82cd",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_ospf_neighbor.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_ospf_neighbor",
+      "platform": "iosxe",
+      "command": "show ip ospf neighbor",
+      "path": "templates/cisco_ios_show_ip_ospf_neighbor.textfsm",
+      "sha256": "1a61431665ef698666ee57172ed8c84183281fb962f45ec6b7c12b5dc9ff82cd",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_ospf_neighbor.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_ospf_interface_brief",
+      "platform": "ios",
+      "command": "show ip ospf interface brief",
+      "path": "templates/cisco_ios_show_ip_ospf_interface_brief.textfsm",
+      "sha256": "6e51c1ff40494b8a704412c1c8bcb958de61f2647334db2aca7fd5dd3c7b16c7",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_ospf_interface_brief.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_ospf_interface_brief",
+      "platform": "iosxe",
+      "command": "show ip ospf interface brief",
+      "path": "templates/cisco_ios_show_ip_ospf_interface_brief.textfsm",
+      "sha256": "6e51c1ff40494b8a704412c1c8bcb958de61f2647334db2aca7fd5dd3c7b16c7",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_ospf_interface_brief.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_ip_eigrp_neighbors",
+      "platform": "ios",
+      "command": "show ip eigrp neighbors",
+      "path": "templates/cisco_ios_show_ip_eigrp_neighbors.textfsm",
+      "sha256": "09f207889acdf7fc867f187a1e47d932fe3a76e55391a54138452378c48636da",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_eigrp_neighbors.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_ip_eigrp_neighbors",
+      "platform": "iosxe",
+      "command": "show ip eigrp neighbors",
+      "path": "templates/cisco_ios_show_ip_eigrp_neighbors.textfsm",
+      "sha256": "09f207889acdf7fc867f187a1e47d932fe3a76e55391a54138452378c48636da",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_ip_eigrp_neighbors.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_vlan",
+      "platform": "ios",
+      "command": "show vlan brief",
+      "path": "templates/cisco_ios_show_vlan.textfsm",
+      "sha256": "547f98de3bde12cc59d8e1aa99095b69fdd6e5565f4c0223302df84c9a9b8542",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_vlan.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_vlan",
+      "platform": "iosxe",
+      "command": "show vlan brief",
+      "path": "templates/cisco_ios_show_vlan.textfsm",
+      "sha256": "547f98de3bde12cc59d8e1aa99095b69fdd6e5565f4c0223302df84c9a9b8542",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_vlan.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_interfaces_switchport",
+      "platform": "ios",
+      "command": "show interfaces switchport",
+      "path": "templates/cisco_ios_show_interfaces_switchport.textfsm",
+      "sha256": "9f2b64d8f38f65462a33af4c068b5a4d161df0bc5ed90bce30b90e6fba69f6fb",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_switchport.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_interfaces_switchport",
+      "platform": "iosxe",
+      "command": "show interfaces switchport",
+      "path": "templates/cisco_ios_show_interfaces_switchport.textfsm",
+      "sha256": "9f2b64d8f38f65462a33af4c068b5a4d161df0bc5ed90bce30b90e6fba69f6fb",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_interfaces_switchport.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_spanning-tree",
+      "platform": "ios",
+      "command": "show spanning-tree",
+      "path": "templates/cisco_ios_show_spanning-tree.textfsm",
+      "sha256": "cb333dfea82a716ddfb7a257158e2aa881686cb1ea67f2ab6eb07ed89a8c7986",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_spanning-tree.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_spanning-tree",
+      "platform": "iosxe",
+      "command": "show spanning-tree",
+      "path": "templates/cisco_ios_show_spanning-tree.textfsm",
+      "sha256": "cb333dfea82a716ddfb7a257158e2aa881686cb1ea67f2ab6eb07ed89a8c7986",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_spanning-tree.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_spanning-tree_root",
+      "platform": "ios",
+      "command": "show spanning-tree root",
+      "path": "templates/cisco_ios_show_spanning-tree_root.textfsm",
+      "sha256": "dfbbe11a1228bc56b4bd6f11e1bac3dec16aa823490d5c43dd809b2e5a093107",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_spanning-tree_root.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_spanning-tree_root",
+      "platform": "iosxe",
+      "command": "show spanning-tree root",
+      "path": "templates/cisco_ios_show_spanning-tree_root.textfsm",
+      "sha256": "dfbbe11a1228bc56b4bd6f11e1bac3dec16aa823490d5c43dd809b2e5a093107",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_spanning-tree_root.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_etherchannel_summary",
+      "platform": "ios",
+      "command": "show etherchannel summary",
+      "path": "templates/cisco_ios_show_etherchannel_summary.textfsm",
+      "sha256": "0e5f0e6ed923471fc020d9a23819ca49dcba1945d60da35abc7a7054cda14543",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_etherchannel_summary.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_etherchannel_summary",
+      "platform": "iosxe",
+      "command": "show etherchannel summary",
+      "path": "templates/cisco_ios_show_etherchannel_summary.textfsm",
+      "sha256": "0e5f0e6ed923471fc020d9a23819ca49dcba1945d60da35abc7a7054cda14543",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_etherchannel_summary.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_cdp_neighbors_detail",
+      "platform": "ios",
+      "command": "show cdp neighbors detail",
+      "path": "templates/cisco_ios_show_cdp_neighbors_detail.textfsm",
+      "sha256": "1934440002200674497fb4c80817a582d1bdf9679aa68415b5b4f266a8f9f1fe",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_cdp_neighbors_detail.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_cdp_neighbors_detail",
+      "platform": "iosxe",
+      "command": "show cdp neighbors detail",
+      "path": "templates/cisco_ios_show_cdp_neighbors_detail.textfsm",
+      "sha256": "1934440002200674497fb4c80817a582d1bdf9679aa68415b5b4f266a8f9f1fe",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_cdp_neighbors_detail.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_lldp_neighbors_detail",
+      "platform": "ios",
+      "command": "show lldp neighbors detail",
+      "path": "templates/cisco_ios_show_lldp_neighbors_detail.textfsm",
+      "sha256": "68afd2996b6bbad79dfb7285bbdbdb5e08d584bd221b535cc5ed17ee2389a551",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_lldp_neighbors_detail.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_lldp_neighbors_detail",
+      "platform": "iosxe",
+      "command": "show lldp neighbors detail",
+      "path": "templates/cisco_ios_show_lldp_neighbors_detail.textfsm",
+      "sha256": "68afd2996b6bbad79dfb7285bbdbdb5e08d584bd221b535cc5ed17ee2389a551",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_lldp_neighbors_detail.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_mac-address-table",
+      "platform": "ios",
+      "command": "show mac address-table",
+      "path": "templates/cisco_ios_show_mac-address-table.textfsm",
+      "sha256": "28b93670e7c4a393e8cefd4501cb7230ba7269e6ee3939d887d7f2959e5d09e6",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_mac-address-table.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_mac-address-table",
+      "platform": "iosxe",
+      "command": "show mac address-table",
+      "path": "templates/cisco_ios_show_mac-address-table.textfsm",
+      "sha256": "28b93670e7c4a393e8cefd4501cb7230ba7269e6ee3939d887d7f2959e5d09e6",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_mac-address-table.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.show_inventory",
+      "platform": "ios",
+      "command": "show inventory",
+      "path": "templates/cisco_ios_show_inventory.textfsm",
+      "sha256": "02e276e51f12a9b710d8c23e5a70628cada702c96b31d20ac9807f23425c44be",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_inventory.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "iosxe.show_inventory",
+      "platform": "iosxe",
+      "command": "show inventory",
+      "path": "templates/cisco_ios_show_inventory.textfsm",
+      "sha256": "02e276e51f12a9b710d8c23e5a70628cada702c96b31d20ac9807f23425c44be",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/ntc_templates/templates/cisco_ios_show_inventory.textfsm",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "ios.interface_bytes",
+      "platform": "ios",
+      "command": "show interfaces",
+      "path": "templates/ios_interface_bytes.textfsm",
+      "sha256": "185e36740697f8c1eef37d0cd0894f83871a1420914f56fccfe827afa7c4505d",
+      "source_url": "independently-authored",
+      "license": "project-original",
+      "basis_source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "basis_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "evidence": "Offline public format only; actual lab/release/channel/counter width/reset/calibration remain OPEN."
+    },
+    {
+      "id": "iosxe.interface_bytes",
+      "platform": "iosxe",
+      "command": "show interfaces",
+      "path": "templates/ios_interface_bytes.textfsm",
+      "sha256": "185e36740697f8c1eef37d0cd0894f83871a1420914f56fccfe827afa7c4505d",
+      "source_url": "independently-authored",
+      "license": "project-original",
+      "basis_source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "basis_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "evidence": "Offline public format only; actual lab/release/channel/counter width/reset/calibration remain OPEN."
+    }
+  ],
+  "panels": [
+    {
+      "widget": "version",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "cpu",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "memory",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "interfaces",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "Admin down is explicit only in link-state text; no independent admin-state field.",
+        "CLI averaged rates are not byte-delta rates.",
+        "Full public sample repeats contradictory Gi0/2 blocks; full replay fails duplicate_key. First-interface excerpt proves only one format record."
+      ]
+    },
+    {
+      "widget": "interface_traffic",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "Configured BW is not proof of physical/negotiated capacity.",
+        "Actual byte-counter width/reset/calibration and selected-interface command format remain OPEN.",
+        "Full public sample repeats contradictory Gi0/2 blocks; full replay fails duplicate_key. First-interface excerpt proves only one format record."
+      ]
+    },
+    {
+      "widget": "interface_descriptions",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "port_status",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "ip_interfaces",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "Empty VRF is unknown, not default."
+      ]
+    },
+    {
+      "widget": "ip_interface_brief",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "bgp_peers",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "VRF unavailable; no join to detail by peer address.",
+        "Wrapped local IPv6 sample is a demonstrated parser mismatch."
+      ]
+    },
+    {
+      "widget": "bgp_vrf_peers",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "AF/uptime/prefix counts unavailable.",
+        "Pinned sample has an invalid empty-identity phantom row; fails visibly, never dropped."
+      ]
+    },
+    {
+      "widget": "ospf_neighbors",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "Process/VRF/network-role context unavailable. 2-Way is not a blanket fault."
+      ]
+    },
+    {
+      "widget": "ospf_interfaces",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "VRF unavailable; no unproven join to neighbor table."
+      ]
+    },
+    {
+      "widget": "eigrp_neighbors",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "VRF/named-mode name/AF unavailable; no inferred default."
+      ]
+    },
+    {
+      "widget": "vlans",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "trunks",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "Enabled VLAN lists alone do not establish trunk mode.",
+        "Operational active/forwarding/pruned VLAN sets from show interfaces trunk remain unsupported."
+      ]
+    },
+    {
+      "widget": "stp_ports",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "stp_roots",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "etherchannel",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "cdp_neighbors",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "lldp_neighbors",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "mac_table",
+      "evidence": "pinned-public-format-only",
+      "limitations": []
+    },
+    {
+      "widget": "inventory",
+      "evidence": "pinned-public-format-only",
+      "limitations": [
+        "No fixed physical-port layout inferred from inventory.",
+        "Pinned public sample repeats identical name+serial; full normalized replay fails duplicate_key, no ordinal identity is fabricated."
+      ]
+    },
+    {
+      "widget": "local_cpu",
+      "evidence": "Task5-exact-source-contract",
+      "limitations": [
+        "Actual Windows/Linux/native workspace acceptance OPEN."
+      ]
+    },
+    {
+      "widget": "local_memory",
+      "evidence": "Task5-exact-source-contract",
+      "limitations": [
+        "Actual Windows/Linux/native workspace acceptance OPEN."
+      ]
+    },
+    {
+      "widget": "local_filesystems",
+      "evidence": "Task5-exact-source-contract",
+      "limitations": [
+        "Actual Windows/Linux/native workspace acceptance OPEN."
+      ]
+    },
+    {
+      "widget": "local_network",
+      "evidence": "Task5-exact-source-contract",
+      "limitations": [
+        "Actual Windows/Linux/native workspace acceptance OPEN."
+      ]
+    },
+    {
+      "widget": "local_processes",
+      "evidence": "Task5-exact-source-contract",
+      "limitations": [
+        "Actual Windows/Linux/native workspace acceptance OPEN."
+      ]
+    }
+  ],
+  "command_rejections": [
+    {
+      "signature": "% Invalid input detected",
+      "state": "unsupported",
+      "source_url": "https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/syst-mgmt/b-system-management/m_cf-cli-basics.html",
+      "evidence": "IOS-XE17 primary CLI guide; format evidence only, not authorized lab proof."
+    },
+    {
+      "signature": "Command authorization failed.",
+      "state": "failed",
+      "source_url": "https://www.cisco.com/c/en/us/support/docs/security/identity-services-engine/200208-Configure-ISE-2-0-IOS-TACACS-Authentic.html",
+      "evidence": "Primary Cisco IOS15.4(3)M3 TACACS verification example; exact standalone permission signature, not lab authorization or all-release proof."
+    }
+  ],
+  "upstream_import_guide_sha256": "8a16d5d5189f533f65169892842e19279a101627039ceb63c3551e74709fa212"
+}

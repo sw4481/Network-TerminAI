@@ -257,6 +257,13 @@ pub struct ConfigDraft {
     pub reset_assets: Vec<ResetAsset>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ImportReport {
+    pub draft: Option<ConfigDraft>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResetAsset {

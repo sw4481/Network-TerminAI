@@ -1,5 +1,6 @@
 //! Validated asset overlays and atomic revision publication; no metric history.
 use super::{
+    catalog::ProtocolClassifier,
     definition::{parse_document, DefinitionValidator},
     model::*,
     parser::TelemetryParser,
@@ -513,6 +514,12 @@ impl TelemetryConfigRepository {
                             ));
                             return report;
                         }
+                        if let Some((_, diagnostic)) =
+                            ProtocolClassifier::capture_rejection(capture)
+                        {
+                            report.diagnostics.push(diagnostic);
+                            return report;
+                        }
                         let records = match self
                             .parser
                             .parse(capture, template, CancellationToken::new())
@@ -539,7 +546,7 @@ impl TelemetryConfigRepository {
                         let previous = baseline
                             .get(&capture.target_id)
                             .map(|(index, at)| (report.frames[*index].rows.as_slice(), *at));
-                        let frame = FrameNormalizer::normalize_bounded(
+                        let frame = ProtocolClassifier::normalize_bounded(
                             &context,
                             definition,
                             capture,
@@ -2092,6 +2099,166 @@ mod tests {
             .await
             .token
             .is_some());
+        repo.parser.shutdown().await.unwrap();
+    }
+    #[tokio::test]
+    async fn network_preview_preserves_protocol_classification_and_empty_rejection() {
+        use crate::telemetry::catalog::ProtocolClassifier;
+        let dir = tempfile::tempdir().unwrap();
+        let builtin = Catalog::builtin().unwrap();
+        let definition = builtin.widgets["bgp_peers"].clone();
+        let repo = TelemetryConfigRepository::load(
+            dir.path().into(),
+            builtin,
+            Arc::new(TelemetryParser::new()),
+        )
+        .unwrap();
+        repo.register_targets(&[target("one")]).unwrap();
+        let effective = repo.effective(&target("one"));
+        let draft = repo
+            .import_draft(
+                ConfigScope::Profile(Platform::Iosxe),
+                serde_yaml::to_string(&WidgetDocument {
+                    schema_version: 1,
+                    widgets: vec![definition.clone()],
+                })
+                .unwrap(),
+                "schema_version: 1\nlayouts: []".into(),
+                BTreeMap::new(),
+            )
+            .unwrap();
+        let WidgetSource::Ssh {
+            commands,
+            templates,
+        } = &definition.source
+        else {
+            panic!()
+        };
+        let asset = &effective.templates[&templates[&Platform::Iosxe]];
+        let mut capture = Capture {
+            capture_id: "bgp".into(),
+            target_id: "one".into(),
+            platform: Platform::Iosxe,
+            command: commands[&Platform::Iosxe].clone(),
+            parser_id: asset.id.clone(),
+            revision: effective.revision.clone(),
+            observed_at_ms: 1000,
+            monotonic_ms: 1000,
+            raw: include_str!("../../../sidecar/tests/telemetry/fixtures/bgp_summary.raw").into(),
+        };
+        let records = repo
+            .parser
+            .parse(&capture, asset, CancellationToken::new())
+            .await
+            .unwrap();
+        let context = FrameContext {
+            workspace_id: "protocol".into(),
+            target_id: "one".into(),
+            revision: effective.revision,
+            generation: 3,
+        };
+        let expected =
+            ProtocolClassifier::normalize(&context, &definition, &capture, records, None);
+        let report = repo
+            .preview("protocol", 3, &draft, vec![capture.clone()], vec![])
+            .await;
+        assert!(report.token.is_some(), "{:?}", report.diagnostics);
+        assert_eq!(report.frames, vec![expected]);
+        assert!(report.frames[0]
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "routing_context_missing"));
+        assert!(report.frames[0].rows.iter().any(
+            |r| matches!(&r.fields["state"],MetricValue::Text{value} if value=="Established")
+        ));
+        capture.capture_id = "empty".into();
+        capture.raw.clear();
+        let empty = repo
+            .preview("protocol", 3, &draft, vec![capture], vec![])
+            .await;
+        assert!(empty.token.is_none());
+        assert!(empty.diagnostics.iter().any(|d| d.code == "parse_mismatch"));
+        repo.parser.shutdown().await.unwrap();
+    }
+    #[tokio::test]
+    async fn network_preview_rejection_does_not_test_changed_templates_or_issue_apply_grants() {
+        let dir = tempfile::tempdir().unwrap();
+        let builtin = Catalog::builtin().unwrap();
+        let definition = builtin.widgets["cpu"].clone();
+        let asset = builtin.templates["iosxe.show_processes_cpu"].clone();
+        let repo = TelemetryConfigRepository::load(
+            dir.path().into(),
+            builtin,
+            Arc::new(TelemetryParser::new()),
+        )
+        .unwrap();
+        repo.register_targets(&[target("one")]).unwrap();
+        let mut draft = repo
+            .import_draft(
+                ConfigScope::Profile(Platform::Iosxe),
+                serde_yaml::to_string(&WidgetDocument {
+                    schema_version: 1,
+                    widgets: vec![definition],
+                })
+                .unwrap(),
+                "schema_version: 1\nlayouts: []".into(),
+                BTreeMap::from([(
+                    asset.id.clone(),
+                    format!(
+                        "{}\n# Changed template must be tested before Apply\n",
+                        asset.text
+                    ),
+                )]),
+            )
+            .unwrap();
+        assert!(repo.validate(&draft).valid);
+        let before = repo.base_revision();
+        for (index, raw, code) in [
+            (
+                0,
+                "% Invalid input detected at '^' marker.",
+                "command_unsupported",
+            ),
+            (1, "Command authorization failed.", "command_permission"),
+        ] {
+            let capture = Capture {
+                capture_id: format!("reject{index}"),
+                target_id: "one".into(),
+                platform: Platform::Iosxe,
+                command: asset.command.clone(),
+                parser_id: asset.id.clone(),
+                revision: repo.effective(&target("one")).revision,
+                observed_at_ms: 1000,
+                monotonic_ms: 1000,
+                raw: raw.into(),
+            };
+            let report = repo
+                .preview("rejected", 4, &draft, vec![capture.clone()], vec![])
+                .await;
+            assert!(report.token.is_none());
+            assert!(report.frames.is_empty());
+            assert!(
+                report.diagnostics.iter().any(|d| d.code == code),
+                "{:?}",
+                report.diagnostics
+            );
+            // Invalid metadata must fail before interpreting device text.
+            let mut wrong = capture;
+            wrong.revision = "not-the-source-revision".into();
+            let metadata = repo
+                .preview("rejected", 4, &draft, vec![wrong], vec![])
+                .await;
+            assert_eq!(metadata.diagnostics[0].code, "sample_binding");
+        }
+        assert_eq!(repo.base_revision(), before);
+        // No matching sample leaves the changed template untested; no token is manufactured.
+        draft.widgets_yaml = "schema_version: 1\nwidgets: []".into();
+        let untested = repo.preview("rejected", 4, &draft, vec![], vec![]).await;
+        assert!(untested.token.is_none());
+        assert!(untested
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "fixture_missing"));
         repo.parser.shutdown().await.unwrap();
     }
 }

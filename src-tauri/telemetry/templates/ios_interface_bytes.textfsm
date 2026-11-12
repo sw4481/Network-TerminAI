@@ -1,0 +1,12 @@
+# Independently authored from pinned public IOS raw interface lines; not an NTC template copy.
+Value Required INTERFACE (\S+)
+Value CAPACITY_KBIT_S (\d+)
+Value INPUT_BYTES (\d+)
+Value OUTPUT_BYTES (\d+)
+
+Start
+  ^\S+ is .*, line protocol is .* -> Continue.Record
+  ^${INTERFACE} is .*, line protocol is .*
+  ^\s+MTU \d+ bytes, BW ${CAPACITY_KBIT_S} Kbit/sec,
+  ^\s+\d+ packets input, ${INPUT_BYTES} bytes,
+  ^\s+\d+ packets output, ${OUTPUT_BYTES} bytes,

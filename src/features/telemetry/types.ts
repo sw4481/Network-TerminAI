@@ -208,3 +208,8 @@ export interface LayoutDefinition { layout: string; platforms: Platform[]; secti
 export interface WidgetDocument { schema_version: 1; widgets: WidgetDefinition[] }
 export interface LayoutDocument { schema_version: 1; layouts: LayoutDefinition[] }
 export interface Catalog { widgets: Record<string, WidgetDefinition>; layouts: Record<string, LayoutDefinition>; templates: Record<TemplateId, TemplateAsset> }
+
+export interface ImportReport {
+  draft: ConfigDraft | null;
+  diagnostics: Diagnostic[];
+}
