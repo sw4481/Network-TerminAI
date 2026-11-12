@@ -338,6 +338,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "segno" },
+    { name = "textfsm" },
     { name = "tokenizers" },
     { name = "truststore" },
 ]
@@ -396,6 +397,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "scapy", marker = "extra == 'dev'", specifier = ">=2.5" },
     { name = "segno", specifier = ">=1.6" },
+    { name = "textfsm", specifier = "==2.1.0" },
     { name = "tokenizers", specifier = ">=0.20" },
     { name = "truststore", specifier = ">=0.10" },
 ]

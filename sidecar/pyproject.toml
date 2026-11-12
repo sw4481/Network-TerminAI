@@ -25,6 +25,7 @@ dependencies = [
     # unicon-based pcap capture is unavailable. See genie_adapter.py.
     "pyats[library] >= 25.1; platform_system != 'Windows'",
     "ntc-templates >= 7.0.0",
+    "textfsm==2.1.0",
     "pyshark >= 0.6",
     "onnxruntime >= 1.18",
     "tokenizers >= 0.20",

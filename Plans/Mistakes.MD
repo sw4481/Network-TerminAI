@@ -1,3 +1,12 @@
+# Mistake: Telemetry parser amplification test boundary
+
+- What the issue/mistake was (2026-11-11): The initial Task 3 List-output amplification fixture was below the actual 2 MiB output limit, so it could not demonstrate the intended rejection.
+- RCA of the Issue: Fixture size was estimated instead of checking the serialized byte count against 2,097,152 bytes.
+- How you fixed it: The corrected fixture has 2,070,500 raw bytes and a 2,111,546-byte reply, crossing the 2,097,152-byte reply cap while keeping raw input below its cap. The implementer reports the focused rejection test passing; full evidence is retained for Task 3 review. This changes the test input, not the required production limit.
+- Additional issue/RCA/fix: Initially bounding appended records did not bound TextFSM 2.1.0's earlier groupdict() allocation of overlapping captures. A genuine regression exposed this transient amplification. The worker now iterates capture-group names with a cumulative assignment budget as well as row/List/output limits; the implementer reports the Python regression passing. The direct TextFSM version must remain pinned to the inspected implementation and cleanup tests remain required.
+- Cleanup issue/RCA/fix: The initial owner-retaining cleanup could wait indefinitely after a pathological OS wait error, conflating retained ownership with unbounded caller waiting. Parser cleanup acknowledgment and shutdown now have a 3-second caller budget, return parser_cleanup_pending on expiry, and retain the same actor/Child/JoinHandle for retry. A focused fault-seam test must prove prompt error, retained ownership, and actual wait-status observation after recovery; final verification belongs in the Task 3 report.
+- Command-path correction: A rustfmt invocation used root-relative src-tauri paths while the shell was in sidecar; a uv lock check was attempted at the repository root without --project sidecar. Both failed before mutation. The implementer corrected the cwd and explicit project argument. Verify the working directory/project before constructing tool commands.
+
 # Mistake: Telemetry visual preview lookup and chart labels
 
 - What the issue/mistake was (2026-11-11): An exploratory read guessed a nonexistent src/styles.css path. The first illustrative chart labeled an intermediate tick 25 while its coordinate represented approximately 33.
