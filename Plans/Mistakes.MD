@@ -3730,3 +3730,9 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 - What the issue/mistake was: Combined recovery reads exceeded the aggregate tool output cap, and the vault index provider returned a truncated large index.
 - RCA: Per-command output limits did not bound the total batch or provider-owned index size.
 - How fixed: Recovered the required review/report/instruction segments with single-purpose bounded reads, used only visible index pointers then read the exact relevant session note, and did not infer anything from omitted content. Subsequent report/review inputs are read individually within their measured size.
+
+## 2026-11-12 — Telemetry UI preflight lookup corrections
+
+- What the issue/mistake was: Controller guessed two absent CSS paths; the read-only data explorer guessed an absent command file/root virtualenv and first ran its offline TextFSM replay with an interpreter lacking textfsm. Combined explorer reads also exceeded output bounds. A controller ledger append then failed Python parsing on an apostrophe in a single-quoted literal; no writes occurred in that failed command.
+- RCA: Familiar filenames and interpreter names were used before inventory/availability checks; combined output limits were too broad; long prose used the wrong string delimiter.
+- How fixed: Used rg --files to locate actual src/App.css/theme files; used the existing sidecar/.venv/bin/python for successful pinned offline CPU/memory/BGP parses; recovered source segments with bounded reads and did not infer facts from missing files or omitted output. Reissued the append with a triple-quoted literal. No install, product change or live-device evidence was claimed.
