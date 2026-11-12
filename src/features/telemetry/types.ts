@@ -82,6 +82,7 @@ export interface TargetStatus {
   target_id: TargetId;
   display_name: string;
   platform: Platform | null;
+  monitoring_selected: boolean;
   state: CollectionState;
   last_success_at_ms: number | null;
   diagnostics: Array<Diagnostic>;

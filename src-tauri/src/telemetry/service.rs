@@ -735,6 +735,7 @@ impl Owner {
                 target_id: reference.connection_id.clone(),
                 display_name: "Saved connection name unavailable".into(),
                 platform: Some(reference.platform),
+                monitoring_selected: false,
                 state: CollectionState::Stopped,
                 last_success_at_ms: None,
                 diagnostics: vec![],
@@ -2110,6 +2111,7 @@ impl Owner {
             .values()
             .map(|target| {
                 let mut status = target.status.clone();
+                status.monitoring_selected = target.periodic;
                 if !workspace.running {
                     status.state = CollectionState::Stopped;
                 } else if status.state == CollectionState::Fresh
@@ -2139,6 +2141,7 @@ impl Owner {
                 target_id: "local".into(),
                 display_name: "Local PC".into(),
                 platform: None,
+                monitoring_selected: workspace.local_enabled,
                 state: if !workspace.running {
                     CollectionState::Stopped
                 } else if last.is_none() {
@@ -3028,11 +3031,21 @@ mod tests {
         h.wait(|snapshot| snapshot.widgets.len() == 3).await;
         h.service.select("workspace", SavedTargetMetadata { reference: TargetRef { connection_id: "editor-only".into(), platform: Platform::Iosxe }, display_name: "Editor target".into() }).await.unwrap();
         let selected = h.service.snapshot("workspace").await.unwrap();
+        assert!(selected.targets.iter().find(|target| target.target_id == "one").unwrap().monitoring_selected);
+        assert!(selected.targets.iter().find(|target| target.target_id == "local").unwrap().monitoring_selected);
+        assert!(!selected.targets.iter().find(|target| target.target_id == "editor-only").unwrap().monitoring_selected);
         assert_eq!(selected.targets.iter().find(|target| target.target_id == "editor-only").unwrap().display_name, "Editor target");
         assert!(h.service.catalog("workspace", ConfigScope::Device("editor-only".into())).await.is_ok());
         h.clock.advance(Duration::from_secs(60));
         h.wait(|snapshot| snapshot.widgets.iter().any(|widget| widget.observed_at_ms >= 1_060_000)).await;
         assert!(h.probe.calls.lock().iter().all(|(target, _)| target == "one"));
+        h.service.stop("workspace").await.unwrap();
+        let stopped = h.service.snapshot("workspace").await.unwrap();
+        assert!(stopped.targets.iter().find(|target| target.target_id == "one").unwrap().monitoring_selected);
+        assert!(!stopped.targets.iter().find(|target| target.target_id == "editor-only").unwrap().monitoring_selected);
+        h.start(&["editor-only"], false).await;
+        let restarted = h.service.snapshot("workspace").await.unwrap();
+        assert!(restarted.targets.iter().find(|target| target.target_id == "editor-only").unwrap().monitoring_selected);
         h.finish().await;
     }
     #[tokio::test]

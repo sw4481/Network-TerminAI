@@ -184,6 +184,7 @@ pub struct TargetStatus {
     pub target_id: TargetId,
     pub display_name: String,
     pub platform: Option<Platform>,
+    pub monitoring_selected: bool,
     pub state: CollectionState,
     pub last_success_at_ms: Option<i64>,
     pub diagnostics: Vec<Diagnostic>,
