@@ -243,7 +243,7 @@ export class TelemetryWorkspaceStore {
     sourceRevision: string,
     previous?: WidgetSummary,
   ) {
-    const summary = this.state
+    let summary = this.state
       .getState()
       .workspaces[
         query.workspace_id
@@ -256,13 +256,20 @@ export class TelemetryWorkspaceStore {
       () => this.api.widget(query),
       sourceRevision,
     );
+    summary = this.state
+      .getState()
+      .workspaces[
+        query.workspace_id
+      ]?.snapshot?.widgets.find((widget) => widget.target_id === query.target_id && widget.widget_id === query.widget_id);
     const metadata = response.value.metadata;
     if (
+      !summary ||
       metadata.workspace_id !== query.workspace_id ||
       metadata.target_id !== query.target_id ||
       metadata.widget_id !== query.widget_id ||
       metadata.generation !== summary.generation ||
       metadata.revision !== summary.revision ||
+      metadata.observed_at_ms !== summary.observed_at_ms ||
       (previous &&
         (metadata.observed_at_ms !== previous.observed_at_ms ||
           metadata.generation !== previous.generation ||

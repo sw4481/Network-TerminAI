@@ -3762,3 +3762,15 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 - Task9 final staged review: The frontend Apply wrapper checked workspace/revision but omitted its generation floor and post-Apply snapshot authority. RCA: Apply's valid generation change was exempted too broadly from the generic private-read fence. Fix: a genuine stale-generation Apply RED now rejects regressed native replies; the wrapper also checks the returned snapshot's workspace/generation and closing state, while the native committed Apply acknowledgement remains preserved. Focused and final frontend checks are recorded in task-9-report.md.
 
 - Task9 report-pointer lookup: a brace expansion also produced nonexistent `api.tsx`/`store.tsx` search paths. The valid source results were retained and the missing-path diagnostics were treated only as a lookup mistake, not evidence of absent APIs; report links use the actual `.ts` files.
+
+## 2026-11-12 — Telemetry dirty-close preflight lookup corrections
+
+- What the issue/mistake was: The read-only explorer initially guessed a nonexistent src/lib/sessionSave.ts, and one graph edge result exceeded its output bound.
+- RCA: A conventional filename and overly broad edge output were used before narrowing the actual inventory/results.
+- How fixed: Discovered and inspected src/hooks/useSessionSave.ts, checked focused actual editor/coordinator sources, and used no missing/truncated output as evidence. The explorer changed only its assigned evidence report; root records this ledger note. No runtime or unrelated editor fix was performed.
+
+## 2026-11-12 — Telemetry Task 9 review fix round 1: complete current table identity
+
+- What the issue/mistake was: The table-page guard checked generation/revision against the summary captured before IPC, but checked observed_at_ms only against an optional previous page. Page0 at time11 could therefore match summary10, and an older page could be accepted after a pending request's current summary advanced to11.
+- RCA of the Issue: Configuration/generation identity was mistaken for full observation identity, and the existing regression covered consecutive pages without testing first-page timestamp mismatch or a real snapshot refresh during the pending page request.
+- How you fixed it: Preserved both genuine behavioral REDs, then re-read the matching current WidgetSummary after the response and compare the page's original generation/revision/observed_at_ms with that current summary. Workspace/target/widget, previous-page and current envelope authority checks remain. Focused GREEN includes the stopped retained-frame distinction; the covering frontend suite passes60 tests and production typecheck passes. No DTO/API/native behavior changed. The controller's prior dirty-close ledger append is preserved in the same scoped commit.

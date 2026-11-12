@@ -286,6 +286,75 @@ describe("Telemetry workspace ownership", () => {
     ).rejects.toThrow(/table changed/);
     await store.close("one");
   });
+  it.each([false, true])(
+    "rejects a first page from a different retained observation, snapshot advances while pending=%s",
+    async (advanceSnapshot) => {
+      const { store, api } = fixture();
+      const metadata = {
+        workspace_id: "one",
+        target_id: "local",
+        widget_id: "cpu",
+        generation: 1,
+        revision: "source",
+        observed_at_ms: 10,
+        last_success_at_ms: 10,
+        state: "fresh" as const,
+        severity: "ok" as const,
+        units: {},
+        row_count: 1,
+        diagnostics: [],
+      };
+      api.establish.mockResolvedValue({ ...snapshot(), widgets: [metadata] });
+      await store.establish("one");
+      const changed = {
+        ...metadata,
+        observed_at_ms: 11,
+        last_success_at_ms: 11,
+      };
+      const page = deferred<{
+        workspace_id: string;
+        generation: number;
+        sequence: number;
+        revision: string;
+        value: { metadata: typeof metadata; rows: []; next_offset: null };
+      }>();
+      api.widget.mockReturnValueOnce(page.promise);
+      const pending = store.widget(
+        {
+          workspace_id: "one",
+          target_id: "local",
+          widget_id: "cpu",
+          offset: 0,
+          limit: 1,
+        },
+        "source",
+      );
+      if (advanceSnapshot) {
+        api.snapshot.mockResolvedValue({
+          ...snapshot(1, 1),
+          widgets: [changed],
+        });
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(
+          store.state.getState().workspaces.one.snapshot?.widgets[0]
+            .observed_at_ms,
+        ).toBe(11);
+      }
+      page.resolve({
+        workspace_id: "one",
+        generation: 1,
+        sequence: advanceSnapshot ? 0 : 1,
+        revision: "source",
+        value: {
+          metadata: advanceSnapshot ? metadata : changed,
+          rows: [],
+          next_offset: null,
+        },
+      });
+      await expect(pending).rejects.toThrow(/table changed/);
+      await store.close("one");
+    },
+  );
   it("preserves stopped retained frame identity separately from current owner/source authority", async () => {
     const { store, api } = fixture();
     const metadata = {
