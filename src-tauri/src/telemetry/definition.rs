@@ -22,6 +22,7 @@ impl DefinitionValidator {
                 ConfigScope::Local => vec!["local".into()],
                 _ => vec![],
             },
+            masked_device_overrides: vec![],
         }
     }
     pub fn draft_hash(draft: &ConfigDraft) -> String {
@@ -775,6 +776,7 @@ mod tests {
             layouts_yaml: layouts.into(),
             templates: BTreeMap::new(),
             expected_revision: String::new(),
+            reset_assets: vec![],
         }
     }
 

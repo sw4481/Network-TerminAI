@@ -251,6 +251,16 @@ pub struct ConfigDraft {
     pub layouts_yaml: String,
     pub templates: BTreeMap<TemplateId, String>,
     pub expected_revision: Revision,
+    #[serde(default)]
+    pub reset_assets: Vec<ResetAsset>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResetAsset {
+    Widget(String),
+    Layout(String),
+    Template(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -260,11 +270,13 @@ pub struct ValidationReport {
     pub draft_hash: String,
     pub diagnostics: Vec<Diagnostic>,
     pub affected_targets: Vec<TargetId>,
+    pub masked_device_overrides: Vec<TargetId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PreviewToken {
+    pub id: String,
     pub draft_hash: String,
     pub base_revision: Revision,
     pub sample_hashes: BTreeMap<String, String>,
@@ -284,6 +296,7 @@ pub struct PreviewReport {
 pub struct ApplyResult {
     pub revision: Revision,
     pub affected_targets: Vec<TargetId>,
+    pub masked_device_overrides: Vec<TargetId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

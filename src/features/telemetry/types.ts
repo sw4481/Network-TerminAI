@@ -138,14 +138,18 @@ export interface ConfigDraft {
   layouts_yaml: string;
   templates: Record<TemplateId, string>;
   expected_revision: Revision;
+  reset_assets?: ResetAsset[];
 }
+export type ResetAsset = { widget: string } | { layout: string } | { template: string };
 export interface ValidationReport {
   valid: boolean;
   draft_hash: string;
   diagnostics: Array<Diagnostic>;
   affected_targets: Array<TargetId>;
+  masked_device_overrides: Array<TargetId>;
 }
 export interface PreviewToken {
+  id: string;
   draft_hash: string;
   base_revision: Revision;
   sample_hashes: Record<string, string>;
@@ -159,6 +163,7 @@ export interface PreviewReport {
 export interface ApplyResult {
   revision: Revision;
   affected_targets: Array<TargetId>;
+  masked_device_overrides: Array<TargetId>;
 }
 export interface StartRequest {
   workspace_id: WorkspaceId;
