@@ -175,10 +175,8 @@ impl DefinitionValidator {
                         path,
                     )?;
                 }
-                let mut minimum = 5;
                 for (platform, command) in commands {
-                    let admitted = CommandPolicy::admit(*platform, command)?;
-                    minimum = minimum.max(admitted.cost().min_interval_seconds);
+                    CommandPolicy::admit(*platform, command)?;
                     let id = &templates[platform];
                     ensure(
                         draft.templates.contains_key(id) || catalog.templates.contains_key(id),
@@ -195,13 +193,13 @@ impl DefinitionValidator {
                         )?;
                     }
                 }
-                minimum
+                5
             }
         };
         ensure(
             widget.interval >= minimum && widget.interval <= 3600,
             "interval",
-            format!("Interval must be {minimum}–3600 seconds for this source/cost"),
+            format!("Interval must be {minimum}–3600 seconds for this source"),
             path,
         )?;
         ensure(
@@ -932,7 +930,7 @@ mod tests {
         catalog.templates.insert("version".into(), asset);
         assert!(DefinitionValidator.validate(&draft, &catalog).valid);
         draft.widgets_yaml = widgets.replace("interval: 60", "interval: 5");
-        assert!(!DefinitionValidator.validate(&draft, &catalog).valid);
+        assert!(DefinitionValidator.validate(&draft, &catalog).valid);
         draft.widgets_yaml = widgets.clone();
         catalog.templates.get_mut("version").unwrap().command = "show inventory".into();
         assert!(!DefinitionValidator.validate(&draft, &catalog).valid);
@@ -946,6 +944,28 @@ mod tests {
                 .validate(&local, &Catalog::default())
                 .valid
         );
+    }
+    #[test]
+    fn all_network_commands_allow_five_second_authoring() {
+        for command in ["show processes cpu", "show version", "show inventory"] {
+            for (interval, valid) in [(5, true), (4, false), (3600, true), (3601, false)] {
+                let source = format!(
+                    "{{kind: ssh, commands: {{iosxe: {command}}}, templates: {{iosxe: sample}}}}"
+                );
+                let widgets = WIDGETS
+                    .replace("{kind: local, collector: local.cpu}", &source)
+                    .replace("interval: 2", &format!("interval: {interval}"));
+                let mut draft = draft(&widgets, LAYOUTS);
+                draft.scope = ConfigScope::Profile(Platform::Iosxe);
+                draft.templates.insert("sample".into(), "template".into());
+                let report = DefinitionValidator.validate(&draft, &Catalog::default());
+                assert_eq!(
+                    report.valid, valid,
+                    "{command} at {interval}s: {:?}",
+                    report.diagnostics
+                );
+            }
+        }
     }
     #[test]
     fn source_and_derived_references_are_validated() {

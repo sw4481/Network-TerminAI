@@ -4,7 +4,7 @@ use super::model::{Diagnostic, Platform};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CommandCost {
     pub max_output_bytes: usize,
-    pub min_interval_seconds: u32,
+    pub default_interval_seconds: u32,
 }
 #[derive(Debug, Clone)]
 pub struct AdmittedCommand {
@@ -73,7 +73,7 @@ impl CommandPolicy {
             command: command.into(),
             cost: CommandCost {
                 max_output_bytes: if large { 2 * 1024 * 1024 } else { 512 * 1024 },
-                min_interval_seconds: if inventory {
+                default_interval_seconds: if inventory {
                     60
                 } else if parameterized {
                     5
@@ -159,6 +159,23 @@ mod tests {
             assert!(
                 CommandPolicy::admit(Platform::Iosxe, command).is_err(),
                 "{command}"
+            );
+        }
+    }
+    #[test]
+    fn policy_preserves_default_intervals_as_metadata() {
+        for (command, seconds) in [
+            ("show processes cpu", 30),
+            ("show version", 60),
+            ("show inventory", 60),
+            ("show interfaces Gi1/0/1", 5),
+        ] {
+            assert_eq!(
+                CommandPolicy::admit(Platform::Iosxe, command)
+                    .unwrap()
+                    .cost()
+                    .default_interval_seconds,
+                seconds
             );
         }
     }
