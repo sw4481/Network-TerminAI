@@ -129,32 +129,49 @@ fn test_production_vs_development_format() {
     tracing::debug!(target: "russh::client::encrypted", "blocked-native-wire");
     log::trace!(target: "russh::server::encrypted", "blocked-bridged-wire");
     log::trace!(target: "russh::session", "blocked-session-packet");
-    log::debug!(target: "russh::session", "session-debug-positive");
+    log::debug!(target: "russh::session", "session-debug-denied");
     tracing::event!(target: "log", tracing::Level::DEBUG, { "log.target" = "russh::client::encrypted", message = "blocked-normalized-wire" });
     tracing::event!(target: "log", tracing::Level::DEBUG, { "log.target" = "unrelated.module", message = "normalized-positive" });
-    log::trace!(target: "russh::client::encrypted_extra", "nearby-target-positive");
+    log::trace!(target: "russh::client::encrypted_extra", "descendant-target-denied");
     tracing::trace!(target: "logging.fixture", "unrelated-trace-positive");
-    log::info!(target: "russh::client::encrypted", "wire-info-positive");
-    log::warn!(target: "russh::server::encrypted", "wire-warn-positive");
-    tracing::error!(target: "russh::client::encrypted", "wire-error-positive");
+    log::info!(target: "russh::client::encrypted", "wire-info-denied");
+    log::warn!(target: "russh::server::encrypted", "wire-warn-denied");
+    tracing::error!(target: "russh::client::encrypted", "wire-error-denied");
+    tracing::event!(target: "log", tracing::Level::ERROR, { "log.target" = "russh::future::nested", message = "normalized-error-denied" });
+    tracing::error!(target: "russh", "root-error-denied");
+    for level in [
+        log::Level::Trace,
+        log::Level::Debug,
+        log::Level::Info,
+        log::Level::Warn,
+        log::Level::Error,
+    ] {
+        log::log!(target: "russh::future::nested", level, "namespace-denied-{level}");
+        log::log!(target: "ccie_terminal_lib::telemetry", level, "app-positive-{level}");
+        log::log!(target: "russhish::client", level, "similar-name-positive-{level}");
+    }
     let text = log_text(temp_dir.path());
+    assert!(!text.contains("namespace-denied"));
+    for level in ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] {
+        assert!(text.contains(&format!("app-positive-{level}")));
+        assert!(text.contains(&format!("similar-name-positive-{level}")));
+    }
     for marker in [
         "blocked-native-wire",
         "blocked-session-packet",
         "blocked-bridged-wire",
         "blocked-normalized-wire",
+        "session-debug-denied",
+        "descendant-target-denied",
+        "wire-info-denied",
+        "wire-warn-denied",
+        "wire-error-denied",
+        "normalized-error-denied",
+        "root-error-denied",
     ] {
-        assert!(!text.contains(marker));
+        assert!(!text.contains(marker), "vendor namespace reached sink");
     }
-    for marker in [
-        "normalized-positive",
-        "session-debug-positive",
-        "nearby-target-positive",
-        "unrelated-trace-positive",
-        "wire-info-positive",
-        "wire-warn-positive",
-        "wire-error-positive",
-    ] {
+    for marker in ["normalized-positive", "unrelated-trace-positive"] {
         assert!(text.contains(marker), "missing {marker}");
     }
     if production {

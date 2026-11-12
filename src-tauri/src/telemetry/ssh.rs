@@ -9,7 +9,7 @@ use russh::{
     ChannelMsg,
 };
 use std::{
-    io::Read,
+    io::{Read, Write},
     net::Shutdown,
     path::PathBuf,
     sync::{
@@ -30,6 +30,10 @@ use zeroize::Zeroizing;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 const CLEANUP_BUDGET: Duration = Duration::from_secs(3);
+#[cfg(test)]
+thread_local! {
+    static AFTER_TRUST_READ: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+}
 fn failure(code: &str, message: &str) -> Diagnostic {
     Diagnostic::new(code, message, "ssh")
 }
@@ -151,15 +155,43 @@ impl TelemetrySshTargetResolver {
                 })?,
             ))
         };
-        // Pinned russh's lookup does not implement OpenSSH trust markers; never ignore revocation.
-        match std::fs::read_to_string(&self.known_hosts) {
-            Ok(text) if text.lines().any(|line| line.trim_start().starts_with('@')) => return Err(failure("ssh_trust_unsupported", "Known-host trust markers are unsupported; provide an explicit verified host-key entry in a dedicated trust file")),
-            Ok(_) => {},
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
-            Err(_) => return Err(failure("ssh_trust_unavailable", "Known-host trust file could not be read")),
+        // Marker policy and the pinned path-only matcher must consume identical owned bytes.
+        let trust = match std::fs::read_to_string(&self.known_hosts) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(_) => {
+                return Err(failure(
+                    "ssh_trust_unavailable",
+                    "Known-host trust file could not be read",
+                ))
+            }
+        };
+        #[cfg(test)]
+        AFTER_TRUST_READ.with(|hook| {
+            if let Some(replace) = hook.borrow_mut().take() {
+                replace();
+            }
+        });
+        if trust.lines().any(|line| line.trim_start().starts_with('@')) {
+            return Err(failure("ssh_trust_unsupported", "Known-host trust markers are unsupported; provide an explicit verified host-key entry in a dedicated trust file"));
         }
+        let mut snapshot = tempfile::NamedTempFile::new().map_err(|_| {
+            failure(
+                "ssh_trust_unavailable",
+                "Private trust snapshot could not be created",
+            )
+        })?;
+        snapshot
+            .write_all(trust.as_bytes())
+            .and_then(|_| snapshot.flush())
+            .map_err(|_| {
+                failure(
+                    "ssh_trust_unavailable",
+                    "Private trust snapshot could not be written",
+                )
+            })?;
         let known_keys =
-            keys::known_hosts::known_host_keys_path(&saved.host, port, &self.known_hosts)
+            keys::known_hosts::known_host_keys_path(&saved.host, port, snapshot.path())
                 .map_err(|_| {
                     failure(
                         "ssh_trust_unavailable",
@@ -961,6 +993,85 @@ mod tests {
             revision: "trusted-effective-revision".into(),
         }
     }
+    async fn adversarial_peer_capture() -> anyhow::Result<()> {
+        use std::process::Stdio;
+        use tokio::io::{AsyncBufReadExt, AsyncReadExt};
+        let mut peer = Peer::new(Reply::Complete).await;
+        let identity = peer.dir.path().join("peer-key");
+        std::fs::write(
+            &identity,
+            key(1).to_openssh(ssh_key::LineEnding::LF)?.as_bytes(),
+        )?;
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sidecar");
+        let python = root.join(if cfg!(windows) {
+            ".venv/Scripts/python.exe"
+        } else {
+            ".venv/bin/python"
+        });
+        let mut child = tokio::process::Command::new(python)
+            .args(["-I", "-u"])
+            .arg(root.join("tests/telemetry/ssh_peer.py"))
+            .arg(identity)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()?;
+        let mut stdout = tokio::io::BufReader::new(child.stdout.take().unwrap()).take(4096);
+        let outcome = async {
+            let mut ready = String::new();
+            timeout(Duration::from_secs(8), stdout.read_line(&mut ready)).await??;
+            let ready: serde_json::Value = serde_json::from_str(&ready)?;
+            peer.port = ready["port"]
+                .as_u64()
+                .and_then(|port| u16::try_from(port).ok())
+                .ok_or_else(|| anyhow::anyhow!("missing fixture port"))?;
+            peer.db
+                .lock()
+                .execute("UPDATE ssh_connections SET port = ?1", [peer.port])?;
+            peer.trust(key(1).public_key());
+            let target = peer
+                .resolve()
+                .map_err(|_| anyhow::anyhow!("fixture target resolution failed"))?;
+            let mut session = TelemetrySshSession::connect(target, CancellationToken::new())
+                .await
+                .map_err(|_| anyhow::anyhow!("fixture connection failed"))?;
+            let result = session.capture(&request(), CancellationToken::new()).await;
+            let closed = session.close().await;
+            if let Err(diagnostic) = &result {
+                anyhow::ensure!(
+                    ![PASSWORD, "fixture-user", "T6RAW-73921"]
+                        .iter()
+                        .any(|private| format!("{diagnostic:?}").contains(private)),
+                    "fixture diagnostic exposed private data"
+                );
+            }
+            closed.map_err(|_| anyhow::anyhow!("fixture client cleanup failed"))?;
+            result.map_err(|_| anyhow::anyhow!("adversarial capture failed"))?;
+            anyhow::Ok(())
+        }
+        .await;
+        let mut summary = String::new();
+        let output = timeout(Duration::from_secs(3), stdout.read_to_string(&mut summary)).await;
+        let waited = timeout(Duration::from_secs(3), child.wait()).await;
+        if !matches!(&waited, Ok(Ok(_))) {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+        }
+        peer.finish().await;
+        outcome?;
+        output.map_err(|_| anyhow::anyhow!("fixture output deadline"))??;
+        let status = waited.map_err(|_| anyhow::anyhow!("fixture process deadline"))??;
+        anyhow::ensure!(status.success(), "fixture process failed");
+        let summary: serde_json::Value = serde_json::from_str(&summary)?;
+        assert_eq!(
+            summary["sent"],
+            serde_json::json!({"early_data":1, "channel_request":1, "global_request":1})
+        );
+        assert_eq!(summary["authenticated"], 1);
+        assert_eq!(summary["joined"], true);
+        Ok(())
+    }
     struct ForeignLogger;
     static FOREIGN_LOGGER: ForeignLogger = ForeignLogger;
     impl log::Log for ForeignLogger {
@@ -978,6 +1089,8 @@ mod tests {
                 "pretty",
                 "disconnect_json",
                 "disconnect_pretty",
+                "adversarial_json",
+                "adversarial_pretty",
                 "foreign_subscriber",
                 "foreign_logger",
             ] {
@@ -1026,35 +1139,40 @@ mod tests {
             return;
         }
         let logs = init_fixture_logging();
-        let peer = Peer::new(if case.starts_with("disconnect_") {
-            Reply::Disconnect
+        if case.starts_with("adversarial_") {
+            adversarial_peer_capture().await.unwrap();
         } else {
-            Reply::Complete
-        })
-        .await;
-        let mut session = peer.connect().await;
-        let result = session.capture(&request(), CancellationToken::new()).await;
-        if case.starts_with("disconnect_") {
-            let diagnostic = result.unwrap_err();
-            for secret in [PASSWORD, "fixture-user", "T6RAW-73921"] {
-                assert!(!format!("{diagnostic:?}").contains(secret));
+            let peer = Peer::new(if case.starts_with("disconnect_") {
+                Reply::Disconnect
+            } else {
+                Reply::Complete
+            })
+            .await;
+            let mut session = peer.connect().await;
+            let result = session.capture(&request(), CancellationToken::new()).await;
+            if case.starts_with("disconnect_") {
+                let diagnostic = result.unwrap_err();
+                for secret in [PASSWORD, "fixture-user", "T6RAW-73921"] {
+                    assert!(!format!("{diagnostic:?}").contains(secret));
+                }
+            } else {
+                result.unwrap();
             }
-        } else {
-            result.unwrap();
+            session.close().await.unwrap();
+            peer.drained().await;
+            peer.finish().await;
         }
-        session.close().await.unwrap();
-        peer.drained().await;
         log::trace!(target: "telemetry.fixture", "unrelated-trace-positive");
-        log::warn!(target: "russh::client::encrypted", "wire-warning-positive");
-        tracing::error!(target: "russh::server::encrypted", "wire-error-positive");
+        log::warn!(target: "ccie_terminal_lib::telemetry", "app-warning-positive");
+        tracing::error!(target: "ccie_terminal_lib::telemetry", "app-error-positive");
         let messages = std::fs::read_dir(logs.path())
             .unwrap()
             .map(|entry| std::fs::read_to_string(entry.unwrap().path()).unwrap())
             .collect::<Vec<_>>()
             .join("\n");
         assert!(messages.contains("unrelated-trace-positive"));
-        assert!(messages.contains("wire-warning-positive"));
-        assert!(messages.contains("wire-error-positive"));
+        assert!(messages.contains("app-warning-positive"));
+        assert!(messages.contains("app-error-positive"));
         for (category, secret) in [PASSWORD, "fixture-user", "T6RAW-73921"]
             .into_iter()
             .enumerate()
@@ -1082,7 +1200,6 @@ mod tests {
         } else {
             assert!(messages.contains("WARN"));
         }
-        peer.finish().await;
     }
     #[tokio::test]
     async fn ssh_rejects_unknown_or_changed_host_key() {
@@ -1547,5 +1664,42 @@ mod tests {
         );
         assert_eq!(peer.state.password_attempts.load(Ordering::SeqCst), 0);
         peer.finish().await;
+    }
+    #[tokio::test]
+    async fn ssh_atomic_trust_replacement_cannot_mix_snapshots() {
+        use std::io::Write;
+        let peer = Peer::new(Reply::Complete).await;
+        peer.trust(key(3).public_key());
+        let trust = peer.dir.path().join("known_hosts");
+        let mut replacement = tempfile::NamedTempFile::new_in(peer.dir.path()).unwrap();
+        let matching = format!(
+            "[127.0.0.1]:{} {}\n",
+            peer.port,
+            key(1).public_key().to_openssh().unwrap()
+        );
+        write!(replacement, "{matching}@revoked {matching}").unwrap();
+        AFTER_TRUST_READ.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move || {
+                replacement.persist(trust).unwrap();
+            }))
+        });
+        let target = peer.resolve().unwrap();
+        assert!(std::fs::read_to_string(peer.dir.path().join("known_hosts"))
+            .unwrap()
+            .contains("@revoked"));
+        let mut connection = TelemetrySshSession::connect(target, CancellationToken::new()).await;
+        if let Ok(session) = &mut connection {
+            session.close().await.unwrap();
+        }
+        let rejected = connection.err();
+        peer.drained().await;
+        let authentication_attempts = peer.state.password_attempts.load(Ordering::SeqCst);
+        peer.finish().await;
+        assert_eq!(
+            rejected.map(|diagnostic| diagnostic.code).as_deref(),
+            Some("ssh_host_key_changed"),
+            "replacement must not authorize a key absent from the read snapshot"
+        );
+        assert_eq!(authentication_attempts, 0);
     }
 }

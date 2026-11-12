@@ -21,45 +21,33 @@ pub(crate) fn ssh_privacy_installed() -> bool {
     SSH_PRIVACY_INSTALLED.load(Ordering::Acquire)
 }
 
-// Pinned russh 0.60.2 wire diagnostics include auth packets and raw capture bytes.
+// Peer-controlled payloads appear at every russh level, including future modules.
 struct SshWirePrivacy;
-fn private_wire(target: &str, level: Level) -> bool {
-    match target {
-        "russh::client::encrypted" | "russh::server::encrypted" => {
-            matches!(level, Level::DEBUG | Level::TRACE)
-        }
-        "russh::session" => level == Level::TRACE,
-        _ => false,
-    }
+fn russh_target(target: &str) -> bool {
+    target == "russh" || target.starts_with("russh::")
 }
+#[derive(Default)]
 struct LogTarget {
     wire: bool,
-    level: Level,
 }
 impl Visit for LogTarget {
     fn record_str(&mut self, field: &Field, value: &str) {
         if field.name() == "log.target" {
-            self.wire = private_wire(value, self.level);
+            self.wire = russh_target(value);
         }
     }
     fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}
 }
 impl<S: Subscriber> Layer<S> for SshWirePrivacy {
     fn enabled(&self, metadata: &Metadata<'_>, _: LayerContext<'_, S>) -> bool {
-        !private_wire(metadata.target(), *metadata.level())
+        !russh_target(metadata.target())
     }
     fn event_enabled(&self, event: &Event<'_>, _: LayerContext<'_, S>) -> bool {
-        if !matches!(*event.metadata().level(), Level::DEBUG | Level::TRACE) {
-            return true;
-        }
-        if private_wire(event.metadata().target(), *event.metadata().level()) {
+        if russh_target(event.metadata().target()) {
             return false;
         }
-        // tracing-log events use target `log`; the real target is a string field.
-        let mut target = LogTarget {
-            wire: false,
-            level: *event.metadata().level(),
-        };
+        // tracing-log events use target `log`; inspect the real target without formatting payloads.
+        let mut target = LogTarget::default();
         event.record(&mut target);
         !target.wire
     }
