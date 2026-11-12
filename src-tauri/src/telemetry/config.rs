@@ -1307,6 +1307,15 @@ fn preview_interpretations(
     let mut bytes = context.retained_bytes;
     let mut identities = BTreeSet::new();
     for capture in captures {
+        if matches!(context.scope, ConfigScope::Local)
+            || matches!(context.scope, ConfigScope::Profile(platform) if capture.platform != *platform)
+            || matches!(context.scope, ConfigScope::Device(target) if capture.target_id != *target)
+        {
+            return Err(error(
+                "sample_binding",
+                "Physical capture is outside the candidate scope",
+            ));
+        }
         bytes = bytes.saturating_add(capture.raw.len()).saturating_add(4096);
         if bytes > MAX_WORKSPACE_BYTES {
             return Err(error(
@@ -1375,12 +1384,8 @@ fn preview_interpretations(
                 _ => None,
             })
             .collect();
-        if parsers.is_empty() {
-            return Err(error(
-                "sample_binding",
-                "Physical capture command has no candidate interpretation",
-            ));
-        }
+        // Source/proof, scope and physical identity checks above apply even when
+        // this candidate no longer uses the retained command.
         for parser in parsers {
             bytes = bytes.saturating_add(capture.raw.len()).saturating_add(4096);
             if bytes > MAX_WORKSPACE_BYTES {
@@ -1852,6 +1857,106 @@ mod tests {
             )
             .await;
         assert!(duplicate.token.is_none());
+        repo.parser.shutdown().await.unwrap();
+    }
+    #[tokio::test]
+    async fn review_unused_source_samples_are_checked_before_candidate_filtering() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = repository(directory.path());
+        let mut draft = draft(&repo, ConfigScope::Device("one".into()), "Changed command");
+        draft.widgets_yaml = draft
+            .widgets_yaml
+            .replace("show interfaces", "show version")
+            .replace("iosxe: traffic", "iosxe: new.version");
+        draft
+            .templates
+            .insert("new.version".into(), TEMPLATE.into());
+        let old = captures(&repo.effective(&target("one")).revision).remove(0);
+        assert!(repo
+            .preview("ws", 1, &draft, vec![old.clone()], vec![])
+            .await
+            .token
+            .is_none());
+        let plan = repo
+            .prepare_draft_sample("ws", 1, &target("one"), &draft, "new.version")
+            .unwrap();
+        let request = plan.request().unwrap();
+        let mut fresh = old.clone();
+        fresh.capture_id = "new-command".into();
+        fresh.command = request.command.as_str().into();
+        fresh.parser_id = request.parser_id;
+        let proof = repo.seal_draft_sample(plan, &fresh).unwrap();
+        let preview = repo
+            .preview_owned(
+                "ws",
+                1,
+                &draft,
+                vec![old.clone(), fresh.clone()],
+                vec![],
+                vec![proof.clone()],
+                0,
+            )
+            .await;
+        assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
+        assert!(preview
+            .frames
+            .iter()
+            .all(|frame| frame.revision == old.revision));
+        let mut foreign = old.clone();
+        foreign.target_id = "two".into();
+        let mut obsolete = old.clone();
+        obsolete.revision = "obsolete".into();
+        let mut unknown_parser = old.clone();
+        unknown_parser.parser_id = "unknown".into();
+        let mut oversized = old.clone();
+        oversized.raw = "x".repeat(2 * 1024 * 1024 + 1);
+        let mut bad_time = old.clone();
+        bad_time.observed_at_ms = -1;
+        let mut empty_id = old.clone();
+        empty_id.capture_id.clear();
+        let mut bad_platform = old.clone();
+        bad_platform.platform = Platform::Ios;
+        for bad in [
+            foreign,
+            obsolete,
+            unknown_parser,
+            oversized,
+            bad_time,
+            empty_id,
+            bad_platform,
+        ] {
+            let rejected = repo
+                .preview_owned(
+                    "ws",
+                    1,
+                    &draft,
+                    vec![bad, fresh.clone()],
+                    vec![],
+                    vec![proof.clone()],
+                    0,
+                )
+                .await;
+            assert!(
+                rejected.token.is_none(),
+                "unused malformed/foreign samples must still fail"
+            );
+        }
+        let duplicate = repo
+            .preview_owned(
+                "ws",
+                1,
+                &draft,
+                vec![old.clone(), old, fresh],
+                vec![],
+                vec![proof],
+                0,
+            )
+            .await;
+        assert!(duplicate.token.is_none());
+        assert!(duplicate
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "sample_identity"));
         repo.parser.shutdown().await.unwrap();
     }
     #[tokio::test]
