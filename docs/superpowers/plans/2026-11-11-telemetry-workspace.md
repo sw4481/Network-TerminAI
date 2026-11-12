@@ -240,7 +240,7 @@ Configured numeric history has finite f64 display values, including views of Uns
 
   Reuse Task4 processing for alias/delta/rate/compute/alert arithmetic. Task8's responsibility is baseline ownership, source compatibility and history retention, not a second math implementation.
 - [ ] **Step 5:** Stop/close/shutdown await owned SSH and parser cleanup. Removing a target cancels its resources and late replies. Closing clears history; stopping does not. Closing one workspace leaves others untouched. A profile Apply fences all affected open workspaces, including those not currently visible; unaffected device overrides retain their effective revisions. Cleanup failure stays visible and retryable rather than pretending the tab is safely gone. `shutdown_sync` signals the owner and awaits its thread completion within the3s budget, reporting incomplete cleanup instead of deadlocking or claiming success.
-- [ ] **Step 6:** Rerun focused suites including isolated process tests on all OSes; commit service/history only.
+- [ ] **Step 6:** Rerun focused suites including isolated process tests on all OSes; commit only the Task8 owner/history/shared seams, contracts, tests and evidence explicitly listed above.
 
 ### Task 9: Integrate IPC, Telemetry tab ownership and app shutdown
 
