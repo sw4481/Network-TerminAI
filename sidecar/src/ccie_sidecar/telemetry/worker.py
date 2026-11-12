@@ -43,12 +43,24 @@ class BoundedRecords(list):
 class BoundedOptions(textfsm.TextFSMOptions):
     class List(textfsm.TextFSMOptions.List):
         def OnAssignVar(self):
-            super().OnAssignVar()
-            # Bound pending List values too, before an EOF/Record copies them.
             fsm = self.value.fsm
-            fsm.list_bytes += len(encoded(self._value[-1])) + 1
-            if fsm.list_bytes > MAX_OUTPUT:
+            match = self.value.compiled_regex.match(self.value.value) if self.value.compiled_regex.groups > 1 else None
+            if match and match.re.groupindex:
+                item, size = {}, 2
+                # groupdict() eagerly copies all nested captures before any limit check.
+                for name in match.re.groupindex:
+                    value = match.group(name)
+                    size += len(encoded(name)) + 1 + len(encoded(value)) + bool(item)
+                    if fsm.list_bytes + size + 1 > MAX_OUTPUT:
+                        raise ParserLimit()
+                    item[name] = value
+            else:
+                item = self.value.value
+                size = len(encoded(item))
+            if fsm.list_bytes + size + 1 > MAX_OUTPUT:
                 raise ParserLimit()
+            fsm.list_bytes += size + 1
+            self._value.append(item)
 
 
 class BoundedFSM(textfsm.TextFSM):

@@ -124,3 +124,38 @@ def test_request_cannot_supply_operations_or_import_hooks():
     req["operation"] = "parse"
     req["module"] = "ccie_sidecar.server"
     assert handle(req)["diagnostic"]["code"] == "parser_protocol"
+
+
+def test_nested_list_amplification_is_rejected_before_dictionary_materialization(monkeypatch):
+    from ccie_sidecar.telemetry import worker
+    original_encoded = worker.encoded
+    def checked_encoded(value):
+        if isinstance(value, dict):
+            capture_bytes = sum(len(item.encode()) for item in value.values() if isinstance(item, str))
+            assert capture_bytes <= worker.MAX_OUTPUT, f"Already materialized {capture_bytes} nested capture bytes"
+        return original_encoded(value)
+    monkeypatch.setattr(worker, "encoded", checked_encoded)
+    nested = "".join(f"(?=(?P<g{i}>.+))" for i in range(100))
+    template = f"Value List ITEMS ({nested}.+)\n\nStart\n  ^${{ITEMS}}$$\n"
+    assert handle(request(raw="x" * 30000, template=template))["diagnostic"]["code"] == "parser_limit"
+
+
+@pytest.mark.parametrize("options,second", [
+    ("List", [{"name": "three", "count": "4"}]),
+    ("List,Filldown", [{"name": "one", "count": "3"}, {"name": "two", "count": None},
+        {"name": "three", "count": "4"}]),
+])
+def test_nested_list_preserves_optional_groups_continue_filldown_and_records(options, second):
+    template = (f"Value {options} ITEMS ((?P<name>\\w+)(?:=(?P<count>\\d+))?)\n"
+        "Value Filldown DEVICE (\\w+)\n\nStart\n  ^Device ${DEVICE}$$\n"
+        "  ^Item ${ITEMS}$$ -> Continue\n  ^Item.*$$\n  ^Flush$$ -> Record\n\nEOF\n")
+    reply = handle(request(raw="Device edge\nItem one=3\nItem two\nFlush\nItem three=4\nFlush\n", template=template))
+    assert reply["records"] == [
+        [[{"name": "one", "count": "3"}, {"name": "two", "count": None}], "edge"],
+        [second, "edge"],
+    ]
+
+
+def test_list_with_unnamed_nested_groups_preserves_strings():
+    template = "Value List ITEMS ((\\w+)(?:=(\\d+))?)\n\nStart\n  ^${ITEMS}$$\n"
+    assert handle(request(raw="one=3\ntwo\n", template=template))["records"] == [[["one=3", "two"]]]
