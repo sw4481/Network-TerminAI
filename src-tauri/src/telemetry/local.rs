@@ -3,12 +3,19 @@ use super::model::{Diagnostic, LocalSample, MetricRow, MetricValue, SampleTime};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 use sysinfo::{
-    DiskRefreshKind, Disks, MemoryRefreshKind, Networks, ProcessRefreshKind, ProcessesToUpdate,
-    System, MINIMUM_CPU_UPDATE_INTERVAL,
+    DiskRefreshKind, Disks, MemoryRefreshKind, Networks, System, MINIMUM_CPU_UPDATE_INTERVAL,
 };
+
+#[cfg(not(target_os = "macos"))]
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate};
+#[cfg(target_os = "macos")]
+#[path = "local_macos.rs"]
+mod local_macos;
 
 pub struct LocalCollector {
     system: System,
+    #[cfg(target_os = "macos")]
+    macos_processes: local_macos::MacProcesses,
     networks: Networks,
     disks: Disks,
     last_cpu: Option<Instant>,
@@ -28,6 +35,8 @@ impl LocalCollector {
     pub fn new() -> Self {
         Self {
             system: System::new(),
+            #[cfg(target_os = "macos")]
+            macos_processes: local_macos::MacProcesses::default(),
             networks: Networks::new(),
             disks: Disks::new(),
             last_cpu: None,
@@ -66,12 +75,15 @@ impl LocalCollector {
         }
         self.system
             .refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram().with_swap());
-        let mut process_refresh = ProcessRefreshKind::nothing().without_tasks().with_memory();
-        if refresh_cpu {
-            process_refresh = process_refresh.with_cpu();
+        #[cfg(not(target_os = "macos"))]
+        {
+            let mut process_refresh = ProcessRefreshKind::nothing().without_tasks().with_memory();
+            if refresh_cpu {
+                process_refresh = process_refresh.with_cpu();
+            }
+            self.system
+                .refresh_processes_specifics(ProcessesToUpdate::All, true, process_refresh);
         }
-        self.system
-            .refresh_processes_specifics(ProcessesToUpdate::All, true, process_refresh);
         self.networks.refresh(true);
 
         let cores = self.system.cpus().len();
@@ -165,42 +177,50 @@ impl LocalCollector {
             })
             .collect();
 
-        let mut observed_processes = BTreeSet::new();
-        let mut processes = Vec::new();
-        let mut unavailable = 0;
-        for (pid, process) in self.system.processes() {
-            let Some(key) = process_key(pid.as_u32(), process.start_time()) else {
-                unavailable += 1;
-                continue;
-            };
-            observed_processes.insert(key.clone());
-            let memory = process_memory(process.memory());
-            let cpu = if process.memory() == 0 {
-                unavailable += 1;
-                missing("unavailable_or_zero: process access or OS data may be limited")
-            } else if !cpu_ready || !self.cpu_processes.contains(&key) {
-                missing("warming_up: process needs an observation interval")
-            } else {
-                normalized_process_cpu(process.cpu_usage(), cores)
-            };
-            processes.push(row(
-                &key,
-                [
-                    ("pid", unsigned(pid.as_u32() as u64)),
-                    ("start_time", unsigned(process.start_time())),
-                    (
-                        "name",
-                        if process.name().is_empty() {
-                            missing("process_name_unavailable")
-                        } else {
-                            text(&process.name().to_string_lossy())
-                        },
-                    ),
-                    ("cpu_percent", cpu),
-                    ("memory_bytes", memory),
-                ],
-            ));
-        }
+        #[cfg(target_os = "macos")]
+        let (mut processes, observed_processes, unavailable) =
+            self.macos_processes
+                .sample(cpu_ready, cores, &self.cpu_processes, &mut diagnostics);
+        #[cfg(not(target_os = "macos"))]
+        let (mut processes, observed_processes, unavailable) = {
+            let mut observed_processes = BTreeSet::new();
+            let mut processes = Vec::new();
+            let mut unavailable = 0;
+            for (pid, process) in self.system.processes() {
+                let Some(key) = process_key(pid.as_u32(), process.start_time()) else {
+                    unavailable += 1;
+                    continue;
+                };
+                observed_processes.insert(key.clone());
+                let memory = process_memory(process.memory());
+                let cpu = if process.memory() == 0 {
+                    unavailable += 1;
+                    missing("unavailable_or_zero: process access or OS data may be limited")
+                } else if !cpu_ready || !self.cpu_processes.contains(&key) {
+                    missing("warming_up: process needs an observation interval")
+                } else {
+                    normalized_process_cpu(process.cpu_usage(), cores)
+                };
+                processes.push(row(
+                    &key,
+                    [
+                        ("pid", unsigned(pid.as_u32() as u64)),
+                        ("start_time", unsigned(process.start_time())),
+                        (
+                            "name",
+                            if process.name().is_empty() {
+                                missing("process_name_unavailable")
+                            } else {
+                                text(&process.name().to_string_lossy())
+                            },
+                        ),
+                        ("cpu_percent", cpu),
+                        ("memory_bytes", memory),
+                    ],
+                ));
+            }
+            (processes, observed_processes, unavailable)
+        };
         processes.sort_by(|a, b| {
             let value = |r: &MetricRow| r.fields["cpu_percent"].numeric().unwrap_or(-1.0);
             value(b)
@@ -209,11 +229,14 @@ impl LocalCollector {
         });
         processes.truncate(50);
         if unavailable > 0 {
-            diagnostics.push(Diagnostic::new("local_process_access_limited", format!("{unavailable} observed processes have unavailable or zero memory/start data; unknown start times are omitted, permission denial is not established"), "local.processes"));
+            diagnostics.push(Diagnostic::new("local_process_access_limited", format!("{unavailable} observed processes have unavailable identity/task data or ambiguous zero values; unknown start times are omitted, per-field reasons are retained where available"), "local.processes"));
         }
         if refresh_cpu {
             self.last_cpu = Some(Instant::now());
             self.cpu_processes = observed_processes.clone();
+        } else {
+            // Linux memory refresh advances process times without its CPU denominator.
+            self.cpu_processes.clear();
         }
         let memory = memory_row(
             self.system.total_memory(),
@@ -302,6 +325,7 @@ fn percent(value: f64) -> MetricValue {
         missing("cpu_percent_unavailable")
     }
 }
+#[cfg(any(test, not(target_os = "macos")))]
 fn normalized_process_cpu(value: f32, cores: usize) -> MetricValue {
     if cores == 0 {
         missing("logical_core_count_unavailable")
@@ -309,6 +333,7 @@ fn normalized_process_cpu(value: f32, cores: usize) -> MetricValue {
         percent(value as f64 / cores as f64)
     }
 }
+#[cfg(any(test, not(target_os = "macos")))]
 fn process_memory(value: u64) -> MetricValue {
     if value == 0 {
         missing("unavailable_or_zero: resident memory")
@@ -355,6 +380,165 @@ fn filesystem_row(mount: &str, filesystem: &str, total: u64, available: u64) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn early_process_refresh_rewarms_the_next_interval() {
+        let mut collector = LocalCollector::new();
+        collector
+            .sample(SampleTime {
+                wall_ms: 1,
+                monotonic_ms: 1,
+            })
+            .unwrap();
+        collector.last_cpu = Some(Instant::now());
+        collector
+            .sample(SampleTime {
+                wall_ms: 2,
+                monotonic_ms: 2,
+            })
+            .unwrap();
+        assert!(
+            collector.cpu_processes.is_empty(),
+            "memory-only refresh invalidates process CPU numerator baseline"
+        );
+        std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
+        let eligible = collector
+            .sample(SampleTime {
+                wall_ms: 3,
+                monotonic_ms: 3,
+            })
+            .unwrap();
+        assert!(eligible.sources["local.processes"]
+            .iter()
+            .all(|r| matches!(r.fields["cpu_percent"], MetricValue::Missing { .. })));
+        std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
+        let valid = collector
+            .sample(SampleTime {
+                wall_ms: 4,
+                monotonic_ms: 4,
+            })
+            .unwrap();
+        assert!(valid.sources["local.processes"]
+            .iter()
+            .any(|r| r.fields["cpu_percent"].numeric().is_some()));
+        assert!(eligible.sources["local.processes"].iter().any(
+            |r| matches!(&r.fields["memory_bytes"], MetricValue::Unsigned { value } if value != "0")
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_sampler_never_requests_process_arguments() {
+        use sysctl_guard::PROCARGS_CALLS;
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                PROCARGS_CALLS.with(|calls| calls.set(None));
+            }
+        }
+        let _reset = Reset;
+        PROCARGS_CALLS.with(|calls| calls.set(Some(0)));
+        let mut mib = [
+            libc::CTL_KERN,
+            libc::KERN_PROCARGS2,
+            std::process::id() as i32,
+        ];
+        assert_eq!(
+            unsafe {
+                libc::sysctl(
+                    mib.as_mut_ptr(),
+                    3,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    0,
+                )
+            },
+            -1
+        );
+        assert_eq!(
+            PROCARGS_CALLS.with(|calls| calls.replace(Some(0))),
+            Some(1),
+            "syscall boundary control must be intercepted"
+        );
+        let mut collector = LocalCollector::new();
+        collector
+            .sample(SampleTime {
+                wall_ms: 1,
+                monotonic_ms: 1,
+            })
+            .unwrap();
+        std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL);
+        collector
+            .sample(SampleTime {
+                wall_ms: 2,
+                monotonic_ms: 2,
+            })
+            .unwrap();
+        let count = PROCARGS_CALLS.with(|calls| calls.replace(None)).unwrap();
+        assert_eq!(
+            count, 0,
+            "sampler requested KERN_PROCARGS2; payload was blocked, never inspected"
+        );
+        println!("macos_procargs2_control_calls=1 sampler_calls={count} observations=2 payloads_blocked_without_inspection");
+    }
+
+    #[cfg(target_os = "macos")]
+    mod sysctl_guard {
+        use std::cell::Cell;
+        use std::ffi::c_void;
+        use std::sync::OnceLock;
+        thread_local! { pub(super) static PROCARGS_CALLS: Cell<Option<usize>> = const { Cell::new(None) }; }
+        type Sysctl =
+            unsafe extern "C" fn(*mut i32, u32, *mut c_void, *mut usize, *mut c_void, usize) -> i32;
+
+        // Only the owned test executable exports this shim; payloads are never inspected.
+        #[export_name = "sysctl"]
+        unsafe extern "C" fn guarded_sysctl(
+            name: *mut i32,
+            len: u32,
+            old: *mut c_void,
+            old_len: *mut usize,
+            new: *mut c_void,
+            new_len: usize,
+        ) -> i32 {
+            if len >= 2
+                && !name.is_null()
+                && *name == libc::CTL_KERN
+                && *name.add(1) == libc::KERN_PROCARGS2
+            {
+                let blocked = PROCARGS_CALLS
+                    .try_with(|calls| {
+                        if let Some(count) = calls.get() {
+                            calls.set(Some(count.saturating_add(1)));
+                            true
+                        } else {
+                            false
+                        }
+                    })
+                    .unwrap_or(false);
+                if blocked {
+                    *libc::__error() = libc::EPERM;
+                    return -1;
+                }
+            }
+            static REAL: OnceLock<Option<Sysctl>> = OnceLock::new();
+            let real = REAL.get_or_init(|| {
+                let ptr = libc::dlsym(libc::RTLD_NEXT, c"sysctl".as_ptr());
+                if ptr.is_null() {
+                    None
+                } else {
+                    Some(std::mem::transmute::<*mut c_void, Sysctl>(ptr))
+                }
+            });
+            if let Some(real) = real {
+                real(name, len, old, old_len, new, new_len)
+            } else {
+                *libc::__error() = libc::ENOSYS;
+                -1
+            }
+        }
+    }
 
     #[test]
     fn local_first_cpu_sample_is_warming_up() {
@@ -582,9 +766,19 @@ mod tests {
         assert!(sample.sources["local.processes"]
             .iter()
             .any(|r| r.fields["cpu_percent"].numeric().is_some()));
+        assert!(sample.sources["local.processes"]
+            .iter()
+            .any(|r| r.fields["cpu_percent"].numeric().is_some()
+                && matches!(r.fields["memory_bytes"], MetricValue::Unsigned { .. })));
         assert!(sample.sources["local.processes"].iter().all(
             |r| matches!(&r.fields["start_time"], MetricValue::Unsigned { value } if value != "0")
         ));
+        #[cfg(target_os = "macos")]
+        assert!(
+            collector.system.processes().is_empty(),
+            "macOS must never invoke the sysinfo process reader"
+        );
+        #[cfg(not(target_os = "macos"))]
         assert!(collector
             .system
             .processes()
