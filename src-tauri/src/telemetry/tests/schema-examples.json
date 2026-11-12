@@ -1,0 +1,656 @@
+{
+  "valid": [
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "kv",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "stat",
+            "aggregation": "count",
+            "label": "Rows"
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "chart",
+            "series": [
+              {
+                "field": "scaled",
+                "label": "Scaled"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "layouts": [
+        {
+          "layout": "local",
+          "platforms": [],
+          "sections": [
+            {
+              "id": "overview",
+              "title": "Overview",
+              "rows": [
+                [
+                  {
+                    "widget": "cpu",
+                    "span": 12
+                  }
+                ]
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ],
+      "unexpected": true
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "stat",
+            "aggregation": "sum",
+            "label": "Sum"
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              "usage"
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 0,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "widgets": [
+        {
+          "widget": "cpu",
+          "title": "CPU",
+          "source": {
+            "kind": "local",
+            "collector": "local.cpu"
+          },
+          "interval": 2,
+          "key": [
+            "core"
+          ],
+          "fields": {
+            "core": [
+              "CORE"
+            ],
+            "usage": [
+              "USAGE"
+            ]
+          },
+          "view": {
+            "type": "table",
+            "columns": [
+              {
+                "field": "usage",
+                "label": "Usage",
+                "unit": "%"
+              }
+            ]
+          },
+          "rates": {
+            "per_second": {
+              "field": "usage",
+              "unit": "%/s"
+            }
+          },
+          "deltas": {
+            "change": {
+              "field": "usage",
+              "multiplier": 2
+            }
+          },
+          "computes": {
+            "scaled": "usage * 2 + per_second"
+          },
+          "alerts": [
+            {
+              "field": "usage",
+              "op": "gt",
+              "value": 80,
+              "severity": "warn",
+              "message": "High CPU"
+            }
+          ],
+          "history": {
+            "fields": [
+              "scaled"
+            ]
+          },
+          "py": "print(1)"
+        }
+      ]
+    }
+  ]
+}

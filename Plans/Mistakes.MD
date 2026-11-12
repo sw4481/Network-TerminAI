@@ -3577,3 +3577,10 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 ## 2026-11-11 — Telemetry controller worktree setup
 
 - Issue: The controller discovered the native worktree tool in the same tool batch as manual worktree creation, after the manual worktree already existed. RCA: capability discovery did not complete before the mutation decision. Fix: retain the existing isolated worktree without creating a duplicate; complete native-tool discovery before future workspace mutations. No duplicate worktree was created.
+
+
+# Mistake: Telemetry Task 2 YAML boundary and local verification details
+
+- What the issue/mistake was (2026-11-11): The initial conservative quote scanner misread a quote inside a valid plain scalar such as `title: foo{'junk` and could hide subsequent real YAML anchors/aliases. An early arithmetic evaluation vector needed an explicit f64 element type; the schema-check helper initially selected the worktree parent instead of the worktree root.
+- RCA of the Issue: YAML node/quote boundaries were approximated without a token parser; inference could not resolve a vector used through unary negation; the fixture helper counted filesystem parents incorrectly. Initial contract generation also failed to split the digit-bearing sha256 field, leaving it private in Rust and using the boxed String type in TypeScript.
+- How you fixed it: Retained a genuinely failing adversarial regression and replaced the handwritten scanner with the controller-authorized pinned yaml-rust2 token scanner before serde_yaml expansion. Reject real Anchor/Alias/Tag/TagDirective tokens and scanner errors, while allowing scalar literals/comments/block scalars. Kept bounded duplicate/depth/finite-value deserialization and added hostile nested arithmetic coverage. Annotated Vec<f64>, corrected the helper root and explicit public/string sha256 contracts, and reran scoped Rust/schema/production TypeScript checks. Original missing xterm dependency failure remains recorded; the controller restored only isolated worktree dependencies before the passing TypeScript recheck.

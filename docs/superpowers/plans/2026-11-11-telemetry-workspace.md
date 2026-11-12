@@ -6,7 +6,7 @@
 
 **Architecture:** One telemetry-owned Rust service owns configuration revisions, local collection, saved-target SSH sessions, bounded parser workers, scheduling and one-hour memory history. A feature-local React workspace uses existing tabs, Zustand, Recharts and Monaco/YAML patterns. Reuse dependencies and narrow identity/parsing helpers; do not turn topology, Canvas or the shared AI sidecar into a polling backend.
 
-**Tech Stack:** Existing React 19/TypeScript, Tauri 2, Tokio, russh 0.60.2 (locked), serde_yaml, TextFSM/ntc-templates, Monaco/monaco-yaml, Recharts 3.3.0, Vitest/Pytest/Cargo. Proposed sole new runtime dependency: Rust `sysinfo = "=0.39.6"`, default features disabled, features `system,disk,network`; see verified toolchain compatibility below.
+**Tech Stack:** Existing React 19/TypeScript, Tauri 2, Tokio, russh 0.60.2 (locked), serde_yaml, TextFSM/ntc-templates, Monaco/monaco-yaml, Recharts 3.3.0, Vitest/Pytest/Cargo. New runtime dependencies: Rust `sysinfo = "=0.39.6"`, default features disabled, features `system,disk,network`; and `yaml-rust2 = "=0.13.0"`, default features disabled, solely to reject actual anchor/alias/tag tokens before serde_yaml expansion. The token scanner supersedes the earlier conservative lexical subset after a retained multiline/plain-scalar regression showed that hand-written quote boundaries were unsafe. Ordinary quoted/plain/block scalar literals remain supported. yaml-rust2 declares Rust 1.85, within this repository's pinned 1.97 toolchain; see sysinfo compatibility below.
 
 **Spec:** `docs/superpowers/specs/2026-11-11-telemetry-workspace-design.md` — approved by Shaun; read both documents before execution.
 

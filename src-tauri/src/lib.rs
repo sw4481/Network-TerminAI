@@ -66,6 +66,7 @@ pub mod ssh_exec;
 pub mod structured;
 pub mod terminal_agent;
 pub mod terminal_logging;
+pub mod telemetry;
 pub mod tftp;
 pub mod topology;
 pub mod transcript_export;
