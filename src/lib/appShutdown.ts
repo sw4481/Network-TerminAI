@@ -20,14 +20,21 @@ export interface AppCloseLease {
 export interface AppFrozenOwner extends AppCloseLease {
   confirm(): Promise<boolean>;
 }
+export type AppPreflightPurpose = "quit" | "update";
 export class AppPreflightRegistry {
-  private readonly guards = new Map<string, () => AppFrozenOwner>();
+  private readonly guards = new Map<
+    string,
+    (purpose: AppPreflightPurpose) => AppFrozenOwner
+  >();
   private active: object | null = null;
   private version = 0;
   isActive() {
     return this.active !== null;
   }
-  register(id: string, freeze: () => AppFrozenOwner) {
+  register(
+    id: string,
+    freeze: (purpose: AppPreflightPurpose) => AppFrozenOwner,
+  ) {
     this.guards.set(id, freeze);
     this.version++;
     return () => {
@@ -37,7 +44,10 @@ export class AppPreflightRegistry {
       }
     };
   }
-  async acquire(signal?: AbortSignal): Promise<AppCloseLease | null> {
+  async acquire(
+    signal?: AbortSignal,
+    purpose: AppPreflightPurpose = "update",
+  ): Promise<AppCloseLease | null> {
     if (this.active)
       throw new Error("An application close decision is already in progress");
     if (signal?.aborted) return null;
@@ -55,7 +65,7 @@ export class AppPreflightRegistry {
     };
     signal?.addEventListener("abort", release, { once: true });
     try {
-      for (const freeze of this.guards.values()) owners.push(freeze());
+      for (const freeze of this.guards.values()) owners.push(freeze(purpose));
       for (const owner of owners) {
         if (released || !(await owner.confirm())) {
           release();
@@ -69,7 +79,8 @@ export class AppPreflightRegistry {
       return {
         release,
         prepareUpdate: async () => {
-          if (released) throw new Error("Application close approval expired");
+          if (released || purpose !== "update")
+            throw new Error("Application update approval unavailable");
           for (const owner of owners) {
             await owner.prepareUpdate();
             if (released) throw new Error("Application close approval expired");
@@ -100,7 +111,7 @@ export function createAppPreflightHandler(
       const pending = (async () => {
         let lease: AppCloseLease | null = null;
         try {
-          lease = await registry.acquire(controller.signal);
+          lease = await registry.acquire(controller.signal, "quit");
           if (controller.signal.aborted) {
             lease?.release();
             return;

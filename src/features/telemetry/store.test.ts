@@ -49,6 +49,40 @@ function fixture() {
 describe("Telemetry workspace ownership", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+  it.each(["update", "quit"] as const)("post-approved %s authority cannot be consumed by tab close", async (purpose) => {
+    const { store, api, register } = fixture(); await store.establish("one");
+    const draft = { widgets_yaml: "exact invalid raw YAML", layouts_yaml: "exact layout draft", templates: { custom: "invalid template" } };
+    const freeze = vi.fn(), confirm = vi.fn(() => true);
+    store.registerDraft("one", { dirty: () => true, identity: () => draft, freeze }, confirm);
+    const approval = await appPreflightGuards.acquire(undefined, purpose);
+    try {
+    if (purpose === "update") await approval!.prepareUpdate();
+    const ownerSnapshot = store.state.getState().workspaces.one.snapshot;
+    await expect(store.close("one")).rejects.toThrow("decision in progress");
+    expect(api.close).not.toHaveBeenCalled(); expect(store.state.getState().workspaces.one.snapshot).toBe(ownerSnapshot);
+    expect(draft.widgets_yaml).toBe("exact invalid raw YAML"); expect(confirm).toHaveBeenCalledOnce();
+    if (purpose === "quit") {
+      await expect(approval!.prepareUpdate()).rejects.toThrow("approval");
+      await register.mock.calls[0][1]();
+      expect(api.close).toHaveBeenCalledOnce(); expect(store.state.getState().workspaces.one).toBeUndefined();
+    } else {
+      await expect(register.mock.calls[0][1]()).rejects.toThrow("approval");
+      expect(api.close).not.toHaveBeenCalled();
+      approval!.release();
+      expect(store.state.getState().workspaces.one.frozen).toBe(false);
+      expect(store.state.getState().workspaces.one.snapshot).toBe(ownerSnapshot);
+      expect(draft.templates.custom).toBe("invalid template");
+      await store.close("one"); expect(confirm).toHaveBeenCalledTimes(2);
+    }
+    } finally { approval!.release(); }
+  });
+  it("intentional confirmed app cleanup closes an owner whose Studio never opened", async () => {
+    const { store, api, register } = fixture(); await store.establish("one");
+    const approval = await appPreflightGuards.acquire(undefined, "quit");
+    await register.mock.calls[0][1]();
+    expect(api.close).toHaveBeenCalledOnce(); expect(store.state.getState().workspaces.one).toBeUndefined(); approval!.release();
+    expect(store.state.getState().workspaces.one).toBeUndefined();
+  });
   it("dirty tab cancel and failed Close preserve raw draft and operational ownership", async () => {
     const { store, api } = fixture(); await store.establish("one");
     const freeze = vi.fn(), draft = { widgets_yaml: "invalid raw draft" };

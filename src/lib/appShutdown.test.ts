@@ -15,6 +15,18 @@ import {
 } from "./appShutdown";
 
 describe("cancelable app preflight", () => {
+  it("hands quit purpose only to native preflight and leaves default acquisition update-scoped", async () => {
+    const registry = new AppPreflightRegistry(), release = vi.fn(), cleanup = vi.fn();
+    const freeze = vi.fn(() => ({ confirm: async () => true, release, prepareUpdate: cleanup }));
+    registry.register("telemetry", freeze);
+    const handler = createAppPreflightHandler(registry, async () => true);
+    await handler.prepare({ requestId: 42, reason: "main-window-close", timeoutMs: 30000 });
+    expect(freeze).toHaveBeenLastCalledWith("quit");
+    handler.dispose();
+    const update = await registry.acquire();
+    expect(freeze).toHaveBeenLastCalledWith("update");
+    await update!.prepareUpdate(); expect(cleanup).toHaveBeenCalledOnce(); update!.release();
+  });
   it("cleans up a partially installed native responder when listener registration fails", async () => {
     const unlisten = vi.fn();
     transport.listen.mockResolvedValueOnce(unlisten).mockRejectedValueOnce(new Error("native event unavailable"));

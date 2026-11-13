@@ -329,9 +329,11 @@ export class StudioDraft {
     );
   }
   exportText(mode: StudioMode, templateId = "") {
-    const { draft } = this.state.getState();
+    const { draft, catalog } = this.state.getState();
     return mode === "templates"
-      ? (draft.templates[templateId] ?? "")
+      ? (draft.templates[templateId] ??
+          catalog.effective.templates[templateId]?.text ??
+          "")
       : mode === "widgets"
         ? draft.widgets_yaml
         : draft.layouts_yaml;

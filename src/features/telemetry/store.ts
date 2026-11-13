@@ -1,5 +1,5 @@
 import { createStore, useStore } from "zustand";
-import { appPreflightGuards, registerAppShutdownTask, type AppFrozenOwner } from "../../lib/appShutdown";
+import { appPreflightGuards, registerAppShutdownTask, type AppFrozenOwner, type AppPreflightPurpose } from "../../lib/appShutdown";
 import { telemetryApi, type TelemetryApi } from "./api";
 import type {
   ConfigDraft,
@@ -30,8 +30,9 @@ interface Owner {
   unregister: () => void;
   reads: Map<string, object>;
   refreshing: boolean;
-  lease?: AppFrozenOwner & { approved: boolean };
+  lease?: CloseLease;
 }
+interface CloseLease extends AppFrozenOwner { approved: boolean; purpose: AppPreflightPurpose | "tab" }
 interface DraftOwner { dirty(): boolean; identity(): object; freeze(value: boolean): void }
 const message = (error: unknown) =>
   error &&
@@ -72,11 +73,11 @@ export class TelemetryWorkspaceStore {
       failures: 0,
       refreshing: false,
       reads: new Map(),
-      unregister: this.register(`telemetry:${id}`, () => this.close(id)),
+      unregister: this.register(`telemetry:${id}`, () => this.closeForShutdown(id)),
     };
     this.owners.set(id, owner);
     const unregisterShutdown = owner.unregister;
-    const unregisterPreflight = appPreflightGuards.register(`telemetry:${id}`, () => this.freezeOwner(id));
+    const unregisterPreflight = appPreflightGuards.register(`telemetry:${id}`, (purpose) => this.freezeOwner(id, purpose));
     owner.unregister = () => { unregisterShutdown(); unregisterPreflight(); this.drafts.delete(id); };
     owner.ready = this.api
       .establish(id)
@@ -180,7 +181,7 @@ export class TelemetryWorkspaceStore {
     this.drafts.set(id, entry);
     return () => { if (this.drafts.get(id) === entry) this.drafts.delete(id); };
   }
-  private freezeOwner(id: string): AppFrozenOwner & { approved: boolean } {
+  private freezeOwner(id: string, purpose: CloseLease["purpose"]): CloseLease {
     const owner = this.owners.get(id);
     if (!owner || owner.lease || owner.close) throw new Error("Telemetry close decision already in progress");
     const entry = this.drafts.get(id), identity = entry?.draft.identity();
@@ -190,6 +191,7 @@ export class TelemetryWorkspaceStore {
     let released = false;
     const lease = {
       approved: false,
+      purpose,
       confirm: async () => {
         const accepted = !entry?.draft.dirty() || await entry.confirm("Close Telemetry without saving the YAML, layout and template drafts?");
         if (released || this.drafts.get(id) !== entry || entry?.draft.identity() !== identity) return false;
@@ -198,10 +200,10 @@ export class TelemetryWorkspaceStore {
       release: () => {
         if (released) return;
         released = true;
-        if (owner.lease === lease) { owner.lease = undefined; entry?.draft.freeze(false); this.patch(id, { frozen: false }); this.schedule(id, owner); }
+        if (owner.lease === lease && this.owners.get(id) === owner) { owner.lease = undefined; entry?.draft.freeze(false); this.patch(id, { frozen: false }); this.schedule(id, owner); }
       },
       prepareUpdate: async () => {
-        if (!lease.approved || released) throw new Error("Telemetry close approval expired");
+        if (!lease.approved || released || purpose !== "update") throw new Error("Telemetry update approval unavailable");
         await this.control(id, async () => { await this.api.stop(id); this.accept(id, await this.api.snapshot(id)); }, true);
       },
     };
@@ -346,16 +348,24 @@ export class TelemetryWorkspaceStore {
     const owner = this.owners.get(id);
     if (!owner)
       return Promise.reject(new Error("Telemetry workspace is unavailable"));
-    if (owner.close) return owner.close;
-    const existingLease = owner.lease;
-    if (existingLease && !existingLease.approved) return Promise.reject(new Error("Telemetry close decision in progress"));
-    if (!existingLease) {
-      const lease = this.freezeOwner(id);
-      return lease.confirm().then((approved) => {
-        if (!approved) { lease.release(); throw new Error("Telemetry close canceled"); }
-        return this.close(id);
-      }).catch((error) => { lease.release(); throw error; });
+    if (owner.lease) {
+      if (owner.lease.purpose === "tab" && owner.close) return owner.close;
+      return Promise.reject(new Error("Telemetry close decision in progress"));
     }
+    const lease = this.freezeOwner(id, "tab");
+    return lease.confirm().then((approved) => {
+      if (!approved) { lease.release(); throw new Error("Telemetry close canceled"); }
+      return this.closeWithLease(id, owner, lease);
+    }).catch((error) => { lease.release(); throw error; });
+  }
+  private closeForShutdown(id: string): Promise<void> {
+    const owner = this.owners.get(id), lease = owner?.lease;
+    if (!owner || lease?.purpose !== "quit") return Promise.reject(new Error("Telemetry shutdown approval unavailable"));
+    return this.closeWithLease(id, owner, lease);
+  }
+  private closeWithLease(id: string, owner: Owner, lease: CloseLease): Promise<void> {
+    if (this.owners.get(id) !== owner || owner.lease !== lease || !lease.approved) return Promise.reject(new Error("Telemetry close approval unavailable"));
+    if (owner.close) return owner.close;
     owner.epoch++;
     owner.reads.clear();
     clearTimeout(owner.timer);
@@ -366,6 +376,7 @@ export class TelemetryWorkspaceStore {
       .then(() => this.api.close(id))
       .then(() => {
         owner.unregister();
+        owner.lease = undefined;
         this.owners.delete(id);
         this.state.setState((state) => {
           const workspaces = { ...state.workspaces };
@@ -376,7 +387,7 @@ export class TelemetryWorkspaceStore {
       .catch((error) => {
         owner.close = undefined;
         this.patch(id, { busy: false, error: message(error) });
-        existingLease.release();
+        lease.release();
         throw error;
       });
     return owner.close;

@@ -139,6 +139,11 @@ function AppliedWidget({
     page: WidgetPage;
   } | null>(null);
   const [error, setError] = useState("");
+  const [source, setSource] = useState<{
+    targetId: string;
+    widgetId: string;
+    revision: string;
+  } | null>(null);
   const cache = useRef(new Map<string, WidgetDefinition>());
   useEffect(() => {
     let current = true;
@@ -158,6 +163,8 @@ function AppliedWidget({
           `${value.effective.revision}:${widgetId}`,
           definition,
         );
+        if (current)
+          setSource({ targetId, widgetId, revision: value.effective.revision });
         const page = await reader.widget(
           workspaceId,
           targetId,
@@ -193,15 +200,32 @@ function AppliedWidget({
     lifecycle?.closing,
     lifecycle?.frozen,
   ]);
+  const summary = snapshot?.widgets.find(
+    (entry) => entry.target_id === targetId && entry.widget_id === widgetId,
+  );
+  const metadata = loaded?.page.metadata;
   const actual =
-    loaded?.page.metadata.target_id === targetId &&
-    loaded.page.metadata.widget_id === widgetId
-      ? loaded
+    loaded &&
+    summary &&
+    metadata?.workspace_id === workspaceId &&
+    metadata.target_id === targetId &&
+    metadata.widget_id === widgetId &&
+    metadata.generation === summary.generation &&
+    metadata.revision === summary.revision &&
+    metadata.observed_at_ms === summary.observed_at_ms &&
+    loaded.page.rows.length === summary.row_count
+      ? { ...loaded, page: { ...loaded.page, metadata: summary } }
       : null;
   return (
     <section className="telemetry-studio-card" aria-label="Last applied widget">
       <h3>Last applied widget</h3>
       {error && <p>{error}</p>}
+      {actual &&
+        source?.targetId === targetId &&
+        source.widgetId === widgetId &&
+        source.revision !== actual.page.metadata.revision && (
+          <p>Retained observation uses the previous applied definition.</p>
+        )}
       {actual ? (
         <WidgetPanel
           definition={actual.definition}
@@ -384,7 +408,7 @@ function StudioWorkspace({
           id,
           platform,
           command,
-          text: state.draft.templates[id] ?? original?.text ?? "",
+          text: studio.exportText("templates", id),
           sha256: original?.sha256 ?? "",
         }
       : null;

@@ -81,6 +81,43 @@ export async function studioFixture() {
 }
 
 describe("complete Studio draft authority", () => {
+  it.each([undefined, "", "exact OWN template text"])(
+    "exports the displayed inherited or OWN template verbatim (%s)",
+    async (own) => {
+      const { api, studio } = await studioFixture();
+      const original = {
+        id: "inherited",
+        platform: "iosxe" as const,
+        command: "show version",
+        text: "Value VALUE (.*)\n\nStart\n  ^${VALUE} -> Record\n",
+        sha256: "builtin-hash",
+      };
+      const current = studio.state.getState();
+      studio.state.setState({
+        catalog: {
+          ...current.catalog,
+          effective: {
+            ...current.catalog.effective,
+            templates: { inherited: original },
+          },
+        },
+      });
+      if (own !== undefined) studio.edit({ templates: { inherited: own } });
+      const expected = own ?? original.text,
+        write = vi.fn().mockResolvedValue(true);
+      expect(studio.exportText("templates", "inherited")).toBe(expected);
+      await studio.exportFile(
+        { write },
+        "templates",
+        "inherited.textfsm",
+        "inherited",
+      );
+      expect(write).toHaveBeenCalledWith(expected, "inherited.textfsm");
+      expect(studio.exportText("widgets")).toBe(current.draft.widgets_yaml);
+      expect(studio.exportText("layouts")).toBe(current.draft.layouts_yaml);
+      expect(api.captureSample).not.toHaveBeenCalled();
+    },
+  );
   it("revokes Apply when current workspace generation changes or native controls are busy", async () => {
     const { owner, studio } = await studioFixture();
     await studio.validate();

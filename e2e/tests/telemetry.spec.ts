@@ -53,6 +53,7 @@ class SyntheticTelemetryBackend {
   readonly denied: string[] = [];
   readonly receipts: string[] = [];
   readonly files = new Map<string, string>();
+  readonly widgetFailures = new Set<string>();
   nextOpen: string | null = null;
   nextSave: string | null = null;
   fileFailure = false;
@@ -454,6 +455,7 @@ class SyntheticTelemetryBackend {
         if (!this.currentDraft || a.token.draft_hash !== this.draftHash(a.draft) || a.token.draft_hash !== this.draftHash(this.currentDraft)) throw new Error("Fixture stale token");
         throw new Error("Fixture apply disk write failed");
       case "telemetry_widget": {
+        if (this.widgetFailures.has(`${a.query.target_id}:${a.query.widget_id}`)) throw new Error("Fixture applied refresh failed");
         const p = this.pages.get(`${a.query.target_id}:${a.query.widget_id}`);
         if (!p) throw new Error("Fixture widget missing");
         const end = a.query.offset + a.query.limit;
@@ -751,7 +753,21 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     .fill("Observed process 1500");
   await expect(processes.getByRole("row")).toHaveCount(2);
   await expect(processes.getByText("Observed process 1500")).toBeVisible();
+  await workspace.getByRole("button", { name: "Widgets", exact: true }).click();
+  const appliedStudio = workspace.getByRole("region", { name: "Widget studio", exact: true });
+  await appliedStudio.locator(".telemetry-library-list").getByRole("button", { name: /^Local Memory/ }).click();
+  const appliedPane = appliedStudio.getByRole("region", { name: "Last applied widget" });
+  await expect(appliedPane.getByText("250000000", { exact: true })).toBeVisible();
+  await expect(appliedPane.getByText(/Fresh/)).toBeVisible();
+  backend.widgetFailures.add("local:local_memory");
   await workspace.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(appliedPane.getByText("Fixture applied refresh failed", { exact: true })).toBeVisible();
+  await expect(appliedPane.getByText(/Stopped/)).toBeVisible();
+  await expect(appliedPane.getByText("250000000", { exact: true })).toBeVisible();
+  await expect(appliedPane.getByText(/Fresh/)).toHaveCount(0);
+  await appliedPane.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath("studio-stopped-retained-680-matrix.png") });
+  backend.widgetFailures.delete("local:local_memory");
+  await workspace.getByRole("button", { name: "Local PC", exact: true }).click();
   await expect(
     workspace
       .getByRole("navigation", { name: "Telemetry views" })
@@ -903,6 +919,9 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await studio.locator(".telemetry-library-list").getByRole("button", { name: /iosxe\.show_processes_cpu/ }).click();
   await studio.getByRole("button", { name: "Test template", exact: true }).click();
   await expect(studio.getByText(/Fixture template test record/)).toBeVisible();
+  backend.nextSave = "/fixture/bundled.textfsm";
+  await studio.getByRole("button", { name: "Export", exact: true }).click();
+  await expect.poll(() => backend.files.get("/fixture/bundled.textfsm")).toBe(templates["iosxe.show_processes_cpu"].text);
   expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
   await workspace.evaluate((element) => { element.scrollTop = 0; }); await page.screenshot({ path: info.outputPath("studio-textfsm-1440.png") });
   await studio.getByRole("button", { name: "Widgets", exact: true }).click();
@@ -939,5 +958,5 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await expect.poll(() => source(playbookUri)).toBeUndefined(); await expect.poll(() => markers(playbookUri)).toEqual([]);
   expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
   expect(backend.denied).toEqual([]); expect(external).toEqual([]); expect(errors).toEqual([]);
-  writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, virtualFileRoundTrip: backend.files.get(backend.nextSave!), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
+  writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, inheritedTemplateExport: backend.files.get("/fixture/bundled.textfsm"), virtualFileRoundTrip: backend.files.get(backend.nextSave!), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
 });
