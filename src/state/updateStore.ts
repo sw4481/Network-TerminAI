@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { appPreflightGuards, type AppCloseLease } from "../lib/appShutdown";
 
 /**
  * Shared auto-update state. The floating toast (UpdateNotification), the
@@ -88,6 +89,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     const { downloading } = get();
     if (downloading) return;
     set({ downloading: true, error: null });
+    let approval: AppCloseLease | null = null;
     try {
       // Re-fetch the handle if we don't have one (e.g. store was reset).
       let handle = get()._handle;
@@ -98,12 +100,16 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
           return;
         }
       }
+      approval = await appPreflightGuards.acquire();
+      if (!approval) return;
+      await approval.prepareUpdate();
       await handle.downloadAndInstall();
       await relaunch();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       set({ error: message });
       console.error("Update install failed:", message);
+      approval?.release();
     } finally {
       set({ downloading: false });
     }

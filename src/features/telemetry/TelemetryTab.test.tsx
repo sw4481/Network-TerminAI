@@ -1,9 +1,10 @@
 import { StrictMode } from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { TelemetryTab } from "./TelemetryTab";
 import { telemetryWorkspaces } from "./store";
 import { telemetryApi } from "./api";
+vi.mock("../../components/editor/MonacoEditor", () => ({ DEFAULT_EDITOR_SETTINGS: {}, MonacoEditor: ({ value, onChange }: { value: string; onChange(value: string): void }) => <textarea aria-label="Source editor" value={value} onChange={(event) => onChange(event.target.value)} /> }));
 vi.mock("../../lib/sshConnections", () => ({
   sshListConnections: vi.fn().mockResolvedValue([
     { id: "one", name: "Saved IOS-XE", platform: "iosxe" },
@@ -46,11 +47,26 @@ vi.mock("./api", () => ({
     }),
     stop: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
+    catalog: vi.fn().mockResolvedValue({ workspace_id: "tab", generation: 1, sequence: 0, revision: "base", value: { effective: { revision: "source", widgets: [], layouts: [], templates: {} }, own: { scope: "local", widgets_yaml: "schema_version: 1\nwidgets: []\n", layouts_yaml: "schema_version: 1\nlayouts: []\n", templates: {}, expected_revision: "base" }, inherited: { widgets: {}, layouts: {}, templates: {} }, builtin: { widgets: {}, layouts: {}, templates: {} }, origins: { widgets: {}, layouts: {}, templates: {} } } }),
   },
 }));
 afterEach(async () => {
   await telemetryWorkspaces.close("tab");
   vi.clearAllMocks();
+});
+it("preserves invalid YAML/layout/template drafts and close guard across workspace navigation", async () => {
+  const view = render(<TelemetryTab tabId="tab" />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Start" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Widgets", exact: true }));
+  const source = await screen.findByRole("textbox", { name: "Source editor" });
+  fireEvent.change(source, { target: { value: "# exact invalid YAML\ninvalid: [" } });
+  fireEvent.click(screen.getByRole("button", { name: "Fleet", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Widgets", exact: true }));
+  expect(screen.getByRole("textbox", { name: "Source editor" })).toHaveValue("# exact invalid YAML\ninvalid: [");
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  await act(async () => { await expect(telemetryWorkspaces.close("tab")).rejects.toThrow("canceled"); });
+  expect(telemetryApi.close).not.toHaveBeenCalled();
+  view.unmount(); confirm.mockRestore();
 });
 it("survives StrictMode subscription cleanup with one stopped workspace and explicit Start", async () => {
   const view = render(

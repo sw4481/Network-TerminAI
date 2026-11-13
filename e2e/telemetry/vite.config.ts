@@ -7,11 +7,11 @@ import { createTerminaiViteConfig } from "../../vite.config";
 const output = process.env.TELEMETRY_E2E_OUTPUT;
 if (
   !output ||
-  !/^\/(?:private\/)?tmp\/ccie-telemetry-task10\.[A-Za-z0-9]+$/.test(output) ||
+  !/^\/(?:private\/)?tmp\/ccie-telemetry-task(?:10|11)\.[A-Za-z0-9]+$/.test(output) ||
   !existsSync(output)
 ) {
   throw new Error(
-    "Set TELEMETRY_E2E_OUTPUT to a fresh existing /tmp/ccie-telemetry-task10.* directory",
+    "Set TELEMETRY_E2E_OUTPUT to a fresh existing /tmp/ccie-telemetry-task10.* or task11.* directory",
   );
 }
 if (process.env.NODE_ENV !== "development") {

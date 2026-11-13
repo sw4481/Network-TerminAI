@@ -298,15 +298,11 @@ pub fn run() {
                 use tauri::Manager;
 
                 api.prevent_close();
-                let _ = window.state::<AppState>().stp.shutdown();
-                window
-                    .state::<AppState>()
-                    .terminal_agent
-                    .revoke_all("application shutdown");
-                app_lifecycle::request_shutdown(
+                app_lifecycle::request_shutdown_preflight(
                     window.app_handle(),
                     &shutdown_for_window_events,
                     "main-window-close",
+                    Some(0),
                 );
             }
         })
@@ -388,6 +384,7 @@ pub fn run() {
             commands::appearance::appearance_settings_set,
             commands::appearance::appearance_settings_patch,
             app_lifecycle::app_shutdown_acknowledge,
+            app_lifecycle::app_shutdown_preflight_decide,
             commands::editor::editor_buffer_register,
             commands::editor::editor_buffer_get,
             commands::editor::editor_buffer_update,
@@ -1854,13 +1851,12 @@ pub fn run() {
 
         match event {
             tauri::RunEvent::ExitRequested { code, api, .. } => {
-                let _ = app_handle.state::<commands::AppState>().stp.shutdown();
                 let shutdown = app_handle.state::<app_lifecycle::ShutdownCoordinator>();
                 if app_lifecycle::exit_request_disposition(&shutdown, code)
                     == app_lifecycle::ExitRequestDisposition::Intercept
                 {
                     api.prevent_exit();
-                    app_lifecycle::request_shutdown(app_handle, &shutdown, "application-quit");
+                    app_lifecycle::request_shutdown_preflight(app_handle, &shutdown, "application-quit", code);
                 }
             }
             tauri::RunEvent::Exit => {

@@ -7,7 +7,7 @@ const output = process.env.TELEMETRY_E2E_OUTPUT;
 const executable = process.env.TELEMETRY_E2E_CHROMIUM;
 if (
   !output ||
-  !/^\/(?:private\/)?tmp\/ccie-telemetry-task10\.[A-Za-z0-9]+$/.test(output) ||
+  !/^\/(?:private\/)?tmp\/ccie-telemetry-task(?:10|11)\.[A-Za-z0-9]+$/.test(output) ||
   !existsSync(output) ||
   !executable ||
   !existsSync(executable)

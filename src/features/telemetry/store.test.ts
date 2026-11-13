@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TelemetryWorkspaceStore } from "./store";
+import { appPreflightGuards } from "../../lib/appShutdown";
 import type { TelemetryApi } from "./api";
 import type { TelemetrySnapshot } from "./types";
 
@@ -48,6 +49,29 @@ function fixture() {
 describe("Telemetry workspace ownership", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
+  it("dirty tab cancel and failed Close preserve raw draft and operational ownership", async () => {
+    const { store, api } = fixture(); await store.establish("one");
+    const freeze = vi.fn(), draft = { widgets_yaml: "invalid raw draft" };
+    const confirm = vi.fn().mockReturnValue(false);
+    store.registerDraft("one", { dirty: () => true, identity: () => draft, freeze }, confirm);
+    await expect(store.close("one")).rejects.toThrow("canceled");
+    expect(api.close).not.toHaveBeenCalled(); expect(store.state.getState().workspaces.one.closing).toBe(false);
+    confirm.mockReturnValue(true); api.close.mockRejectedValueOnce(new Error("cleanup pending"));
+    await expect(store.close("one")).rejects.toThrow("cleanup pending");
+    expect(draft.widgets_yaml).toBe("invalid raw draft"); expect(freeze).toHaveBeenLastCalledWith(false);
+    expect(store.state.getState().workspaces.one.frozen).toBe(false);
+  });
+  it("stale draft identity and concurrent close paths cannot reuse an approval", async () => {
+    const { store, api } = fixture(); await store.establish("one");
+    const answer = deferred<boolean>(), freeze = vi.fn(); let identity = {};
+    store.registerDraft("one", { dirty: () => true, identity: () => identity, freeze }, () => answer.promise);
+    const closing = store.close("one");
+    await expect(appPreflightGuards.acquire()).rejects.toThrow("already in progress");
+    await expect(store.close("one")).rejects.toThrow("decision in progress");
+    identity = {}; answer.resolve(true);
+    await expect(closing).rejects.toThrow("canceled");
+    expect(api.close).not.toHaveBeenCalled(); expect(freeze).toHaveBeenLastCalledWith(false);
+  });
   it("keeps controls busy until the final queued lifecycle operation settles", async () => {
     const { store, api } = fixture();
     await store.establish("one");

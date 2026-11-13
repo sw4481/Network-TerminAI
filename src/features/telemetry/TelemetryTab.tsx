@@ -6,6 +6,7 @@ import type { Platform, TargetRef } from "./types";
 import { FleetView } from "./FleetView";
 import { DeviceView } from "./DeviceView";
 import { LocalPcView } from "./LocalPcView";
+import { WidgetStudio } from "./WidgetStudio";
 import "./telemetry.css";
 
 type SavedTarget = { id: string; name: string; platform: string };
@@ -17,6 +18,7 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
     snapshot = state?.snapshot;
   const [view, setView] = useState("fleet"),
     [targetId, setTarget] = useState("");
+  const [studioOpened, setStudioOpened] = useState(false);
   const [connections, setConnections] = useState<SavedTarget[]>([]),
     [connectionError, setConnectionError] = useState("");
   const [picker, setPicker] = useState(false),
@@ -85,7 +87,7 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
       .then(() => choose(id))
       .catch(() => {});
   };
-  const disabled = !snapshot || state?.busy || state?.closing;
+  const disabled = !snapshot || state?.busy || state?.closing || state?.frozen;
   return (
     <section className="telemetry-workspace" aria-label="Telemetry workspace">
       <header className="telemetry-heading">
@@ -115,7 +117,7 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
             Start
           </button>
           <button
-            disabled={!snapshot?.running || state?.busy || state?.closing}
+            disabled={!snapshot?.running || state?.busy || state?.closing || state?.frozen}
             onClick={() => void telemetryWorkspaces.stop(tabId).catch(() => {})}
           >
             Stop
@@ -131,9 +133,9 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
         ].map(([id, label]) => (
           <button
             key={id}
-            disabled={id === "widgets"}
+            disabled={state?.frozen}
             aria-pressed={view === id}
-            onClick={() => setView(id)}
+            onClick={() => { if (id === "widgets") setStudioOpened(true); setView(id); }}
           >
             {label}
           </button>
@@ -214,14 +216,10 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
               api={telemetryApi}
               workspaceId={tabId}
             />
-          ) : (
-            <section>
-              <h2>Widgets</h2>
-              <p>Choose a dashboard to inspect observations.</p>
-            </section>
-          )}
+          ) : null}
         </>
       )}
+      {snapshot && studioOpened && <div hidden={view !== "widgets"}><WidgetStudio workspaceId={tabId} api={telemetryApi} catalog={null} /></div>}
       {picker && (
         <dialog
           ref={dialog}

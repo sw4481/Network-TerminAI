@@ -1,8 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { load } from "js-yaml";
+import { dump, load } from "js-yaml";
 import { test, expect, type Page } from "@playwright/test";
 import { createDefaultAppearanceSettings } from "../../src/theme/defaults";
+import { BLANK_PLAYBOOK_YAML } from "../../src/features/troubleshoot/playbook-validate";
 import type {
   AuthoringCatalog,
   Catalog,
@@ -12,6 +13,8 @@ import type {
   WidgetDefinition,
   WidgetPage,
   WidgetSummary,
+  ConfigDraft,
+  ConfigScope,
 } from "../../src/features/telemetry/types";
 
 const origin = "http://127.0.0.1:1438";
@@ -49,6 +52,13 @@ for (const asset of manifest.templates) {
 class SyntheticTelemetryBackend {
   readonly denied: string[] = [];
   readonly receipts: string[] = [];
+  readonly files = new Map<string, string>();
+  nextOpen: string | null = null;
+  nextSave: string | null = null;
+  fileFailure = false;
+  nativeDecisions: { requestId: number; approved: boolean; failed: boolean }[] = [];
+  private currentDraft: ConfigDraft | null = null;
+  private draftHash(draft: ConfigDraft) { return createHash("sha256").update(JSON.stringify(draft)).digest("hex"); }
   readonly handlers = new Map<string, Set<number>>();
   readonly names = Array.from({ length: 10 }, (_, i) => ({
     id: `switch-${i}`,
@@ -103,15 +113,18 @@ class SyntheticTelemetryBackend {
       value: clone(value),
     };
   }
-  private catalog(local: boolean): AuthoringCatalog {
+  private catalog(local: boolean, scope: ConfigScope = local ? "local" : { device: "switch-0" }): AuthoringCatalog {
     const selected = widgets.filter((w) =>
       local ? w.source.kind === "local" : w.source.kind === "ssh",
     );
     const builtin: Catalog = {
-      widgets: Object.fromEntries(widgets.map((w) => [w.widget, w])),
-      layouts: Object.fromEntries(layouts.map((l) => [l.layout, l])),
-      templates,
+      widgets: Object.fromEntries(selected.map((w) => [w.widget, w])),
+      layouts: Object.fromEntries(layouts.filter((l) => local ? l.layout === "local_pc" : l.layout === "device").map((l) => [l.layout, l])),
+      templates: local ? {} : templates,
     };
+    const equalOverride = typeof scope !== "string" && ("device" in scope || scope.profile === "iosxe") ? selected.filter((widget) => widget.widget === "cpu") : [];
+    const origins: AuthoringCatalog["origins"] = { widgets: Object.fromEntries(selected.map((widget) => [widget.widget, "builtin"])), layouts: Object.fromEntries(Object.keys(builtin.layouts).map((id) => [id, "builtin"])), templates: Object.fromEntries(Object.keys(builtin.templates).map((id) => [id, "builtin"])) };
+    for (const widget of equalOverride) origins.widgets[widget.widget] = typeof scope !== "string" && "device" in scope ? { device: scope.device } : { profile: "iosxe" };
     return {
       effective: {
         revision: "source",
@@ -119,18 +132,18 @@ class SyntheticTelemetryBackend {
         layouts: layouts.filter((l) =>
           local ? l.layout === "local_pc" : l.layout === "device",
         ),
-        templates,
+        templates: builtin.templates,
       },
       builtin,
       inherited: builtin,
       own: {
-        scope: local ? "local" : { device: "switch-0" },
-        widgets_yaml: "schema_version: 1\nwidgets: []",
+        scope,
+        widgets_yaml: dump({ schema_version: 1, widgets: equalOverride }),
         layouts_yaml: "schema_version: 1\nlayouts: []",
         templates: {},
         expected_revision: "global",
       },
-      origins: { widgets: {}, templates: {}, layouts: {} },
+      origins,
     };
   }
   private rows(w: WidgetDefinition): MetricRow[] {
@@ -382,6 +395,12 @@ class SyntheticTelemetryBackend {
       case "telemetry_start":
         this.populate(a.request);
         return clone(this.state);
+      case "telemetry_select": {
+        const saved = this.names.find((target) => target.id === a.target.connection_id);
+        if (!saved) throw new Error("Fixture unknown saved target");
+        if (!this.state.targets.some((target) => target.target_id === saved.id)) this.state.targets.push({ target_id: saved.id, display_name: saved.name, platform: a.target.platform, monitoring_selected: false, state: "stopped", last_success_at_ms: null, diagnostics: [] });
+        this.state.sequence++; return clone(this.state);
+      }
       case "telemetry_stop":
         this.state.running = false;
         this.state.generation++;
@@ -392,7 +411,48 @@ class SyntheticTelemetryBackend {
       case "telemetry_close":
         return null;
       case "telemetry_catalog":
-        return this.read(this.catalog(a.scope === "local"), "global");
+        return this.read(this.catalog(a.scope === "local", a.scope), "global");
+      case "list_playbooks":
+        return [];
+      case "app_shutdown_preflight_decide":
+        this.nativeDecisions.push(clone(a) as { requestId: number; approved: boolean; failed: boolean });
+        return true;
+      case "plugin:dialog|open":
+        return this.nextOpen;
+      case "plugin:dialog|save":
+        return this.nextSave;
+      case "plugin:fs|read_text_file":
+        if (this.fileFailure) throw new Error("Fixture disk read failed");
+        if (!this.files.has(a.path)) throw new Error("Fixture file missing");
+        return Array.from(new TextEncoder().encode(this.files.get(a.path)!));
+      case "plugin:fs|write_text_file":
+        if (this.fileFailure) throw new Error("Fixture disk write failed");
+        this.files.set(decodeURIComponent(a.options.headers.path), new TextDecoder().decode(Uint8Array.from(a.bytes)));
+        return null;
+      case "telemetry_import":
+        return this.read({ draft: null, diagnostics: [{ code: "import_unsupported", message: "Fixture unsupported import retained", path: "unsupported", line: 2, column: 1 }] }, "global");
+      case "telemetry_validate": {
+        this.currentDraft = clone(a.draft);
+        let valid = false;
+        try { const doc = load(a.draft.widgets_yaml) as { schema_version?: number; widgets?: unknown[] }; valid = doc.schema_version === 1 && Array.isArray(doc.widgets); } catch { /* invalid fixture draft */ }
+        return this.read({ valid, draft_hash: this.draftHash(a.draft), diagnostics: valid ? [] : [{ code: "yaml", message: "Fixture invalid YAML", path: "widgets", line: 1, column: 1 }], affected_targets: ["switch-0"], masked_device_overrides: ["switch-1"] }, "global");
+      }
+      case "telemetry_preview": {
+        const network = a.draft.scope !== "local", definition = widgets.find((widget) => widget.widget === (network ? "cpu" : "local_memory"))!;
+        const rows = this.rows(definition).slice(0, 1);
+        if (network) rows[0].fields.name = { kind: "text", value: "Rendered capture-two" };
+        const frame = { workspace_id: this.state.workspace_id, target_id: network ? "switch-0" : "local", widget_id: definition.widget, revision: "source", generation: this.state.generation, observed_at_ms: 1700000000000, last_success_at_ms: 1700000000000, state: "fresh", severity: "info", units: {}, rows, diagnostics: [] };
+        const parserId = "iosxe.show_processes_cpu";
+        const captures = network ? ["capture-one", "capture-two"].map((id) => ({ capture_id: id, target_id: "switch-0", platform: "iosxe", command: "show processes cpu", parser_id: parserId, revision: "source", observed_at_ms: 1700000000000, monotonic_ms: 100, raw: `Fixture retained raw ${id}` })) : [];
+        const interpretations = captures.map((capture) => ({ capture_id: capture.capture_id, parser_id: parserId, template_sha256: templates[parserId].sha256, rows: [{ key: capture.capture_id, fields: { PROCESS_NAME: { kind: "text", value: `Parsed ${capture.capture_id}` } } }] }));
+        return this.read({ token: { id: "fixture-native-token", draft_hash: this.draftHash(a.draft), base_revision: "global", sample_hashes: {}, expires_at_ms: Date.now() + 60000 }, frames: [frame], captures, local_samples: network ? [] : [{ observed_at_ms: 1700000000000, monotonic_ms: 100, sources: { "local.memory": rows }, diagnostics: [] }], interpretations, frame_sources: [{ frame_index: 0, source: network ? { capture: { capture_id: "capture-two", parser_id: parserId } } : { local: { sample_index: 0, collector: "local.memory" } } }], diagnostics: [] }, "global");
+      }
+      case "telemetry_test_template":
+        if (!["capture-one", "capture-two"].includes(a.captureId) || a.template.command !== "show processes cpu" || a.template.platform !== "iosxe") throw new Error("Fixture template binding mismatch");
+        return this.read({ capture_id: a.captureId, parser_id: a.template.id, template_sha256: a.template.sha256, rows: [{ key: "tested", fields: { PROCESS_NAME: { kind: "text", value: "Fixture template test record" } } }] }, "global");
+      case "telemetry_apply":
+        if (!this.currentDraft || a.token.draft_hash !== this.draftHash(a.draft) || a.token.draft_hash !== this.draftHash(this.currentDraft)) throw new Error("Fixture stale token");
+        throw new Error("Fixture apply disk write failed");
       case "telemetry_widget": {
         const p = this.pages.get(`${a.query.target_id}:${a.query.widget_id}`);
         if (!p) throw new Error("Fixture widget missing");
@@ -760,4 +820,124 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
       2,
     ),
   );
+});
+
+for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schemas stay isolated (${widgetFirst ? "widget first" : "playbook first"})`, async ({ page, context }, info) => {
+  const backend = new SyntheticTelemetryBackend(), external: string[] = [], errors: string[] = [];
+  const errorDetails: { message: string; stack?: string; recentReceipts: string[] }[] = [];
+  await context.route("**/*", (route) => { const url = route.request().url(); if (url.startsWith(origin + "/")) return route.continue(); external.push(url); return route.abort("blockedbyclient"); });
+  await context.routeWebSocket("**/*", (socket) => { external.push(socket.url()); socket.close({ code: 1008, reason: "Telemetry fixture blocks WebSockets" }); });
+  page.on("pageerror", (error) => { errors.push(error.message); errorDetails.push({ message: error.message, stack: error.stack, recentReceipts: backend.receipts.slice(-12) }); writeFileSync(info.outputPath("browser-errors.json"), JSON.stringify(errorDetails, null, 2)); });
+  await page.exposeFunction("__telemetryInvoke", (command: string, args: unknown) => backend.invoke(command, args));
+  await page.goto("/");
+  await expect.poll(() => backend.receipts.filter((command) => command === "restore_last_session").length).toBe(1);
+  const emit = async (event: string, payload: unknown) => {
+    await expect.poll(() => backend.handlers.get(event)?.size ?? 0).toBeGreaterThan(0);
+    await page.evaluate(({ event, payload, handlers }) => { for (const id of handlers) (window as any).__TAURI_INTERNALS__.runCallback(id, { event, id, payload }); }, { event, payload, handlers: [...backend.handlers.get(event)!] });
+  };
+  const openStudio = async () => {
+    await page.getByTestId("tab-new-chooser").click(); await page.getByRole("menuitem", { name: "Telemetry" }).click();
+    backend.releaseRestore();
+    await page.getByRole("region", { name: "Telemetry workspace" }).getByRole("button", { name: "Widgets", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).__telemetryMonaco.editor.getModels().some((model: any) => model.uri.toString().includes("telemetry-studio")))).toBe(true);
+  };
+  const openPlaybook = async () => { await emit("menu:troubleshoot_editor", null); await expect(page.getByTestId("tb-editor")).toBeVisible(); await expect.poll(() => page.evaluate(() => (window as any).__telemetryMonaco.editor.getModels().some((model: any) => model.uri.toString().includes("ccie-playbook")))).toBe(true); };
+  if (widgetFirst) { await openStudio(); await openPlaybook(); } else { await openPlaybook(); await openStudio(); }
+  const models = await page.evaluate(() => (window as any).__telemetryMonaco.editor.getModels().map((model: any) => model.uri.toString()));
+  const widgetUri = models.find((uri: string) => uri.includes("telemetry-studio"))!, playbookUri = models.find((uri: string) => uri.includes("ccie-playbook"))!;
+  const setSource = (uri: string, value: string) => page.evaluate(({ uri, value }) => { const monaco = (window as any).__telemetryMonaco; monaco.editor.getModel(monaco.Uri.parse(uri)).setValue(value); }, { uri, value });
+  const source = (uri: string) => page.evaluate((uri) => { const monaco = (window as any).__telemetryMonaco; return monaco.editor.getModel(monaco.Uri.parse(uri))?.getValue(); }, uri);
+  const markers = (uri: string) => page.evaluate((uri) => { const monaco = (window as any).__telemetryMonaco; return monaco.editor.getModelMarkers({ resource: monaco.Uri.parse(uri) }).map((marker: any) => marker.message); }, uri);
+  const validWidget = "schema_version: 1\nwidgets: []\n";
+  await setSource(playbookUri, BLANK_PLAYBOOK_YAML);
+  await setSource(widgetUri, `${validWidget}widget_only_invalid: true\n`);
+  await expect.poll(() => markers(widgetUri)).not.toEqual([]);
+  await expect.poll(() => markers(playbookUri)).toEqual([]);
+  const widgetMarkers = await markers(widgetUri);
+  await setSource(widgetUri, validWidget); await setSource(playbookUri, `${BLANK_PLAYBOOK_YAML}\nplaybook_only_invalid: true\n`);
+  await expect.poll(() => markers(widgetUri)).toEqual([]); await expect.poll(() => markers(playbookUri)).not.toEqual([]);
+  const playbookMarkers = await markers(playbookUri);
+  const completion = async (uri: string, value: string, expected: string) => {
+    await setSource(uri, value);
+    await page.evaluate((uri) => { const monaco = (window as any).__telemetryMonaco; const editor = monaco.editor.getEditors().find((editor: any) => editor.getModel()?.uri.toString() === uri); editor.focus(); editor.setPosition({ lineNumber: 2, column: 1 }); editor.trigger("telemetry-acceptance", "editor.action.triggerSuggest", {}); }, uri);
+    await expect(page.locator(".suggest-widget.visible .label-name").filter({ hasText: expected }).first()).toBeVisible();
+    const labels = await page.locator(".suggest-widget.visible .label-name").allTextContents();
+    await page.keyboard.press("Escape"); return labels;
+  };
+  await page.locator(".tab").filter({ hasText: "Playbooks" }).click();
+  const playbookCompletion = await completion(playbookUri, "id: fixture\n", "steps");
+  expect(playbookCompletion).not.toContain("widgets"); await setSource(playbookUri, BLANK_PLAYBOOK_YAML);
+  await page.locator(".tab").filter({ has: page.getByTitle("Telemetry workspace", { exact: true }) }).click();
+  const widgetCompletion = await completion(widgetUri, "schema_version: 1\n", "widgets");
+  expect(widgetCompletion).not.toContain("steps"); await setSource(widgetUri, validWidget);
+  const studio = page.getByRole("region", { name: "Widget studio", exact: true });
+  await expect(studio.locator(".telemetry-library-list").getByText("Bundled", { exact: true }).first()).toBeVisible();
+  const workspace = page.getByRole("region", { name: "Telemetry workspace" });
+  await workspace.getByRole("button", { name: "Device", exact: true }).click();
+  await workspace.getByRole("combobox", { name: "Device target", exact: true }).selectOption("switch-0");
+  await expect.poll(() => backend.receipts.filter((command) => command === "telemetry_select").length).toBe(1);
+  await workspace.getByRole("button", { name: "Widgets", exact: true }).click();
+  const changeScope = async (value: string) => {
+    if (await studio.getByText("Unsaved draft", { exact: true }).count()) page.once("dialog", (dialog) => dialog.accept());
+    await studio.getByRole("combobox", { name: "Editing scope", exact: true }).selectOption(value);
+    await expect(studio.getByRole("combobox", { name: "Editing scope", exact: true })).toHaveValue(value);
+  };
+  await changeScope("profile:iosxe");
+  await expect(studio.getByText("IOSXE profile override", { exact: true })).toBeVisible();
+  await studio.locator(".telemetry-library-list").getByRole("button", { name: /CPU and processes/ }).click();
+  await studio.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
+  await studio.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+  await expect(studio.getByText("Fixture retained raw capture-two", { exact: true })).toBeVisible();
+  await expect(studio.getByText(/Parsed capture-two/)).toBeVisible();
+  await expect(studio.getByText("Rendered capture-two", { exact: true })).toBeVisible();
+  expect(await studio.getByText("Fixture retained raw capture-one", { exact: true }).count()).toBe(0);
+  await workspace.evaluate((element) => { element.scrollTop = 0; });
+  await page.screenshot({ path: info.outputPath("studio-authoring-1440.png") });
+  await page.setViewportSize({ width: 680, height: 1000 }); await workspace.evaluate((element) => { element.scrollTop = 0; });
+  await page.screenshot({ path: info.outputPath("studio-authoring-680.png") });
+  await studio.getByRole("heading", { name: "Preview review" }).scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath("studio-preview-680.png") });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await studio.getByRole("button", { name: "TextFSM", exact: true }).click();
+  await studio.locator(".telemetry-library-list").getByRole("button", { name: /iosxe\.show_processes_cpu/ }).click();
+  await studio.getByRole("button", { name: "Test template", exact: true }).click();
+  await expect(studio.getByText(/Fixture template test record/)).toBeVisible();
+  expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
+  await workspace.evaluate((element) => { element.scrollTop = 0; }); await page.screenshot({ path: info.outputPath("studio-textfsm-1440.png") });
+  await studio.getByRole("button", { name: "Widgets", exact: true }).click();
+  await changeScope("device:switch-0");
+  await expect(studio.getByText("Device override", { exact: true })).toBeVisible();
+  await studio.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
+  await studio.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+  await setSource(widgetUri, `${validWidget}# edited after preview\n`);
+  await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+  const exactImport = "# exact unsupported file\nwidget: upstream\nunsupported: true\n";
+  backend.nextOpen = "/fixture/import.yaml"; backend.files.set(backend.nextOpen, exactImport);
+  await studio.getByRole("button", { name: "Import", exact: true }).click(); await expect.poll(() => source(widgetUri)).toBe(exactImport);
+  await expect(studio.getByText(/Fixture unsupported import retained/)).toBeVisible();
+  backend.nextSave = "/fixture/export.yaml";
+  await studio.getByRole("button", { name: "Export", exact: true }).click(); await expect.poll(() => backend.files.get(backend.nextSave!)).toBe(exactImport);
+  backend.fileFailure = true; await studio.getByRole("button", { name: "Export", exact: true }).click();
+  await expect(studio.getByRole("alert")).toContainText("Fixture disk write failed"); expect(await source(widgetUri)).toBe(exactImport); backend.fileFailure = false;
+  await page.screenshot({ path: info.outputPath("studio-monaco-1440.png") });
+  await page.setViewportSize({ width: 680, height: 1000 }); await page.screenshot({ path: info.outputPath("studio-monaco-680.png") });
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await emit("app://shutdown-preflight", { requestId: 77, reason: "application-quit", timeoutMs: 30000 });
+  await expect.poll(() => backend.nativeDecisions).toEqual([{ requestId: 77, approved: false, failed: false }]);
+  expect(await source(widgetUri)).toBe(exactImport);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const telemetryTab = page.locator(".tab").filter({ has: page.getByTitle("Telemetry workspace", { exact: true }) });
+  page.once("dialog", (dialog) => dialog.dismiss()); await telemetryTab.locator(".tab-close").click();
+  await expect(studio).toBeVisible(); expect(await source(widgetUri)).toBe(exactImport);
+  expect(backend.receipts.filter((command) => command === "telemetry_close")).toHaveLength(0);
+  page.once("dialog", (dialog) => dialog.accept()); await telemetryTab.locator(".tab-close").click();
+  await expect.poll(() => source(widgetUri)).toBeUndefined(); await expect.poll(() => markers(widgetUri)).toEqual([]);
+  await page.locator(".tab").filter({ hasText: "Playbooks" }).locator(".tab-close").click();
+  await expect.poll(() => source(playbookUri)).toBeUndefined(); await expect.poll(() => markers(playbookUri)).toEqual([]);
+  expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
+  expect(backend.denied).toEqual([]); expect(external).toEqual([]); expect(errors).toEqual([]);
+  writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, virtualFileRoundTrip: backend.files.get(backend.nextSave!), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
 });

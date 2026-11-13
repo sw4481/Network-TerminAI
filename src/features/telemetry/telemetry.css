@@ -10,6 +10,42 @@
 .telemetry-workspace * {
   box-sizing: border-box;
 }
+.telemetry-studio-heading,
+.telemetry-studio-editor > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.telemetry-studio-heading p { margin: 4px 0; color: var(--text-secondary); }
+.telemetry-studio-grid { display: grid; grid-template-columns: minmax(170px, 0.65fr) minmax(360px, 2fr) minmax(300px, 1.6fr); gap: 18px; align-items: start; }
+.telemetry-studio-card { min-width: 0; border: 1px solid var(--border-default); border-radius: 6px; background: var(--surface-2); padding: 16px; }
+.telemetry-studio-card pre { max-height: 320px; overflow: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.telemetry-studio-card h3 { margin-bottom: 12px; }
+.telemetry-studio-card small { color: var(--text-secondary); }
+.telemetry-studio-card label { display: grid; gap: 6px; margin-bottom: 12px; font-size: 12px; }
+.telemetry-studio-card select, .telemetry-studio-card input { min-width: 0; width: 100%; }
+.telemetry-library nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.telemetry-library-list { display: grid; gap: 6px; max-height: 520px; overflow: auto; margin-bottom: 18px; }
+.telemetry-library-list button { display: grid; text-align: left; gap: 4px; overflow-wrap: anywhere; }
+.telemetry-source-editor { height: 520px; min-height: 280px; margin: 12px 0; }
+.telemetry-source-editor .monaco-editor-shell, .telemetry-source-editor .monaco-editor-wrapper { height: 100%; }
+.telemetry-studio-editor footer { border-top: 1px solid var(--border-default); padding-top: 14px; }
+.telemetry-studio-preview { display: grid; gap: 18px; min-width: 0; }
+.telemetry-diagnostics { padding-left: 18px; }
+.telemetry-diagnostics button { text-align: left; }
+@media (max-width: 1150px) {
+  .telemetry-studio-grid { grid-template-columns: minmax(170px, 0.6fr) minmax(0, 2fr); }
+  .telemetry-studio-preview { grid-column: 2; }
+}
+@media (max-width: 720px) {
+  .telemetry-studio-grid { grid-template-columns: minmax(0, 1fr); }
+  .telemetry-studio-preview { grid-column: 1; }
+  .telemetry-library-list { max-height: 180px; }
+  .telemetry-source-editor { height: 420px; }
+}
 .telemetry-workspace h2 {
   font-size: 24px;
   margin: 0 0 6px;

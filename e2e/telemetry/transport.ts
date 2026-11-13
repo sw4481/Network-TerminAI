@@ -1,6 +1,7 @@
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import * as monaco from "monaco-editor";
 
 // Browser-only surrogate. This module never imports or changes application stores.
 type BrowserHarness = Window & {
@@ -13,6 +14,7 @@ type BrowserHarness = Window & {
     ) => Promise<unknown>;
   };
   Terminal?: typeof Terminal;
+  __telemetryMonaco?: typeof monaco;
 };
 const browser = window as BrowserHarness;
 if (
@@ -34,6 +36,9 @@ mockIPC(
 const internals = (window as BrowserHarness).__TAURI_INTERNALS__!;
 const mockedInvoke = internals.invoke;
 internals.invoke = async (command, args, options) => {
+  if (command === "plugin:fs|write_text_file") {
+    return browser.__telemetryInvoke(command, { bytes: Array.from(args as Uint8Array), options: serializable(options) });
+  }
   if (command.startsWith("plugin:event|")) {
     // Record/authorize even commands that the installed event mock would swallow.
     await browser.__telemetryInvoke(command, serializable(args));
@@ -41,4 +46,5 @@ internals.invoke = async (command, args, options) => {
   return mockedInvoke(command, args, options);
 };
 browser.Terminal = Terminal;
+browser.__telemetryMonaco = monaco;
 await import("../../src/main");

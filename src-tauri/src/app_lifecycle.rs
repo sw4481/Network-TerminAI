@@ -7,6 +7,9 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 pub(super) const APP_SHUTDOWN_PREPARE_EVENT: &str = "app://prepare-shutdown";
 const APP_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(8);
+const APP_PREFLIGHT_TIMEOUT: Duration = Duration::from_secs(30);
+const APP_PREFLIGHT_EVENT: &str = "app://shutdown-preflight";
+const APP_PREFLIGHT_CANCEL_EVENT: &str = "app://shutdown-preflight-canceled";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WindowCloseDisposition {
@@ -65,6 +68,7 @@ pub(super) enum ExitRequestDisposition {
 #[derive(Debug)]
 enum ShutdownPhase {
     Idle,
+    Approved,
     Waiting {
         request_id: u64,
         pending: BTreeSet<String>,
@@ -79,6 +83,8 @@ enum ShutdownPhase {
 struct ShutdownState {
     next_request_id: u64,
     phase: ShutdownPhase,
+    preflight: Option<(AppShutdownPrepare, i32)>,
+    exit_code: i32,
 }
 
 impl Default for ShutdownState {
@@ -86,6 +92,8 @@ impl Default for ShutdownState {
         Self {
             next_request_id: 1,
             phase: ShutdownPhase::Idle,
+            preflight: None,
+            exit_code: 0,
         }
     }
 }
@@ -96,6 +104,38 @@ pub(super) struct ShutdownCoordinator {
 }
 
 impl ShutdownCoordinator {
+    fn preflight(&self, reason: &str, exit_code: Option<i32>) -> Option<AppShutdownPrepare> {
+        let mut state = self.inner.lock();
+        if state.preflight.is_some() || !matches!(state.phase, ShutdownPhase::Idle) {
+            return None;
+        }
+        let request = AppShutdownPrepare {
+            request_id: state.next_request_id,
+            reason: reason.into(),
+            timeout_ms: APP_PREFLIGHT_TIMEOUT.as_millis() as u64,
+        };
+        state.next_request_id = state.next_request_id.saturating_add(1);
+        state.preflight = Some((request.clone(), exit_code.unwrap_or(0)));
+        Some(request)
+    }
+    fn decide_preflight(&self, request_id: u64, window: &str, approved: bool) -> Option<bool> {
+        let mut state = self.inner.lock();
+        if window != "main" || state.preflight.as_ref()?.0.request_id != request_id {
+            return None;
+        }
+        let (_, exit_code) = state.preflight.take()?;
+        if approved {
+            state.exit_code = exit_code;
+            state.phase = ShutdownPhase::Approved;
+        }
+        Some(approved)
+    }
+    fn cancel_preflight(&self, request_id: u64) -> bool {
+        self.decide_preflight(request_id, "main", false).is_some()
+    }
+    fn exit_code(&self) -> i32 {
+        self.inner.lock().exit_code
+    }
     pub(super) fn begin<I, S>(&self, window_labels: I) -> BeginShutdown
     where
         I: IntoIterator<Item = S>,
@@ -113,7 +153,7 @@ impl ShutdownCoordinator {
                     request_id: *request_id,
                 };
             }
-            ShutdownPhase::Idle => {}
+            ShutdownPhase::Idle | ShutdownPhase::Approved => {}
         }
 
         let request_id = state.next_request_id;
@@ -220,7 +260,7 @@ struct AppShutdownPrepare {
     timeout_ms: u64,
 }
 
-fn request_standard_exit(app: &AppHandle, failures: Vec<String>) {
+fn request_standard_exit(app: &AppHandle, shutdown: &ShutdownCoordinator, failures: Vec<String>) {
     if failures.is_empty() {
         tracing::info!("shutdown preparation complete; requesting application exit");
     } else {
@@ -229,7 +269,74 @@ fn request_standard_exit(app: &AppHandle, failures: Vec<String>) {
             "shutdown preparation reported failures; continuing with explicit exit"
         );
     }
-    app.exit(0);
+    app.exit(shutdown.exit_code());
+}
+
+fn cancel_preflight(app: &AppHandle, shutdown: &ShutdownCoordinator, request_id: u64, failed: bool) {
+    if !shutdown.cancel_preflight(request_id) {
+        return;
+    }
+    #[derive(Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Canceled {
+        request_id: u64,
+    }
+    let _ = app.emit_to("main", APP_PREFLIGHT_CANCEL_EVENT, Canceled { request_id });
+    if failed {
+        use tauri_plugin_dialog::DialogExt;
+        app.dialog().message("The close decision could not be completed. The application remains open and Telemetry drafts are retained.").title("Application close canceled").show(|_| {});
+    }
+}
+
+pub(super) fn request_shutdown_preflight(
+    app: &AppHandle,
+    shutdown: &ShutdownCoordinator,
+    reason: &str,
+    exit_code: Option<i32>,
+) {
+    let Some(request) = shutdown.preflight(reason, exit_code) else {
+        return;
+    };
+    if app.get_webview_window("main").is_none() || app.emit_to("main", APP_PREFLIGHT_EVENT, request.clone()).is_err() {
+        cancel_preflight(app, shutdown, request.request_id, true);
+        return;
+    }
+    let app = app.clone();
+    let shutdown = shutdown.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(APP_PREFLIGHT_TIMEOUT).await;
+        cancel_preflight(&app, &shutdown, request.request_id, true);
+    });
+}
+
+#[tauri::command]
+pub async fn app_shutdown_preflight_decide(
+    app: AppHandle,
+    window: WebviewWindow,
+    shutdown: State<'_, ShutdownCoordinator>,
+    request_id: u64,
+    approved: bool,
+    failed: bool,
+) -> Result<bool, String> {
+    let reason = shutdown.inner.lock().preflight.as_ref()
+        .filter(|(request, _)| request.request_id == request_id)
+        .map(|(request, _)| request.reason.clone());
+    if !approved || failed {
+        if window.label() != "main" {
+            return Ok(false);
+        }
+        let current = reason.is_some();
+        cancel_preflight(&app, &shutdown, request_id, failed);
+        return Ok(current);
+    }
+    if shutdown.decide_preflight(request_id, window.label(), true) != Some(true) {
+        return Ok(false);
+    }
+    let state = app.state::<crate::commands::AppState>();
+    let _ = state.stp.shutdown();
+    state.terminal_agent.revoke_all("application shutdown");
+    request_shutdown(&app, &shutdown, reason.as_deref().unwrap_or("application-quit"));
+    Ok(true)
 }
 
 pub(super) fn request_shutdown(app: &AppHandle, shutdown: &ShutdownCoordinator, reason: &str) {
@@ -265,7 +372,7 @@ pub(super) fn request_shutdown(app: &AppHandle, shutdown: &ShutdownCoordinator, 
                         vec![format!("failed to request preparation: {error}")],
                     ) {
                         AckShutdown::ReadyToExit { failures } => {
-                            request_standard_exit(app, failures);
+                            request_standard_exit(app, shutdown, failures);
                         }
                         AckShutdown::Waiting { .. } | AckShutdown::Ignored => {}
                     }
@@ -290,11 +397,11 @@ pub(super) fn request_shutdown(app: &AppHandle, shutdown: &ShutdownCoordinator, 
                             .into_iter()
                             .map(|label| format!("{label}: preparation acknowledgement timed out")),
                     );
-                    request_standard_exit(&app, failures);
+                    request_standard_exit(&app, &shutdown, failures);
                 }
             });
         }
-        BeginShutdown::ReadyToExit { .. } => request_standard_exit(app, Vec::new()),
+        BeginShutdown::ReadyToExit { .. } => request_standard_exit(app, shutdown, Vec::new()),
         BeginShutdown::InProgress { request_id } => {
             tracing::debug!(request_id, "shutdown request already in progress");
         }
@@ -321,7 +428,7 @@ pub async fn app_shutdown_acknowledge(
                 "shutdown preparation acknowledged"
             );
         }
-        AckShutdown::ReadyToExit { failures } => request_standard_exit(&app, failures),
+        AckShutdown::ReadyToExit { failures } => request_standard_exit(&app, &shutdown, failures),
         AckShutdown::Ignored => {
             tracing::debug!(
                 request_id,
@@ -431,6 +538,31 @@ mod tests {
             close_disposition("main"),
             WindowCloseDisposition::ExitApplication
         );
+    }
+
+    #[test]
+    fn normal_quit_preflight_cancels_before_confirmed_cleanup_and_stale_approvals_fail() {
+        let shutdown = ShutdownCoordinator::default();
+        let first = shutdown.preflight("main-window-close", Some(0)).unwrap();
+        assert!(!shutdown.is_exiting());
+        assert_eq!(shutdown.decide_preflight(first.request_id, "editor-a", true), None);
+        assert_eq!(shutdown.decide_preflight(first.request_id, "main", false), Some(false));
+        let next = shutdown.preflight("application-quit", Some(7)).unwrap();
+        assert!(next.request_id > first.request_id);
+        assert_eq!(shutdown.decide_preflight(first.request_id, "main", true), None);
+        assert_eq!(shutdown.decide_preflight(next.request_id, "main", true), Some(true));
+        assert_eq!(shutdown.exit_code(), 7);
+    }
+
+    #[test]
+    fn missing_preflight_response_returns_idle_and_cannot_authorize_a_later_quit() {
+        let shutdown = ShutdownCoordinator::default();
+        let first = shutdown.preflight("application-quit", None).unwrap();
+        assert!(shutdown.cancel_preflight(first.request_id));
+        assert!(!shutdown.cancel_preflight(first.request_id));
+        assert_eq!(shutdown.decide_preflight(first.request_id, "main", true), None);
+        assert!(shutdown.preflight("main-window-close", None).is_some());
+        assert!(!shutdown.is_exiting());
     }
 
     #[test]
