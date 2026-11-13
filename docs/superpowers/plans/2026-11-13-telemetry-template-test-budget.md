@@ -1,0 +1,26 @@
+# Telemetry Template Test ownership correction
+
+The user explicitly instructed “fix it” after the prior final review identified I6 and the stale-Test release-order defect. This focused follow-up is authorized beyond that prior workflow cap. Preserve all accepted Telemetry behavior and unrelated work. Read current Plans/Mistakes.MD before implementation; its final scoped-review residual entries describe both defects.
+
+Authority: docs/superpowers/specs/2026-11-11-telemetry-workspace-design.md; existing public wire/API, scope and trust rules remain binding.
+
+## Global Constraints
+
+- Work only in /Users/shaunwhi/CCIE Terminal/.worktrees/telemetry-workspace on feat/telemetry-workspace. No merge, push, application launch/replacement, device commands, credential/trust access or cleanup implied.
+- Existing object/service conventions; surgical changes, no new dependency, generic budget framework, queue, scheduler or public DTO unless a demonstrated necessity is approved before implementation.
+- Production budget stays 64 MiB/workspace. This bounds conservative feature-owned admission/structured/retained charges, not total process RSS or arbitrary consumer copies after ownership transfer.
+- Preserve parser 2 MiB capture/reply and 10,000-row limits, two workers, cancellation/deadline/reaping behavior, source/global/generation/proof checks, visible refusal and last-good data/drafts.
+- Use Graphify for navigation and refresh it after changes; direct current source governs. Use Context7 for current relevant official documentation.
+- Shared root Cargo output ONLY explicit --lib, CARGO_INCREMENTAL=0, sequential jobs; never build or launch original debug executable. Isolated test HOME and worktree PYTHONPATH. Root fingerprint must remain stable. Disk approaching 2 GiB free means stop/measure, no deletion.
+- Worker owns its exact paths/index until explicit handback; root performs no staging/commits while worker owns Git. Root owns Graphify refresh and vault save. No nested agents.
+
+### Task 1: Admit expanded Template Test output and release buffers before their claims
+
+**Scope:** Trace every caller and test implementation of the touched parser/test methods. Expected seams are src-tauri/src/telemetry/parser.rs and service.rs, necessary direct callers/tests, docs/telemetry/validation.md and Plans/Mistakes.MD. Touch nothing unrelated. Existing frontend/wire shape must remain compatible.
+
+1. Reproduce I6 with a genuine behavioral failing regression through the actual parser/service ownership path. Known valid probe: 768 records, 50 legal 40-character headers, 2,713-byte TextFSM template and 1,536-byte raw capture produce a 119,693-byte compact worker reply. Exact native ParsedInterpretation encoded charge is 10,832,560 B versus the current total reservation 8,411,984 B. The compact reply bound does not bound repeated BTreeMap header/MetricValue expansion. Existing tiny fixtures miss this. Setup failures are not RED evidence.
+2. Before native keyed-row materialization, conservatively compute/admit its complete charge through the SAME workspace pool, including still-owned inputs/compact output/metadata as appropriate. Fix once at the smallest shared trust-boundary seam, avoiding copied evaluators or newly guessed multipliers. No check only after expansion, unbounded allocation, increased cap, always-full claim that strands ordinary work, or weaker source/cancel fences. If the shared parser interface must change, propose the exact internal ownership/admission seam before product edits; keep public DTOs unchanged.
+3. Fix stale Template Test completion: on obsolete global/source/generation/busy/error/reply failure paths, destroy rejected output before releasing the corresponding claim. Keep successful transfer ownership explicit. Existing result shadowing in service completion releases the reservation before the original Ok interpretation is dropped on the stale branch. Eventual reserved=0 does not establish order.
+4. Test refusal BEFORE row-map expansion with a deterministic probe if needed; ordinary successful output/charge conservation; overlapping retained/live/authoring capacity; cancellation, stale base/generation, error, Stop responsiveness and buffer-before-claim destruction. Use small inputs/test-only budget/observer seams, no giant allocation/RSS stress. Reuse current real parser/worker harness and existing budget facilities.
+5. Run focused regressions RED→GREEN, then full native Telemetry and impacted parser/lifecycle library filters once focused checks pass; no unrelated integration/default Cargo. Python tests if its contract/call path changed. Changed-file rustfmt and appropriate compilation/lint checks; disclose unchanged baseline errors. Frontend/browser reruns only if those sources/contracts change or a concrete regression warrants them.
+6. Self-review exact owned diff, remove only own orphans, update required mistake ledger and validation status with actual evidence (native/device/OS/package gates stay OPEN). Commit exact owned paths; return full report with commands/logs, estimates versus actual charges, materialization/drop-order evidence, failure attempts, protected binary fingerprint and remaining limits. No merge readiness claim until independent review accepts both fixes.
