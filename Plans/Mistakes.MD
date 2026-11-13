@@ -3875,3 +3875,7 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 ## 2026-11-13 — Telemetry Task12 review output recovery
 
 - What the issue/mistake was: Reviewer output bounds truncated an oversized evidence/source read. RCA of the Issue: result breadth exceeded the tool response budget. How you fixed it: recovered the required excerpts in smaller passes, reviewed the full supplied diff and exact receipts/artifacts, and made no finding from truncated absence. No product/index changes or verification reruns were used to recreate existing evidence.
+
+## 2026-11-13 — Telemetry final-review standalone Rust proof setup
+
+- What the issue/mistake was: A focused temporary history/unit proof could not compile: private Clippy output lacked a serde_yaml rlib, and read-only shared dependency reuse then mixed incompatible serde_core artifact versions. RCA of the Issue: standalone rustc linkage assumed compatible complete dependency artifacts across different build outputs. How you fixed it: stopped that proof without Cargo or product/index/native-binary writes, kept the setup failure separate from behavioral evidence, and required any history finding to trace the actual source publication/config-reset path without claiming executed proof.
