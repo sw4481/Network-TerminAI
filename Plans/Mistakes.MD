@@ -3871,3 +3871,7 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 ## 2026-11-13 — Telemetry Task12 native-log lookup
 
 - What the issue/mistake was: Controller tried two conventional -final native-log names before reading the report section that supplied the exact paths. RCA of the Issue: dependent log discovery and reads were batched as though the names were already known. How you fixed it: read the actual telemetry-task12-native-telemetry.log and native-app_lifecycle.log receipts, verified156 and12 passes without rerunning tests, and made no missing-evidence inference from the failed lookups. Resolve evidence paths before dependent reads.
+
+## 2026-11-13 — Telemetry Task12 review output recovery
+
+- What the issue/mistake was: Reviewer output bounds truncated an oversized evidence/source read. RCA of the Issue: result breadth exceeded the tool response budget. How you fixed it: recovered the required excerpts in smaller passes, reviewed the full supplied diff and exact receipts/artifacts, and made no finding from truncated absence. No product/index changes or verification reruns were used to recreate existing evidence.
