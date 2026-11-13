@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -14,10 +14,12 @@ import type { SeriesPage, SeriesPoint } from "./types";
 export function chartPoints(points: SeriesPoint[]): SeriesPoint[] {
   const finite = points
     .filter((p) => Number.isFinite(p.at_ms))
-    .map((p) => ({
-      ...p,
-      value: p.value !== null && Number.isFinite(p.value) ? p.value : null,
-    }));
+    .flatMap((p) => {
+      const point = { ...p, value: p.value !== null && Number.isFinite(p.value) ? p.value : null };
+      return point.value !== null && point.reason?.startsWith("Collection resumed after ")
+        ? [{ ...point, value: null }, point]
+        : [point];
+    });
   if (finite.length <= 600) return finite;
   const keep = new Set([0, finite.length - 1]);
   finite.forEach((p, i) => {
@@ -57,6 +59,9 @@ export function TelemetryChart({
   const id = useId(),
     [offset, setOffset] = useState(0),
     points = chartPoints(series.points);
+  const lastOffset = Math.floor(Math.max(0, series.points.length - 1) / 100) * 100;
+  const pageOffset = Math.min(offset, lastOffset);
+  useEffect(() => setOffset((previous) => Math.min(previous, lastOffset)), [lastOffset]);
   const start = points[0]?.at_ms,
     end = points[points.length - 1]?.at_ms;
   const domain: [number, number] =
@@ -65,7 +70,7 @@ export function TelemetryChart({
         ? [start - 1000, end + 1000]
         : [start, end]
       : [0, 1];
-  const slice = series.points.slice(offset, offset + 100);
+  const slice = series.points.slice(pageOffset, pageOffset + 100);
   return (
     <figure className="telemetry-chart" aria-labelledby={id}>
       <figcaption id={id}>
@@ -74,7 +79,7 @@ export function TelemetryChart({
       </figcaption>
       <p className="telemetry-muted">
         Retained observations; gaps remain unavailable. {series.points.length}{" "}
-        exact points.
+        display points. History values may round; latest tables preserve exact source counters.
       </p>
       {points.length ? (
         <div
@@ -134,14 +139,14 @@ export function TelemetryChart({
         </p>
       )}
       <details>
-        <summary>Exact retained values</summary>
+        <summary>Recorded display values</summary>
         <div className="telemetry-table-scroll">
-          <table aria-label={`${title} exact retained values`}>
+          <table aria-label={`${title} recorded display values`}>
             <thead>
               <tr>
                 <th>Observed</th>
                 <th>Value{unit ? ` (${unit})` : ""}</th>
-                <th>Unavailable reason</th>
+                  <th>Gap or unavailable reason</th>
               </tr>
             </thead>
             <tbody>
@@ -160,14 +165,14 @@ export function TelemetryChart({
           </table>
         </div>
         <button
-          disabled={!offset}
-          onClick={() => setOffset(Math.max(0, offset - 100))}
+          disabled={!pageOffset}
+          onClick={() => setOffset(Math.max(0, pageOffset - 100))}
         >
           Previous values
         </button>
         <button
-          disabled={offset + 100 >= series.points.length}
-          onClick={() => setOffset(offset + 100)}
+          disabled={pageOffset + 100 >= series.points.length}
+          onClick={() => setOffset(pageOffset + 100)}
         >
           Next values
         </button>

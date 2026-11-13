@@ -40,6 +40,8 @@ export function useDashboard(
   const busy = !!lifecycle?.busy,
     closing = !!lifecycle?.closing;
   const cache = useRef(new Map<string, EffectiveConfig>());
+  const [catalogFailure, setCatalogFailure] = useState<{ key: string; error: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [catalog, setCatalog] = useState<{
     key: string;
     value: AuthoringCatalog;
@@ -70,6 +72,7 @@ export function useDashboard(
   useEffect(() => {
     let active = true;
     setCatalog(null);
+    setCatalogFailure(null);
     if (!targetId || busy || closing) return;
     void reader
       .catalog(
@@ -84,17 +87,12 @@ export function useDashboard(
         }
       })
       .catch((e) => {
-        if (active)
-          setLoaded({
-            key: scope,
-            widgets: [],
-            errors: [String(e.message ?? e)],
-          });
+        if (active) setCatalogFailure({ key: scope, error: String(e.message ?? e) });
       });
     return () => {
       active = false;
     };
-  }, [reader, workspaceId, targetId, scope, mode, busy, closing]);
+  }, [reader, workspaceId, targetId, scope, mode, busy, closing, attempt]);
   const definitions = current?.effective.widgets ?? [];
   const sections = current?.effective.layouts.flatMap((l) => l.sections) ?? [];
   const section = sections.find((s) => s.id === sectionId) ?? sections[0];
@@ -276,14 +274,18 @@ export function useDashboard(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reader, current, visible, historyKey]);
   const currentHistories = histories?.key === historyKey ? histories : null;
+  const catalogError = catalogFailure?.key === scope ? catalogFailure.error : null;
   return {
     catalog: current,
     widgets: visible?.widgets ?? [],
     series: currentHistories?.series ?? [],
     errors: [
+      ...(catalogError ? [catalogError] : []),
       ...(visible?.errors ?? (loaded?.key === scope ? loaded.errors : [])),
       ...(currentHistories?.errors ?? []),
     ],
-    loading: !visible || !currentHistories,
+    loading: !catalogError && (!visible || !currentHistories),
+    catalogError,
+    reload: () => setAttempt((previous) => previous + 1),
   };
 }

@@ -17,6 +17,30 @@ import {
 import { telemetryApi } from "./api";
 import { telemetryWorkspaces } from "./store";
 import { useDashboard } from "./useDashboard";
+it("settles a catalog failure and reloads observations on an explicit retry", async () => {
+  const { snap } = dashboardFixture([definition()], [page()]);
+  vi.mocked(telemetryApi.catalog).mockRejectedValueOnce(new Error("Catalog temporarily unavailable"));
+  render(<DeviceView snapshot={snap} api={telemetryApi} workspaceId="test" targetId="device-0" />);
+  expect(await screen.findByText("Catalog temporarily unavailable")).toBeVisible();
+  expect(screen.queryByText("Loading current observations…")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Retry observations" }));
+  expect(await screen.findByRole("columnheader", { name: "CPU (%)" })).toBeVisible();
+  expect(screen.queryByText("Catalog temporarily unavailable")).not.toBeInTheDocument();
+});
+it.each([false, true])("explains failed empty interface inventory separately from a successful empty observation (%s)", async (successful) => {
+  const p = page("interfaces", []);
+  if (!successful) {
+    p.metadata.state = "failed";
+    p.metadata.last_success_at_ms = null;
+    p.metadata.diagnostics = [{ code: "parse_failed", message: "Inventory parser failed", path: "interfaces", line: null, column: null }];
+  }
+  const { snap } = bundledFixture(["interfaces"], [p]);
+  render(<DeviceView snapshot={snap} api={telemetryApi} workspaceId="test" targetId="device-0" />);
+  if (successful) expect(await screen.findByText(/No interfaces were observed/)).toBeVisible();
+  else expect((await screen.findAllByText("Inventory parser failed")).length).toBeGreaterThan(0);
+  expect(screen.getByRole("combobox", { name: "Traffic interface" })).toBeDisabled();
+  expect(screen.queryByText("Select an observed interface to inspect its retained traffic.")).not.toBeInTheDocument();
+});
 it("revokes a selected interface monitor action when the current source becomes incompatible", async () => {
   const d = {
     ...definition("interfaces"),

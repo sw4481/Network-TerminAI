@@ -2,6 +2,15 @@ import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { WidgetPanel } from "./WidgetPanel";
 import { definition, page, row } from "./dashboard.test-support";
+it("aggregates parser Text decimals and rejects unsafe integer text", () => {
+  const d = { ...definition(), view: { type: "stat" as const, field: "cpu_5s_percent", label: "CPU", aggregation: "sum" as const } };
+  const view = render(<WidgetPanel definition={d} page={page("cpu", [row("1", { cpu_5s_percent: "4" }), row("2", { cpu_5s_percent: "6" })])} series={{ points: [], next_after_ms: null }} />);
+  expect(screen.getByText("10 %", { selector: "strong" })).toBeVisible();
+  view.rerender(<WidgetPanel definition={d} page={page("cpu", [row("1", { cpu_5s_percent: "9007199254740993" })])} series={{ points: [], next_after_ms: null }} />);
+  expect(screen.getByText("Unknown")).toBeVisible();
+  view.rerender(<WidgetPanel definition={d} page={page("cpu", [row("1", { cpu_5s_percent: "9007199254740991" }), row("2", { cpu_5s_percent: "2" })])} series={{ points: [], next_after_ms: null }} />);
+  expect(screen.getByText("Unknown")).toBeVisible();
+});
 it.each(["failed", "collecting", "unsupported", "stopped"] as const)(
   "count remains Unknown for a never-successful %s frame",
   (state) => {

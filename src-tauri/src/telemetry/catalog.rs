@@ -1434,6 +1434,31 @@ mod tests {
                 .await
                 .unwrap();
             let observed = ProtocolClassifier::normalize(&context, widget, &capture, records, None);
+            if widget.widget == "cpu" {
+                assert!(observed
+                    .rows
+                    .iter()
+                    .all(|row| row.fields["cpu_5s_percent"]
+                        == MetricValue::Text { value: "4".into() }));
+                assert_eq!(
+                    serde_json::to_value(&observed.rows[0].fields["cpu_5s_percent"]).unwrap(),
+                    serde_json::json!({"kind":"text","value":"4"})
+                );
+            }
+            if widget.widget == "memory" {
+                assert_eq!(
+                    observed.rows[0].fields["used_bytes"],
+                    MetricValue::Text {
+                        value: "236752096".into()
+                    }
+                );
+                assert_eq!(
+                    observed.rows[0].fields["total_bytes"],
+                    MetricValue::Text {
+                        value: "919638648".into()
+                    }
+                );
+            }
             if widget.widget == "bgp_vrf_peers" || widget.widget == "inventory" {
                 assert_eq!(observed.state, CollectionState::Failed);
                 let code = if widget.widget == "inventory" {

@@ -57,7 +57,7 @@ export function InterfaceTraffic({
       </header>
       <label className="telemetry-filter">
         Traffic interface
-        <select value={selected} onChange={(e) => onSelect(e.target.value)}>
+        <select disabled={!ports.length} value={selected} onChange={(e) => onSelect(e.target.value)}>
           <option value="">Select an observed interface</option>
           {ports.map((r) => {
             const label = metricText(r.fields.interface);
@@ -81,6 +81,13 @@ export function InterfaceTraffic({
       {!inventory && !data.loading && (
         <p>Compatible interface inventory is unavailable.</p>
       )}
+      {inventory && !ports.length && (
+        <p>
+          {inventory.definition.title}: {collectionLabel(inventory.page.metadata.state)} · {sampleTime(inventory.page.metadata.observed_at_ms)}.
+          {successfulObservation(inventory.page) ? " No interfaces were observed." : " Interface inventory has no usable observation."}
+          {inventory.page.metadata.diagnostics.map((diagnostic) => <span key={`${diagnostic.code}:${diagnostic.path}`}> {diagnostic.message}</span>)}
+        </p>
+      )}
       {selected && matches.length !== 1 && (
         <p>
           Selected interface {selected} is unavailable or ambiguous in this
@@ -90,7 +97,7 @@ export function InterfaceTraffic({
       {selected && matches.length === 1 && rows.length !== 1 && (
         <p>No unambiguous traffic observation for this exact interface.</p>
       )}
-      {!selected && (
+      {!selected && ports.length > 0 && (
         <p>Select an observed interface to inspect its retained traffic.</p>
       )}
       {selected && histories.length === 0 && (

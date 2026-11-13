@@ -44,6 +44,9 @@ pub(crate) struct DraftSamplePlan {
     origin: String,
 }
 impl DraftSamplePlan {
+    pub(crate) fn base_revision(&self) -> &str {
+        &self.base
+    }
     pub(crate) fn request(&self) -> Result<CaptureRequest, Diagnostic> {
         Ok(CaptureRequest {
             command: super::policy::CommandPolicy::admit(
@@ -1707,7 +1710,27 @@ fn read_bounded(path: &Path, limit: usize) -> Result<Vec<u8>, Diagnostic> {
 fn read_pointer(root: &Path) -> Result<Option<String>, Diagnostic> {
     let file = match fs::File::open(root.join("current")) {
         Ok(file) => file,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            match fs::read_dir(root.join("revisions")) {
+                Ok(entries) => {
+                    for entry in entries {
+                        let entry = entry.map_err(io_error)?;
+                        if entry.file_type().map_err(io_error)?.is_dir()
+                            && entry
+                                .path()
+                                .join("bundle.json")
+                                .try_exists()
+                                .map_err(io_error)?
+                        {
+                            return Err(error("revision_pointer_missing", "Current revision pointer is missing but saved revision bundles remain. Preserve telemetry/revisions and restore the intended current pointer from a verified backup before loading or applying configuration"));
+                        }
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(io_error(error)),
+            }
+            return Ok(None);
+        }
         Err(e) => return Err(io_error(e)),
     };
     let mut bytes = Vec::new();
@@ -2807,6 +2830,36 @@ mod tests {
             Arc::new(TelemetryParser::new())
         )
         .is_err());
+    }
+    #[tokio::test]
+    async fn final_missing_pointer_preserves_a_published_bundle_and_requires_explicit_recovery() {
+        let directory = tempfile::tempdir().unwrap();
+        let repo = repository(directory.path());
+        let (draft, sample) = local_fixture(&repo);
+        let preview = repo.preview("local", 1, &draft, vec![], vec![sample]).await;
+        assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
+        repo.apply("local", 1, draft, preview.token.unwrap())
+            .unwrap();
+        let pointer = directory.path().join("telemetry/current");
+        let revision = fs::read_to_string(&pointer).unwrap();
+        let bundle = directory
+            .path()
+            .join("telemetry/revisions")
+            .join(revision)
+            .join("bundle.json");
+        let bytes = fs::read(&bundle).unwrap();
+        fs::remove_file(&pointer).unwrap();
+        let loaded = TelemetryConfigRepository::load(
+            directory.path().into(),
+            builtin(),
+            repo.parser.clone(),
+        );
+        assert!(
+            matches!(loaded, Err(ref diagnostic) if diagnostic.code == "revision_pointer_missing")
+        );
+        assert_eq!(fs::read(bundle).unwrap(), bytes);
+        assert!(!pointer.exists());
+        repo.parser.shutdown().await.unwrap();
     }
     fn local_fixture(repo: &TelemetryConfigRepository) -> (ConfigDraft, LocalSample) {
         let mut draft = draft(repo, ConfigScope::Local, "Unused");

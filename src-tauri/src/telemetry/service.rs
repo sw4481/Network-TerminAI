@@ -211,6 +211,17 @@ pub struct TelemetryService {
 }
 enum Request {
     #[cfg(test)]
+    MemoryLimit(String, usize, Reply<()>),
+    #[cfg(test)]
+    MemoryUsage(String, Reply<(usize, usize, usize)>),
+    #[cfg(test)]
+    PauseNormalized(
+        String,
+        String,
+        Arc<(std::sync::atomic::AtomicBool, std::sync::atomic::AtomicBool)>,
+        Reply<()>,
+    ),
+    #[cfg(test)]
     RetainedBytes(String, Reply<usize>),
     #[cfg(test)]
     LocalDiagnostics(String, Reply<Vec<Diagnostic>>),
@@ -616,6 +627,7 @@ struct Target {
     monitored_interfaces: Vec<String>,
 }
 struct Workspace {
+    memory: Arc<Mutex<WorkspaceMemory>>,
     generation: u64,
     sequence: u64,
     running: bool,
@@ -638,6 +650,135 @@ struct Workspace {
     active_jobs: usize,
     retiring: BTreeMap<u64, (SshOwner, bool)>,
     waiters: Vec<Waiter>,
+}
+struct WorkspaceMemory {
+    maximum: usize,
+    reserved: usize,
+    retained: usize,
+    #[cfg(test)]
+    peak: usize,
+    #[cfg(test)]
+    pause: Option<(
+        String,
+        Arc<(std::sync::atomic::AtomicBool, std::sync::atomic::AtomicBool)>,
+    )>,
+}
+struct MemoryReservation {
+    memory: Arc<Mutex<WorkspaceMemory>>,
+    bytes: usize,
+}
+impl MemoryReservation {
+    fn new(
+        memory: &Arc<Mutex<WorkspaceMemory>>,
+        retained: usize,
+        bytes: usize,
+    ) -> Result<Self, Diagnostic> {
+        let mut state = memory.lock();
+        state.retained = retained;
+        if retained
+            .saturating_add(state.reserved)
+            .saturating_add(bytes)
+            > state.maximum
+        {
+            return Err(Self::unavailable());
+        }
+        state.reserved += bytes;
+        #[cfg(test)]
+        {
+            state.peak = state.peak.max(state.retained + state.reserved);
+        }
+        Ok(Self {
+            memory: memory.clone(),
+            bytes,
+        })
+    }
+    fn unavailable() -> Diagnostic {
+        failure("workspace_memory_busy", "Workspace memory is temporarily reserved by retained observations or collection jobs; retry after collection completes or reduce the selected widgets")
+    }
+    fn reserve_remaining(&mut self) -> Result<usize, Diagnostic> {
+        let mut state = self.memory.lock();
+        let available = state
+            .maximum
+            .saturating_sub(state.retained.saturating_add(state.reserved));
+        if available < 512 {
+            return Err(Self::unavailable());
+        }
+        state.reserved += available;
+        self.bytes += available;
+        #[cfg(test)]
+        {
+            state.peak = state.peak.max(state.retained + state.reserved);
+        }
+        Ok(available)
+    }
+    fn normalize(
+        &mut self,
+        context: &FrameContext,
+        definition: &WidgetDefinition,
+        row_bytes: usize,
+        normalize: impl FnOnce(usize) -> WidgetFrame,
+    ) -> Result<WidgetFrame, Diagnostic> {
+        let overhead = encoded_bytes(&(
+            context,
+            &definition.view,
+            &definition.rates,
+            &definition.deltas,
+            &definition.computes,
+        ))
+        .saturating_add(1024);
+        let estimated = row_bytes.saturating_mul(4).saturating_add(overhead);
+        {
+            let mut state = self.memory.lock();
+            if state
+                .retained
+                .saturating_add(state.reserved)
+                .saturating_add(estimated)
+                > state.maximum
+            {
+                return Err(Self::unavailable());
+            }
+            state.reserved += estimated;
+            self.bytes += estimated;
+            #[cfg(test)]
+            {
+                state.peak = state.peak.max(state.retained + state.reserved);
+            }
+        }
+        let frame = normalize(row_bytes);
+        let charge = encoded_bytes(&frame);
+        if charge > estimated
+            || frame
+                .diagnostics
+                .iter()
+                .any(|d| d.code == "normalization_limit")
+        {
+            drop(frame);
+            self.release(estimated);
+            return Err(Self::unavailable());
+        }
+        self.release(estimated - charge);
+        Ok(frame)
+    }
+    fn release(&mut self, bytes: usize) {
+        let memory = self.memory.clone();
+        self.transfer(&mut memory.lock(), bytes);
+    }
+    fn transfer(&mut self, state: &mut WorkspaceMemory, bytes: usize) {
+        debug_assert!(bytes <= self.bytes);
+        self.bytes -= bytes;
+        state.reserved -= bytes;
+    }
+}
+impl Drop for MemoryReservation {
+    fn drop(&mut self) {
+        self.release(self.bytes);
+    }
+}
+struct NormalizedBatch {
+    frames: Vec<WidgetFrame>,
+    admission: Option<Diagnostic>,
+    // Fields drop in declaration order; release the claim after its buffers.
+    reservation: MemoryReservation,
 }
 fn read_value<T>(
     id: &str,
@@ -693,7 +834,7 @@ enum Output {
     Network {
         command: String,
         result: Result<CollectedCapture, Diagnostic>,
-        frames: Vec<WidgetFrame>,
+        batch: NormalizedBatch,
         sample: Option<Reply<TelemetryRead<Capture>>>,
         plan: Option<DraftSamplePlan>,
         display_name: Option<String>,
@@ -703,11 +844,13 @@ enum Output {
         result: PreviewReport,
         sample: Option<LocalSample>,
         reply: Reply<TelemetryRead<PreviewReport>>,
+        reservation: MemoryReservation,
     },
     Test {
         result: Result<ParsedInterpretation, Diagnostic>,
         base: Revision,
         reply: Reply<TelemetryRead<ParsedInterpretation>>,
+        reservation: MemoryReservation,
     },
     Apply {
         base: Revision,
@@ -779,7 +922,7 @@ impl Owner {
             if stop.is_cancelled() && !self.shutdown {
                 self.shutdown = true;
                 for workspace in self.workspaces.values_mut() {
-                    Self::halt(workspace, &mut self.retirement);
+                    Self::halt(workspace, &mut self.retirement, self.clock.now());
                 }
             }
             self.housekeeping();
@@ -834,6 +977,15 @@ impl Owner {
         self.workspaces
             .entry(id.into())
             .or_insert_with(|| Workspace {
+                memory: Arc::new(Mutex::new(WorkspaceMemory {
+                    maximum: MAX_WORKSPACE_BYTES,
+                    reserved: 0,
+                    retained: 0,
+                    #[cfg(test)]
+                    peak: 0,
+                    #[cfg(test)]
+                    pause: None,
+                })),
                 generation: 0,
                 sequence: 0,
                 running: false,
@@ -977,7 +1129,10 @@ impl Owner {
             .insert(reference.connection_id.clone(), target);
         Ok(())
     }
-    fn halt(workspace: &mut Workspace, retirement: &mut u64) {
+    fn halt(workspace: &mut Workspace, retirement: &mut u64, now: SampleTime) {
+        if workspace.running {
+            history_gap(workspace, None, &BTreeSet::new(), now, "Monitoring stopped");
+        }
         workspace.running = false;
         workspace.fence();
         workspace.cancel.cancel();
@@ -1057,6 +1212,44 @@ impl Owner {
             request
         };
         match request {
+            #[cfg(test)]
+            Request::PauseNormalized(id, target, pause, reply) => {
+                let result = self
+                    .workspaces
+                    .get(&id)
+                    .ok_or_else(unknown)
+                    .map(|workspace| workspace.memory.lock().pause = Some((target, pause)));
+                let _ = reply.send(result);
+            }
+            #[cfg(test)]
+            Request::MemoryLimit(id, maximum, reply) => {
+                let result = self
+                    .workspaces
+                    .get(&id)
+                    .ok_or_else(unknown)
+                    .map(|workspace| workspace.memory.lock().maximum = maximum);
+                let _ = reply.send(result);
+            }
+            #[cfg(test)]
+            Request::MemoryUsage(id, reply) => {
+                let result = self
+                    .workspaces
+                    .get(&id)
+                    .ok_or_else(unknown)
+                    .map(|workspace| {
+                        let memory = workspace.memory.lock();
+                        (
+                            memory.reserved,
+                            memory.peak,
+                            workspace
+                                .latest
+                                .values()
+                                .map(|baseline| baseline.bytes)
+                                .sum(),
+                        )
+                    });
+                let _ = reply.send(result);
+            }
             #[cfg(test)]
             Request::RetainedBytes(id, reply) => {
                 let _ = reply.send(
@@ -1245,7 +1438,7 @@ impl Owner {
                 if let Some(workspace) = self.workspaces.get_mut(&id) {
                     workspace.closing |= close;
                     workspace.stopping = true;
-                    Self::halt(workspace, &mut self.retirement);
+                    Self::halt(workspace, &mut self.retirement, self.clock.now());
                     self.drain_ok = false;
                     workspace.waiters.push(Waiter {
                         deadline: Instant::now() + CLEANUP,
@@ -1461,17 +1654,19 @@ impl Owner {
             )));
             return;
         }
-        if retained_bytes(workspace)
-            .saturating_add(encoded_bytes(capture))
-            .saturating_add(2 * 1024 * 1024)
-            > MAX_WORKSPACE_BYTES
-        {
-            let _ = reply.send(Err(failure(
-                "workspace_memory_limit",
-                "No memory budget for a private template test",
-            )));
-            return;
-        }
+        let reservation = match MemoryReservation::new(
+            &workspace.memory,
+            retained_bytes(workspace),
+            encoded_bytes(capture)
+                .saturating_add(encoded_bytes(&template))
+                .saturating_add(4 * 2 * 1024 * 1024 + 512),
+        ) {
+            Ok(reservation) => reservation,
+            Err(error) => {
+                let _ = reply.send(Err(error));
+                return;
+            }
+        };
         let mut capture = capture.clone();
         let target = capture.target_id.clone();
         let revision = capture.revision.clone();
@@ -1512,6 +1707,7 @@ impl Owner {
                     result,
                     base,
                     reply,
+                    reservation,
                 },
             }
         });
@@ -1585,7 +1781,7 @@ impl Owner {
         references.extend(selected.values().map(|target| target.reference.clone()));
         self.register_refs(references)?;
         let workspace = self.workspaces.get_mut(&request.workspace_id).unwrap();
-        Self::halt(workspace, &mut self.retirement);
+        Self::halt(workspace, &mut self.retirement, self.clock.now());
         workspace.targets = selected;
         workspace.local_enabled = request.local_enabled;
         workspace.local_config = self.repository.effective_local();
@@ -1652,35 +1848,39 @@ impl Owner {
         } else {
             vec![]
         };
-        let external_bytes = retained_bytes(workspace).saturating_add(
-            workspace
-                .proofs
-                .values()
-                .map(DraftCaptureProof::bytes)
-                .sum::<usize>(),
-        );
-        if external_bytes
-            .saturating_add(
-                captures
-                    .iter()
-                    .map(|capture| {
-                        workspace
-                            .capture_charges
-                            .get(&capture.capture_id)
-                            .copied()
-                            .unwrap_or(MAX_WORKSPACE_BYTES)
-                    })
-                    .sum::<usize>(),
-            )
+        let mut reservation =
+            match MemoryReservation::new(&workspace.memory, retained_bytes(workspace), 0) {
+                Ok(reservation) => reservation,
+                Err(error) => {
+                    let _ = reply.send(Err(error));
+                    return;
+                }
+            };
+        let available = match reservation.reserve_remaining() {
+            Ok(available) => available,
+            Err(error) => {
+                let _ = reply.send(Err(error));
+                return;
+            }
+        };
+        let input_bytes = captures
+            .iter()
+            .map(|capture| encoded_bytes(*capture))
+            .sum::<usize>()
             .saturating_add(encoded_bytes(&samples))
-            > MAX_WORKSPACE_BYTES
-        {
-            let _ = reply.send(Err(failure(
-                "workspace_memory_limit",
-                "No memory budget for a private Preview copy",
-            )));
+            .saturating_add(
+                workspace
+                    .proofs
+                    .values()
+                    .map(DraftCaptureProof::bytes)
+                    .sum::<usize>(),
+            );
+        let report_budget = available.saturating_sub(8192) / 4;
+        if input_bytes.saturating_add(2 * 1024 * 1024) > report_budget {
+            let _ = reply.send(Err(MemoryReservation::unavailable()));
             return;
         }
+        let mut external_bytes = MAX_WORKSPACE_BYTES.saturating_sub(report_budget);
         let captures = captures.into_iter().cloned().collect();
         let mut samples: Vec<_> = samples.into_iter().cloned().collect();
         let proofs: Vec<_> = workspace.proofs.values().cloned().collect();
@@ -1700,15 +1900,29 @@ impl Owner {
         self.preview_jobs += 1;
         self.jobs.spawn(async move {
             let sample = if let Some(worker) = worker {
-                match tokio::task::spawn_blocking(move || worker.lock().sample(now)).await {
-                    Ok(Ok(sample)) => {
+                let sampled = tokio::task::spawn_blocking(move || worker.lock().sample(now))
+                    .await
+                    .unwrap_or_else(|_| Err(failure("local_owner", "Local sampling worker failed")))
+                    .and_then(|sample| {
+                        let sample_bytes = encoded_bytes(&sample);
+                        let budget =
+                            available.saturating_sub(sample_bytes).saturating_sub(8192) / 4;
+                        if input_bytes
+                            .saturating_add(sample_bytes)
+                            .saturating_add(2 * 1024 * 1024)
+                            > budget
+                        {
+                            return Err(MemoryReservation::unavailable());
+                        }
+                        external_bytes = MAX_WORKSPACE_BYTES.saturating_sub(budget);
+                        Ok(sample)
+                    });
+                match sampled {
+                    Ok(sample) => {
                         samples.push(sample.clone());
                         Some(sample)
                     }
-                    result => {
-                        let error = result.ok().and_then(Result::err).unwrap_or_else(|| {
-                            failure("local_owner", "Local sampling worker failed")
-                        });
+                    Err(error) => {
                         return Completed {
                             workspace: id,
                             generation,
@@ -1727,6 +1941,7 @@ impl Owner {
                                 },
                                 sample: None,
                                 reply,
+                                reservation,
                             },
                         };
                     }
@@ -1755,6 +1970,7 @@ impl Owner {
                     result,
                     sample,
                     reply,
+                    reservation,
                 },
             }
         });
@@ -1853,31 +2069,47 @@ impl Owner {
             let Some((request, definitions, sample, plan)) = selection else {
                 continue;
             };
-            if retained_bytes_parts(
+            let retained = retained_bytes_parts(
                 &workspace.latest,
                 &workspace.local_samples,
                 &workspace.history,
                 &workspace.proofs,
                 &workspace.capture_charges,
-            )
-            .saturating_add(request.command.cost().max_output_bytes)
-                > MAX_WORKSPACE_BYTES
-            {
-                diagnostic(
-                    &mut workspace.diagnostics,
-                    failure(
-                        "workspace_memory_limit",
-                        "No memory budget to admit another capture",
-                    ),
-                );
-                if let Some(reply) = sample {
-                    let _ = reply.send(Err(failure(
-                        "workspace_memory_limit",
-                        "No memory budget to admit another capture",
-                    )));
+            );
+            let pinned = definitions
+                .iter()
+                .filter_map(|definition| {
+                    workspace
+                        .latest
+                        .get(&(target_id.clone(), definition.widget.clone()))
+                })
+                .map(|baseline| baseline.bytes)
+                .sum::<usize>();
+            let reservation = match MemoryReservation::new(
+                &workspace.memory,
+                retained,
+                request
+                    .command
+                    .cost()
+                    .max_output_bytes
+                    .saturating_add(pinned),
+            ) {
+                Ok(reservation) => reservation,
+                Err(error) => {
+                    diagnostic(&mut workspace.diagnostics, error.clone());
+                    if let Some(reply) = sample {
+                        let _ = reply.send(Err(error));
+                    } else if workspace.memory.lock().reserved > 0 {
+                        // Temporary admission did not execute this poll; leave it due after the claim releases.
+                        for poll in &mut target.polls {
+                            if poll.command.command.as_str() == request.command.as_str() {
+                                poll.next_ms = now.monotonic_ms;
+                            }
+                        }
+                    }
+                    continue;
                 }
-                continue;
-            }
+            };
             let worker = target
                 .worker
                 .get_or_insert_with(|| {
@@ -1923,79 +2155,48 @@ impl Owner {
                     let result = collector.capture(request, cancel.clone()).await;
                     (result, collector.display_name())
                 };
-                let mut frames = vec![];
+                let mut batch = NormalizedBatch { frames: vec![], admission: None, reservation };
                 if let Ok(collected) = &result {
                     for definition in definitions {
-                        let context = FrameContext {
-                            workspace_id: id.clone(),
-                            target_id: target_id.clone(),
-                            revision: revision.clone(),
-                            generation,
-                        };
-                        let frame = match bind_capture(
-                            &collected.capture,
-                            &config,
-                            &definition,
-                            &target_id,
-                        ) {
+                        if cancel.is_cancelled() { break; }
+                        let context = FrameContext { workspace_id: id.clone(), target_id: target_id.clone(), revision: revision.clone(), generation };
+                        let parsed = match bind_capture(&collected.capture, &config, &definition, &target_id) {
                             Ok(capture) => {
-                                let template = &config.templates[&capture.parser_id];
                                 match ProtocolClassifier::capture_rejection(&capture) {
-                                    Some((state, diagnostic)) => failed_frame(
-                                        &context,
-                                        &definition,
-                                        capture.observed_at_ms,
-                                        state,
-                                        diagnostic,
-                                    ),
-                                    None => {
-                                        match parser.parse(&capture, template, cancel.clone()).await
-                                        {
-                                            Ok(records) => {
-                                                let before = previous
-                                                    .get(&(
-                                                        target_id.clone(),
-                                                        definition.widget.clone(),
-                                                    ))
-                                                    .filter(|before| {
-                                                        !collected.reconnected
-                                                            && compatible_time(
-                                                                before,
-                                                                capture.observed_at_ms,
-                                                                clock.now().monotonic_ms,
-                                                                scheduled_interval,
-                                                            )
-                                                    });
-                                                ProtocolClassifier::normalize(
-                                                    &context,
-                                                    &definition,
-                                                    &capture,
-                                                    records,
-                                                    before.map(|b| {
-                                                        (b.frame.rows.as_slice(), b.monotonic_ms)
-                                                    }),
-                                                )
-                                            }
-                                            Err(error) => failed_frame(
-                                                &context,
-                                                &definition,
-                                                capture.observed_at_ms,
-                                                CollectionState::Failed,
-                                                error,
-                                            ),
-                                        }
+                                    Some((state, diagnostic)) => Err((state, diagnostic)),
+                                    None => match parser.parse(&capture, &config.templates[&capture.parser_id], cancel.clone()).await {
+                                        Ok(records) => Ok((capture, records)),
+                                        Err(error) => Err((CollectionState::Failed, error)),
                                     }
                                 }
                             }
-                            Err(error) => failed_frame(
-                                &context,
-                                &definition,
-                                collected.capture.observed_at_ms,
-                                CollectionState::Failed,
-                                error,
-                            ),
+                            Err(error) => Err((CollectionState::Failed, error)),
                         };
-                        frames.push(frame);
+                        let estimate = match &parsed {
+                            Ok((capture, records)) => FrameNormalizer::normalization_bytes(&definition, records, Some(capture)),
+                            Err((_, error)) => Ok(encoded_bytes(error)),
+                        };
+                        let frame = estimate.and_then(|bytes| batch.reservation.normalize(&context, &definition, bytes, |maximum| match parsed {
+                            Ok((capture, records)) => {
+                                let before = previous.get(&(target_id.clone(), definition.widget.clone())).filter(|before| !collected.reconnected && compatible_time(before, capture.observed_at_ms, clock.now().monotonic_ms, scheduled_interval));
+                                ProtocolClassifier::normalize_bounded(&context, &definition, &capture, records, before.map(|b| (b.frame.rows.as_slice(), b.monotonic_ms)), maximum)
+                            }
+                            Err((state, error)) => failed_frame(&context, &definition, collected.capture.observed_at_ms, state, error),
+                        }));
+                        match frame {
+                            Ok(frame) => batch.frames.push(frame),
+                            Err(error) => { batch.admission = Some(error); break; }
+                        }
+                    }
+                }
+                #[cfg(test)] {
+                    let pause = batch.reservation.memory.lock().pause.as_ref().filter(|(target, _)| target == &target_id).map(|(_, pause)| pause.clone());
+                    if let Some(pause) = pause {
+                        use std::sync::atomic::Ordering;
+                        pause.0.store(true, Ordering::SeqCst);
+                        while !pause.1.load(Ordering::SeqCst) && !cancel.is_cancelled() {
+                            tokio::select! { _ = cancel.cancelled() => {}, _ = tokio::time::sleep(Duration::from_millis(5)) => {} }
+                        }
                     }
                 }
                 Completed {
@@ -2006,7 +2207,7 @@ impl Owner {
                     output: Output::Network {
                         command,
                         result,
-                        frames,
+                        batch,
                         sample,
                         plan,
                         display_name,
@@ -2051,6 +2252,17 @@ impl Owner {
         match completed.output {
             Output::Local(result) if current => match result {
                 Ok(sample) => {
+                    let mut reservation = match MemoryReservation::new(
+                        &workspace.memory,
+                        retained_bytes(workspace),
+                        0,
+                    ) {
+                        Ok(reservation) => reservation,
+                        Err(error) => {
+                            diagnostic(&mut workspace.diagnostics, error);
+                            return;
+                        }
+                    };
                     for definition in workspace.local_config.widgets.clone() {
                         let context = FrameContext {
                             workspace_id: completed.workspace.clone(),
@@ -2069,22 +2281,54 @@ impl Owner {
                                     (local_interval(workspace) / 1000) as u32,
                                 )
                             });
-                        let frame = FrameNormalizer::local(
-                            &context,
-                            &definition,
-                            &sample,
-                            previous.map(|b| (b.frame.rows.as_slice(), b.monotonic_ms)),
-                        );
-                        append_frame(workspace, frame, sample.monotonic_ms, now.monotonic_ms);
+                        let frame =
+                            FrameNormalizer::local_bytes(&definition, &sample).and_then(|bytes| {
+                                reservation.normalize(&context, &definition, bytes, |maximum| {
+                                    FrameNormalizer::local_bounded(
+                                        &context,
+                                        &definition,
+                                        &sample,
+                                        previous.map(|b| (b.frame.rows.as_slice(), b.monotonic_ms)),
+                                        maximum,
+                                    )
+                                })
+                            });
+                        match frame {
+                            Ok(frame) => append_frame(
+                                workspace,
+                                frame,
+                                sample.monotonic_ms,
+                                now.monotonic_ms,
+                                Some(&mut reservation),
+                            ),
+                            Err(error) => {
+                                diagnostic(&mut workspace.diagnostics, error);
+                                break;
+                            }
+                        }
                     }
-                    retain_local(workspace, sample);
+                    retain_local(workspace, sample, None);
                 }
-                Err(error) => diagnostic(&mut workspace.diagnostics, error),
+                Err(error) => {
+                    for ((target, _), baseline) in &mut workspace.latest {
+                        if target == "local" {
+                            baseline.valid = false;
+                        }
+                    }
+                    history_gap(
+                        workspace,
+                        Some("local"),
+                        &BTreeSet::new(),
+                        now,
+                        "Collection failed",
+                    );
+                    diagnostic(&mut workspace.diagnostics, error);
+                }
             },
             Output::Network {
                 command,
                 result,
-                frames,
+                mut batch,
                 sample,
                 plan,
                 display_name,
@@ -2096,6 +2340,8 @@ impl Owner {
                             "Sample belongs to an invalidated generation or configuration",
                         )));
                     }
+                    drop(result);
+                    drop(batch);
                     return;
                 }
                 if let Some(target) = workspace.targets.get_mut(&completed.target) {
@@ -2164,17 +2410,25 @@ impl Owner {
                             }
                         }
                         let mut any_success = false;
-                        for frame in frames {
+                        for frame in batch.frames.drain(..) {
                             any_success |= frame.state == CollectionState::Fresh;
                             append_frame(
                                 workspace,
                                 frame,
                                 collected.capture.monotonic_ms,
                                 now.monotonic_ms,
+                                Some(&mut batch.reservation),
                             );
                         }
+                        if let Some(error) = &batch.admission {
+                            diagnostic(&mut workspace.diagnostics, error.clone());
+                        }
                         let target = workspace.targets.get_mut(&completed.target).unwrap();
-                        target.status.state = if any_success || sample.is_some() {
+                        target.status.state = if batch.admission.is_some() {
+                            target.status.diagnostics =
+                                batch.admission.clone().into_iter().collect();
+                            CollectionState::Failed
+                        } else if any_success || sample.is_some() {
                             CollectionState::Fresh
                         } else {
                             CollectionState::Failed
@@ -2184,6 +2438,10 @@ impl Owner {
                             target.status.last_success_at_ms =
                                 Some(collected.capture.observed_at_ms);
                         }
+                        let reply_revision = plan.as_ref().map_or_else(
+                            || completed.revision.clone(),
+                            |plan| plan.base_revision().to_owned(),
+                        );
                         let proof = plan.map(|plan| if self.apply_busy { Err(failure("sample_obsolete", "Draft sample admission crossed a configuration publication; capture again after it completes")) }
                             else { self.repository.seal_draft_sample(plan, &collected.capture) }).transpose();
                         let retained = proof.and_then(|proof| {
@@ -2194,7 +2452,7 @@ impl Owner {
                                 read_value(
                                     &completed.workspace,
                                     workspace,
-                                    completed.revision.clone(),
+                                    reply_revision,
                                     collected.capture,
                                 )
                             }));
@@ -2213,11 +2471,26 @@ impl Owner {
                         }
                         target.status.state = CollectionState::Failed;
                         target.status.diagnostics = vec![error.clone()];
+                        let widgets = target
+                            .polls
+                            .iter()
+                            .filter(|poll| poll.command.command.as_str() == command)
+                            .flat_map(|poll| {
+                                poll.widgets.iter().map(|widget| widget.widget.clone())
+                            })
+                            .collect();
                         for ((id, _), baseline) in &mut workspace.latest {
                             if id == &completed.target {
                                 baseline.valid = false;
                             }
                         }
+                        history_gap(
+                            workspace,
+                            Some(&completed.target),
+                            &widgets,
+                            now,
+                            "Collection failed",
+                        );
                         if let Some(reply) = sample {
                             let _ = reply.send(Err(error));
                         }
@@ -2227,12 +2500,25 @@ impl Owner {
             Output::Preview {
                 base,
                 mut result,
-                sample,
+                mut sample,
                 reply,
+                mut reservation,
             } => {
+                let owned =
+                    encoded_bytes(&result).saturating_add(sample.as_ref().map_or(0, encoded_bytes));
+                if owned > reservation.bytes {
+                    drop(sample);
+                    drop(result);
+                    let _ = reply.send(Err(MemoryReservation::unavailable()));
+                    drop(reservation);
+                    return;
+                }
                 if current {
-                    if let Some(sample) = sample {
-                        retain_local(workspace, sample);
+                    if owned <= reservation.bytes {
+                        reservation.release(reservation.bytes - owned);
+                    }
+                    if let Some(sample) = sample.take() {
+                        retain_local(workspace, sample, Some(&mut reservation));
                     }
                 } else {
                     result.token = None;
@@ -2241,7 +2527,9 @@ impl Owner {
                         "Workspace generation changed during Preview",
                     ));
                 }
+                drop(sample);
                 if !current || self.apply_busy || base != self.repository.base_revision() {
+                    drop(result);
                     let _ = reply.send(Err(failure(
                         "preview_obsolete",
                         "Preview authority changed; retry",
@@ -2254,11 +2542,13 @@ impl Owner {
                         result,
                     )));
                 }
+                drop(reservation);
             }
             Output::Test {
                 result,
                 base,
                 reply,
+                reservation,
             } => {
                 let result =
                     if !current || self.apply_busy || self.repository.base_revision() != base {
@@ -2269,9 +2559,10 @@ impl Owner {
                     } else {
                         result
                     };
-                let _ = reply.send(result.map(|value| {
-                    read_value(&completed.workspace, workspace, completed.revision, value)
-                }));
+                let _ = reply.send(
+                    result.map(|value| read_value(&completed.workspace, workspace, base, value)),
+                );
+                drop(reservation);
             }
             Output::Apply {
                 base,
@@ -2804,12 +3095,43 @@ fn summary(
         diagnostics: frame.diagnostics.clone(),
     }
 }
+fn history_gap(
+    workspace: &mut Workspace,
+    target: Option<&str>,
+    widgets: &BTreeSet<String>,
+    now: SampleTime,
+    reason: &'static str,
+) {
+    let memory = workspace.memory.clone();
+    let mut budget = memory.lock();
+    workspace.history.advance(now.monotonic_ms);
+    let other = retained_bytes(workspace).saturating_sub(workspace.history.bytes());
+    if let Err(error) = workspace.history.discontinuity(
+        target,
+        widgets,
+        now.wall_ms,
+        budget
+            .maximum
+            .saturating_sub(other.saturating_add(budget.reserved)),
+        reason,
+    ) {
+        diagnostic(&mut workspace.diagnostics, error);
+    }
+    budget.retained = retained_bytes(workspace);
+    workspace.sequence += 1;
+}
 fn append_frame(
     workspace: &mut Workspace,
     mut frame: WidgetFrame,
     monotonic_ms: u64,
     received_ms: u64,
+    mut reservation: Option<&mut MemoryReservation>,
 ) {
+    let in_flight_charge = if reservation.is_some() {
+        encoded_bytes(&frame)
+    } else {
+        0
+    };
     let key = (frame.target_id.clone(), frame.widget_id.clone());
     let old = workspace.latest.get(&key).map_or(0, |b| b.bytes);
     if let Some(previous) = workspace
@@ -2822,10 +3144,17 @@ fn append_frame(
         }
     }
     let frame_bytes = encoded_bytes(&frame);
+    let memory = workspace.memory.clone();
+    let mut budget = memory.lock();
+    let other_reserved = budget.reserved.saturating_sub(in_flight_charge);
     let bytes = retained_bytes(workspace)
         .saturating_sub(old)
         .saturating_add(frame_bytes);
-    if bytes > MAX_WORKSPACE_BYTES {
+    if bytes.saturating_add(other_reserved) > budget.maximum {
+        drop(frame);
+        if let Some(reservation) = reservation.as_mut() {
+            reservation.transfer(&mut budget, in_flight_charge);
+        }
         diagnostic(
             &mut workspace.diagnostics,
             failure(
@@ -2837,9 +3166,12 @@ fn append_frame(
     }
     workspace.history.advance(received_ms);
     let others = bytes.saturating_sub(workspace.history.bytes());
-    let admitted = workspace
-        .history
-        .append_bounded(&frame, MAX_WORKSPACE_BYTES.saturating_sub(others));
+    let admitted = workspace.history.append_bounded(
+        &frame,
+        budget
+            .maximum
+            .saturating_sub(others.saturating_add(other_reserved)),
+    );
     let valid = match admitted {
         Ok(()) => true,
         Err(error) => {
@@ -2859,6 +3191,10 @@ fn append_frame(
             bytes: frame_bytes,
         },
     );
+    if let Some(reservation) = reservation.as_mut() {
+        reservation.transfer(&mut budget, in_flight_charge);
+    }
+    budget.retained = retained_bytes(workspace);
     workspace.sequence += 1;
 }
 fn retain_capture(
@@ -2884,11 +3220,14 @@ fn retain_capture(
                     .map_or(0, DraftCaptureProof::bytes)
         });
     let charge = encoded_bytes(&capture);
+    let memory = workspace.memory.clone();
+    let mut budget = memory.lock();
     if retained_bytes(workspace)
         .saturating_sub(old)
         .saturating_add(charge)
         .saturating_add(proof.as_ref().map_or(0, DraftCaptureProof::bytes))
-        > MAX_WORKSPACE_BYTES
+        .saturating_add(budget.reserved)
+        > budget.maximum
     {
         let error = failure(
             "workspace_memory_limit",
@@ -2911,15 +3250,32 @@ fn retain_capture(
         .capture_charges
         .insert(capture.capture_id.clone(), charge);
     captures.push_back(capture);
+    budget.retained = retained_bytes(workspace);
     Ok(())
 }
-fn retain_local(workspace: &mut Workspace, sample: LocalSample) {
+fn retain_local(
+    workspace: &mut Workspace,
+    sample: LocalSample,
+    mut reservation: Option<&mut MemoryReservation>,
+) {
+    let incoming = if reservation.is_some() {
+        encoded_bytes(&sample)
+    } else {
+        0
+    };
+    let memory = workspace.memory.clone();
+    let mut budget = memory.lock();
     let old = workspace.local_samples.front().map_or(0, encoded_bytes);
     if retained_bytes(workspace)
         .saturating_sub(old)
         .saturating_add(encoded_bytes(&sample))
-        > MAX_WORKSPACE_BYTES
+        .saturating_add(budget.reserved.saturating_sub(incoming))
+        > budget.maximum
     {
+        drop(sample);
+        if let Some(reservation) = reservation.as_mut() {
+            reservation.transfer(&mut budget, incoming);
+        }
         diagnostic(
             &mut workspace.diagnostics,
             failure(
@@ -2931,6 +3287,10 @@ fn retain_local(workspace: &mut Workspace, sample: LocalSample) {
     }
     workspace.local_samples.clear();
     workspace.local_samples.push_back(sample);
+    if let Some(reservation) = reservation.as_mut() {
+        reservation.transfer(&mut budget, incoming);
+    }
+    budget.retained = retained_bytes(workspace);
 }
 fn retained_bytes(workspace: &Workspace) -> usize {
     retained_bytes_parts(
@@ -2994,6 +3354,7 @@ mod tests {
         transport_failure: AtomicBool,
         local_hold: AtomicBool,
         local_rows: AtomicUsize,
+        local_failure: AtomicBool,
         raw_tail: Mutex<String>,
         release: tokio::sync::Notify,
     }
@@ -3001,6 +3362,12 @@ mod tests {
     impl LocalSampler for FakeLocal {
         fn sample(&mut self, now: SampleTime) -> Result<LocalSample, Diagnostic> {
             self.0.local_calls.fetch_add(1, Ordering::SeqCst);
+            if self.0.local_failure.load(Ordering::SeqCst) {
+                return Err(failure(
+                    "local_fixture_failure",
+                    "Fixture local collection failed",
+                ));
+            }
             while self.0.local_hold.load(Ordering::SeqCst) {
                 thread::sleep(Duration::from_millis(5));
             }
@@ -3863,6 +4230,792 @@ mod tests {
         h.finish().await;
     }
 
+    #[tokio::test]
+    async fn final_base_units_reach_normalized_frames_and_apply_resets_only_changed_series() {
+        let h = Harness::configured(|catalog| {
+            let widget = catalog.widgets.get_mut("local_traffic").unwrap();
+            widget.history.as_mut().unwrap().fields.push("bytes".into());
+            let WidgetView::Chart { series } = &mut widget.view else {
+                unreachable!()
+            };
+            series.push(ViewField {
+                field: "bytes".into(),
+                label: "Bytes".into(),
+                unit: Some("B".into()),
+            });
+        });
+        h.start(&[], true).await;
+        h.wait(|s| s.widgets.len() == 1).await;
+        h.clock.advance(Duration::from_secs(2));
+        let before = h.wait(|s| s.widgets[0].observed_at_ms == 1_002_000).await;
+        assert_eq!(
+            before.widgets[0].units.get("bytes").map(String::as_str),
+            Some("B")
+        );
+        let rate_count = before
+            .series
+            .iter()
+            .find(|s| s.field == "rate")
+            .unwrap()
+            .point_count;
+        let catalog = h
+            .service
+            .catalog("workspace", ConfigScope::Local)
+            .await
+            .unwrap();
+        let mut widget = catalog.value.effective.widgets[0].clone();
+        let WidgetView::Chart { series } = &mut widget.view else {
+            unreachable!()
+        };
+        series.iter_mut().find(|s| s.field == "bytes").unwrap().unit =
+            Some("declared-new-unit".into());
+        let mut draft = catalog.value.own;
+        draft.widgets_yaml = serde_yaml::to_string(&WidgetDocument {
+            schema_version: 1,
+            widgets: vec![widget],
+        })
+        .unwrap();
+        assert!(
+            h.service
+                .validate("workspace", draft.clone())
+                .await
+                .unwrap()
+                .value
+                .valid
+        );
+        let preview = h.service.preview("workspace", &draft).await.unwrap();
+        assert!(preview.token.is_some(), "{:?}", preview.diagnostics);
+        h.service
+            .apply("workspace", draft, preview.token.unwrap())
+            .await
+            .unwrap();
+        let after = h.service.snapshot("workspace").await.unwrap();
+        assert_eq!(
+            after
+                .series
+                .iter()
+                .find(|s| s.field == "rate")
+                .unwrap()
+                .point_count,
+            rate_count
+        );
+        assert!(!after
+            .series
+            .iter()
+            .any(|s| s.field == "bytes" && s.unit.as_deref() == Some("B")));
+        h.clock.advance(Duration::from_secs(2));
+        let after = h.wait(|s| s.widgets[0].observed_at_ms == 1_004_000).await;
+        assert_eq!(
+            after.widgets[0].units.get("bytes").map(String::as_str),
+            Some("declared-new-unit")
+        );
+        assert_eq!(
+            after
+                .series
+                .iter()
+                .find(|s| s.field == "bytes")
+                .unwrap()
+                .unit
+                .as_deref(),
+            Some("declared-new-unit")
+        );
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn final_base_history_has_real_failure_and_stop_gaps_without_losing_latest() {
+        let h = Harness::configured(|catalog| {
+            catalog
+                .widgets
+                .get_mut("local_traffic")
+                .unwrap()
+                .history
+                .as_mut()
+                .unwrap()
+                .fields = vec!["bytes".into()];
+        });
+        h.start(&[], true).await;
+        h.wait(|s| s.widgets.len() == 1).await;
+        h.probe.counter.store(200, Ordering::SeqCst);
+        h.clock.advance(Duration::from_secs(2));
+        h.wait(|s| s.widgets[0].observed_at_ms == 1_002_000).await;
+        h.probe.local_failure.store(true, Ordering::SeqCst);
+        h.clock.advance(Duration::from_secs(2));
+        h.wait(|s| {
+            s.diagnostics
+                .iter()
+                .any(|d| d.code == "local_fixture_failure")
+        })
+        .await;
+        let widget = WidgetQuery {
+            workspace_id: "workspace".into(),
+            target_id: "local".into(),
+            widget_id: "local_traffic".into(),
+            offset: 0,
+            limit: 100,
+        };
+        assert_eq!(
+            h.service.widget(widget).await.unwrap().rows[0].fields["bytes"],
+            MetricValue::Unsigned {
+                value: "200".into()
+            }
+        );
+        h.probe.local_failure.store(false, Ordering::SeqCst);
+        h.probe.counter.store(300, Ordering::SeqCst);
+        h.clock.advance(Duration::from_secs(2));
+        h.wait(|s| s.widgets[0].observed_at_ms == 1_006_000).await;
+        h.clock.advance(Duration::from_secs(1));
+        h.service.stop("workspace").await.unwrap();
+        h.clock.advance(Duration::from_secs(3));
+        h.start(&[], true).await;
+        h.wait(|s| s.widgets[0].observed_at_ms == 1_010_000).await;
+        let row_key = h
+            .service
+            .snapshot("workspace")
+            .await
+            .unwrap()
+            .series
+            .iter()
+            .find(|s| s.field == "bytes")
+            .unwrap()
+            .row_key
+            .clone();
+        let page = h
+            .service
+            .series(SeriesQuery {
+                workspace_id: "workspace".into(),
+                target_id: "local".into(),
+                widget_id: "local_traffic".into(),
+                row_key,
+                field: "bytes".into(),
+                after_ms: None,
+                limit: 100,
+            })
+            .await
+            .unwrap();
+        assert!(
+            page.points
+                .iter()
+                .any(|p| p.at_ms == 1_004_000 && p.value.is_none()),
+            "{:?}",
+            page.points
+        );
+        assert!(
+            page.points
+                .iter()
+                .any(|p| p.at_ms == 1_007_000 && p.value.is_none()),
+            "{:?}",
+            page.points
+        );
+        assert!(page
+            .points
+            .iter()
+            .any(|p| p.at_ms == 1_010_000 && p.value == Some(300.0)));
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn final_draft_capture_and_template_test_use_global_envelopes_with_physical_source_provenance(
+    ) {
+        let h = Harness::new();
+        h.service.establish("workspace").await.unwrap();
+        let target = TargetRef {
+            connection_id: "one".into(),
+            platform: Platform::Iosxe,
+        };
+        h.service
+            .select(
+                "workspace",
+                SavedTargetMetadata {
+                    reference: target.clone(),
+                    display_name: "Saved one".into(),
+                },
+            )
+            .await
+            .unwrap();
+        let draft = h.command_draft("show version", "draft.version");
+        let captured = h
+            .service
+            .capture_draft_read("workspace", target.clone(), &draft, "draft.version")
+            .await
+            .unwrap();
+        assert_ne!(captured.value.revision, draft.expected_revision);
+        assert_eq!(captured.revision, draft.expected_revision);
+        let template = TemplateAsset {
+            id: "draft.version".into(),
+            platform: Platform::Iosxe,
+            command: "show version".into(),
+            text: draft.templates["draft.version"].clone(),
+            sha256: format!(
+                "{:x}",
+                sha2::Sha256::digest(draft.templates["draft.version"].as_bytes())
+            ),
+        };
+        let tested = h
+            .service
+            .test_template("workspace", &captured.value.capture_id, template)
+            .await
+            .unwrap();
+        assert_eq!(tested.revision, draft.expected_revision);
+        assert_eq!(tested.value.capture_id, captured.value.capture_id);
+        let revision = h.revision("one").await;
+        let current = h
+            .service
+            .capture_read(
+                "workspace",
+                target,
+                CaptureRequest {
+                    command: CommandPolicy::admit(Platform::Iosxe, "show interfaces").unwrap(),
+                    parser_id: "test.interfaces".into(),
+                    revision: revision.clone(),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(current.revision, revision);
+        assert_eq!(current.value.revision, revision);
+        h.finish().await;
+    }
+    #[tokio::test]
+    async fn final_equal_or_regressed_stop_marks_the_next_real_base_observation() {
+        for regression in [0, 100] {
+            let h = Harness::configured(|catalog| {
+                catalog
+                    .widgets
+                    .get_mut("local_traffic")
+                    .unwrap()
+                    .history
+                    .as_mut()
+                    .unwrap()
+                    .fields = vec!["bytes".into()];
+            });
+            h.start(&[], true).await;
+            h.wait(|s| s.widgets.len() == 1).await;
+            h.clock.0.time.lock().as_mut().unwrap().wall_ms -= regression;
+            h.service.stop("workspace").await.unwrap();
+            h.probe.counter.store(200, Ordering::SeqCst);
+            h.start(&[], true).await;
+            h.wait(|_| h.probe.local_calls.load(Ordering::SeqCst) >= 2)
+                .await;
+            h.clock.advance(Duration::from_secs(2));
+            let snapshot = h
+                .wait(|s| s.widgets[0].observed_at_ms == 1_002_000 - regression)
+                .await;
+            let summary = &snapshot.series[0];
+            let page = h
+                .service
+                .series(SeriesQuery {
+                    workspace_id: "workspace".into(),
+                    target_id: "local".into(),
+                    widget_id: "local_traffic".into(),
+                    row_key: summary.row_key.clone(),
+                    field: "bytes".into(),
+                    after_ms: Some(1_000_000),
+                    limit: 1,
+                })
+                .await
+                .unwrap();
+            assert_eq!(page.points[0].value, Some(200.0));
+            assert_eq!(
+                page.points[0].reason.as_deref(),
+                Some("Collection resumed after monitoring stopped")
+            );
+            assert_eq!(summary.point_count, 2);
+            h.finish().await;
+        }
+    }
+    #[tokio::test]
+    async fn final_conflicting_units_are_rejected_before_preview_or_publication() {
+        let h = Harness::new();
+        h.service.establish("workspace").await.unwrap();
+        let catalog = h
+            .service
+            .catalog("workspace", ConfigScope::Local)
+            .await
+            .unwrap();
+        let mut widget = catalog.value.effective.widgets[0].clone();
+        let WidgetView::Chart { series } = &mut widget.view else {
+            unreachable!()
+        };
+        series[0].unit = Some("conflicts-with-transform".into());
+        let mut draft = catalog.value.own;
+        draft.widgets_yaml = serde_yaml::to_string(&WidgetDocument {
+            schema_version: 1,
+            widgets: vec![widget],
+        })
+        .unwrap();
+        let validated = h
+            .service
+            .validate("workspace", draft.clone())
+            .await
+            .unwrap();
+        assert!(!validated.value.valid);
+        assert!(validated
+            .value
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "unit_conflict"));
+        let preview = h.service.preview("workspace", &draft).await.unwrap();
+        assert!(preview.token.is_none());
+        assert!(preview
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "unit_conflict"));
+        h.finish().await;
+    }
+    #[tokio::test]
+    async fn final_authoring_and_live_jobs_share_reservations_and_release_on_fence_and_error() {
+        let h = Harness::new();
+        h.start(&["one"], false).await;
+        h.wait(|s| s.widgets.len() == 2).await;
+        let network = h
+            .service
+            .catalog("workspace", ConfigScope::Profile(Platform::Iosxe))
+            .await
+            .unwrap();
+        let preview = h.service.preview("workspace", &h.draft).await.unwrap();
+        let capture = preview.captures[0].clone();
+        let template = network.value.effective.templates["test.interfaces"].clone();
+        h.service.stop("workspace").await.unwrap();
+        let local = h
+            .service
+            .catalog("workspace", ConfigScope::Local)
+            .await
+            .unwrap()
+            .value
+            .own;
+        h.probe.local_hold.store(true, Ordering::SeqCst);
+        struct Release(Arc<Probe>);
+        impl Drop for Release {
+            fn drop(&mut self) {
+                self.0.local_hold.store(false, Ordering::SeqCst);
+            }
+        }
+        let release = Release(h.probe.clone());
+        let service = h.service.clone();
+        let pending = tokio::spawn(async move { service.preview("workspace", &local).await });
+        h.wait(|_| h.probe.local_calls.load(Ordering::SeqCst) > 0)
+            .await;
+        assert_eq!(
+            h.service
+                .test_template("workspace", &capture.capture_id, template.clone())
+                .await
+                .unwrap_err()
+                .code,
+            "workspace_memory_busy"
+        );
+        h.start(&["one"], false).await;
+        h.wait(|s| {
+            s.diagnostics
+                .iter()
+                .any(|d| d.code == "workspace_memory_busy")
+        })
+        .await;
+        tokio::time::timeout(Duration::from_millis(500), h.service.snapshot("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        let service = h.service.clone();
+        let stopping = tokio::spawn(async move { service.stop("workspace").await });
+        tokio::time::timeout(Duration::from_millis(500), h.service.snapshot("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        drop(release);
+        assert!(pending.await.unwrap().is_err());
+        stopping.await.unwrap().unwrap();
+        let (reserved, _, _) = h
+            .service
+            .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+            .await
+            .unwrap();
+        assert_eq!(reserved, 0);
+        let mut invalid = template.clone();
+        invalid.sha256 = "wrong-hash".into();
+        assert!(h
+            .service
+            .test_template("workspace", &capture.capture_id, invalid)
+            .await
+            .is_err());
+        let tested = h
+            .service
+            .test_template("workspace", &capture.capture_id, template)
+            .await
+            .unwrap();
+        assert!(!tested.value.rows.is_empty());
+        let (reserved, _, _) = h
+            .service
+            .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+            .await
+            .unwrap();
+        assert_eq!(reserved, 0);
+        h.finish().await;
+    }
+
+    #[tokio::test]
+    async fn final_live_coalesced_and_concurrent_jobs_admit_normalized_frames_before_materializing()
+    {
+        for concurrent in [false, true] {
+            let h = Harness::configured(|catalog| {
+                let original = catalog.widgets["traffic"].clone();
+                catalog
+                    .widgets
+                    .retain(|id, _| id == "local_traffic" || id == "traffic");
+                for n in 1..12 {
+                    let mut widget = original.clone();
+                    widget.widget = format!("copy{n:02}");
+                    widget.rates.clear();
+                    widget.history = None;
+                    for alias in 0..8 {
+                        widget
+                            .fields
+                            .insert(format!("copy{alias}"), vec!["bytes".into()]);
+                    }
+                    widget.view = WidgetView::Table {
+                        columns: vec![ViewField {
+                            field: "bytes".into(),
+                            label: "Bytes".into(),
+                            unit: None,
+                        }],
+                    };
+                    catalog.widgets.insert(widget.widget.clone(), widget);
+                }
+            });
+            h.start(&["one"], false).await;
+            h.wait(|snapshot| snapshot.widgets.len() == 12).await;
+            let reference_retained = h
+                .service
+                .request(|reply| Request::RetainedBytes("workspace".into(), reply))
+                .await
+                .unwrap();
+            let (_, _, reference_normalized) = h
+                .service
+                .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                .await
+                .unwrap();
+            assert!(reference_normalized > 16 * 1024);
+            h.service.close("workspace").await.unwrap();
+            h.service.establish("workspace").await.unwrap();
+            let raw_reservation = (if concurrent { 2 } else { 1 }) * 2 * 1024 * 1024;
+            let copies = if concurrent { 2 } else { 1 };
+            let maximum = raw_reservation + reference_retained * copies - reference_normalized / 2;
+            assert!(raw_reservation + reference_retained * copies > maximum);
+            println!("concurrent={concurrent}, reference normalized={reference_normalized}, reference retained={reference_retained}, raw reservation={raw_reservation}, cap={maximum}");
+            h.service
+                .request(|reply| Request::MemoryLimit("workspace".into(), maximum, reply))
+                .await
+                .unwrap();
+            let pause = Arc::new((AtomicBool::new(false), AtomicBool::new(false)));
+            if concurrent {
+                h.service
+                    .request(|reply| {
+                        Request::PauseNormalized(
+                            "workspace".into(),
+                            "one".into(),
+                            pause.clone(),
+                            reply,
+                        )
+                    })
+                    .await
+                    .unwrap();
+            }
+            h.probe.hold.store(concurrent, Ordering::SeqCst);
+            h.start(
+                if concurrent {
+                    &["one", "slow"]
+                } else {
+                    &["one"]
+                },
+                false,
+            )
+            .await;
+            if concurrent {
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while !pause.0.load(Ordering::SeqCst) {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                })
+                .await
+                .unwrap();
+                let (reserved, _, _) = h
+                    .service
+                    .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                    .await
+                    .unwrap();
+                assert!(
+                    reserved > raw_reservation,
+                    "normalized buffers are reserved before owner completion"
+                );
+                h.probe.hold.store(false, Ordering::SeqCst);
+                h.probe.release.notify_waiters();
+            }
+            let snapshot = h
+                .wait(|s| {
+                    s.widgets.len() >= 12
+                        || s.diagnostics
+                            .iter()
+                            .any(|d| d.code.starts_with("workspace_memory"))
+                })
+                .await;
+            assert!(
+                snapshot
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.code.starts_with("workspace_memory")),
+                "unbounded live batch admitted {} widgets",
+                snapshot.widgets.len()
+            );
+            assert!(
+                snapshot.widgets.iter().any(|w| w.row_count == 1),
+                "at least one complete observation must fit"
+            );
+            assert!(snapshot.widgets.len() < 12);
+            let (_, peak, normalized) = h
+                .service
+                .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                .await
+                .unwrap();
+            println!(
+                "admitted normalized={normalized}, reservation peak={peak}, complete widgets={}",
+                snapshot.widgets.len()
+            );
+            assert!(peak <= maximum);
+            tokio::time::timeout(Duration::from_secs(1), h.service.snapshot("workspace"))
+                .await
+                .unwrap()
+                .unwrap();
+            tokio::time::timeout(Duration::from_secs(1), h.service.stop("workspace"))
+                .await
+                .unwrap()
+                .unwrap();
+            let (reserved, _, _) = h
+                .service
+                .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                .await
+                .unwrap();
+            assert_eq!(
+                reserved, 0,
+                "cancelled/completed jobs retain no normalized reservation"
+            );
+            h.finish().await;
+        }
+    }
+
+    #[tokio::test]
+    async fn final_concurrent_small_batches_keep_progress_and_cancel_owned_frames() {
+        let h = Harness::new();
+        h.service.establish("workspace").await.unwrap();
+        let pause = Arc::new((AtomicBool::new(false), AtomicBool::new(false)));
+        h.service
+            .request(|reply| {
+                Request::PauseNormalized("workspace".into(), "one".into(), pause.clone(), reply)
+            })
+            .await
+            .unwrap();
+        h.start(&["one", "two"], true).await;
+        h.wait(|s| {
+            pause.0.load(Ordering::SeqCst)
+                && s.widgets.iter().filter(|w| w.target_id != "one").count() == 3
+        })
+        .await;
+        let (reserved, peak, _) = h
+            .service
+            .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+            .await
+            .unwrap();
+        assert!(reserved > 0 && peak <= MAX_WORKSPACE_BYTES);
+        tokio::time::timeout(Duration::from_millis(500), h.service.snapshot("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(1), h.service.stop("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        let stopped = h.service.snapshot("workspace").await.unwrap();
+        assert!(!stopped.widgets.iter().any(|w| w.target_id == "one"));
+        assert_eq!(
+            h.service
+                .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                .await
+                .unwrap()
+                .0,
+            0
+        );
+        pause.1.store(true, Ordering::SeqCst);
+        h.start(&["one", "two"], true).await;
+        let snapshot = h.wait(|s| s.widgets.len() == 5).await;
+        assert!(!snapshot
+            .diagnostics
+            .iter()
+            .any(|d| d.code.starts_with("workspace_memory")));
+        h.finish().await;
+    }
+    #[test]
+    fn final_preflight_reserves_conservative_charge_for_real_normalization_cases() {
+        fn verify(
+            definition: &WidgetDefinition,
+            records: Vec<MetricRow>,
+            capture: Option<Capture>,
+            diagnostics: Vec<Diagnostic>,
+            check: impl FnOnce(&WidgetFrame),
+        ) {
+            let memory = Arc::new(Mutex::new(WorkspaceMemory {
+                maximum: 128 * 1024,
+                retained: 0,
+                reserved: 0,
+                peak: 0,
+                pause: None,
+            }));
+            let mut reservation = MemoryReservation::new(&memory, 0, 0).unwrap();
+            let context = FrameContext {
+                workspace_id: "workspace".into(),
+                target_id: capture
+                    .as_ref()
+                    .map_or("local", |capture| capture.target_id.as_str())
+                    .into(),
+                revision: "source".into(),
+                generation: 1,
+            };
+            let sample = LocalSample {
+                observed_at_ms: 1000,
+                monotonic_ms: 1000,
+                sources: BTreeMap::from([("local.network".into(), records.clone())]),
+                diagnostics,
+            };
+            let estimate = if let Some(capture) = &capture {
+                FrameNormalizer::normalization_bytes(definition, &records, Some(capture))
+            } else {
+                FrameNormalizer::local_bytes(definition, &sample)
+            }
+            .unwrap();
+            let frame = reservation
+                .normalize(&context, definition, estimate, |maximum| {
+                    if let Some(capture) = &capture {
+                        ProtocolClassifier::normalize_bounded(
+                            &context, definition, capture, records, None, maximum,
+                        )
+                    } else {
+                        FrameNormalizer::local_bounded(&context, definition, &sample, None, maximum)
+                    }
+                })
+                .unwrap();
+            assert_eq!(reservation.bytes, encoded_bytes(&frame));
+            assert_eq!(memory.lock().reserved, encoded_bytes(&frame));
+            assert!(memory.lock().peak <= 128 * 1024);
+            check(&frame);
+            drop(frame);
+            drop(reservation);
+            assert_eq!(memory.lock().reserved, 0);
+        }
+        let mut definition: WidgetDefinition = serde_yaml::from_str("widget: charged\ntitle: Charged\nsource: {kind: local, collector: local.network}\ninterval: 2\nkey: [identity]\nfields: {identity: [identity], value: [absent, value]}\nrates: {rate: {field: value, unit: B/s}}\ncomputes: {twice: rate * 2}\nview: {type: table, columns: [{field: value, label: Value, unit: B}, {field: twice, label: Computed, unit: B/s}]}\n").unwrap();
+        for n in 0..8 {
+            definition
+                .fields
+                .insert(format!("copy{n}"), vec!["value".into()]);
+        }
+        for value in [
+            MetricValue::Text {
+                value: "100".into(),
+            },
+            MetricValue::Text {
+                value: "quoted\"\\\u{0}\nµ".repeat(16),
+            },
+            MetricValue::Missing {
+                reason: "missing".into(),
+            },
+        ] {
+            let record = MetricRow {
+                key: String::new(),
+                fields: BTreeMap::from([
+                    (
+                        "identity".into(),
+                        MetricValue::Text {
+                            value: "key\"\\\u{0}µ".into(),
+                        },
+                    ),
+                    ("value".into(), value),
+                ]),
+            };
+            verify(
+                &definition,
+                vec![record.clone()],
+                None,
+                vec![failure(
+                    "local_rows_disappeared",
+                    "Small local fixture diagnostic",
+                )],
+                |frame| {
+                    assert_eq!(frame.state, CollectionState::Fresh);
+                    assert_eq!(frame.rows.len(), 1);
+                    assert_eq!(frame.units["twice"], "B/s");
+                },
+            );
+            verify(
+                &definition,
+                vec![record.clone(), record],
+                None,
+                vec![],
+                |frame| {
+                    assert_eq!(frame.state, CollectionState::Failed);
+                    assert!(frame.diagnostics.iter().any(|d| d.code == "duplicate_key"));
+                },
+            );
+        }
+        let definition = Catalog::builtin().unwrap().widgets["bgp_peers"].clone();
+        let WidgetSource::Ssh {
+            commands,
+            templates,
+        } = &definition.source
+        else {
+            unreachable!()
+        };
+        for token in ["7", "Idle"] {
+            let record = MetricRow {
+                key: String::new(),
+                fields: definition
+                    .fields
+                    .iter()
+                    .map(|(field, aliases)| {
+                        (
+                            aliases[0].clone(),
+                            MetricValue::Text {
+                                value: if ["state", "prefixes_received"].contains(&field.as_str()) {
+                                    token.into()
+                                } else {
+                                    field.clone()
+                                },
+                            },
+                        )
+                    })
+                    .collect(),
+            };
+            let capture = Capture {
+                capture_id: "fixture".into(),
+                target_id: "one".into(),
+                platform: Platform::Iosxe,
+                command: commands[&Platform::Iosxe].clone(),
+                parser_id: templates[&Platform::Iosxe].clone(),
+                revision: "source".into(),
+                observed_at_ms: 1000,
+                monotonic_ms: 1000,
+                raw: "Small already-parsed BGP fixture".into(),
+            };
+            verify(&definition, vec![record], Some(capture), vec![], |frame| {
+                assert_eq!(frame.state, CollectionState::Fresh);
+                assert_eq!(
+                    frame.rows[0].fields["state"],
+                    MetricValue::Text {
+                        value: if token == "7" {
+                            "Established".into()
+                        } else {
+                            "Idle".into()
+                        }
+                    }
+                );
+            });
+        }
+    }
     #[tokio::test]
     async fn auth_failure_suspends_retry() {
         let h = Harness::new();

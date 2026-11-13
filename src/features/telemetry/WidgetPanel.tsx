@@ -223,7 +223,7 @@ export function WidgetPanel({
       typeof stat === "number" &&
       (!Number.isFinite(stat) ||
         (field &&
-          page.rows.some((r) => r.fields[field]?.kind === "unsigned") &&
+          (page.rows.some((r) => r.fields[field]?.kind === "unsigned") || numbers.every(Number.isInteger)) &&
           (view.aggregation === "sum" || view.aggregation === "mean"
             ? !Number.isSafeInteger(sum)
             : !Number.isSafeInteger(stat))))

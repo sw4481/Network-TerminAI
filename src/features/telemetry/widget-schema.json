@@ -27,6 +27,7 @@
           "minLength": 1
         },
         "unit": {
+          "description": "Declared field unit; explicit view and rate/delta declarations must agree. Changing it resets only that field's history; values are not converted.",
           "type": [
             "string",
             "null"
@@ -260,6 +261,7 @@
           "default": 1
         },
         "unit": {
+          "description": "Declared transform unit; must agree with any explicit view unit for this field.",
           "type": [
             "string",
             "null"

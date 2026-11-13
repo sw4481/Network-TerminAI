@@ -262,6 +262,7 @@ export function DeviceView(
         </p>
       ))}
       {data.loading && <p role="status">Loading current observations…</p>}
+      {data.catalogError && <button onClick={data.reload}>Retry observations</button>}
       {section && (
         <ConfiguredSection
           section={section}
@@ -308,7 +309,7 @@ export function DeviceView(
           }}
         />
       )}
-      {!data.loading && !sections.length && (
+      {!data.loading && !data.catalogError && !sections.length && (
         <p>No device layout is configured.</p>
       )}
     </section>

@@ -67,7 +67,7 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
         workspace_id: tabId,
         targets,
         local_enabled: local,
-        monitored_interfaces: interfaces,
+        monitored_interfaces: { ...telemetryWorkspaces.monitoredInterfaces(tabId, targets), ...interfaces },
       })
       .catch(() => {});
   const choose = (id: string) => {
@@ -328,7 +328,13 @@ export function TelemetryTab({ tabId }: { tabId: string }) {
           <p>{draft.length} / 10 network targets selected</p>
           <div className="telemetry-toolbar">
             <button
-              onClick={() => {
+              disabled={disabled}
+              onClick={async () => {
+                if (snapshot?.running) {
+                  try {
+                    await telemetryWorkspaces.start({ workspace_id: tabId, targets: draft, local_enabled: draftLocal, monitored_interfaces: telemetryWorkspaces.monitoredInterfaces(tabId, draft) });
+                  } catch { return; }
+                }
                 setPending(draft);
                 setLocal(draftLocal);
                 closePicker();

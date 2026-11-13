@@ -4,6 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { TelemetryTab } from "./TelemetryTab";
 import { telemetryWorkspaces } from "./store";
 import { telemetryApi } from "./api";
+import { sshListConnections } from "../../lib/sshConnections";
+import type { StartRequest, TelemetrySnapshot } from "./types";
 vi.mock("../../components/editor/MonacoEditor", () => ({ DEFAULT_EDITOR_SETTINGS: {}, MonacoEditor: ({ value, onChange }: { value: string; onChange(value: string): void }) => <textarea aria-label="Source editor" value={value} onChange={(event) => onChange(event.target.value)} /> }));
 vi.mock("../../lib/sshConnections", () => ({
   sshListConnections: vi.fn().mockResolvedValue([
@@ -53,6 +55,43 @@ vi.mock("./api", () => ({
 afterEach(async () => {
   await telemetryWorkspaces.close("tab");
   vi.clearAllMocks();
+});
+it.each([false, true])("awaits running selection reconciliation and preserves prior selection on failure (%s)", async (fail) => {
+  HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
+  vi.mocked(sshListConnections).mockResolvedValueOnce(["one", "two", "three"].map((id) => ({ id, name: `Saved ${id}`, platform: "iosxe" })) as Awaited<ReturnType<typeof sshListConnections>>);
+  const request: StartRequest = { workspace_id: "tab", targets: ["one", "two"].map((connection_id) => ({ connection_id, platform: "iosxe" })), local_enabled: true, monitored_interfaces: { two: ["Gi0/1"] } };
+  const result = (r: StartRequest, generation: number): TelemetrySnapshot => ({ workspace_id: "tab", generation, sequence: 0, running: true, targets: [...r.targets.map((t) => ({ target_id: t.connection_id, display_name: `Saved ${t.connection_id}`, platform: t.platform, monitoring_selected: true, state: "fresh" as const, last_success_at_ms: 1, diagnostics: [] })), ...(r.local_enabled ? [{ target_id: "local", display_name: "Local PC", platform: null, monitoring_selected: true, state: "fresh" as const, last_success_at_ms: 1, diagnostics: [] }] : [])], widgets: [], series: [], diagnostics: [] });
+  vi.mocked(telemetryApi.start).mockResolvedValueOnce(result(request, 2));
+  await telemetryWorkspaces.establish("tab");
+  await telemetryWorkspaces.start(request);
+  let resolve!: (value: TelemetrySnapshot) => void;
+  let reject!: (error: Error) => void;
+  vi.mocked(telemetryApi.start).mockImplementationOnce(() => new Promise((yes, no) => { resolve = yes; reject = no; }));
+  render(<TelemetryTab tabId="tab" />);
+  fireEvent.click(screen.getByRole("button", { name: "Manage targets" }));
+  fireEvent.click(await screen.findByLabelText("Saved one"));
+  fireEvent.click(screen.getByLabelText("Saved three"));
+  fireEvent.click(screen.getByLabelText("Monitor this computer"));
+  fireEvent.click(screen.getByRole("button", { name: "Use selection" }));
+  await waitFor(() => expect(telemetryApi.start).toHaveBeenCalledTimes(2));
+  const applied: StartRequest = { ...request, targets: request.targets.slice(1).concat({ connection_id: "three", platform: "iosxe" }), local_enabled: false };
+  expect(telemetryApi.start).toHaveBeenLastCalledWith(applied);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  if (fail) {
+    await act(async () => reject(new Error("Selection refused")));
+    expect(screen.getByRole("alert")).toHaveTextContent("Selection refused");
+    expect(screen.getByRole("dialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Manage targets" }));
+    expect(screen.getByLabelText("Saved one")).toBeChecked();
+    expect(screen.getByLabelText("Saved three")).not.toBeChecked();
+    expect(screen.getByLabelText("Monitor this computer")).toBeChecked();
+  } else {
+    await act(async () => resolve(result(applied, 3)));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(telemetryWorkspaces.state.getState().workspaces.tab.snapshot?.targets.map((t) => t.target_id)).toEqual(["two", "three"]);
+  }
 });
 it("preserves invalid YAML/layout/template drafts and close guard across workspace navigation", async () => {
   const view = render(<TelemetryTab tabId="tab" />);

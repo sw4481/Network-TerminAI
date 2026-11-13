@@ -136,6 +136,7 @@ impl DefinitionValidator {
         catalog: &Catalog,
     ) -> Result<(), Diagnostic> {
         let path = &widget.widget;
+        widget.declared_units()?;
         ensure(
             valid_name(path) && !widget.title.trim().is_empty(),
             "widget",

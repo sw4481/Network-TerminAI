@@ -675,6 +675,37 @@ impl AlertPredicate {
     }
 }
 impl WidgetDefinition {
+    pub(crate) fn declared_units(&self) -> Result<BTreeMap<String, String>, Diagnostic> {
+        let fields: &[ViewField] = match &self.view {
+            WidgetView::Table { columns } | WidgetView::Kv { columns } => columns,
+            WidgetView::Chart { series } => series,
+            WidgetView::Stat { .. } => &[],
+        };
+        let mut units = BTreeMap::new();
+        for (field, unit) in self
+            .rates
+            .iter()
+            .chain(&self.deltas)
+            .filter_map(|(field, transform)| transform.unit.as_ref().map(|unit| (field, unit)))
+            .chain(
+                fields
+                    .iter()
+                    .filter_map(|field| field.unit.as_ref().map(|unit| (&field.field, unit))),
+            )
+        {
+            if units
+                .insert(field.clone(), unit.clone())
+                .is_some_and(|old| old != *unit)
+            {
+                return Err(Diagnostic::new(
+                    "unit_conflict",
+                    "A field has conflicting declared units; use one unit consistently",
+                    format!("{}.{}", self.widget, field),
+                ));
+            }
+        }
+        Ok(units)
+    }
     pub fn first_alert(&self, fields: &BTreeMap<String, MetricValue>) -> Option<&AlertPredicate> {
         self.alerts.iter().find(|alert| {
             fields

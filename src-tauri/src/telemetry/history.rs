@@ -9,6 +9,7 @@ type SeriesKey = (String, String, String, String);
 struct Configuration {
     signature: String,
     fields: BTreeSet<String>,
+    units: BTreeMap<String, String>,
 }
 struct RetainedPoint {
     monotonic_ms: u64,
@@ -17,6 +18,7 @@ struct RetainedPoint {
 struct HistorySeries {
     unit: Option<String>,
     points: BTreeMap<i64, RetainedPoint>,
+    pending_gap: Option<&'static str>,
 }
 
 pub struct TelemetryHistory {
@@ -47,7 +49,7 @@ impl TelemetryHistory {
         definition: &WidgetDefinition,
         template_hash: &str,
     ) -> Result<bool, Diagnostic> {
-        // Unit identity is checked per series when the normalized frame arrives.
+        let units = definition.declared_units()?;
         let rates: BTreeMap<_, _> = definition
             .rates
             .iter()
@@ -81,11 +83,9 @@ impl TelemetryHistory {
             .map(|h| h.fields.iter().cloned().collect())
             .unwrap_or_default();
         let key = (target.to_string(), definition.widget.clone());
-        if self
-            .configurations
-            .get(&key)
-            .is_some_and(|old| old.signature == signature && old.fields == fields)
-        {
+        if self.configurations.get(&key).is_some_and(|old| {
+            old.signature == signature && old.fields == fields && old.units == units
+        }) {
             return Ok(false);
         }
         let changed = self
@@ -93,10 +93,23 @@ impl TelemetryHistory {
             .get(&key)
             .is_some_and(|old| old.signature != signature);
         self.series.retain(|(t, w, _, f), _| {
-            t != target || w != &definition.widget || (!changed && fields.contains(f))
+            t != target
+                || w != &definition.widget
+                || (!changed
+                    && fields.contains(f)
+                    && self
+                        .configurations
+                        .get(&key)
+                        .is_none_or(|old| old.units.get(f) == units.get(f)))
         });
-        self.configurations
-            .insert(key, Configuration { signature, fields });
+        self.configurations.insert(
+            key,
+            Configuration {
+                signature,
+                fields,
+                units,
+            },
+        );
         self.used_bytes = self.calculate_bytes();
         Ok(changed)
     }
@@ -156,6 +169,75 @@ impl TelemetryHistory {
 
     pub fn append(&mut self, frame: &WidgetFrame) -> Result<(), Diagnostic> {
         self.append_bounded(frame, MAX_WORKSPACE_BYTES)
+    }
+
+    pub(crate) fn discontinuity(
+        &mut self,
+        target: Option<&str>,
+        widgets: &BTreeSet<String>,
+        observed_at_ms: i64,
+        maximum_bytes: usize,
+        reason: &'static str,
+    ) -> Result<(), Diagnostic> {
+        let resumed = if reason == "Monitoring stopped" {
+            "Collection resumed after monitoring stopped"
+        } else {
+            "Collection resumed after collection failed"
+        };
+        let mut pending = Vec::new();
+        let mut clock_gap = false;
+        let mut bytes = self.bytes();
+        for (key, series) in &mut self.series {
+            if target.is_some_and(|target| key.0 != target)
+                || (!widgets.is_empty() && !widgets.contains(&key.1))
+            {
+                continue;
+            }
+            let Some((last_at, last)) = series.points.last_key_value() else {
+                continue;
+            };
+            if last.point.value.is_none() || series.pending_gap.is_some() {
+                continue;
+            }
+            series.pending_gap = Some(resumed);
+            if observed_at_ms <= *last_at {
+                clock_gap = true;
+                continue;
+            }
+            let point = SeriesPoint {
+                at_ms: observed_at_ms,
+                value: None,
+                reason: Some(reason.into()),
+            };
+            bytes = bytes.saturating_add(point_bytes(&point));
+            pending.push((key.clone(), point));
+        }
+        if bytes > maximum_bytes {
+            return Err(Diagnostic::new(
+                "history_memory_limit",
+                "History gap is pending until another observation fits the workspace memory limit",
+                "telemetry",
+            ));
+        }
+        for (key, point) in pending {
+            let series = self.series.get_mut(&key).unwrap();
+            series.points.insert(
+                point.at_ms,
+                RetainedPoint {
+                    monotonic_ms: self.now_ms,
+                    point,
+                },
+            );
+            series.pending_gap = None;
+        }
+        self.used_bytes = bytes;
+        self.next_prune_ms = self
+            .next_prune_ms
+            .min(self.now_ms.saturating_add(HOUR_MS).saturating_add(1));
+        if clock_gap {
+            return Err(Diagnostic::new("history_clock", "Collection gap is pending: the event clock did not exceed the last observation; the next admissible observation will mark the discontinuity", "telemetry"));
+        }
+        Ok(())
     }
 
     pub(crate) fn append_bounded(
@@ -242,7 +324,17 @@ impl TelemetryHistory {
         }
         let mut bytes = self.bytes();
         let mut count = self.series.len();
-        for (key, (unit, point)) in &pending {
+        for (key, (unit, point)) in &mut pending {
+            if point.value.is_some() {
+                if let Some(reason) = self
+                    .series
+                    .get(key)
+                    .filter(|series| &series.unit == unit)
+                    .and_then(|series| series.pending_gap)
+                {
+                    point.reason = Some(reason.into());
+                }
+            }
             if self
                 .series
                 .get(key)
@@ -281,11 +373,13 @@ impl TelemetryHistory {
             let series = self.series.entry(key).or_insert_with(|| HistorySeries {
                 unit: unit.clone(),
                 points: BTreeMap::new(),
+                pending_gap: None,
             });
             if series.unit != unit {
                 series.points.clear();
                 series.unit = unit;
             }
+            series.pending_gap = None;
             series.points.insert(
                 point.at_ms,
                 RetainedPoint {
@@ -359,7 +453,11 @@ impl TelemetryHistory {
                         * (target.len()
                             + widget.len()
                             + c.signature.len()
-                            + c.fields.iter().map(|f| f.len() + 128).sum::<usize>())
+                            + c.fields.iter().map(|f| f.len() + 128).sum::<usize>()
+                            + c.units
+                                .iter()
+                                .map(|(field, unit)| field.len() + unit.len() + 128)
+                                .sum::<usize>())
                 })
                 .sum::<usize>()
             + self
@@ -636,6 +734,61 @@ mod tests {
         );
     }
     #[test]
+    fn final_pending_gap_survives_clock_and_memory_rejection_without_changing_exact_paging() {
+        for event_at in [100, 99] {
+            let mut history = history();
+            history
+                .append(&frame(100, MetricValue::Number { value: 4.0 }))
+                .unwrap();
+            assert_eq!(
+                history
+                    .discontinuity(
+                        Some("local"),
+                        &BTreeSet::new(),
+                        event_at,
+                        MAX_WORKSPACE_BYTES,
+                        "Monitoring stopped"
+                    )
+                    .unwrap_err()
+                    .code,
+                "history_clock"
+            );
+            let next = frame(101, MetricValue::Number { value: 8.0 });
+            assert_eq!(
+                history
+                    .append_bounded(&next, history.bytes())
+                    .unwrap_err()
+                    .code,
+                "history_memory_limit"
+            );
+            assert_eq!(history.series(query(100)).points.len(), 1);
+            history.append(&next).unwrap();
+            let first = history.series(query(1));
+            assert_eq!(first.points[0].value, Some(4.0));
+            assert_eq!(first.next_after_ms, Some(100));
+            let mut second = query(1);
+            second.after_ms = first.next_after_ms;
+            let second = history.series(second);
+            assert_eq!(second.points[0].at_ms, 101);
+            assert_eq!(second.points[0].value, Some(8.0));
+            assert_eq!(
+                second.points[0].reason.as_deref(),
+                Some("Collection resumed after monitoring stopped")
+            );
+            assert_eq!(second.next_after_ms, None);
+            let mut title = definition();
+            title.title = "Renamed".into();
+            history.configure("local", &title, "source-v1").unwrap();
+            assert_eq!(history.series(query(100)).points.len(), 2);
+            let WidgetView::Chart { series } = &mut title.view else {
+                unreachable!()
+            };
+            series[0].unit = Some("new-unit".into());
+            history.configure("local", &title, "source-v1").unwrap();
+            assert!(history.series(query(100)).points.is_empty());
+        }
+    }
+    #[test]
     fn cached_charge_matches_admission_unit_reset_configuration_and_expiry() {
         let mut history = history();
         for at in 0..10 {
@@ -666,6 +819,10 @@ mod tests {
     #[test]
     fn changing_one_transform_unit_resets_only_its_series() {
         let mut definition = definition();
+        let WidgetView::Chart { series } = &mut definition.view else {
+            unreachable!()
+        };
+        series[0].unit = Some("B/s".into());
         definition.fields.remove("rate");
         definition
             .fields
@@ -696,8 +853,12 @@ mod tests {
             .insert("other".into(), MetricValue::Number { value: 2.0 });
         history.append(&sample).unwrap();
         definition.rates.get_mut("rate").unwrap().unit = Some("kB/s".into());
+        let WidgetView::Chart { series } = &mut definition.view else {
+            unreachable!()
+        };
+        series[0].unit = Some("kB/s".into());
         history.configure("local", &definition, "source").unwrap();
-        assert_eq!(history.summaries().len(), 2);
+        assert_eq!(history.summaries().len(), 1);
         sample.observed_at_ms = 1;
         sample.units.insert("rate".into(), "kB/s".into());
         history.advance(1);

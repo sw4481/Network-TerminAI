@@ -10,14 +10,15 @@ import type {
   WidgetDefinition,
   WidgetPage,
 } from "./types";
-export const metricNumber = (value: MetricValue | undefined): number | null =>
-  value?.kind === "number" && Number.isFinite(value.value)
+export const metricNumber = (value: MetricValue | undefined): number | null => {
+  const number = value?.kind === "number"
     ? value.value
-    : value?.kind === "unsigned" &&
-        /^\d+$/.test(value.value) &&
-        Number.isSafeInteger(Number(value.value))
+    : (value?.kind === "unsigned" && /^\d+$/.test(value.value)) ||
+        (value?.kind === "text" && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.value))
       ? Number(value.value)
-      : null;
+      : NaN;
+  return Number.isFinite(number) && (!Number.isInteger(number) || Number.isSafeInteger(number)) ? number : null;
+};
 
 const canonical = (value: unknown): string =>
   JSON.stringify(value, (_key, v) =>

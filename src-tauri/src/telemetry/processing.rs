@@ -1,5 +1,6 @@
 //! Shared, stateless preview/live evaluation. The caller owns prior samples.
 use super::{definition::ArithmeticExpression, model::*};
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const MAX_FRAME_ROWS: usize = 10_000;
@@ -7,6 +8,94 @@ pub const MAX_WORKSPACE_BYTES: usize = 64 * 1024 * 1024;
 pub struct FrameNormalizer;
 
 impl FrameNormalizer {
+    fn field_value<'a>(
+        definition: &WidgetDefinition,
+        record: &'a MetricRow,
+        name: &str,
+        aliases: &[String],
+        capture: Option<&Capture>,
+    ) -> Option<Cow<'a, MetricValue>> {
+        let selected = aliases
+            .iter()
+            .filter_map(|alias| record.fields.get(alias).map(|value| (alias, value)))
+            .find(|(_, value)| {
+                !matches!(value, MetricValue::Missing { .. })
+                    && !matches!(value, MetricValue::Text { value } if value.is_empty())
+            });
+        capture
+            .and_then(|capture| {
+                selected.and_then(|(alias, value)| {
+                    super::catalog::ProtocolClassifier::field_value(
+                        definition, capture, name, alias, value,
+                    )
+                })
+            })
+            .map(Cow::Owned)
+            .or_else(|| selected.map(|(_, value)| Cow::Borrowed(value)))
+    }
+    pub(crate) fn normalization_bytes(
+        definition: &WidgetDefinition,
+        records: &[MetricRow],
+        capture: Option<&Capture>,
+    ) -> Result<usize, Diagnostic> {
+        if records.len() > MAX_FRAME_ROWS {
+            return Err(Diagnostic::new(
+                "normalization_limit",
+                "Normalized output exceeds the row or memory limit",
+                &definition.widget,
+            ));
+        }
+        let mut bytes = 0usize;
+        for record in records {
+            for (name, aliases) in &definition.fields {
+                let value = Self::field_value(definition, record, name, aliases, capture);
+                let charge = 128usize
+                    .saturating_add(name.len().saturating_mul(6))
+                    .saturating_add(value.as_deref().map(value_bytes).unwrap_or(128));
+                bytes =
+                    bytes.saturating_add(charge.saturating_mul(if definition.key.contains(name) {
+                        3
+                    } else {
+                        1
+                    }));
+            }
+            for name in definition
+                .rates
+                .keys()
+                .chain(definition.deltas.keys())
+                .chain(definition.computes.keys())
+            {
+                bytes = bytes.saturating_add(128 + name.len().saturating_mul(6));
+            }
+        }
+        Ok(bytes)
+    }
+    fn diagnostic_bytes(sample: &LocalSample) -> usize {
+        sample.diagnostics.iter().fold(0usize, |bytes, d| {
+            bytes.saturating_add(128).saturating_add(
+                d.code
+                    .len()
+                    .saturating_add(d.message.len())
+                    .saturating_add(d.path.len())
+                    .saturating_mul(6),
+            )
+        })
+    }
+    pub(crate) fn local_bytes(
+        definition: &WidgetDefinition,
+        sample: &LocalSample,
+    ) -> Result<usize, Diagnostic> {
+        let records = match definition.source {
+            WidgetSource::Local { collector } => sample
+                .sources
+                .get(collector.as_str())
+                .map(Vec::as_slice)
+                .unwrap_or_default(),
+            _ => &[],
+        };
+        Ok(Self::normalization_bytes(definition, records, None)?
+            .saturating_add(Self::diagnostic_bytes(sample)))
+    }
     pub fn normalize(
         context: &FrameContext,
         definition: &WidgetDefinition,
@@ -102,15 +191,7 @@ impl FrameNormalizer {
                 "Collector did not produce this source",
             );
         };
-        let diagnostic_bytes = sample.diagnostics.iter().fold(0usize, |bytes, d| {
-            bytes.saturating_add(128).saturating_add(
-                d.code
-                    .len()
-                    .saturating_add(d.message.len())
-                    .saturating_add(d.path.len())
-                    .saturating_mul(6),
-            )
-        });
+        let diagnostic_bytes = Self::diagnostic_bytes(sample);
         if diagnostic_bytes > maximum_bytes {
             return Self::failed(
                 frame,
@@ -148,17 +229,7 @@ impl FrameNormalizer {
             last_success_at_ms: None,
             state: CollectionState::Fresh,
             severity: ObservationSeverity::Info,
-            units: definition
-                .rates
-                .iter()
-                .chain(&definition.deltas)
-                .filter_map(|(name, transform)| {
-                    transform
-                        .unit
-                        .as_ref()
-                        .map(|unit| (name.clone(), unit.clone()))
-                })
-                .collect(),
+            units: definition.declared_units().unwrap_or_default(),
             rows: vec![],
             diagnostics: vec![],
         }
@@ -181,6 +252,11 @@ impl FrameNormalizer {
         maximum_bytes: usize,
         capture: Option<&Capture>,
     ) {
+        if let Err(diagnostic) = definition.declared_units() {
+            frame.state = CollectionState::Failed;
+            frame.diagnostics.push(diagnostic);
+            return;
+        }
         let result = Self::rows(definition, records, at, previous, maximum_bytes, capture);
         match result {
             Ok(rows) => {
@@ -222,12 +298,14 @@ impl FrameNormalizer {
         if records.len() > MAX_FRAME_ROWS {
             return Err(limit());
         }
+        if Self::normalization_bytes(definition, records, capture)? > maximum_bytes {
+            return Err(limit());
+        }
         let expressions: BTreeMap<_, _> = definition
             .computes
             .iter()
             .map(|(name, text)| ArithmeticExpression::parse(text).map(|expr| (name, expr)))
             .collect::<Result<_, _>>()?;
-        let mut budget = 0usize;
         let mut keys = BTreeSet::new();
         let mut output = Vec::new();
         let previous_rows: BTreeMap<_, _> = previous
@@ -236,37 +314,9 @@ impl FrameNormalizer {
         for record in records {
             let mut fields = BTreeMap::new();
             for (name, aliases) in &definition.fields {
-                let selected = aliases
-                    .iter()
-                    .filter_map(|alias| record.fields.get(alias).map(|value| (alias, value)))
-                    .find(|(_, value)| {
-                        !matches!(value, MetricValue::Missing { .. })
-                            && !matches!(value, MetricValue::Text { value } if value.is_empty())
-                    });
-                let canonical = capture.and_then(|capture| {
-                    selected.and_then(|(alias, value)| {
-                        super::catalog::ProtocolClassifier::field_value(
-                            definition, capture, name, alias, value,
-                        )
-                    })
-                });
-                let value = canonical
-                    .as_ref()
-                    .or_else(|| selected.map(|(_, value)| value));
-                let bytes = 128usize
-                    .saturating_add(name.len().saturating_mul(6))
-                    .saturating_add(value.map(value_bytes).unwrap_or(128));
-                // Admit alias fanout before cloning a potentially large source value.
-                budget =
-                    budget.saturating_add(bytes.saturating_mul(if definition.key.contains(name) {
-                        3
-                    } else {
-                        1
-                    }));
-                if budget > maximum_bytes {
-                    return Err(limit());
-                }
-                let mut value = value.cloned().unwrap_or_else(|| gap("field_missing"));
+                let mut value = Self::field_value(definition, record, name, aliases, capture)
+                    .map(Cow::into_owned)
+                    .unwrap_or_else(|| gap("field_missing"));
                 if !definition.key.contains(name)
                     && definition
                         .rates
@@ -297,10 +347,6 @@ impl FrameNormalizer {
                 .map(|(n, t)| (n, t, true))
                 .chain(definition.deltas.iter().map(|(n, t)| (n, t, false)))
             {
-                budget = budget.saturating_add(128 + name.len().saturating_mul(6));
-                if budget > maximum_bytes {
-                    return Err(limit());
-                }
                 let result = (|| {
                     let (_, before_at) = previous.ok_or("initial_sample")?;
                     let elapsed = at
@@ -337,10 +383,6 @@ impl FrameNormalizer {
                 .filter_map(|(name, value)| number(value).map(|value| (name.clone(), value)))
                 .collect();
             for (name, expression) in &expressions {
-                budget = budget.saturating_add(128 + name.len().saturating_mul(6));
-                if budget > maximum_bytes {
-                    return Err(limit());
-                }
                 row.fields.insert(
                     (*name).clone(),
                     expression
@@ -442,7 +484,21 @@ mod tests {
     }
     #[test]
     fn exact_counter_delta_alias_compute_and_first_alert() {
-        let def = definition();
+        let mut def = definition();
+        def.view = WidgetView::Table {
+            columns: vec![
+                ViewField {
+                    field: "bytes".into(),
+                    label: "Bytes".into(),
+                    unit: Some("B".into()),
+                },
+                ViewField {
+                    field: "twice".into(),
+                    label: "Computed".into(),
+                    unit: Some("bit/s".into()),
+                },
+            ],
+        };
         let ctx = context();
         let first = FrameNormalizer::local(&ctx, &def, &sample(u64::MAX - 2, 1000), None);
         assert!(matches!(
@@ -482,6 +538,8 @@ mod tests {
         assert_eq!(second.severity, ObservationSeverity::Warn);
         assert_eq!(second.generation, 9);
         assert_eq!(second.units["bits"], "bit/s");
+        assert_eq!(second.units["bytes"], "B");
+        assert_eq!(second.units["twice"], "bit/s");
     }
     #[test]
     fn reset_clock_missing_and_empty_are_gaps_not_unconfigured() {

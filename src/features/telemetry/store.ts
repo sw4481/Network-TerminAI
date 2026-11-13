@@ -31,6 +31,7 @@ interface Owner {
   reads: Map<string, object>;
   refreshing: boolean;
   lease?: CloseLease;
+  interfaces?: StartRequest["monitored_interfaces"];
 }
 interface CloseLease extends AppFrozenOwner { approved: boolean; purpose: AppPreflightPurpose | "tab" }
 interface DraftOwner { dirty(): boolean; identity(): object; freeze(value: boolean): void }
@@ -211,9 +212,18 @@ export class TelemetryWorkspaceStore {
     return lease;
   }
   start(request: StartRequest) {
-    return this.control(request.workspace_id, async () =>
-      this.accept(request.workspace_id, await this.api.start(request)),
-    );
+    return this.control(request.workspace_id, async () => {
+      this.accept(request.workspace_id, await this.api.start(request));
+      const owner = this.owners.get(request.workspace_id);
+      if (owner) owner.interfaces = Object.fromEntries(request.targets.flatMap((target) => {
+        const interfaces = request.monitored_interfaces[target.connection_id];
+        return interfaces ? [[target.connection_id, [...interfaces]]] : [];
+      }));
+    });
+  }
+  monitoredInterfaces(id: string, targets: TargetRef[]) {
+    const interfaces = this.owners.get(id)?.interfaces ?? {};
+    return Object.fromEntries(targets.flatMap((target) => interfaces[target.connection_id] ? [[target.connection_id, [...interfaces[target.connection_id]]]] : []));
   }
   stop(id: string) {
     return this.control(id, async () => {

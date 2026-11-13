@@ -63,7 +63,7 @@ export const snapshot = (): TelemetrySnapshot => ({
 });
 export const page = (
   widget = "cpu",
-  rows = [row("1", { cpu_5s_percent: 4 })],
+  rows = [row("1", { cpu_5s_percent: "4" })],
 ): WidgetPage => ({
   metadata: {
     workspace_id: "test",
@@ -138,7 +138,7 @@ export function dashboardFixture(
     generation: 1,
     sequence: 1,
     revision: "global",
-    value: catalog,
+    value: structuredClone(catalog),
   }));
   vi.spyOn(telemetryWorkspaces, "read").mockImplementation(
     async (_id, _key, request) => request(),

@@ -59,6 +59,7 @@ class SyntheticTelemetryBackend {
   fileFailure = false;
   applyFailure = false;
   readonly appliedDrafts: ConfigDraft[] = [];
+  readonly starts: StartRequest[] = [];
   private delayedPreview?: { resolve(value: unknown): void; value: unknown };
   delayPreview = false;
   releasePreview() { this.delayedPreview?.resolve(this.delayedPreview.value); this.delayedPreview = undefined; }
@@ -226,7 +227,9 @@ class SyntheticTelemetryBackend {
             value === undefined
               ? { kind: "missing", reason: "fixture_unavailable" }
               : typeof value === "number"
-                ? { kind: "number", value }
+                ? w.source.kind === "ssh" && ["cpu", "memory"].includes(w.widget)
+                  ? { kind: "text", value: String(w.widget === "memory" && field === "used_bytes" ? 236752096 : w.widget === "memory" && field === "total_bytes" ? 919638648 : value) }
+                  : { kind: "number", value }
                 : { kind: "text", value: String(value) },
           ];
         }),
@@ -403,6 +406,7 @@ class SyntheticTelemetryBackend {
       case "telemetry_snapshot":
         return clone(this.state);
       case "telemetry_start":
+        this.starts.push(clone(a.request));
         this.populate(a.request);
         return clone(this.state);
       case "telemetry_select": {
@@ -459,8 +463,13 @@ class SyntheticTelemetryBackend {
         if (this.delayPreview) { this.delayPreview = false; return new Promise((resolve) => { this.delayedPreview = { resolve, value: preview }; }); }
         return preview;
       }
+      case "telemetry_capture_sample": {
+        const request = a.request;
+        if (request.kind !== "draft" || request.draft.expected_revision !== "global" || request.target.connection_id !== "switch-0" || request.parser_id !== "iosxe.show_processes_cpu") throw new Error("Fixture draft capture binding mismatch");
+        return this.read({ capture_id: "explicit-capture", target_id: "switch-0", platform: "iosxe", command: "show processes cpu", parser_id: request.parser_id, revision: "source", observed_at_ms: 1700000001000, monotonic_ms: 1100, raw: "Fixture explicit admitted capture" }, "global");
+      }
       case "telemetry_test_template":
-        if (!["capture-one", "capture-two"].includes(a.captureId) || a.template.command !== "show processes cpu" || a.template.platform !== "iosxe") throw new Error("Fixture template binding mismatch");
+        if (!["capture-one", "capture-two", "explicit-capture"].includes(a.captureId) || a.template.command !== "show processes cpu" || a.template.platform !== "iosxe") throw new Error("Fixture template binding mismatch");
         return this.read({ capture_id: a.captureId, parser_id: a.template.id, template_sha256: a.template.sha256, rows: [{ key: "tested", fields: { PROCESS_NAME: { kind: "text", value: "Fixture template test record" } } }] }, "global");
       case "telemetry_apply":
         if (!this.currentDraft || a.token.draft_hash !== this.draftHash(a.draft) || a.token.draft_hash !== this.draftHash(this.currentDraft)) throw new Error("Fixture stale token");
@@ -583,6 +592,20 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
       .getByRole("table", { name: "Monitored devices" })
       .getByRole("row"),
   ).toHaveCount(11);
+  await workspace.getByRole("button", { name: "Manage targets" }).click();
+  await dialog.getByLabel("Switch 10", { exact: true }).uncheck();
+  await dialog.getByLabel("Monitor this computer", { exact: true }).uncheck();
+  await dialog.getByRole("button", { name: "Use selection" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => backend.starts.length).toBe(2);
+  expect(backend.starts[1].targets.map((target) => target.connection_id)).not.toContain("switch-9");
+  expect(backend.starts[1].local_enabled).toBe(false);
+  await workspace.getByRole("button", { name: "Manage targets" }).click();
+  await dialog.getByLabel("Switch 10", { exact: true }).check();
+  await dialog.getByLabel("Monitor this computer", { exact: true }).check();
+  await dialog.getByRole("button", { name: "Use selection" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => backend.starts.length).toBe(3);
   try {
     await expect(workspace.getByText("4 %").first()).toBeVisible();
   } catch (error) {
@@ -806,7 +829,7 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
   await workspace
     .locator(".telemetry-chart")
     .first()
-    .getByText("Exact retained values", { exact: true })
+    .getByText("Recorded display values", { exact: true })
     .click();
   await expect(
     workspace.locator(".telemetry-chart").first().getByText("collection_gap"),
@@ -847,7 +870,7 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
   await expect(workspace.getByRole("table", { name: "Monitored devices" }).getByRole("row")).toHaveCount(1);
   await expect(workspace.locator(".telemetry-chart")).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("reopened-empty-stopped.png") });
-  expect(backend.receipts.filter((c) => c === "telemetry_start")).toHaveLength(1);
+  expect(backend.receipts.filter((c) => c === "telemetry_start")).toHaveLength(3);
   expect(backend.denied).toEqual([]);
   expect(external).toEqual([]);
   expect(errors).toEqual([]);
@@ -973,6 +996,12 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await studio.getByRole("button", { name: "Export", exact: true }).click();
   await expect.poll(() => backend.files.get("/fixture/bundled.textfsm")).toBe(templates["iosxe.show_processes_cpu"].text);
   expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
+  await studio.getByRole("combobox", { name: "Capture target", exact: true }).selectOption("switch-0");
+  await studio.getByRole("button", { name: "Capture sample", exact: true }).click();
+  await expect(studio.getByText("Sample captured. Validate and Preview to inspect its actual interpretation.", { exact: true })).toBeVisible();
+  await expect(studio.getByRole("combobox", { name: "Retained capture", exact: true })).toHaveValue("explicit-capture");
+  await studio.getByRole("button", { name: "Test template", exact: true }).click();
+  await expect(studio.getByText(/Fixture template test record/)).toBeVisible();
   await workspace.evaluate((element) => { element.scrollTop = 0; }); await page.screenshot({ path: info.outputPath("studio-textfsm-1440.png") });
   await studio.getByRole("button", { name: "Widgets", exact: true }).click();
   await changeScope("device:switch-0");
@@ -1035,7 +1064,7 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await expect.poll(() => source(widgetUri)).toBeUndefined(); await expect.poll(() => markers(widgetUri)).toEqual([]);
   await page.locator(".tab").filter({ hasText: "Playbooks" }).locator(".tab-close").click();
   await expect.poll(() => source(playbookUri)).toBeUndefined(); await expect.poll(() => markers(playbookUri)).toEqual([]);
-  expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
+  expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(1);
   expect(backend.denied).toEqual([]); expect(external).toEqual([]); expect(errors).toEqual([]);
   writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, inheritedTemplateExport: backend.files.get("/fixture/bundled.textfsm"), virtualFileRoundTrip: backend.files.get(backend.nextSave!), appliedScopes: backend.appliedDrafts.map((draft) => draft.scope), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
 });

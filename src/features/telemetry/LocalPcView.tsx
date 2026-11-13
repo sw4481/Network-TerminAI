@@ -48,6 +48,7 @@ export function LocalPcView(props: DashboardProps) {
         </p>
       ))}
       {data.loading && <p role="status">Loading current observations…</p>}
+      {data.catalogError && <button onClick={data.reload}>Retry observations</button>}
       {section && (
         <ConfiguredSection
           key={section.id}
@@ -61,7 +62,7 @@ export function LocalPcView(props: DashboardProps) {
           }
         />
       )}
-      {!data.loading && !sections.length && (
+      {!data.loading && !data.catalogError && !sections.length && (
         <p>No Local PC layout is configured.</p>
       )}
     </section>

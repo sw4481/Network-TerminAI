@@ -81,6 +81,41 @@ export async function studioFixture() {
 }
 
 describe("complete Studio draft authority", () => {
+  it("admits draft Capture and Test global envelopes while preserving distinct physical source provenance", async () => {
+    const { api, studio, owner } = await studioFixture();
+    vi.spyOn(api, "close").mockResolvedValue(undefined);
+    vi.stubGlobal("crypto", webcrypto);
+    const capture = { capture_id: "physical-capture", target_id: "device", platform: "iosxe" as const, command: "show version", parser_id: "draft.version", revision: "effective-device-source", observed_at_ms: 1000, monotonic_ms: 100, raw: "fixture raw" };
+    vi.mocked(api.captureSample).mockResolvedValue(envelope(capture));
+    vi.spyOn(api, "testTemplate").mockImplementation(async (_id, captureId, template) => envelope({ capture_id: captureId, parser_id: template.id, template_sha256: template.sha256, rows: [{ key: "record", fields: { value: { kind: "text", value: "4" } } }] }));
+    await studio.capture({ connection_id: "device", platform: "iosxe" }, "draft.version");
+    expect(studio.state.getState().error).toBeNull();
+    expect(studio.state.getState().samples[0]).toEqual(capture);
+    expect(studio.state.getState().catalog.effective.revision).toBe("effective");
+    await studio.testTemplate(capture.capture_id, { id: "edited.version", platform: "iosxe", command: "show version", text: "Value VALUE (.*)\n\nStart\n ^${VALUE} -> Record\n", sha256: "not-current" });
+    expect(studio.state.getState().error).toBeNull();
+    expect(studio.state.getState().templateResult?.rows[0].fields.value).toEqual({ kind: "text", value: "4" });
+    expect(studio.state.getState().samples[0].revision).toBe("effective-device-source");
+    await owner.close("studio");
+    vi.unstubAllGlobals();
+  });
+  it.each(["stale-global", "effective-device-source", "stale-generation"])("rejects obsolete authoring Capture and Test envelopes (%s)", async (authority) => {
+    const { api, studio, owner } = await studioFixture();
+    vi.spyOn(api, "close").mockResolvedValue(undefined);
+    vi.stubGlobal("crypto", webcrypto);
+    const capture = { capture_id: "physical-capture", target_id: "device", platform: "iosxe" as const, command: "show version", parser_id: "draft.version", revision: "effective-device-source", observed_at_ms: 1000, monotonic_ms: 100, raw: "fixture raw" };
+    const obsolete = <T,>(value: T) => ({ ...envelope(value), ...(authority === "stale-generation" ? { generation: 0 } : { revision: authority }) });
+    vi.mocked(api.captureSample).mockResolvedValue(obsolete(capture));
+    vi.spyOn(api, "testTemplate").mockImplementation(async (_id, captureId, template) => obsolete({ capture_id: captureId, parser_id: template.id, template_sha256: template.sha256, rows: [] }));
+    await studio.capture({ connection_id: "device", platform: "iosxe" }, "draft.version");
+    expect(studio.state.getState().samples).toEqual([]);
+    expect(studio.state.getState().error).toContain("obsolete");
+    await studio.testTemplate(capture.capture_id, { id: "draft.version", platform: "iosxe", command: "show version", text: "Value VALUE (.*)\n\nStart\n ^${VALUE} -> Record\n", sha256: "old" });
+    expect(studio.state.getState().templateResult).toBeNull();
+    expect(studio.state.getState().error).toContain("obsolete");
+    await owner.close("studio");
+    vi.unstubAllGlobals();
+  });
   it.each([undefined, "", "exact OWN template text"])(
     "exports the displayed inherited or OWN template verbatim (%s)",
     async (own) => {

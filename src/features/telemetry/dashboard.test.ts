@@ -5,10 +5,24 @@ import {
   processorPool,
   repeatedTotal,
   interfaceMember,
+  metricNumber,
 } from "./dashboard";
 import { definition, page, row, snapshot } from "./dashboard.test-support";
 import { TelemetryWorkspaceStore } from "./store";
 import type { TelemetryApi } from "./api";
+it("displays strict finite TextFSM decimal values without changing exact counter strings", () => {
+  const cpu = row("pid", { cpu_5s_percent: "4" });
+  const memory = row("Processor", { used_bytes: "236752096", total_bytes: "919638648" });
+  expect(repeatedTotal([cpu], "cpu_5s_percent")).toBe(4);
+  expect(processorPool([memory])).toBeCloseTo(236752096 / 919638648 * 100);
+  for (const value of ["", " ", "4\n", "4\r", " 4", "4 ", "4x", "4%", "0x10", "Infinity", "NaN", "1e309", "9007199254740993", "9007199254740992.0"]) {
+    expect(metricNumber({ kind: "text", value }), value).toBeNull();
+  }
+  for (const value of ["-1", "+1.5", ".25", "1.", "1e2"]) {
+    expect(metricNumber({ kind: "text", value }), value).toBe(Number(value));
+  }
+  expect(memory.fields.used_bytes).toEqual({ kind: "text", value: "236752096" });
+});
 it("accepts presentation overrides but refuses changed semantic sources and inconsistent device totals", () => {
   const d = definition();
   const config = {
