@@ -57,6 +57,12 @@ class SyntheticTelemetryBackend {
   nextOpen: string | null = null;
   nextSave: string | null = null;
   fileFailure = false;
+  applyFailure = false;
+  readonly appliedDrafts: ConfigDraft[] = [];
+  private delayedPreview?: { resolve(value: unknown): void; value: unknown };
+  delayPreview = false;
+  releasePreview() { this.delayedPreview?.resolve(this.delayedPreview.value); this.delayedPreview = undefined; }
+  get previewPending() { return !!this.delayedPreview; }
   nativeDecisions: { requestId: number; approved: boolean; failed: boolean }[] = [];
   private currentDraft: ConfigDraft | null = null;
   private draftHash(draft: ConfigDraft) { return createHash("sha256").update(JSON.stringify(draft)).digest("hex"); }
@@ -178,6 +184,8 @@ class SyntheticTelemetryBackend {
       interface: "Gi1/0/1",
       local_interface: "Gi1/0/1",
       vlan: "10",
+      mac: "0011.2233.4455",
+      interfaces: '["Gi1/0/1"]',
       role: "Alternate",
       cost: 4,
       core: "total",
@@ -389,6 +397,7 @@ class SyntheticTelemetryBackend {
       case "global_command_bar_get":
         return { schema_version: 1, workflow_ids: [] };
       case "telemetry_establish":
+        if (this.state.workspace_id !== a.workspaceId) this.state = { workspace_id: a.workspaceId, generation: 1, sequence: 1, running: false, targets: [], widgets: [], series: [], diagnostics: [] };
         this.state.workspace_id = a.workspaceId;
         return clone(this.state);
       case "telemetry_snapshot":
@@ -446,14 +455,19 @@ class SyntheticTelemetryBackend {
         const parserId = "iosxe.show_processes_cpu";
         const captures = network ? ["capture-one", "capture-two"].map((id) => ({ capture_id: id, target_id: "switch-0", platform: "iosxe", command: "show processes cpu", parser_id: parserId, revision: "source", observed_at_ms: 1700000000000, monotonic_ms: 100, raw: `Fixture retained raw ${id}` })) : [];
         const interpretations = captures.map((capture) => ({ capture_id: capture.capture_id, parser_id: parserId, template_sha256: templates[parserId].sha256, rows: [{ key: capture.capture_id, fields: { PROCESS_NAME: { kind: "text", value: `Parsed ${capture.capture_id}` } } }] }));
-        return this.read({ token: { id: "fixture-native-token", draft_hash: this.draftHash(a.draft), base_revision: "global", sample_hashes: {}, expires_at_ms: Date.now() + 60000 }, frames: [frame], captures, local_samples: network ? [] : [{ observed_at_ms: 1700000000000, monotonic_ms: 100, sources: { "local.memory": rows }, diagnostics: [] }], interpretations, frame_sources: [{ frame_index: 0, source: network ? { capture: { capture_id: "capture-two", parser_id: parserId } } : { local: { sample_index: 0, collector: "local.memory" } } }], diagnostics: [] }, "global");
+        const preview = this.read({ token: { id: "fixture-native-token", draft_hash: this.draftHash(a.draft), base_revision: "global", sample_hashes: {}, expires_at_ms: Date.now() + 60000 }, frames: [frame], captures, local_samples: network ? [] : [{ observed_at_ms: 1700000000000, monotonic_ms: 100, sources: { "local.memory": rows }, diagnostics: [] }], interpretations, frame_sources: [{ frame_index: 0, source: network ? { capture: { capture_id: "capture-two", parser_id: parserId } } : { local: { sample_index: 0, collector: "local.memory" } } }], diagnostics: [] }, "global");
+        if (this.delayPreview) { this.delayPreview = false; return new Promise((resolve) => { this.delayedPreview = { resolve, value: preview }; }); }
+        return preview;
       }
       case "telemetry_test_template":
         if (!["capture-one", "capture-two"].includes(a.captureId) || a.template.command !== "show processes cpu" || a.template.platform !== "iosxe") throw new Error("Fixture template binding mismatch");
         return this.read({ capture_id: a.captureId, parser_id: a.template.id, template_sha256: a.template.sha256, rows: [{ key: "tested", fields: { PROCESS_NAME: { kind: "text", value: "Fixture template test record" } } }] }, "global");
       case "telemetry_apply":
         if (!this.currentDraft || a.token.draft_hash !== this.draftHash(a.draft) || a.token.draft_hash !== this.draftHash(this.currentDraft)) throw new Error("Fixture stale token");
-        throw new Error("Fixture apply disk write failed");
+        if (this.applyFailure) throw new Error("Fixture apply disk write failed");
+        this.appliedDrafts.push(clone(a.draft));
+        this.state.generation++; this.state.sequence++;
+        return this.read({ revision: "global", affected_targets: ["switch-0"], masked_device_overrides: ["switch-1"] }, "global");
       case "telemetry_widget": {
         if (this.widgetFailures.has(`${a.query.target_id}:${a.query.widget_id}`)) throw new Error("Fixture applied refresh failed");
         const p = this.pages.get(`${a.query.target_id}:${a.query.widget_id}`);
@@ -719,6 +733,19 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
   await workspace.getByRole("button", { name: "Routing", exact: true }).click();
   await expect(workspace.getByText("2-Way").first()).toBeVisible();
   await expect(workspace.getByText("CORP").first()).toBeVisible();
+  for (const title of ["BGP summary: AF, peer, state and prefixes", "BGP VRF detail identity", "OSPF neighbors and observed interfaces", "OSPF interface process/area observations", "EIGRP neighbors and observed AS"])
+    await expect(workspace.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("device-routing-680.png") });
+  await workspace.getByRole("button", { name: "Switching", exact: true }).click();
+  for (const title of ["VLANs", "Switchport trunk mode/native/enabled VLAN observations", "STP roles and port states", "STP root observations", "EtherChannel bundle/member states", "CDP neighbors", "LLDP neighbors", "MAC address table"])
+    await expect(workspace.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  const macs = workspace.getByRole("table", { name: "MAC address table", exact: true });
+  await workspace.getByRole("searchbox", { name: "Filter MAC address table", exact: true }).fill("0011.2233");
+  await expect(macs.getByText("0011.2233.4455", { exact: true })).toBeVisible();
+  await workspace.getByRole("searchbox", { name: "Filter MAC address table", exact: true }).fill("no-such-mac");
+  await expect(macs.getByRole("row")).toHaveCount(1);
+  await workspace.getByRole("searchbox", { name: "Filter MAC address table", exact: true }).fill("");
+  await macs.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath("device-switching-mac-680.png") });
   await workspace
     .getByRole("button", { name: "Interfaces", exact: true })
     .click();
@@ -814,6 +841,13 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     tag: document.activeElement?.tagName,
     label: document.activeElement?.getAttribute("aria-label"),
   }));
+  await page.getByTestId("tab-new-chooser").click();
+  await page.getByRole("menuitem", { name: "Telemetry" }).click();
+  await expect(workspace.getByRole("navigation", { name: "Telemetry views" }).getByRole("status")).toContainText("Stopped");
+  await expect(workspace.getByRole("table", { name: "Monitored devices" }).getByRole("row")).toHaveCount(1);
+  await expect(workspace.locator(".telemetry-chart")).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath("reopened-empty-stopped.png") });
+  expect(backend.receipts.filter((c) => c === "telemetry_start")).toHaveLength(1);
   expect(backend.denied).toEqual([]);
   expect(external).toEqual([]);
   expect(errors).toEqual([]);
@@ -898,6 +932,17 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
     await studio.getByRole("combobox", { name: "Editing scope", exact: true }).selectOption(value);
     await expect(studio.getByRole("combobox", { name: "Editing scope", exact: true })).toHaveValue(value);
   };
+  for (const value of ["local", "profile:iosxe", "device:switch-0"]) {
+    await changeScope(value);
+    await studio.getByRole("button", { name: "Validate", exact: true }).click();
+    await expect(studio.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
+    await studio.getByRole("button", { name: "Preview", exact: true }).click();
+    await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+    await studio.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(studio.getByText("Loaded the canonical owned layer.", { exact: true })).toBeVisible();
+    await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+  }
+  expect(backend.appliedDrafts.map((draft) => draft.scope)).toEqual(["local", { profile: "iosxe" }, { device: "switch-0" }]);
   await changeScope("profile:iosxe");
   await expect(studio.getByText("IOSXE profile override", { exact: true })).toBeVisible();
   await studio.locator(".telemetry-library-list").getByRole("button", { name: /CPU and processes/ }).click();
@@ -908,6 +953,11 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await expect(studio.getByText("Fixture retained raw capture-two", { exact: true })).toBeVisible();
   await expect(studio.getByText(/Parsed capture-two/)).toBeVisible();
   await expect(studio.getByText("Rendered capture-two", { exact: true })).toBeVisible();
+  backend.applyFailure = true;
+  await studio.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(studio.getByRole("alert")).toContainText("Fixture apply disk write failed");
+  await expect(studio.getByText("Rendered capture-two", { exact: true })).toBeVisible();
+  backend.applyFailure = false;
   expect(await studio.getByText("Fixture retained raw capture-one", { exact: true }).count()).toBe(0);
   await workspace.evaluate((element) => { element.scrollTop = 0; });
   await page.screenshot({ path: info.outputPath("studio-authoring-1440.png") });
@@ -931,6 +981,35 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await expect(studio.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
   await studio.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+  await page.evaluate(() => {
+    const browser = window as any, internals = browser.__TAURI_INTERNALS__, invoke = internals.invoke;
+    browser.__task12PreviewDelivered = false;
+    internals.invoke = async (command: string, args: unknown, options: unknown) => {
+      try { return await invoke(command, args, options); }
+      finally { if (command === "telemetry_preview") browser.__task12PreviewDelivered = true; }
+    };
+  });
+  backend.delayPreview = true;
+  await studio.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect.poll(() => backend.previewPending).toBe(true);
+  await setSource(widgetUri, `${validWidget}# edited during delayed preview\n`);
+  backend.releasePreview();
+  await expect.poll(() => page.evaluate(() => (window as any).__task12PreviewDelivered)).toBe(true);
+  await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
+  await expect(studio.getByText("Rendered capture-two", { exact: true })).toHaveCount(0);
+  await studio.getByRole("button", { name: "Layouts", exact: true }).click();
+  const layoutUri = await page.evaluate(() => (window as any).__telemetryMonaco.editor.getModels().find((model: any) => model.uri.toString().includes("layouts.yaml"))?.uri.toString());
+  expect(layoutUri).toBeTruthy();
+  const layoutYaml = "schema_version: 1\nlayouts:\n  - layout: task12\n    platforms: [iosxe]\n    sections: [{id: overview, title: Task12 layout, rows: [[{widget: cpu, span: 12}]]}]\n";
+  await setSource(layoutUri, layoutYaml);
+  await studio.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Preview", exact: true })).toBeEnabled();
+  await studio.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeEnabled();
+  await studio.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => backend.appliedDrafts.at(-1)?.layouts_yaml).toBe(layoutYaml);
+  await expect(studio.getByText("Loaded the canonical owned layer.", { exact: true })).toBeVisible();
+  await studio.getByRole("button", { name: "Widgets", exact: true }).click();
   await setSource(widgetUri, `${validWidget}# edited after preview\n`);
   await expect(studio.getByRole("button", { name: "Apply", exact: true })).toBeDisabled();
   const exactImport = "# exact unsupported file\nwidget: upstream\nunsupported: true\n";
@@ -958,5 +1037,5 @@ for (const widgetFirst of [true, false]) test(`Studio and Playbook Monaco schema
   await expect.poll(() => source(playbookUri)).toBeUndefined(); await expect.poll(() => markers(playbookUri)).toEqual([]);
   expect(backend.receipts.filter((command) => command === "telemetry_capture_sample")).toHaveLength(0);
   expect(backend.denied).toEqual([]); expect(external).toEqual([]); expect(errors).toEqual([]);
-  writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, inheritedTemplateExport: backend.files.get("/fixture/bundled.textfsm"), virtualFileRoundTrip: backend.files.get(backend.nextSave!), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
+  writeFileSync(info.outputPath("studio-evidence.json"), JSON.stringify({ fixtureOnly: true, widgetFirst, models, widgetMarkers, playbookMarkers, widgetCompletion, playbookCompletion, inheritedTemplateExport: backend.files.get("/fixture/bundled.textfsm"), virtualFileRoundTrip: backend.files.get(backend.nextSave!), appliedScopes: backend.appliedDrafts.map((draft) => draft.scope), receipts: backend.receipts, denied: backend.denied, external, errors, nativeDecisions: backend.nativeDecisions, limits: ["Native file dialogs and actual filesystem round-trip OPEN", "Actual app quit, updater, device and OS acceptance OPEN"] }, null, 2));
 });

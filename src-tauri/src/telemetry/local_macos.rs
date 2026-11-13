@@ -172,7 +172,7 @@ fn process_ids() -> Result<Vec<i32>, &'static str> {
         let mut pids = vec![0i32; slots];
         let read =
             unsafe { libc::proc_listpids(PROC_ALL_PIDS, 0, pids.as_mut_ptr().cast(), capacity) };
-        if read <= 0 || read as usize % std::mem::size_of::<i32>() != 0 {
+        if read <= 0 || !(read as usize).is_multiple_of(std::mem::size_of::<i32>()) {
             return Err("Process enumeration failed or returned incomplete metadata");
         }
         if read < capacity {

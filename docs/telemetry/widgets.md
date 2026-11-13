@@ -143,3 +143,7 @@ Upstream alert rules are unsupported because their string/missing fallback, comm
 Compatibility is a tested subset, not full upstream or operational support. Original upstream documentation: [widget guide](https://github.com/scottpeterman/terminaltelemetry2/blob/09d2a0b3f9c77e2b85bd5b48a055b7bedb40fe98/docs/WIDGETS.md). Primary template/raw provenance: [NTC pinned tree](https://github.com/networktocode/ntc-templates/tree/e60dae39a28d148253e751176bd3ff15e35bfd56).
 
 Rejection format references: [Cisco IOS-XE17 CLI guide](https://www.cisco.com/c/en/us/td/docs/routers/ios/config/17-x/syst-mgmt/b-system-management/m_cf-cli-basics.html) and [Cisco IOS TACACS verification](https://www.cisco.com/c/en/us/support/docs/security/identity-services-engine/200208-Configure-ISE-2-0-IOS-TACACS-Authentic.html). These establish the stated messages, not complete release/channel acceptance.
+
+## Verification boundary
+
+Task12's real-App browser acceptance visits every bundled routing and switching panel, filters MAC rows, and drives Validate → Preview → Apply for Local, IOS-XE profile, device and layout drafts. It also exercises failed Apply and delayed Preview invalidation. Its observations, parser replies and file operations are synthetic IPC fixtures. This proves presentation and frontend authority handling; the release/channel/parser limitations above remain in force. See [the requirement-to-evidence record](validation.md#task12-available-verification-and-open-acceptance-2026-11-13) for distinct native/device/OS/packaging gates.

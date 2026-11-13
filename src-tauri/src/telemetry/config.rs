@@ -265,27 +265,63 @@ impl TelemetryConfigRepository {
             ConfigScope::Local => Some(&state.overrides.local),
             ConfigScope::Profile(platform) => state.overrides.profiles.get(platform),
             ConfigScope::Device(id) => state.overrides.devices.get(id).map(|entry| &entry.assets),
-        }.cloned().unwrap_or_default();
+        }
+        .cloned()
+        .unwrap_or_default();
         let catalog = self.scoped_catalog(&state, &state.overrides, &scope)?;
         let mut origins = CatalogOrigins::default();
         let mut layer = |assets: &Catalog, origin: AssetOrigin| {
-            for id in assets.widgets.keys() { if catalog.widgets.contains_key(id) { origins.widgets.insert(id.clone(), origin.clone()); } }
-            for id in assets.layouts.keys() { if catalog.layouts.contains_key(id) { origins.layouts.insert(id.clone(), origin.clone()); } }
-            for id in assets.templates.keys() { if catalog.templates.contains_key(id) { origins.templates.insert(id.clone(), origin.clone()); } }
+            for id in assets.widgets.keys() {
+                if catalog.widgets.contains_key(id) {
+                    origins.widgets.insert(id.clone(), origin.clone());
+                }
+            }
+            for id in assets.layouts.keys() {
+                if catalog.layouts.contains_key(id) {
+                    origins.layouts.insert(id.clone(), origin.clone());
+                }
+            }
+            for id in assets.templates.keys() {
+                if catalog.templates.contains_key(id) {
+                    origins.templates.insert(id.clone(), origin.clone());
+                }
+            }
         };
         layer(&self.builtin, AssetOrigin::Builtin);
         if let Some(platform) = platform {
-            if let Some(profile) = state.overrides.profiles.get(&platform) { layer(profile, AssetOrigin::Profile(platform)); }
+            if let Some(profile) = state.overrides.profiles.get(&platform) {
+                layer(profile, AssetOrigin::Profile(platform));
+            }
         }
-        layer(&own, match &scope { ConfigScope::Local => AssetOrigin::Local, ConfigScope::Profile(p) => AssetOrigin::Profile(*p), ConfigScope::Device(id) => AssetOrigin::Device(id.clone()) });
+        layer(
+            &own,
+            match &scope {
+                ConfigScope::Local => AssetOrigin::Local,
+                ConfigScope::Profile(p) => AssetOrigin::Profile(*p),
+                ConfigScope::Device(id) => AssetOrigin::Device(id.clone()),
+            },
+        );
         Ok(AuthoringCatalog {
             effective: effective(catalog),
             own: ConfigDraft {
                 scope: scope.clone(),
-                widgets_yaml: serde_yaml::to_string(&WidgetDocument { schema_version: 1, widgets: own.widgets.into_values().collect() }).map_err(|_| error("encoding", "Cannot encode owned widgets"))?,
-                layouts_yaml: serde_yaml::to_string(&LayoutDocument { schema_version: 1, layouts: own.layouts.into_values().collect() }).map_err(|_| error("encoding", "Cannot encode owned layouts"))?,
-                templates: own.templates.into_iter().map(|(id, asset)| (id, asset.text)).collect(),
-                expected_revision: state.revision.clone(), reset_assets: vec![],
+                widgets_yaml: serde_yaml::to_string(&WidgetDocument {
+                    schema_version: 1,
+                    widgets: own.widgets.into_values().collect(),
+                })
+                .map_err(|_| error("encoding", "Cannot encode owned widgets"))?,
+                layouts_yaml: serde_yaml::to_string(&LayoutDocument {
+                    schema_version: 1,
+                    layouts: own.layouts.into_values().collect(),
+                })
+                .map_err(|_| error("encoding", "Cannot encode owned layouts"))?,
+                templates: own
+                    .templates
+                    .into_iter()
+                    .map(|(id, asset)| (id, asset.text))
+                    .collect(),
+                expected_revision: state.revision.clone(),
+                reset_assets: vec![],
             },
             inherited: self.inherited(&state, &scope)?,
             builtin: filter_catalog(&self.builtin, platform),
@@ -508,7 +544,10 @@ impl TelemetryConfigRepository {
             token: None,
             frames: vec![],
             diagnostics: vec![],
-            captures: vec![], local_samples: vec![], interpretations: vec![], frame_sources: vec![],
+            captures: vec![],
+            local_samples: vec![],
+            interpretations: vec![],
+            frame_sources: vec![],
         };
         let attempt = uuid::Uuid::new_v4().to_string();
         let prepared = {
@@ -568,13 +607,14 @@ impl TelemetryConfigRepository {
             proofs: &proofs,
             retained_bytes,
         };
-        let (mut physical, captures) = match preview_interpretations(captures, &catalog, &source_context) {
-            Ok(captures) => captures,
-            Err(diagnostic) => {
-                report.diagnostics.push(diagnostic);
-                return report;
-            }
-        };
+        let (mut physical, captures) =
+            match preview_interpretations(captures, &catalog, &source_context) {
+                Ok(captures) => captures,
+                Err(diagnostic) => {
+                    report.diagnostics.push(diagnostic);
+                    return report;
+                }
+            };
         if workspace_id.is_empty() {
             report.diagnostics.push(error(
                 "workspace",
@@ -706,7 +746,10 @@ impl TelemetryConfigRepository {
         }
         let mut tested_templates = BTreeSet::new();
         for sample in &local_samples {
-            if let Err(d) = sample_hash(sample, &mut budget) { report.diagnostics.push(d); return report; }
+            if let Err(d) = sample_hash(sample, &mut budget) {
+                report.diagnostics.push(d);
+                return report;
+            }
             report.local_samples.push(sample.clone());
         }
         for id in selected {
@@ -725,7 +768,10 @@ impl TelemetryConfigRepository {
                             continue;
                         }
                         matched = true;
-                        let source = PreviewSampleSource::Local { sample_index: sample_index as u32, collector: *collector };
+                        let source = PreviewSampleSource::Local {
+                            sample_index: sample_index as u32,
+                            collector: *collector,
+                        };
                         let context = FrameContext {
                             workspace_id: workspace_id.into(),
                             target_id: "local".into(),
@@ -811,12 +857,26 @@ impl TelemetryConfigRepository {
                             }
                         };
                         if let Some(original) = physical.remove(&capture.capture_id) {
-                            if let Err(d) = sample_hash(&original, &mut budget) { report.diagnostics.push(d); return report; }
+                            if let Err(d) = sample_hash(&original, &mut budget) {
+                                report.diagnostics.push(d);
+                                return report;
+                            }
                             report.captures.push(original);
                         }
-                        if !report.interpretations.iter().any(|parsed| parsed.capture_id == capture.capture_id && parsed.parser_id == template.id) {
-                            if let Err(d) = sample_hash(&records, &mut budget) { report.diagnostics.push(d); return report; }
-                            report.interpretations.push(ParsedInterpretation { capture_id: capture.capture_id.clone(), parser_id: template.id.clone(), template_sha256: template.sha256.clone(), rows: records.clone() });
+                        if !report.interpretations.iter().any(|parsed| {
+                            parsed.capture_id == capture.capture_id
+                                && parsed.parser_id == template.id
+                        }) {
+                            if let Err(d) = sample_hash(&records, &mut budget) {
+                                report.diagnostics.push(d);
+                                return report;
+                            }
+                            report.interpretations.push(ParsedInterpretation {
+                                capture_id: capture.capture_id.clone(),
+                                parser_id: template.id.clone(),
+                                template_sha256: template.sha256.clone(),
+                                rows: records.clone(),
+                            });
                         }
                         let retained_bytes = budget.used;
                         if let Err(d) = sample_hash(&records, &mut budget) {
@@ -842,7 +902,15 @@ impl TelemetryConfigRepository {
                             MAX_WORKSPACE_BYTES.saturating_sub(budget.used),
                         );
                         budget.used = retained_bytes;
-                        if !admit_frame(&mut report, frame, &mut budget, PreviewSampleSource::Capture { capture_id: capture.capture_id.clone(), parser_id: template.id.clone() }) {
+                        if !admit_frame(
+                            &mut report,
+                            frame,
+                            &mut budget,
+                            PreviewSampleSource::Capture {
+                                capture_id: capture.capture_id.clone(),
+                                parser_id: template.id.clone(),
+                            },
+                        ) {
                             return report;
                         }
                         baseline.insert(
@@ -1031,15 +1099,15 @@ impl TelemetryConfigRepository {
         for asset in &draft.reset_assets {
             let matches = match asset {
                 ResetAsset::Widget(id) => {
-                    overlay.widgets.get(id).is_some()
+                    overlay.widgets.contains_key(id)
                         && overlay.widgets.get(id) == inherited.widgets.get(id)
                 }
                 ResetAsset::Layout(id) => {
-                    overlay.layouts.get(id).is_some()
+                    overlay.layouts.contains_key(id)
                         && overlay.layouts.get(id) == inherited.layouts.get(id)
                 }
                 ResetAsset::Template(id) => {
-                    overlay.templates.get(id).is_some()
+                    overlay.templates.contains_key(id)
                         && overlay.templates.get(id) == inherited.templates.get(id)
                 }
             };
@@ -1765,7 +1833,12 @@ fn local_diagnostic_blocks(
     !partial || frame.state != CollectionState::Fresh || frame.rows.is_empty()
 }
 
-fn admit_frame(report: &mut PreviewReport, frame: WidgetFrame, budget: &mut ByteBudget, source: PreviewSampleSource) -> bool {
+fn admit_frame(
+    report: &mut PreviewReport,
+    frame: WidgetFrame,
+    budget: &mut ByteBudget,
+    source: PreviewSampleSource,
+) -> bool {
     if frame.state == CollectionState::Failed {
         report.diagnostics.extend(frame.diagnostics);
         return false;
@@ -1774,8 +1847,14 @@ fn admit_frame(report: &mut PreviewReport, frame: WidgetFrame, budget: &mut Byte
         report.diagnostics.push(d);
         return false;
     }
-    let source = PreviewFrameSource { frame_index: report.frames.len() as u32, source };
-    if let Err(d) = sample_hash(&source, budget) { report.diagnostics.push(d); return false; }
+    let source = PreviewFrameSource {
+        frame_index: report.frames.len() as u32,
+        source,
+    };
+    if let Err(d) = sample_hash(&source, budget) {
+        report.diagnostics.push(d);
+        return false;
+    }
     report.frames.push(frame);
     report.frame_sources.push(source);
     true
@@ -1817,29 +1896,57 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let repo = repository(root.path());
         let mut raw = network("Raw multi-platform");
-        if let WidgetSource::Ssh { commands, templates } = &mut raw.source {
+        if let WidgetSource::Ssh {
+            commands,
+            templates,
+        } = &mut raw.source
+        {
             commands.insert(Platform::Ios, "show interfaces".into());
             templates.insert(Platform::Ios, "ios.interfaces".into());
         }
         let equal = repo.builtin.widgets.values().next().unwrap().clone();
         {
             let mut state = repo.lock();
-            state.overrides.profiles.insert(Platform::Iosxe, Catalog {
-                widgets: BTreeMap::from([(raw.widget.clone(), raw.clone())]), ..Catalog::default()
-            });
+            state.overrides.profiles.insert(
+                Platform::Iosxe,
+                Catalog {
+                    widgets: BTreeMap::from([(raw.widget.clone(), raw.clone())]),
+                    ..Catalog::default()
+                },
+            );
         }
-        let profile = repo.authoring_catalog(ConfigScope::Profile(Platform::Iosxe)).unwrap();
+        let profile = repo
+            .authoring_catalog(ConfigScope::Profile(Platform::Iosxe))
+            .unwrap();
         let own: WidgetDocument = serde_yaml::from_str(&profile.own.widgets_yaml).unwrap();
         assert_eq!(own.widgets, vec![raw]);
-        assert!(matches!(&profile.effective.widgets[0].source, WidgetSource::Ssh { commands, .. } if commands.len() == 1));
+        assert!(
+            matches!(&profile.effective.widgets[0].source, WidgetSource::Ssh { commands, .. } if commands.len() == 1)
+        );
         assert_eq!(profile.own.expected_revision, repo.base_revision());
         {
             let mut state = repo.lock();
-            state.overrides.profiles.insert(Platform::Iosxe, Catalog { widgets: BTreeMap::from([(equal.widget.clone(), equal.clone())]), ..Catalog::default() });
+            state.overrides.profiles.insert(
+                Platform::Iosxe,
+                Catalog {
+                    widgets: BTreeMap::from([(equal.widget.clone(), equal.clone())]),
+                    ..Catalog::default()
+                },
+            );
         }
-        let projection = repo.authoring_catalog(ConfigScope::Profile(Platform::Iosxe)).unwrap();
-        assert_eq!(projection.origins.widgets.get(&equal.widget), Some(&AssetOrigin::Profile(Platform::Iosxe)));
-        assert_eq!(serde_yaml::from_str::<WidgetDocument>(&projection.own.widgets_yaml).unwrap().widgets, vec![equal]);
+        let projection = repo
+            .authoring_catalog(ConfigScope::Profile(Platform::Iosxe))
+            .unwrap();
+        assert_eq!(
+            projection.origins.widgets.get(&equal.widget),
+            Some(&AssetOrigin::Profile(Platform::Iosxe))
+        );
+        assert_eq!(
+            serde_yaml::from_str::<WidgetDocument>(&projection.own.widgets_yaml)
+                .unwrap()
+                .widgets,
+            vec![equal]
+        );
     }
     fn repository(root: &Path) -> TelemetryConfigRepository {
         let repo = TelemetryConfigRepository::load(

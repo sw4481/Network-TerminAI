@@ -64,9 +64,9 @@ pub mod shell_integration;
 pub mod skills;
 pub mod ssh_exec;
 pub mod structured;
+pub mod telemetry;
 pub mod terminal_agent;
 pub mod terminal_logging;
-pub mod telemetry;
 pub mod tftp;
 pub mod topology;
 pub mod transcript_export;
@@ -1856,7 +1856,12 @@ pub fn run() {
                     == app_lifecycle::ExitRequestDisposition::Intercept
                 {
                     api.prevent_exit();
-                    app_lifecycle::request_shutdown_preflight(app_handle, &shutdown, "application-quit", code);
+                    app_lifecycle::request_shutdown_preflight(
+                        app_handle,
+                        &shutdown,
+                        "application-quit",
+                        code,
+                    );
                 }
             }
             tauri::RunEvent::Exit => {

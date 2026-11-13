@@ -37,7 +37,12 @@ pub struct CatalogOrigins {
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AssetOrigin { Builtin, Local, Profile(Platform), Device(String) }
+pub enum AssetOrigin {
+    Builtin,
+    Local,
+    Profile(Platform),
+    Device(String),
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -56,8 +61,14 @@ pub struct PreviewFrameSource {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum PreviewSampleSource {
-    Capture { capture_id: String, parser_id: TemplateId },
-    Local { sample_index: u32, collector: LocalCollector },
+    Capture {
+        capture_id: String,
+        parser_id: TemplateId,
+    },
+    Local {
+        sample_index: u32,
+        collector: LocalCollector,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -619,15 +630,15 @@ impl AlertPredicate {
             (ThresholdValue::Text(a), MetricValue::Text { value: b }) => Some(b.cmp(a)),
             _ => None,
         };
-        match (self.op, order) {
+        matches!(
+            (self.op, order),
             (PredicateOp::Eq, Some(Ordering::Equal))
-            | (PredicateOp::Ne, Some(Ordering::Less | Ordering::Greater))
-            | (PredicateOp::Gt, Some(Ordering::Greater))
-            | (PredicateOp::Ge, Some(Ordering::Equal | Ordering::Greater))
-            | (PredicateOp::Lt, Some(Ordering::Less))
-            | (PredicateOp::Le, Some(Ordering::Equal | Ordering::Less)) => true,
-            _ => false,
-        }
+                | (PredicateOp::Ne, Some(Ordering::Less | Ordering::Greater))
+                | (PredicateOp::Gt, Some(Ordering::Greater))
+                | (PredicateOp::Ge, Some(Ordering::Equal | Ordering::Greater))
+                | (PredicateOp::Lt, Some(Ordering::Less))
+                | (PredicateOp::Le, Some(Ordering::Equal | Ordering::Less))
+        )
     }
 
     fn numeric_order(value: &MetricValue, threshold: f64) -> Option<std::cmp::Ordering> {

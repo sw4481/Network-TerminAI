@@ -64,17 +64,38 @@ fn saved_platform(saved: &str, selected: Platform) -> Result<Platform, Diagnosti
         "ios" => Platform::Ios,
         "iosxe" => Platform::Iosxe,
         "generic" => selected,
-        _ => return Err(failure("ssh_platform_unsupported", "Saved platform is unsupported by telemetry")),
+        _ => {
+            return Err(failure(
+                "ssh_platform_unsupported",
+                "Saved platform is unsupported by telemetry",
+            ))
+        }
     };
-    if platform != selected { return Err(failure("ssh_platform_mismatch", "Saved platform differs from the selected telemetry profile")); }
+    if platform != selected {
+        return Err(failure(
+            "ssh_platform_mismatch",
+            "Saved platform differs from the selected telemetry profile",
+        ));
+    }
     Ok(platform)
 }
 /// Metadata admission deliberately selects no authentication or filesystem fields.
-pub(crate) fn saved_target_metadata(db: &Connection, target: TargetRef) -> Result<SavedTargetMetadata, Diagnostic> {
-    let (name, platform): (String, String) = db.query_row("SELECT name, platform FROM ssh_connections WHERE id = ?1", [&target.connection_id], |row| Ok((row.get(0)?, row.get(1)?)))
+pub(crate) fn saved_target_metadata(
+    db: &Connection,
+    target: TargetRef,
+) -> Result<SavedTargetMetadata, Diagnostic> {
+    let (name, platform): (String, String) = db
+        .query_row(
+            "SELECT name, platform FROM ssh_connections WHERE id = ?1",
+            [&target.connection_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
         .map_err(|_| failure("ssh_saved_target", "Saved SSH connection could not be read"))?;
     saved_platform(&platform, target.platform)?;
-    Ok(SavedTargetMetadata { reference: target, display_name: name })
+    Ok(SavedTargetMetadata {
+        reference: target,
+        display_name: name,
+    })
 }
 // Deliberately neither Debug nor Serialize: saved auth never becomes diagnostics/events.
 enum SavedAuth {

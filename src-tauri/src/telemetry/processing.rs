@@ -267,18 +267,17 @@ impl FrameNormalizer {
                     return Err(limit());
                 }
                 let mut value = value.cloned().unwrap_or_else(|| gap("field_missing"));
-                if !definition.key.contains(name) {
-                    if definition
+                if !definition.key.contains(name)
+                    && definition
                         .rates
                         .values()
                         .chain(definition.deltas.values())
                         .any(|transform| &transform.field == name)
-                    {
-                        if let Some(counter) = counter(&value) {
-                            value = MetricValue::Unsigned {
-                                value: counter.to_string(),
-                            };
-                        }
+                {
+                    if let Some(counter) = counter(&value) {
+                        value = MetricValue::Unsigned {
+                            value: counter.to_string(),
+                        };
                     }
                 }
                 fields.insert(name.clone(), value);

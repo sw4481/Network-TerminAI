@@ -272,7 +272,12 @@ fn request_standard_exit(app: &AppHandle, shutdown: &ShutdownCoordinator, failur
     app.exit(shutdown.exit_code());
 }
 
-fn cancel_preflight(app: &AppHandle, shutdown: &ShutdownCoordinator, request_id: u64, failed: bool) {
+fn cancel_preflight(
+    app: &AppHandle,
+    shutdown: &ShutdownCoordinator,
+    request_id: u64,
+    failed: bool,
+) {
     if !shutdown.cancel_preflight(request_id) {
         return;
     }
@@ -297,7 +302,11 @@ pub(super) fn request_shutdown_preflight(
     let Some(request) = shutdown.preflight(reason, exit_code) else {
         return;
     };
-    if app.get_webview_window("main").is_none() || app.emit_to("main", APP_PREFLIGHT_EVENT, request.clone()).is_err() {
+    if app.get_webview_window("main").is_none()
+        || app
+            .emit_to("main", APP_PREFLIGHT_EVENT, request.clone())
+            .is_err()
+    {
         cancel_preflight(app, shutdown, request.request_id, true);
         return;
     }
@@ -318,7 +327,11 @@ pub async fn app_shutdown_preflight_decide(
     approved: bool,
     failed: bool,
 ) -> Result<bool, String> {
-    let reason = shutdown.inner.lock().preflight.as_ref()
+    let reason = shutdown
+        .inner
+        .lock()
+        .preflight
+        .as_ref()
         .filter(|(request, _)| request.request_id == request_id)
         .map(|(request, _)| request.reason.clone());
     if !approved || failed {
@@ -335,7 +348,11 @@ pub async fn app_shutdown_preflight_decide(
     let state = app.state::<crate::commands::AppState>();
     let _ = state.stp.shutdown();
     state.terminal_agent.revoke_all("application shutdown");
-    request_shutdown(&app, &shutdown, reason.as_deref().unwrap_or("application-quit"));
+    request_shutdown(
+        &app,
+        &shutdown,
+        reason.as_deref().unwrap_or("application-quit"),
+    );
     Ok(true)
 }
 
@@ -450,7 +467,9 @@ pub(crate) trait ProcessExitServices {
 impl ProcessExitServices for crate::commands::AppState {
     fn shutdown_telemetry(&self) -> Result<(), String> {
         match &self.telemetry {
-            Ok(service) => service.shutdown_sync(std::time::Duration::from_secs(3)).map_err(|error| error.message),
+            Ok(service) => service
+                .shutdown_sync(std::time::Duration::from_secs(3))
+                .map_err(|error| error.message),
             Err(_) => Ok(()),
         }
     }
@@ -529,7 +548,10 @@ mod tests {
 
         cleanup_process_services(&services);
 
-        assert_eq!(*services.calls.lock(), vec!["telemetry", "discovery", "stp", "sidecar"]);
+        assert_eq!(
+            *services.calls.lock(),
+            vec!["telemetry", "discovery", "stp", "sidecar"]
+        );
     }
 
     #[test]
@@ -545,12 +567,24 @@ mod tests {
         let shutdown = ShutdownCoordinator::default();
         let first = shutdown.preflight("main-window-close", Some(0)).unwrap();
         assert!(!shutdown.is_exiting());
-        assert_eq!(shutdown.decide_preflight(first.request_id, "editor-a", true), None);
-        assert_eq!(shutdown.decide_preflight(first.request_id, "main", false), Some(false));
+        assert_eq!(
+            shutdown.decide_preflight(first.request_id, "editor-a", true),
+            None
+        );
+        assert_eq!(
+            shutdown.decide_preflight(first.request_id, "main", false),
+            Some(false)
+        );
         let next = shutdown.preflight("application-quit", Some(7)).unwrap();
         assert!(next.request_id > first.request_id);
-        assert_eq!(shutdown.decide_preflight(first.request_id, "main", true), None);
-        assert_eq!(shutdown.decide_preflight(next.request_id, "main", true), Some(true));
+        assert_eq!(
+            shutdown.decide_preflight(first.request_id, "main", true),
+            None
+        );
+        assert_eq!(
+            shutdown.decide_preflight(next.request_id, "main", true),
+            Some(true)
+        );
         assert_eq!(shutdown.exit_code(), 7);
     }
 
@@ -560,7 +594,10 @@ mod tests {
         let first = shutdown.preflight("application-quit", None).unwrap();
         assert!(shutdown.cancel_preflight(first.request_id));
         assert!(!shutdown.cancel_preflight(first.request_id));
-        assert_eq!(shutdown.decide_preflight(first.request_id, "main", true), None);
+        assert_eq!(
+            shutdown.decide_preflight(first.request_id, "main", true),
+            None
+        );
         assert!(shutdown.preflight("main-window-close", None).is_some());
         assert!(!shutdown.is_exiting());
     }

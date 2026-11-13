@@ -29,9 +29,9 @@ pub mod ssh;
 pub mod ssh_import;
 pub mod stp;
 pub mod structured;
+pub mod telemetry;
 pub mod topolograph;
 pub mod topology;
-pub mod telemetry;
 pub mod troubleshoot;
 pub mod vault;
 #[cfg(any(target_os = "windows", test))]
@@ -465,7 +465,10 @@ pub struct AppState {
         Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
     /// Native STP persistence and full-interval scheduler boundary.
     pub stp: Arc<crate::commands::stp::StpService>,
-    pub telemetry: Result<Arc<crate::telemetry::service::TelemetryService>, crate::telemetry::model::Diagnostic>,
+    pub telemetry: Result<
+        Arc<crate::telemetry::service::TelemetryService>,
+        crate::telemetry::model::Diagnostic,
+    >,
     pub dictation: Arc<crate::dictation::DictationService>,
 }
 
@@ -496,7 +499,13 @@ impl AppState {
         let agent = Arc::new(AgentBridge::new(python, args));
 
         let db_arc = Arc::new(Mutex::new(db));
-        let telemetry = telemetry::create_service(db_arc.clone(), db_path.parent().unwrap_or(std::path::Path::new(".")).to_path_buf());
+        let telemetry = telemetry::create_service(
+            db_arc.clone(),
+            db_path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .to_path_buf(),
+        );
 
         // Wire sidecar heartbeats into the DB-backed status row so the
         // frontend status chip has something to read. The worker thread owns

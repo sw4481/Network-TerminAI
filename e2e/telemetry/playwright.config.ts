@@ -7,7 +7,7 @@ const output = process.env.TELEMETRY_E2E_OUTPUT;
 const executable = process.env.TELEMETRY_E2E_CHROMIUM;
 if (
   !output ||
-  !/^\/(?:private\/)?tmp\/ccie-telemetry-task(?:10|11)\.[A-Za-z0-9]+$/.test(output) ||
+  !/^\/(?:private\/)?tmp\/ccie-telemetry-task(?:10|11|12)\.[A-Za-z0-9]+$/.test(output) ||
   !existsSync(output) ||
   !executable ||
   !existsSync(executable)
@@ -27,7 +27,7 @@ if (
     "Telemetry artifacts must start in a fresh task-owned directory containing only tmp",
   );
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const vite = '"/opt/homebrew/bin/bun" node_modules/vite/bin/vite.js';
+const vite = "bun node_modules/vite/bin/vite.js";
 const options =
   "--config e2e/telemetry/vite.config.ts --configLoader runner --mode test";
 
