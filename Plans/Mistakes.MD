@@ -3867,3 +3867,7 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 ## 2026-11-13 — Telemetry shared Git index collision
 
 - What the issue/mistake was: Controller committed a one-line plan correction while the Task12 worker had17 implementation paths staged; the documentation commit unintentionally captured all18 paths. RCA of the Issue: shared-index mutations were not serialized between controller and implementer during final staging. How you fixed it: paused worker Git mutations, verified all expected files and a clean index, reworded only the fresh unpushed commit to describe the completed Task12 slice, and verified old/new tree hashes are identical. No source reset/revert or data loss occurred. Keep one Git mutation owner through each staging/commit window and hand it back explicitly.
+
+## 2026-11-13 — Telemetry Task12 native-log lookup
+
+- What the issue/mistake was: Controller tried two conventional -final native-log names before reading the report section that supplied the exact paths. RCA of the Issue: dependent log discovery and reads were batched as though the names were already known. How you fixed it: read the actual telemetry-task12-native-telemetry.log and native-app_lifecycle.log receipts, verified156 and12 passes without rerunning tests, and made no missing-evidence inference from the failed lookups. Resolve evidence paths before dependent reads.
