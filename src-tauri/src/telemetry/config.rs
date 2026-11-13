@@ -3,7 +3,7 @@ use super::{
     catalog::ProtocolClassifier,
     definition::{parse_document, DefinitionValidator},
     model::*,
-    parser::{validate_binding, TelemetryParser},
+    parser::{validate_binding, TelemetryParser, MAX_OUTPUT},
     processing::{FrameNormalizer, MAX_FRAME_ROWS, MAX_WORKSPACE_BYTES},
 };
 use serde::{Deserialize, Serialize};
@@ -543,6 +543,30 @@ impl TelemetryConfigRepository {
         proofs: Vec<DraftCaptureProof>,
         retained_bytes: usize,
     ) -> PreviewReport {
+        self.preview_owned_admitted(
+            workspace_id,
+            generation,
+            draft,
+            captures,
+            local_samples,
+            proofs,
+            retained_bytes,
+            None,
+        )
+        .await
+    }
+
+    pub(crate) async fn preview_owned_admitted(
+        &self,
+        workspace_id: &str,
+        generation: u64,
+        draft: &ConfigDraft,
+        captures: Vec<Capture>,
+        local_samples: Vec<LocalSample>,
+        proofs: Vec<DraftCaptureProof>,
+        retained_bytes: usize,
+        parser_lease: Option<Arc<dyn Send + Sync>>,
+    ) -> PreviewReport {
         let mut report = PreviewReport {
             token: None,
             frames: vec![],
@@ -848,9 +872,54 @@ impl TelemetryConfigRepository {
                             report.diagnostics.push(diagnostic);
                             return report;
                         }
+                        let retain_interpretation = !report.interpretations.iter().any(|parsed| {
+                            parsed.capture_id == capture.capture_id
+                                && parsed.parser_id == template.id
+                        });
+                        let mut metadata = ByteBudget::default();
+                        if let Err(d) = sample_hash(
+                            &ParsedInterpretation {
+                                capture_id: capture.capture_id.clone(),
+                                parser_id: template.id.clone(),
+                                template_sha256: template.sha256.clone(),
+                                rows: Vec::new(),
+                            },
+                            &mut metadata,
+                        ) {
+                            report.diagnostics.push(d);
+                            return report;
+                        }
+                        let used = budget.used;
+                        let metadata_bytes = metadata.used;
+                        let mut physical_bytes = ByteBudget::default();
+                        if let Some(original) = physical.get(&capture.capture_id) {
+                            if let Err(d) = sample_hash(original, &mut physical_bytes) {
+                                report.diagnostics.push(d);
+                                return report;
+                            }
+                        }
+                        let physical_bytes = physical_bytes.used;
+                        let lease = parser_lease.clone();
                         let records = match self
                             .parser
-                            .parse_preview(capture, template, CancellationToken::new())
+                            .parse_preview_admitted(
+                                capture,
+                                template,
+                                CancellationToken::new(),
+                                move |rows| {
+                                    // The actor must retain the existing whole-Preview claim through cleanup.
+                                    let _keep_alive = &lease;
+                                    let mut upcoming = ByteBudget { used };
+                                    upcoming.reserve(MAX_OUTPUT)?;
+                                    upcoming.reserve(physical_bytes)?;
+                                    if retain_interpretation {
+                                        upcoming.reserve(metadata_bytes)?;
+                                        sample_hash(rows, &mut upcoming)?;
+                                    }
+                                    sample_hash(rows, &mut upcoming)?;
+                                    Ok(())
+                                },
+                            )
                             .await
                         {
                             Ok(rows) => rows,
@@ -866,10 +935,11 @@ impl TelemetryConfigRepository {
                             }
                             report.captures.push(original);
                         }
-                        if !report.interpretations.iter().any(|parsed| {
-                            parsed.capture_id == capture.capture_id
-                                && parsed.parser_id == template.id
-                        }) {
+                        if retain_interpretation {
+                            if let Err(d) = budget.reserve(metadata_bytes) {
+                                report.diagnostics.push(d);
+                                return report;
+                            }
                             if let Err(d) = sample_hash(&records, &mut budget) {
                                 report.diagnostics.push(d);
                                 return report;

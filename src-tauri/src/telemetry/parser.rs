@@ -4,7 +4,10 @@ use super::{
     definition::MAX_TEMPLATE_BYTES,
     model::{Capture, Diagnostic, MetricRow, MetricValue, TemplateAsset},
 };
-use serde::Deserialize;
+use serde::{
+    ser::{SerializeMap, SerializeSeq},
+    Deserialize, Serialize,
+};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,9 +30,10 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_CAPTURE: usize = 2 * 1024 * 1024;
 const MAX_REQUEST: usize = 16 * 1024 * 1024;
-const MAX_OUTPUT: usize = 2 * 1024 * 1024;
+pub(crate) const MAX_OUTPUT: usize = 2 * 1024 * 1024;
 const MAX_ROWS: usize = 10_000;
 type ParseResult = Result<Vec<MetricRow>, Diagnostic>;
+type OutputAdmission = Box<dyn Fn(&PendingRows) -> Result<(), Diagnostic> + Send + Sync>;
 
 fn failure(code: &str, message: &str) -> Diagnostic {
     Diagnostic::new(code, message, "parser")
@@ -118,6 +122,8 @@ struct Job {
     deadline: Instant,
     cancel: CancellationToken,
     reply: oneshot::Sender<ParseResult>,
+    // Keep the claim until request buffers and rejected replies have been destroyed.
+    output_admission: Option<OutputAdmission>,
 }
 
 struct CancelOnDrop(CancellationToken);
@@ -154,7 +160,7 @@ impl TelemetryParser {
         template: &TemplateAsset,
         cancel: CancellationToken,
     ) -> ParseResult {
-        self.parse_priority(capture, template, cancel, Priority::Collection)
+        self.parse_priority(capture, template, cancel, Priority::Collection, None)
             .await
     }
 
@@ -164,7 +170,7 @@ impl TelemetryParser {
         template: &TemplateAsset,
         cancel: CancellationToken,
     ) -> ParseResult {
-        self.parse_priority(capture, template, cancel, Priority::Preview)
+        self.parse_priority(capture, template, cancel, Priority::Preview, None)
             .await
     }
 
@@ -257,6 +263,7 @@ impl TelemetryParser {
         template: &TemplateAsset,
         cancel: CancellationToken,
         priority: Priority,
+        output_admission: Option<OutputAdmission>,
     ) -> ParseResult {
         let deadline = Instant::now() + self.timeout;
         validate_binding(capture, template)?;
@@ -309,6 +316,7 @@ impl TelemetryParser {
             deadline,
             cancel: local_cancel.clone(),
             reply,
+            output_admission,
         };
         tokio::select! {
             biased;
@@ -359,6 +367,40 @@ impl TelemetryParser {
         cancel: CancellationToken,
     ) -> ParseResult {
         self.parse_preview(capture, template, cancel).await
+    }
+
+    pub(crate) async fn parse_preview_admitted(
+        &self,
+        capture: &Capture,
+        template: &TemplateAsset,
+        cancel: CancellationToken,
+        admit: impl Fn(&PendingRows) -> Result<(), Diagnostic> + Send + Sync + 'static,
+    ) -> ParseResult {
+        self.parse_priority(
+            capture,
+            template,
+            cancel,
+            Priority::Preview,
+            Some(Box::new(admit)),
+        )
+        .await
+    }
+
+    pub(crate) async fn parse_admitted(
+        &self,
+        capture: &Capture,
+        template: &TemplateAsset,
+        cancel: CancellationToken,
+        admit: impl Fn(&PendingRows) -> Result<(), Diagnostic> + Send + Sync + 'static,
+    ) -> ParseResult {
+        self.parse_priority(
+            capture,
+            template,
+            cancel,
+            Priority::Collection,
+            Some(Box::new(admit)),
+        )
+        .await
     }
 
     pub async fn shutdown(&self) -> Result<(), Diagnostic> {
@@ -459,6 +501,8 @@ struct WorkerSpec {
     exited: Arc<std::sync::Mutex<Vec<(u32, std::process::ExitStatus)>>>,
     #[cfg(test)]
     wait_blocked: Arc<std::sync::atomic::AtomicBool>,
+    #[cfg(test)]
+    materialized: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl WorkerSpec {
@@ -536,7 +580,7 @@ impl Worker {
         })
     }
 
-    async fn exchange(&mut self, job: &Job) -> ParseResult {
+    async fn exchange(&mut self, job: &Job, spec: &WorkerSpec) -> ParseResult {
         self.input
             .write_all(&job.payload)
             .await
@@ -557,7 +601,7 @@ impl Worker {
         if bytes.last() != Some(&b'\n') {
             return Err(failure("parser_protocol", "Incomplete parser response"));
         }
-        decode(&bytes, &job.id)
+        decode(&bytes, &job.id, job.output_admission.as_ref(), spec)
     }
 
     async fn terminate(&mut self, _spec: &WorkerSpec) {
@@ -602,7 +646,7 @@ async fn owner(mut jobs: mpsc::Receiver<Job>, spec: WorkerSpec, stop: Cancellati
             _ = tokio::time::sleep_until(job.deadline) => Err(failure("parser_timeout", "Parser deadline exceeded")),
             result = async {
                 if worker.is_none() { worker = Some(Worker::spawn(&spec)?); }
-                worker.as_mut().unwrap().exchange(&job).await
+                worker.as_mut().unwrap().exchange(&job, &spec).await
             } => result,
         };
         if result.is_err() {
@@ -626,7 +670,55 @@ struct WorkerReply {
     diagnostic: Option<Diagnostic>,
 }
 
-fn decode(bytes: &[u8], expected_id: &str) -> ParseResult {
+/// Validated compact records; serialization projects rows without building keyed maps.
+pub(crate) struct PendingRows {
+    headers: Vec<String>,
+    records: Vec<Vec<serde_json::Value>>,
+}
+impl Serialize for PendingRows {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Row<'a> {
+            key: String,
+            fields: Fields<'a>,
+        }
+        struct Fields<'a> {
+            headers: &'a [String],
+            values: &'a [serde_json::Value],
+        }
+        impl Serialize for Fields<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                let mut fields = serializer.serialize_map(Some(self.headers.len()))?;
+                for (header, value) in self.headers.iter().zip(self.values) {
+                    let value = match value {
+                        serde_json::Value::String(value) => value.clone(),
+                        value => serde_json::to_string(value).map_err(serde::ser::Error::custom)?,
+                    };
+                    fields.serialize_entry(header, &MetricValue::Text { value })?;
+                }
+                fields.end()
+            }
+        }
+        let mut rows = serializer.serialize_seq(Some(self.records.len()))?;
+        for (index, record) in self.records.iter().enumerate() {
+            rows.serialize_element(&Row {
+                key: index.to_string(),
+                fields: Fields {
+                    headers: &self.headers,
+                    values: record,
+                },
+            })?;
+        }
+        rows.end()
+    }
+}
+
+fn decode(
+    bytes: &[u8],
+    expected_id: &str,
+    admit: Option<&OutputAdmission>,
+    _spec: &WorkerSpec,
+) -> ParseResult {
     let bad = || failure("parser_protocol", "Invalid or mismatched parser response");
     let reply: WorkerReply = serde_json::from_slice(bytes).map_err(|_| bad())?;
     if reply.id != expected_id {
@@ -646,17 +738,26 @@ fn decode(bytes: &[u8], expected_id: &str) -> ParseResult {
                             .bytes()
                             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_')
                 })
+                || records.iter().any(|record| {
+                    record.len() != headers.len()
+                        || record
+                            .iter()
+                            .any(|value| !value.is_string() && !value.is_array())
+                })
             {
                 return Err(bad());
             }
-            records
+            let pending = PendingRows { headers, records };
+            if let Some(admit) = admit {
+                admit(&pending)?;
+            }
+            pending
+                .records
                 .into_iter()
                 .enumerate()
                 .map(|(index, record)| {
-                    if record.len() != headers.len() {
-                        return Err(bad());
-                    }
-                    let fields = headers
+                    let fields = pending
+                        .headers
                         .iter()
                         .cloned()
                         .zip(record)
@@ -671,6 +772,8 @@ fn decode(bytes: &[u8], expected_id: &str) -> ParseResult {
                             Ok((header, MetricValue::Text { value }))
                         })
                         .collect::<Result<BTreeMap<_, _>, _>>()?;
+                    #[cfg(test)]
+                    _spec.materialized.fetch_add(1, Ordering::SeqCst);
                     // Provisional ordinal only; widget normalization builds composite keys.
                     Ok(MetricRow {
                         key: index.to_string(),
@@ -696,6 +799,12 @@ impl TelemetryParser {
     }
     pub(crate) fn block_cleanup_for_test(&self, blocked: bool) {
         self.spec.wait_blocked.store(blocked, Ordering::SeqCst);
+    }
+    pub(crate) fn materialized_rows_for_test(&self) -> usize {
+        self.spec.materialized.load(Ordering::SeqCst)
+    }
+    pub(crate) fn workers_started_for_test(&self) -> usize {
+        self.spec.started.load(Ordering::SeqCst)
     }
 }
 
@@ -758,6 +867,48 @@ for line in sys.stdin:
  if raw=='wrong': r['id']='stale-id'
  print(json.dumps({'id':r['id'],'headers':['name'],'records':[[raw]]}),flush=True)
 "#;
+
+    #[test]
+    fn projected_rows_match_native_charge_for_escaping_arrays_and_empty_records() {
+        for records in [
+            serde_json::json!([]),
+            serde_json::json!([["quotes\"\\\n\u{0000}é", ["x\"", {"nested": [1, true, null]}]], ["", []]]),
+        ] {
+            let bytes = serde_json::to_vec(&serde_json::json!({
+                "id": "projection", "headers": ["z_last", "a_first"], "records": records,
+            }))
+            .unwrap();
+            let projected = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let measured = projected.clone();
+            let admit: OutputAdmission = Box::new(move |rows| {
+                measured.store(serde_json::to_vec(rows).unwrap().len(), Ordering::SeqCst);
+                Ok(())
+            });
+            let rows = decode(&bytes, "projection", Some(&admit), &WorkerSpec::default()).unwrap();
+            assert_eq!(
+                projected.load(Ordering::SeqCst),
+                serde_json::to_vec(&rows).unwrap().len()
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_compact_records_never_reach_admission_or_materialization() {
+        for records in [serde_json::json!([["good"], []]), serde_json::json!([[42]])] {
+            let bytes = serde_json::to_vec(&serde_json::json!({
+                "id": "bad", "headers": ["name"], "records": records,
+            }))
+            .unwrap();
+            let spec = WorkerSpec::default();
+            let admit: OutputAdmission =
+                Box::new(|_| panic!("invalid compact output reached admission"));
+            assert_eq!(
+                decode(&bytes, "bad", Some(&admit), &spec).unwrap_err().code,
+                "parser_protocol"
+            );
+            assert_eq!(spec.materialized.load(Ordering::SeqCst), 0);
+        }
+    }
 
     #[test]
     fn pending_cleanup_mark_cannot_outlive_or_reuse_its_epoch() {

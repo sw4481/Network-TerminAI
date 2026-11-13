@@ -5,7 +5,7 @@ use super::{
     history::TelemetryHistory,
     local::LocalCollector,
     model::*,
-    parser::{validate_binding, TelemetryParser},
+    parser::{validate_binding, TelemetryParser, MAX_OUTPUT},
     policy::CommandPolicy,
     processing::{FrameNormalizer, MAX_WORKSPACE_BYTES},
     ssh::{SavedTargetMetadata, TelemetrySshSession, TelemetrySshTargetResolver},
@@ -15,7 +15,10 @@ use sha2::Digest;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     path::PathBuf,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
     thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -663,9 +666,11 @@ struct WorkspaceMemory {
         Arc<(std::sync::atomic::AtomicBool, std::sync::atomic::AtomicBool)>,
     )>,
 }
-struct MemoryReservation {
+#[derive(Clone)]
+struct MemoryReservation(Arc<MemoryClaim>);
+struct MemoryClaim {
     memory: Arc<Mutex<WorkspaceMemory>>,
-    bytes: usize,
+    bytes: AtomicUsize,
 }
 impl MemoryReservation {
     fn new(
@@ -687,16 +692,43 @@ impl MemoryReservation {
         {
             state.peak = state.peak.max(state.retained + state.reserved);
         }
-        Ok(Self {
+        Ok(Self(Arc::new(MemoryClaim {
             memory: memory.clone(),
-            bytes,
-        })
+            bytes: AtomicUsize::new(bytes),
+        })))
     }
     fn unavailable() -> Diagnostic {
         failure("workspace_memory_busy", "Workspace memory is temporarily reserved by retained observations or collection jobs; retry after collection completes or reduce the selected widgets")
     }
+    fn fork(&self) -> Self {
+        Self(Arc::new(MemoryClaim {
+            memory: self.0.memory.clone(),
+            bytes: AtomicUsize::new(0),
+        }))
+    }
+    fn bytes(&self) -> usize {
+        self.0.bytes.load(Ordering::Relaxed)
+    }
+    fn reserve(&self, bytes: usize) -> Result<(), Diagnostic> {
+        let mut state = self.0.memory.lock();
+        if state
+            .retained
+            .saturating_add(state.reserved)
+            .saturating_add(bytes)
+            > state.maximum
+        {
+            return Err(Self::unavailable());
+        }
+        state.reserved += bytes;
+        self.0.bytes.fetch_add(bytes, Ordering::Relaxed);
+        #[cfg(test)]
+        {
+            state.peak = state.peak.max(state.retained + state.reserved);
+        }
+        Ok(())
+    }
     fn reserve_remaining(&mut self) -> Result<usize, Diagnostic> {
-        let mut state = self.memory.lock();
+        let mut state = self.0.memory.lock();
         let available = state
             .maximum
             .saturating_sub(state.retained.saturating_add(state.reserved));
@@ -704,7 +736,7 @@ impl MemoryReservation {
             return Err(Self::unavailable());
         }
         state.reserved += available;
-        self.bytes += available;
+        self.0.bytes.fetch_add(available, Ordering::Relaxed);
         #[cfg(test)]
         {
             state.peak = state.peak.max(state.retained + state.reserved);
@@ -727,23 +759,7 @@ impl MemoryReservation {
         ))
         .saturating_add(1024);
         let estimated = row_bytes.saturating_mul(4).saturating_add(overhead);
-        {
-            let mut state = self.memory.lock();
-            if state
-                .retained
-                .saturating_add(state.reserved)
-                .saturating_add(estimated)
-                > state.maximum
-            {
-                return Err(Self::unavailable());
-            }
-            state.reserved += estimated;
-            self.bytes += estimated;
-            #[cfg(test)]
-            {
-                state.peak = state.peak.max(state.retained + state.reserved);
-            }
-        }
+        self.reserve(estimated)?;
         let frame = normalize(row_bytes);
         let charge = encoded_bytes(&frame);
         if charge > estimated
@@ -760,18 +776,18 @@ impl MemoryReservation {
         Ok(frame)
     }
     fn release(&mut self, bytes: usize) {
-        let memory = self.memory.clone();
+        let memory = self.0.memory.clone();
         self.transfer(&mut memory.lock(), bytes);
     }
     fn transfer(&mut self, state: &mut WorkspaceMemory, bytes: usize) {
-        debug_assert!(bytes <= self.bytes);
-        self.bytes -= bytes;
+        debug_assert!(bytes <= self.bytes());
+        self.0.bytes.fetch_sub(bytes, Ordering::Relaxed);
         state.reserved -= bytes;
     }
 }
-impl Drop for MemoryReservation {
+impl Drop for MemoryClaim {
     fn drop(&mut self) {
-        self.release(self.bytes);
+        self.memory.lock().reserved -= self.bytes.load(Ordering::Relaxed);
     }
 }
 struct NormalizedBatch {
@@ -779,6 +795,22 @@ struct NormalizedBatch {
     admission: Option<Diagnostic>,
     // Fields drop in declaration order; release the claim after its buffers.
     reservation: MemoryReservation,
+}
+struct TestInterpretation {
+    value: ParsedInterpretation,
+    #[cfg(test)]
+    dropped: Option<TestBufferDrop>,
+}
+#[cfg(test)]
+struct TestBufferDrop {
+    memory: Arc<Mutex<WorkspaceMemory>>,
+    observations: Arc<Mutex<Vec<usize>>>,
+}
+#[cfg(test)]
+impl Drop for TestBufferDrop {
+    fn drop(&mut self) {
+        self.observations.lock().push(self.memory.lock().reserved);
+    }
 }
 fn read_value<T>(
     id: &str,
@@ -847,7 +879,7 @@ enum Output {
         reservation: MemoryReservation,
     },
     Test {
-        result: Result<ParsedInterpretation, Diagnostic>,
+        result: Result<TestInterpretation, Diagnostic>,
         base: Revision,
         reply: Reply<TelemetryRead<ParsedInterpretation>>,
         reservation: MemoryReservation,
@@ -1657,9 +1689,7 @@ impl Owner {
         let reservation = match MemoryReservation::new(
             &workspace.memory,
             retained_bytes(workspace),
-            encoded_bytes(capture)
-                .saturating_add(encoded_bytes(&template))
-                .saturating_add(4 * 2 * 1024 * 1024 + 512),
+            parser_input_bytes(capture, &template),
         ) {
             Ok(reservation) => reservation,
             Err(error) => {
@@ -1682,6 +1712,13 @@ impl Owner {
             return;
         }
         capture.parser_id = template.id.clone();
+        let metadata = encoded_bytes(&ParsedInterpretation {
+            capture_id: capture_id.clone(),
+            parser_id: template.id.clone(),
+            template_sha256: template.sha256.clone(),
+            rows: Vec::new(),
+        });
+        let parser_reservation = reservation.clone();
         let generation = workspace.generation;
         let parser = self.parser.clone();
         let cancel = workspace.cancel.child_token();
@@ -1690,13 +1727,21 @@ impl Owner {
         self.drain_ok = false;
         self.jobs.spawn(async move {
             let result = parser
-                .test_template(&capture, &template, cancel)
+                .parse_preview_admitted(&capture, &template, cancel, move |rows| {
+                    // Scan before locking; keep input/compact claims during keyed-row expansion.
+                    let charge = encoded_bytes(rows).saturating_add(metadata);
+                    parser_reservation.reserve(charge)
+                })
                 .await
-                .map(|rows| ParsedInterpretation {
-                    capture_id,
-                    parser_id: template.id,
-                    template_sha256: template.sha256,
-                    rows,
+                .map(|rows| TestInterpretation {
+                    value: ParsedInterpretation {
+                        capture_id,
+                        parser_id: template.id,
+                        template_sha256: template.sha256,
+                        rows,
+                    },
+                    #[cfg(test)]
+                    dropped: None,
                 });
             Completed {
                 workspace: id,
@@ -1950,7 +1995,7 @@ impl Owner {
                 None
             };
             let result = repository
-                .preview_owned(
+                .preview_owned_admitted(
                     &id,
                     generation,
                     &draft,
@@ -1958,6 +2003,7 @@ impl Owner {
                     samples,
                     proofs,
                     external_bytes,
+                    Some(Arc::new(reservation.clone())),
                 )
                 .await;
             Completed {
@@ -2160,13 +2206,28 @@ impl Owner {
                     for definition in definitions {
                         if cancel.is_cancelled() { break; }
                         let context = FrameContext { workspace_id: id.clone(), target_id: target_id.clone(), revision: revision.clone(), generation };
+                        let parser_reservation = batch.reservation.fork();
                         let parsed = match bind_capture(&collected.capture, &config, &definition, &target_id) {
                             Ok(capture) => {
                                 match ProtocolClassifier::capture_rejection(&capture) {
                                     Some((state, diagnostic)) => Err((state, diagnostic)),
-                                    None => match parser.parse(&capture, &config.templates[&capture.parser_id], cancel.clone()).await {
-                                        Ok(records) => Ok((capture, records)),
-                                        Err(error) => Err((CollectionState::Failed, error)),
+                                    None => {
+                                        let template = &config.templates[&capture.parser_id];
+                                        let input = parser_reservation.reserve(parser_input_bytes(&capture, template));
+                                        match input {
+                                            Err(error) => { batch.admission = Some(error); break; }
+                                            Ok(()) => {
+                                                let claim = parser_reservation.clone();
+                                                match parser.parse_admitted(&capture, template, cancel.clone(), move |rows| {
+                                                    let bytes = encoded_bytes(rows);
+                                                    claim.reserve(bytes)
+                                                }).await {
+                                                    Ok(records) => Ok((capture, records)),
+                                                    Err(error) if error.code == "workspace_memory_busy" => { batch.admission = Some(error); break; }
+                                                    Err(error) => Err((CollectionState::Failed, error)),
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -2183,6 +2244,7 @@ impl Owner {
                             }
                             Err((state, error)) => failed_frame(&context, &definition, collected.capture.observed_at_ms, state, error),
                         }));
+                        drop(parser_reservation);
                         match frame {
                             Ok(frame) => batch.frames.push(frame),
                             Err(error) => { batch.admission = Some(error); break; }
@@ -2190,7 +2252,7 @@ impl Owner {
                     }
                 }
                 #[cfg(test)] {
-                    let pause = batch.reservation.memory.lock().pause.as_ref().filter(|(target, _)| target == &target_id).map(|(_, pause)| pause.clone());
+                    let pause = batch.reservation.0.memory.lock().pause.as_ref().filter(|(target, _)| target == &target_id).map(|(_, pause)| pause.clone());
                     if let Some(pause) = pause {
                         use std::sync::atomic::Ordering;
                         pause.0.store(true, Ordering::SeqCst);
@@ -2506,7 +2568,7 @@ impl Owner {
             } => {
                 let owned =
                     encoded_bytes(&result).saturating_add(sample.as_ref().map_or(0, encoded_bytes));
-                if owned > reservation.bytes {
+                if owned > reservation.bytes() {
                     drop(sample);
                     drop(result);
                     let _ = reply.send(Err(MemoryReservation::unavailable()));
@@ -2514,8 +2576,9 @@ impl Owner {
                     return;
                 }
                 if current {
-                    if owned <= reservation.bytes {
-                        reservation.release(reservation.bytes - owned);
+                    // All leases were created before completion; pending actors can only retire them.
+                    if Arc::get_mut(&mut reservation.0).is_some() {
+                        reservation.release(reservation.bytes() - owned);
                     }
                     if let Some(sample) = sample.take() {
                         retain_local(workspace, sample, Some(&mut reservation));
@@ -2552,6 +2615,7 @@ impl Owner {
             } => {
                 let result =
                     if !current || self.apply_busy || self.repository.base_revision() != base {
+                        drop(result);
                         Err(failure(
                             "template_obsolete",
                             "Template test authority changed; retry",
@@ -2559,9 +2623,17 @@ impl Owner {
                     } else {
                         result
                     };
-                let _ = reply.send(
-                    result.map(|value| read_value(&completed.workspace, workspace, base, value)),
-                );
+                #[cfg(test)]
+                let mut result = result;
+                #[cfg(test)]
+                let transferred_drop = result.as_mut().ok().and_then(|value| value.dropped.take());
+                let rejected =
+                    reply.send(result.map(|value| {
+                        read_value(&completed.workspace, workspace, base, value.value)
+                    }));
+                drop(rejected);
+                #[cfg(test)]
+                drop(transferred_drop);
                 drop(reservation);
             }
             Output::Apply {
@@ -3314,6 +3386,11 @@ fn retained_bytes_parts(
         + history.bytes()
         + proofs.values().map(DraftCaptureProof::bytes).sum::<usize>()
 }
+fn parser_input_bytes(capture: &Capture, template: &TemplateAsset) -> usize {
+    encoded_bytes(capture)
+        .saturating_add(encoded_bytes(template))
+        .saturating_add(4 * MAX_OUTPUT + 512)
+}
 fn encoded_bytes(value: &impl serde::Serialize) -> usize {
     struct Counter(usize);
     impl std::io::Write for Counter {
@@ -3624,6 +3701,37 @@ mod tests {
                 .request(|reply| Request::TargetRevision("workspace".into(), target.into(), reply))
                 .await
                 .unwrap()
+        }
+        async fn retained_sample(&self, command: &str, parser_id: &str) -> Capture {
+            self.service.establish("workspace").await.unwrap();
+            let reference = TargetRef {
+                connection_id: "one".into(),
+                platform: Platform::Iosxe,
+            };
+            self.service
+                .select(
+                    "workspace",
+                    SavedTargetMetadata {
+                        reference: reference.clone(),
+                        display_name: "One".into(),
+                    },
+                )
+                .await
+                .unwrap();
+            let revision = self.revision("one").await;
+            self.service
+                .capture_read(
+                    "workspace",
+                    reference,
+                    CaptureRequest {
+                        command: CommandPolicy::admit(Platform::Iosxe, command).unwrap(),
+                        parser_id: parser_id.into(),
+                        revision,
+                    },
+                )
+                .await
+                .unwrap()
+                .value
         }
         fn command_draft(&self, command: &str, parser: &str) -> ConfigDraft {
             let mut draft = self.draft.clone();
@@ -4564,6 +4672,436 @@ mod tests {
         h.finish().await;
     }
     #[tokio::test]
+    async fn template_test_expansion_refuses_when_only_compact_reply_fits() {
+        let parser = Arc::new(TelemetryParser::new());
+        let (_directory, mut owner, capture, template) = template_test_owner(parser.clone());
+        let workspace = owner.workspaces.get_mut("workspace").unwrap();
+        let initial =
+            encoded_bytes(&capture) + encoded_bytes(&template) + 4 * 2 * 1024 * 1024 + 512;
+        assert_eq!(initial, 8_411_984);
+        workspace.memory.lock().maximum = retained_bytes(workspace) + initial;
+        let (reply, receive) = oneshot::channel();
+        owner.test_template("workspace".into(), capture.capture_id, template, reply);
+        let completed = owner.jobs.join_next().await.unwrap().unwrap();
+        if let Output::Test {
+            result,
+            reservation,
+            ..
+        } = &completed.output
+        {
+            eprintln!(
+                "expanded charge={:?}, initial claim={}",
+                result.as_ref().map(|value| encoded_bytes(&value.value)),
+                reservation.bytes()
+            );
+        }
+        owner.complete(completed);
+        let result = receive.await.unwrap();
+        parser.shutdown().await.unwrap();
+        assert_eq!(parser.materialized_rows_for_test(), 0);
+        assert!(result.is_err(), "expanded output escaped admission");
+        assert_eq!(result.err().unwrap().code, "workspace_memory_busy");
+    }
+
+    #[tokio::test]
+    async fn template_test_rejected_buffers_drop_before_their_claim() {
+        let mut observed = Vec::new();
+        for reason in ["generation", "source", "base", "apply", "missing", "reply"] {
+            let parser = Arc::new(TelemetryParser::new());
+            let (_directory, mut owner, capture, template) = template_test_owner(parser.clone());
+            owner
+                .workspaces
+                .get_mut("workspace")
+                .unwrap()
+                .captures
+                .values_mut()
+                .next()
+                .unwrap()[0]
+                .raw = "x\n".into();
+            let memory = owner.workspaces["workspace"].memory.clone();
+            let observations = Arc::new(Mutex::new(Vec::new()));
+            let (reply, receive) = oneshot::channel();
+            owner.test_template("workspace".into(), capture.capture_id, template, reply);
+            let mut completed = owner.jobs.join_next().await.unwrap().unwrap();
+            if let Output::Test { result, base, .. } = &mut completed.output {
+                let owned = result.as_mut().unwrap();
+                assert_eq!(owned.value.rows.len(), 1);
+                owned.dropped = Some(TestBufferDrop {
+                    memory: memory.clone(),
+                    observations: observations.clone(),
+                });
+                if reason == "base" {
+                    *base = "obsolete".into();
+                }
+            } else {
+                panic!("expected Template Test completion");
+            }
+            match reason {
+                "generation" => owner.workspaces.get_mut("workspace").unwrap().generation += 1,
+                "source" => {
+                    owner
+                        .workspaces
+                        .get_mut("workspace")
+                        .unwrap()
+                        .targets
+                        .get_mut("one")
+                        .unwrap()
+                        .config
+                        .revision = "changed".into()
+                }
+                "apply" => owner.apply_busy = true,
+                "missing" => {
+                    owner.workspaces.remove("workspace");
+                }
+                _ => {}
+            }
+            if reason == "reply" || reason == "missing" {
+                drop(receive);
+                owner.complete(completed);
+            } else {
+                owner.complete(completed);
+                assert_eq!(
+                    receive.await.unwrap().err().unwrap().code,
+                    "template_obsolete"
+                );
+            }
+            parser.shutdown().await.unwrap();
+            let values = observations.lock().clone();
+            assert_eq!(values.len(), 1);
+            observed.push((reason, values[0]));
+            assert_eq!(memory.lock().reserved, 0);
+        }
+        eprintln!("claim at rejected buffer destruction: {observed:?}");
+        assert!(
+            observed.iter().all(|(_, bytes)| *bytes > 0),
+            "rejected output outlived its claim: {observed:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn template_test_expanded_charge_conserves_shared_capacity_and_transfers_success() {
+        let parser = Arc::new(TelemetryParser::new());
+        let (_directory, mut owner, capture, template) = template_test_owner(parser.clone());
+        let workspace = owner.workspaces.get_mut("workspace").unwrap();
+        let memory = workspace.memory.clone();
+        let retained = retained_bytes(workspace);
+        let other = MemoryReservation::new(&memory, retained, 1024).unwrap();
+        memory.lock().maximum = retained + 1024 + 19_245_063;
+        let (reply, receive) = oneshot::channel();
+        owner.test_template(
+            "workspace".into(),
+            capture.capture_id.clone(),
+            template.clone(),
+            reply,
+        );
+        let refused = owner.jobs.join_next().await.unwrap().unwrap();
+        owner.complete(refused);
+        assert_eq!(
+            receive.await.unwrap().err().unwrap().code,
+            "workspace_memory_busy"
+        );
+        assert_eq!(parser.materialized_rows_for_test(), 0);
+        parser.quiesce().await.unwrap();
+        assert_eq!(memory.lock().reserved, 1024);
+        memory.lock().maximum = retained + 1024 + 19_245_064;
+        let (reply, receive) = oneshot::channel();
+        owner.test_template("workspace".into(), capture.capture_id, template, reply);
+        let completed = owner.jobs.join_next().await.unwrap().unwrap();
+        let Output::Test {
+            result,
+            reservation,
+            ..
+        } = &completed.output
+        else {
+            panic!("expected Template Test completion")
+        };
+        let value = &result.as_ref().unwrap().value;
+        assert_eq!(encoded_bytes(value), 10_832_560);
+        assert_eq!(reservation.bytes(), 19_245_064);
+        assert_eq!(memory.lock().reserved, 19_246_088);
+        assert_eq!(parser.materialized_rows_for_test(), 768);
+        eprintln!("initial=8411984, expanded admission=10833080, actual interpretation=10832560, total claim=19245064, overlapping claim=1024, retained={retained}");
+        owner.complete(completed);
+        let returned = receive.await.unwrap().unwrap();
+        assert_eq!(returned.value.rows.len(), 768);
+        assert_eq!(returned.value.rows[0].fields.len(), 50);
+        assert_eq!(returned.value.capture_id, "review.capture");
+        parser.shutdown().await.unwrap();
+        assert_eq!(memory.lock().reserved, 1024);
+        {
+            let budget = memory.lock();
+            assert!(budget.peak <= budget.maximum);
+        }
+        drop(other);
+        assert_eq!(memory.lock().reserved, 0);
+    }
+
+    #[tokio::test]
+    async fn template_test_claim_survives_cancel_timeout_and_dropped_caller_until_actual_reap() {
+        for mode in ["cancel", "timeout", "drop"] {
+            let mut parser = TelemetryParser::fixture(
+                "import sys,time\nfor line in sys.stdin: time.sleep(60)\n",
+                Duration::from_millis(200),
+            );
+            parser.set_cleanup_budget_for_test(Duration::from_millis(30));
+            let parser = Arc::new(parser);
+            parser.block_cleanup_for_test(true);
+            struct Release(Arc<TelemetryParser>);
+            impl Drop for Release {
+                fn drop(&mut self) {
+                    self.0.block_cleanup_for_test(false);
+                }
+            }
+            let release = Release(parser.clone());
+            let (_directory, mut owner, capture, template) = template_test_owner(parser.clone());
+            let memory = owner.workspaces["workspace"].memory.clone();
+            let (reply, receive) = oneshot::channel();
+            owner.test_template("workspace".into(), capture.capture_id, template, reply);
+            tokio::time::timeout(Duration::from_secs(1), async {
+                while parser.workers_started_for_test() == 0 {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+            if mode == "drop" {
+                owner.jobs.abort_all();
+                assert!(owner.jobs.join_next().await.unwrap().is_err());
+                drop(receive);
+            } else {
+                if mode == "cancel" {
+                    owner.workspaces["workspace"].cancel.cancel();
+                }
+                let completed = owner.jobs.join_next().await.unwrap().unwrap();
+                owner.complete(completed);
+                assert_eq!(
+                    receive.await.unwrap().err().unwrap().code,
+                    "parser_cleanup_pending"
+                );
+            }
+            assert!(
+                memory.lock().reserved >= 8_411_984,
+                "{mode} released the actor's live request claim"
+            );
+            assert_eq!(parser.materialized_rows_for_test(), 0);
+            drop(release);
+            parser.shutdown().await.unwrap();
+            assert_eq!(
+                memory.lock().reserved,
+                0,
+                "{mode} left a claim after actual reaping"
+            );
+        }
+    }
+
+    fn template_test_owner(
+        parser: Arc<TelemetryParser>,
+    ) -> (tempfile::TempDir, Owner, Capture, TemplateAsset) {
+        let directory = tempfile::tempdir().unwrap();
+        let repository = TelemetryConfigRepository::load(
+            directory.path().into(),
+            Catalog::default(),
+            parser.clone(),
+        )
+        .unwrap();
+        let mut owner = Owner::new(
+            repository,
+            LocalCollectorFactory::default(),
+            TelemetrySshFactory::fixture(|_| {
+                panic!("Template Test must reuse its retained capture")
+            }),
+            parser,
+            TelemetryClock::default(),
+        );
+        owner.establish("workspace").unwrap();
+        owner
+            .enroll(
+                "workspace",
+                &TargetRef {
+                    connection_id: "one".into(),
+                    platform: Platform::Iosxe,
+                },
+            )
+            .unwrap();
+        let template = expansion_template();
+        let capture = Capture {
+            capture_id: "review.capture".into(),
+            target_id: "one".into(),
+            platform: Platform::Iosxe,
+            command: template.command.clone(),
+            parser_id: template.id.clone(),
+            revision: "source".into(),
+            observed_at_ms: 1,
+            monotonic_ms: 1,
+            raw: "x\n".repeat(768),
+        };
+        let workspace = owner.workspaces.get_mut("workspace").unwrap();
+        workspace.targets.get_mut("one").unwrap().config.revision = capture.revision.clone();
+        retain_capture(workspace, capture.clone(), None).unwrap();
+        (directory, owner, capture, template)
+    }
+
+    fn expansion_template() -> TemplateAsset {
+        let names = (0..50)
+            .map(|i| format!("F{i:02}{}", "A".repeat(37)))
+            .collect::<Vec<_>>();
+        let text = names
+            .iter()
+            .map(|name| format!("Value {name} (\\S+)\n"))
+            .collect::<String>()
+            + &format!("\nStart\n ^${{{}}} -> Record\n", names[0]);
+        assert_eq!(text.len(), 2_713);
+        TemplateAsset {
+            id: "review.fixture".into(),
+            platform: Platform::Iosxe,
+            command: "show version".into(),
+            sha256: format!("{:x}", sha2::Sha256::digest(text.as_bytes())),
+            text,
+        }
+    }
+
+    fn expansion_catalog(catalog: &mut Catalog) {
+        catalog.widgets.retain(|id, _| id == "traffic");
+        let template = expansion_template();
+        let widget = catalog.widgets.get_mut("traffic").unwrap();
+        widget.source = WidgetSource::Ssh {
+            commands: BTreeMap::from([(Platform::Iosxe, template.command.clone())]),
+            templates: BTreeMap::from([(Platform::Iosxe, template.id.clone())]),
+        };
+        widget.key = vec!["interface".into()];
+        widget
+            .fields
+            .insert("interface".into(), vec![format!("f00{}", "a".repeat(37))]);
+        catalog.templates.insert(template.id.clone(), template);
+    }
+
+    #[tokio::test]
+    async fn parser_expansion_live_refuses_before_keyed_rows_and_keeps_stop_responsive() {
+        let parser = Arc::new(TelemetryParser::new());
+        let h = Harness::with_parser(parser.clone(), expansion_catalog);
+        *h.probe.raw_tail.lock() = "x\n".repeat(768);
+        h.service.establish("workspace").await.unwrap();
+        h.service
+            .request(|reply| Request::MemoryLimit("workspace".into(), 12 * 1024 * 1024, reply))
+            .await
+            .unwrap();
+        h.start(&["one"], false).await;
+        h.wait(|snapshot| {
+            snapshot
+                .targets
+                .iter()
+                .any(|target| target.state == CollectionState::Failed)
+        })
+        .await;
+        tokio::time::timeout(Duration::from_millis(500), h.service.snapshot("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(1), h.service.stop("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        h.finish().await;
+        assert_eq!(
+            parser.materialized_rows_for_test(),
+            0,
+            "LIVE expanded unadmitted native rows"
+        );
+    }
+
+    #[tokio::test]
+    async fn parser_expansion_preview_refuses_before_keyed_rows_with_existing_whole_claim() {
+        let parser = Arc::new(TelemetryParser::new());
+        let h = Harness::with_parser(parser.clone(), expansion_catalog);
+        *h.probe.raw_tail.lock() = "x\n".repeat(768);
+        h.retained_sample("show version", "review.fixture").await;
+        assert_eq!(parser.materialized_rows_for_test(), 0);
+        h.service
+            .request(|reply| Request::MemoryLimit("workspace".into(), 20 * 1024 * 1024, reply))
+            .await
+            .unwrap();
+        let report = h.service.preview("workspace", &h.draft).await.unwrap();
+        assert!(report.token.is_none());
+        h.finish().await;
+        assert_eq!(
+            parser.materialized_rows_for_test(),
+            0,
+            "Preview expanded rows before its cumulative budget check"
+        );
+    }
+
+    #[tokio::test]
+    async fn parser_expansion_preview_keeps_whole_claim_until_pending_worker_reaps() {
+        let mut parser = TelemetryParser::fixture(
+            "import sys,time\nfor line in sys.stdin: time.sleep(60)\n",
+            Duration::from_millis(200),
+        );
+        parser.set_cleanup_budget_for_test(Duration::from_millis(30));
+        let parser = Arc::new(parser);
+        parser.block_cleanup_for_test(true);
+        struct Release(Arc<TelemetryParser>);
+        impl Drop for Release {
+            fn drop(&mut self) {
+                self.0.block_cleanup_for_test(false);
+            }
+        }
+        let release = Release(parser.clone());
+        let h = Harness::with_parser(parser.clone(), |_| {});
+        h.retained_sample("show interfaces", "test.interfaces")
+            .await;
+        let maximum = 32 * 1024 * 1024;
+        h.service
+            .request(|reply| Request::MemoryLimit("workspace".into(), maximum, reply))
+            .await
+            .unwrap();
+        let retained = h
+            .service
+            .request(|reply| Request::RetainedBytes("workspace".into(), reply))
+            .await
+            .unwrap();
+        let report = h.service.preview("workspace", &h.draft).await.unwrap();
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "parser_cleanup_pending"));
+        assert!(parser.has_pending_cleanup());
+        let held = h
+            .service
+            .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+            .await
+            .unwrap()
+            .0;
+        tokio::time::timeout(Duration::from_millis(500), h.service.snapshot("workspace"))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(4), h.service.stop("workspace"))
+                .await
+                .unwrap()
+                .unwrap_err()
+                .code,
+            "cleanup_pending"
+        );
+        drop(release);
+        h.service.stop("workspace").await.unwrap();
+        assert_eq!(
+            h.service
+                .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                .await
+                .unwrap()
+                .0,
+            0
+        );
+        h.finish().await;
+        assert_eq!(
+            held,
+            maximum - retained,
+            "Preview shrank the actor's still-owned claim"
+        );
+    }
+
+    #[tokio::test]
     async fn final_authoring_and_live_jobs_share_reservations_and_release_on_fence_and_error() {
         let h = Harness::new();
         h.start(&["one"], false).await;
@@ -4688,7 +5226,7 @@ mod tests {
                 .request(|reply| Request::RetainedBytes("workspace".into(), reply))
                 .await
                 .unwrap();
-            let (_, _, reference_normalized) = h
+            let (_, reference_peak, reference_normalized) = h
                 .service
                 .request(|reply| Request::MemoryUsage("workspace".into(), reply))
                 .await
@@ -4698,9 +5236,11 @@ mod tests {
             h.service.establish("workspace").await.unwrap();
             let raw_reservation = (if concurrent { 2 } else { 1 }) * 2 * 1024 * 1024;
             let copies = if concurrent { 2 } else { 1 };
-            let maximum = raw_reservation + reference_retained * copies - reference_normalized / 2;
-            assert!(raw_reservation + reference_retained * copies > maximum);
-            println!("concurrent={concurrent}, reference normalized={reference_normalized}, reference retained={reference_retained}, raw reservation={raw_reservation}, cap={maximum}");
+            let parser_working = reference_peak - 2 * 1024 * 1024 - reference_retained;
+            let maximum = raw_reservation + parser_working + reference_retained * copies
+                - reference_normalized / 2;
+            assert!(raw_reservation + parser_working + reference_retained * copies > maximum);
+            println!("concurrent={concurrent}, reference normalized={reference_normalized}, reference retained={reference_retained}, raw reservation={raw_reservation}, observed parser/normalization working charge={parser_working}, reference peak={reference_peak}, cap={maximum}");
             h.service
                 .request(|reply| Request::MemoryLimit("workspace".into(), maximum, reply))
                 .await
@@ -4900,7 +5440,7 @@ mod tests {
                     }
                 })
                 .unwrap();
-            assert_eq!(reservation.bytes, encoded_bytes(&frame));
+            assert_eq!(reservation.bytes(), encoded_bytes(&frame));
             assert_eq!(memory.lock().reserved, encoded_bytes(&frame));
             assert!(memory.lock().peak <= 128 * 1024);
             check(&frame);
@@ -6135,7 +6675,30 @@ mod tests {
             false,
         )
         .await;
-        h.wait(|s| s.widgets.len() == 20).await;
+        let initial = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let snapshot = h.service.snapshot("workspace").await.unwrap();
+                let reserved = h
+                    .service
+                    .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+                    .await
+                    .unwrap()
+                    .0;
+                if h.probe.calls.lock().len() >= 10
+                    && reserved == 0
+                    && !snapshot.widgets.is_empty()
+                    && snapshot
+                        .targets
+                        .iter()
+                        .all(|target| target.state != CollectionState::Collecting)
+                {
+                    break snapshot;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
         h.clock.advance(Duration::from_secs(5));
         let result = tokio::time::timeout(Duration::from_secs(5), async {
             loop {
@@ -6169,8 +6732,24 @@ mod tests {
             .request(|reply| Request::RetainedBytes("workspace".into(), reply))
             .await
             .unwrap();
-        assert!(bytes <= 64 * 1024 * 1024);
+        let (reserved, peak, _) = h
+            .service
+            .request(|reply| Request::MemoryUsage("workspace".into(), reply))
+            .await
+            .unwrap();
+        eprintln!("combined quota: initial widgets={}, final widgets={}, calls={}, retained={bytes}, reserved={reserved}, peak={peak}", initial.widgets.len(), snapshot.widgets.len(), h.probe.calls.lock().len());
+        assert!(bytes.saturating_add(reserved) <= MAX_WORKSPACE_BYTES);
+        assert!(peak <= MAX_WORKSPACE_BYTES);
         assert!(bytes > 32 * 1024 * 1024);
+        assert!(initial
+            .widgets
+            .iter()
+            .all(|before| snapshot
+                .widgets
+                .iter()
+                .any(|after| after.target_id == before.target_id
+                    && after.widget_id == before.widget_id
+                    && after.row_count == before.row_count)));
         assert!(!serde_json::to_string(&snapshot)
             .unwrap()
             .contains("PRIVATE-RAW-ONLY"));
