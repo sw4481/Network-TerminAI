@@ -460,6 +460,12 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
   await expect(
     workspace.getByRole("heading", { name: "Telemetry", exact: true }),
   ).toBeVisible();
+  const conversation = page.locator('.workspace-chat');
+  const resizer = page.locator('.workspace > .resize-handle');
+  const mountedPanel = await conversation.locator('.agent-panel').elementHandle();
+  const mountedTelemetry = await workspace.elementHandle();
+  await expect(conversation).toBeHidden();
+  await expect(resizer).toBeHidden();
   await workspace.getByRole("button", { name: "Manage targets" }).click();
   const dialog = page.getByRole("dialog", { name: "Monitoring targets" });
   for (const n of backend.names)
@@ -492,6 +498,30 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     );
     throw error;
   }
+  const heartbeat = page.locator('.tab[data-tab-type="heartbeat"]');
+  const telemetrySelection = page.getByRole('button', { name: 'Select Telemetry workspace Telemetry' });
+  for (const collapsed of [false, true]) {
+    await heartbeat.click();
+    await expect(conversation).toBeVisible();
+    await expect(resizer).toBeVisible();
+    if (collapsed) await conversation.getByTitle('Toggle AI Chat').click();
+    await expect(conversation.locator('.agent-panel')).toHaveClass(collapsed ? /collapsed/ : /open/);
+    const restoredWidth = await conversation.evaluate(el => el.getBoundingClientRect().width);
+    const snapshots = backend.receipts.filter(c => c === 'telemetry_snapshot').length;
+    await expect.poll(() => backend.receipts.filter(c => c === 'telemetry_snapshot').length).toBeGreaterThan(snapshots);
+    expect(backend.receipts.filter(c => c === 'telemetry_stop' || c === 'telemetry_close')).toEqual([]);
+    expect(await mountedTelemetry!.evaluate(el => el.isConnected)).toBe(true);
+    await telemetrySelection.click();
+    await expect(workspace).toBeVisible();
+    await expect(conversation).toBeHidden();
+    await expect(resizer).toBeHidden();
+    expect(await mountedPanel!.evaluate(el => el.isConnected)).toBe(true);
+    await expect(workspace.getByRole('navigation', { name: 'Telemetry views' }).getByRole('status')).toContainText('Monitoring');
+    await heartbeat.click();
+    await expect(conversation.locator('.agent-panel')).toHaveClass(collapsed ? /collapsed/ : /open/);
+    expect(await conversation.evaluate(el => el.getBoundingClientRect().width)).toBe(restoredWidth);
+    await telemetrySelection.click();
+  }
   for (const width of [1440, 680])
     for (const theme of ["terminai-dark", "slate-grey", "matrix"] as const)
       for (const colorScheme of ["dark", "light"] as const) {
@@ -507,6 +537,9 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
           client: el.clientWidth,
         }));
         expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
+        const workspaceWidth = await page.locator('.workspace').evaluate(el => el.clientWidth);
+        const contentWidth = await page.locator('.workspace > .term-col').evaluate(el => el.getBoundingClientRect().width);
+        expect(contentWidth).toBeGreaterThanOrEqual(workspaceWidth - 1);
         await page.screenshot({
           path: info.outputPath(
             `fleet-${width}-${theme}-browser-${colorScheme}.png`,
@@ -580,6 +613,7 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     .focus();
   await page.keyboard.press("Enter");
   await expect(workspace).toHaveCount(0);
+  await expect(page.getByTitle('New terminal tab', { exact: true })).toBeFocused();
   expect(backend.receipts.filter((c) => c === "telemetry_close")).toHaveLength(
     1,
   );

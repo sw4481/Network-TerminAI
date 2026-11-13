@@ -156,6 +156,7 @@ export default function App() {
   const { tabs, activeTabId, addTab } = useTabs();
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const canvasMode = activeTab?.tab_type === "canvas";
+  const telemetryMode = activeTab?.tab_type === "telemetry";
   const [canvasPane, setCanvasPane] = useState<"chat" | "evidence">("evidence");
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const canvasCreateOwner = useRef({ mounted: false, request: 0 });
@@ -1423,7 +1424,7 @@ export default function App() {
   const effectiveAgentWidth = conversationOpen ? displayedAgentWidth : 40;
 
   const workspaceStyle: React.CSSProperties = {
-    gridTemplateColumns: canvasMode
+    gridTemplateColumns: telemetryMode ? "minmax(0, 1fr)" : canvasMode
       ? `${effectiveAgentWidth}px 6px minmax(0, 1fr)`
       : `minmax(0, 1fr) 6px ${effectiveAgentWidth}px`,
   };
@@ -1672,6 +1673,7 @@ export default function App() {
         </ErrorBoundary>
         <div
           className={`resize-handle${conversationOpen ? "" : " disabled"}`}
+          style={telemetryMode ? { display: "none" } : undefined}
           role="separator"
           aria-label="Resize Architect conversation"
           aria-orientation="vertical"
@@ -1689,7 +1691,7 @@ export default function App() {
           }}
           title={conversationOpen ? "Drag or use arrow keys to resize" : "Expand agent panel to resize"}
         />
-        <div className="workspace-chat" role="region" aria-label="Architect conversation" onFocusCapture={() => { if (canvasMode) setCanvasPane("chat"); }}>
+        <div className="workspace-chat" style={telemetryMode ? { display: "none" } : undefined} role="region" aria-label="Architect conversation" onFocusCapture={() => { if (canvasMode) setCanvasPane("chat"); }}>
           <ErrorBoundary componentName="AgentPanel">
             <AgentPanel
               tabId={activeTabId}

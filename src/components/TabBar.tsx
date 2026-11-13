@@ -58,13 +58,13 @@ export function TabBar({
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const chooserRef = useRef<HTMLDivElement | null>(null);
-  const canvasSelections = useRef(new Map<string, HTMLButtonElement>());
+  const workspaceSelections = useRef(new Map<string, HTMLButtonElement>());
   const newTabButton = useRef<HTMLButtonElement>(null);
-  const recoverCanvasCloseFocus = useRef(false);
+  const recoverWorkspaceCloseFocus = useRef(false);
   useEffect(() => {
-    if (!recoverCanvasCloseFocus.current) return;
-    recoverCanvasCloseFocus.current = false;
-    (canvasSelections.current.get(activeTabId ?? "") ?? newTabButton.current)?.focus();
+    if (!recoverWorkspaceCloseFocus.current) return;
+    recoverWorkspaceCloseFocus.current = false;
+    (workspaceSelections.current.get(activeTabId ?? "") ?? newTabButton.current)?.focus();
   }, [tabs, activeTabId]);
 
   useEffect(() => {
@@ -132,6 +132,7 @@ export function TabBar({
         const isHeartbeat = t.tab_type === "heartbeat";
         const isKanban = t.tab_type === "kanban";
         const isCanvas = t.tab_type === "canvas";
+        const workspaceLabel = isCanvas ? `Canvas investigation ${t.title}` : isTelemetry ? `Telemetry workspace ${t.title}` : null;
         const isRecording = !!activeRecordings[t.id];
         const isTerminalTab =
           !isApi &&
@@ -277,7 +278,7 @@ export function TabBar({
                 data-testid={`tab-activity-dot-${t.id}`}
               />
             )}
-            {isCanvas ? <button ref={node => { if (node) canvasSelections.current.set(t.id, node); else canvasSelections.current.delete(t.id); }} className="canvas-tab-select" aria-label={`Select Canvas investigation ${t.title}`} aria-pressed={t.id === activeTabId} onClick={event => { event.stopPropagation(); setActive(t.id); }}>{t.title}</button> : <span>{t.title}</span>}
+            {workspaceLabel ? <button ref={node => { if (node) workspaceSelections.current.set(t.id, node); else workspaceSelections.current.delete(t.id); }} className="canvas-tab-select" aria-label={`Select ${workspaceLabel}`} aria-pressed={t.id === activeTabId} onClick={event => { event.stopPropagation(); setActive(t.id); }}>{t.title}</button> : <span>{t.title}</span>}
             {canDetach && onDetach && (
               <button
                 className="tab-detach"
@@ -294,10 +295,11 @@ export function TabBar({
             {isTabCloseable && (
               <button
                 className="tab-close"
-                aria-label={isCanvas ? `Close Canvas investigation ${t.title}` : undefined}
-                title={isCanvas ? `Close Canvas investigation ${t.title}` : undefined}
+                aria-label={workspaceLabel ? `Close ${workspaceLabel}` : undefined}
+                title={workspaceLabel ? `Close ${workspaceLabel}` : undefined}
                 onClick={async (e) => {
                   e.stopPropagation();
+                  const closeButton = e.currentTarget;
                   if (isTelemetry) {
                     try { await telemetryWorkspaces.close(t.id); }
                     catch { return; }
@@ -342,7 +344,7 @@ export function TabBar({
                       await ptyKill(t.id).catch(() => {});
                     }
                   }
-                  if (isCanvas && document.activeElement === e.currentTarget) recoverCanvasCloseFocus.current = true;
+                  if (workspaceLabel && document.activeElement === closeButton) recoverWorkspaceCloseFocus.current = true;
                   removeTab(t.id);
                 }}
               >
