@@ -2,6 +2,53 @@ import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { WidgetPanel } from "./WidgetPanel";
 import { definition, page, row } from "./dashboard.test-support";
+it.each(["failed", "collecting", "unsupported", "stopped"] as const)(
+  "count remains Unknown for a never-successful %s frame",
+  (state) => {
+    const d = {
+      ...definition(),
+      view: {
+        type: "stat" as const,
+        field: "counter",
+        label: "Observed rows",
+        aggregation: "count" as const,
+      },
+    };
+    const p = page("cpu", []);
+    p.metadata.state = state;
+    p.metadata.last_success_at_ms = null;
+    render(
+      <WidgetPanel
+        definition={d}
+        page={p}
+        series={{ points: [], next_after_ms: null }}
+      />,
+    );
+    expect(screen.getByText("Unknown")).toBeVisible();
+    expect(
+      screen.queryByText("0", { selector: "strong" }),
+    ).not.toBeInTheDocument();
+  },
+);
+it("count preserves a successful empty observation as zero", () => {
+  const d = {
+    ...definition(),
+    view: {
+      type: "stat" as const,
+      field: "counter",
+      label: "Observed rows",
+      aggregation: "count" as const,
+    },
+  };
+  render(
+    <WidgetPanel
+      definition={d}
+      page={page("cpu", [])}
+      series={{ points: [], next_after_ms: null }}
+    />,
+  );
+  expect(screen.getByText("0", { selector: "strong" })).toBeVisible();
+});
 it("yaml_columns_thresholds_and_chart_units_drive_rendering", () => {
   const d = {
     ...definition(),

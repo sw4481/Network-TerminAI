@@ -30,7 +30,7 @@ export interface LoadedSeries {
 export function useDashboard(
   { snapshot, api, workspaceId }: DashboardProps,
   targetId: string,
-  mode: "fleet" | "detail",
+  mode: "fleet" | "detail" | "traffic" | "local-summary",
   sectionId?: string,
   selectedKey?: string,
   historyRows: Record<string, string> = {},
@@ -47,6 +47,11 @@ export function useDashboard(
   const [loaded, setLoaded] = useState<{
     key: string;
     widgets: LoadedWidget[];
+    errors: string[];
+  } | null>(null);
+  const [histories, setHistories] = useState<{
+    key: string;
+    tableKey: string;
     series: LoadedSeries[];
     errors: string[];
   } | null>(null);
@@ -83,7 +88,6 @@ export function useDashboard(
           setLoaded({
             key: scope,
             widgets: [],
-            series: [],
             errors: [String(e.message ?? e)],
           });
       });
@@ -91,39 +95,49 @@ export function useDashboard(
       active = false;
     };
   }, [reader, workspaceId, targetId, scope, mode, busy, closing]);
-  const key = `${scope}:${current?.effective.revision ?? ""}:${observation}:${sectionId ?? ""}:${selectedKey ?? ""}:${JSON.stringify(historyRows)}`;
+  const definitions = current?.effective.widgets ?? [];
+  const sections = current?.effective.layouts.flatMap((l) => l.sections) ?? [];
+  const section = sections.find((s) => s.id === sectionId) ?? sections[0];
+  const semanticIds = (ids: string[]) =>
+    ids
+      .map((id) => current && semanticWidget(current, id)?.widget)
+      .filter((id): id is string => !!id);
+  const interfaceIds = current
+    ? [
+        (
+          semanticWidget(current, "interfaces") ??
+          semanticWidget(current, "port_status")
+        )?.widget,
+        semanticWidget(current, "interface_traffic")?.widget,
+      ].filter((id): id is string => !!id)
+    : [];
+  const ids =
+    mode === "fleet"
+      ? semanticIds([
+          "cpu",
+          "memory",
+          "port_status",
+          "interfaces",
+          "bgp_peers",
+          "bgp_vrf_peers",
+          "ospf_neighbors",
+          "eigrp_neighbors",
+        ])
+      : mode === "traffic"
+        ? interfaceIds
+        : mode === "local-summary"
+          ? semanticIds(["local_cpu", "local_memory"])
+          : section
+            ? section.rows.flatMap((r) => r.map((e) => e.widget))
+            : definitions.map((d) => d.widget);
+  if (mode === "detail" && (selectedKey || section?.id === "overview"))
+    ids.push(...interfaceIds);
+  const key = `${scope}:${current?.effective.revision ?? ""}:${observation}:${JSON.stringify([...new Set(ids)])}`;
   useEffect(() => {
     let active = true;
     if (!current) return;
-    const definitions = current.effective.widgets;
-    const sections = current.effective.layouts.flatMap((l) => l.sections);
-    const section = sections.find((s) => s.id === sectionId) ?? sections[0];
-    const ids =
-      mode === "fleet"
-        ? [
-            "cpu",
-            "memory",
-            "port_status",
-            "interfaces",
-            "bgp_peers",
-            "bgp_vrf_peers",
-            "ospf_neighbors",
-            "eigrp_neighbors",
-          ]
-            .map((id) => semanticWidget(current, id)?.widget)
-            .filter((id): id is string => !!id)
-        : section
-          ? section.rows.flatMap((r) => r.map((e) => e.widget))
-          : definitions.map((d) => d.widget);
-    if (mode === "detail" && selectedKey) {
-      const source =
-        semanticWidget(current, "interfaces") ??
-        semanticWidget(current, "port_status");
-      if (source && !ids.includes(source.widget)) ids.push(source.widget);
-    }
     void (async () => {
       const widgets: LoadedWidget[] = [],
-        series: LoadedSeries[] = [],
         errors: string[] = [];
       await Promise.all(
         [...new Set(ids)].map(async (id) => {
@@ -149,10 +163,38 @@ export function useDashboard(
               page,
               previousSource: summary.revision !== current.effective.revision,
             });
-            if (
-              mode === "detail" &&
-              summary.revision === current.effective.revision
-            ) {
+          } catch (e) {
+            errors.push(
+              `${definition.title}: ${String((e as Error).message ?? e)}`,
+            );
+          }
+        }),
+      );
+      if (active) setLoaded({ key, widgets, errors });
+    })();
+    return () => {
+      active = false;
+    };
+    // Every retained table identity and requested definition is part of key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reader, key, current]);
+  const visible = loaded?.key === key ? loaded : null;
+  const seriesSummaries = snapshot.series.filter(
+    (s) => s.target_id === targetId && ids.includes(s.widget_id),
+  );
+  const historyKey = `${key}:${JSON.stringify(seriesSummaries)}:${selectedKey ?? ""}:${JSON.stringify(historyRows)}`;
+  useEffect(() => {
+    let active = true;
+    if (!current || !visible) return;
+    void (async () => {
+      const series: LoadedSeries[] = [],
+        errors: string[] = [];
+      if (mode === "detail" || mode === "traffic")
+        await Promise.all(
+          visible.widgets
+            .filter((w) => !w.previousSource)
+            .map(async ({ definition, page }) => {
+              const id = definition.widget;
               const candidates =
                 selectedKey && definition.fields.interface
                   ? page.rows.filter(
@@ -173,61 +215,75 @@ export function useDashboard(
                         r.fields.core.value === "total",
                     ) ?? candidates[0]);
               await Promise.all(
-                snapshot.series
+                seriesSummaries
                   .filter(
                     (s) =>
-                      s.target_id === targetId &&
-                      s.widget_id === id &&
                       definition.history?.fields.includes(s.field) &&
+                      s.widget_id === id &&
                       s.row_key === chosen?.key,
                   )
                   .map(async (summary) => {
-                    const view = definition.view;
-                    const fields =
-                      view.type === "chart"
-                        ? view.series
-                        : view.type === "table" || view.type === "kv"
-                          ? view.columns
-                          : [];
-                    const unit =
-                      summary.unit ??
-                      definition.rates?.[summary.field]?.unit ??
-                      definition.deltas?.[summary.field]?.unit ??
-                      fields.find((f) => f.field === summary.field)?.unit ??
-                      "";
-                    series.push({
-                      summary,
-                      unit,
-                      series: await reader.series(
-                        workspaceId,
+                    try {
+                      const retained =
+                        histories?.tableKey === key &&
+                        histories.series.find(
+                          (s) =>
+                            JSON.stringify(s.summary) ===
+                            JSON.stringify(summary),
+                        );
+                      if (retained) {
+                        series.push(retained);
+                        return;
+                      }
+                      const view = definition.view;
+                      const fields =
+                        view.type === "chart"
+                          ? view.series
+                          : view.type === "table" || view.type === "kv"
+                            ? view.columns
+                            : [];
+                      const unit =
+                        summary.unit ??
+                        definition.rates?.[summary.field]?.unit ??
+                        definition.deltas?.[summary.field]?.unit ??
+                        fields.find((f) => f.field === summary.field)?.unit ??
+                        "";
+                      series.push({
                         summary,
-                        current.effective.revision,
-                      ),
-                    });
+                        unit,
+                        series: await reader.series(
+                          workspaceId,
+                          summary,
+                          current.effective.revision,
+                        ),
+                      });
+                    } catch (e) {
+                      errors.push(
+                        `${definition.title}: ${String((e as Error).message ?? e)}`,
+                      );
+                    }
                   }),
               );
-            }
-          } catch (e) {
-            errors.push(
-              `${definition.title}: ${String((e as Error).message ?? e)}`,
-            );
-          }
-        }),
-      );
-      if (active) setLoaded({ key, widgets, series, errors });
+            }),
+        );
+      if (active)
+        setHistories({ key: historyKey, tableKey: key, series, errors });
     })();
     return () => {
       active = false;
     };
-    // The observation key includes every retained identity; a newer snapshot cancels the whole read set.
+    // Native series availability can expire independently of the retained latest table.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reader, key, current]);
-  const visible = loaded?.key === key ? loaded : null;
+  }, [reader, current, visible, historyKey]);
+  const currentHistories = histories?.key === historyKey ? histories : null;
   return {
     catalog: current,
     widgets: visible?.widgets ?? [],
-    series: visible?.series ?? [],
-    errors: visible?.errors ?? (loaded?.key === scope ? loaded.errors : []),
-    loading: !visible,
+    series: currentHistories?.series ?? [],
+    errors: [
+      ...(visible?.errors ?? (loaded?.key === scope ? loaded.errors : [])),
+      ...(currentHistories?.errors ?? []),
+    ],
+    loading: !visible || !currentHistories,
   };
 }

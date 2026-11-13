@@ -201,8 +201,13 @@ export function WidgetPanel({
     : [];
   let stat: string | number | null = null;
   if (view.type === "stat") {
-    if (view.aggregation === "count") stat = page.rows.length;
-    else if (view.aggregation === "first" && field) {
+    if (view.aggregation === "count") {
+      if (
+        page.metadata.last_success_at_ms !== null &&
+        ["fresh", "stale", "stopped"].includes(page.metadata.state)
+      )
+        stat = page.rows.length;
+    } else if (view.aggregation === "first" && field) {
       const first = page.rows[0]?.fields[field];
       if (first && first.kind !== "missing") stat = metricText(first);
     } else if (numbers.length && numbers.length === page.rows.length)

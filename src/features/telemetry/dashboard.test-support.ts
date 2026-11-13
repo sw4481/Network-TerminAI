@@ -1,4 +1,6 @@
 import { vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { load } from "js-yaml";
 import type {
   AuthoringCatalog,
   MetricRow,
@@ -156,4 +158,35 @@ export function dashboardFixture(
     value: { points: [], next_after_ms: null },
   });
   return { snap, catalog };
+}
+export function bundledFixture(
+  ids: string[],
+  pages: WidgetPage[],
+  sectionId = "overview",
+) {
+  const assets = `${process.cwd()}/src-tauri/telemetry/`;
+  const definitions = (
+    load(readFileSync(`${assets}widgets.yaml`, "utf8")) as {
+      widgets: WidgetDefinition[];
+    }
+  ).widgets.filter((d) => ids.includes(d.widget));
+  const fixture = dashboardFixture(definitions, pages, [
+    { id: sectionId, title: sectionId, rows: [] },
+  ]);
+  const manifest = JSON.parse(
+    readFileSync(`${assets}catalog.json`, "utf8"),
+  ) as {
+    templates: {
+      id: string;
+      command: string;
+      platform: "ios" | "iosxe";
+      sha256: string;
+    }[];
+  };
+  const templates = Object.fromEntries(
+    manifest.templates.map((t) => [t.id, { ...t, text: "" }]),
+  );
+  fixture.catalog.effective.templates = templates;
+  fixture.catalog.builtin.templates = templates;
+  return fixture;
 }

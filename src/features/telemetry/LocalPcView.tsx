@@ -19,6 +19,7 @@ export function LocalPcView(props: DashboardProps) {
     data.catalog?.effective.layouts
       .filter((l) => !l.platforms.length)
       .flatMap((l) => l.sections) ?? [];
+  const section = sections.find((s) => s.id === sectionId) ?? sections[0];
   return (
     <section aria-label="Local PC dashboard">
       <h2>This computer</h2>
@@ -33,7 +34,7 @@ export function LocalPcView(props: DashboardProps) {
           {sections.map((s) => (
             <button
               key={s.id}
-              aria-pressed={s.id === (sectionId || sections[0].id)}
+              aria-pressed={s.id === section?.id}
               onClick={() => setSection(s.id)}
             >
               {s.title}
@@ -47,21 +48,19 @@ export function LocalPcView(props: DashboardProps) {
         </p>
       ))}
       {data.loading && <p role="status">Loading current observations…</p>}
-      {sections
-        .filter((s) => !sectionId || s.id === sectionId)
-        .map((s) => (
-          <ConfiguredSection
-            key={s.id}
-            section={s}
-            definitions={data.catalog?.effective.widgets ?? []}
-            widgets={data.widgets}
-            series={data.series}
-            historyRows={historyRows}
-            onHistoryRow={(id, key) =>
-              setHistoryRows({ ...historyRows, [id]: key })
-            }
-          />
-        ))}
+      {section && (
+        <ConfiguredSection
+          key={section.id}
+          section={section}
+          definitions={data.catalog?.effective.widgets ?? []}
+          widgets={data.widgets}
+          series={data.series}
+          historyRows={historyRows}
+          onHistoryRow={(id, key) =>
+            setHistoryRows({ ...historyRows, [id]: key })
+          }
+        />
+      )}
       {!data.loading && !sections.length && (
         <p>No Local PC layout is configured.</p>
       )}

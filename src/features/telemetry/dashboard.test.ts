@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
   DashboardReader,
   compatibleDefinition,
@@ -69,6 +69,82 @@ it("accepts presentation overrides but refuses changed semantic sources and inco
   expect(
     processorPool([row("pool", { used_bytes: 20, total_bytes: 100 })]),
   ).toBe(20);
+});
+it("keeps simultaneous Fleet and detail reads independent across a real owner refresh", async () => {
+  vi.useFakeTimers();
+  const snap = snapshot(),
+    p = page();
+  snap.widgets = [p.metadata];
+  const replies: (() => void)[] = [];
+  const api = {
+    establish: async () => snap,
+    snapshot: async () => ({ ...snap, sequence: 2 }),
+    close: async () => {},
+    widget: () =>
+      new Promise((resolve) =>
+        replies.push(() =>
+          resolve({
+            workspace_id: "test",
+            generation: 1,
+            sequence: 2,
+            revision: "source",
+            value: p,
+          }),
+        ),
+      ),
+  } as unknown as TelemetryApi;
+  const owner = new TelemetryWorkspaceStore(api, () => () => {});
+  try {
+    await owner.establish("test");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(owner.state.getState().workspaces.test.snapshot?.sequence).toBe(2);
+    const fleet = new DashboardReader(api, owner),
+      detail = new DashboardReader(api, owner);
+    const pending = Promise.allSettled([
+      fleet.widget("test", "device-0", "cpu", "source"),
+      detail.widget("test", "device-0", "cpu", "source"),
+    ]);
+    replies.forEach((resolve) => resolve());
+    const results = await pending;
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+  } finally {
+    await owner.close("test");
+    vi.useRealTimers();
+  }
+});
+it("rejects a late superseded read after the same key has completed and been reused", async () => {
+  const api = {
+    establish: async () => snapshot(),
+    close: async () => {},
+  } as unknown as TelemetryApi;
+  const owner = new TelemetryWorkspaceStore(api, () => () => {});
+  await owner.establish("test");
+  const response = {
+    workspace_id: "test",
+    generation: 1,
+    sequence: 1,
+    revision: "source",
+    value: "ok",
+  };
+  let finishA!: (v: typeof response) => void,
+    finishC!: (v: typeof response) => void;
+  const a = owner.read(
+    "test",
+    "same-key",
+    () => new Promise<typeof response>((resolve) => (finishA = resolve)),
+  );
+  const late = expect(a).rejects.toThrow(/obsolete/);
+  await owner.read("test", "same-key", async () => response);
+  const c = owner.read(
+    "test",
+    "same-key",
+    () => new Promise<typeof response>((resolve) => (finishC = resolve)),
+  );
+  finishA(response);
+  await late;
+  finishC(response);
+  await expect(c).resolves.toEqual(response);
+  await owner.close("test");
 });
 it("filters MAC interface lists by exact member without substring or remote-port joins", () => {
   expect(

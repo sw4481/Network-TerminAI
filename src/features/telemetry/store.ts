@@ -27,7 +27,7 @@ interface Owner {
   timer?: ReturnType<typeof setTimeout>;
   failures: number;
   unregister: () => void;
-  reads: Map<string, number>;
+  reads: Map<string, object>;
   refreshing: boolean;
 }
 const message = (error: unknown) =>
@@ -220,28 +220,33 @@ export class TelemetryWorkspaceStore {
     const epoch = owner.epoch,
       generation = state.snapshot.generation,
       sequence = state.snapshot.sequence;
-    const operation = (owner.reads.get(key) ?? 0) + 1;
+    const operation = {};
     owner.reads.set(key, operation);
-    const response = await request();
-    const current = this.state.getState().workspaces[id];
-    if (
-      this.owners.get(id) !== owner ||
-      owner.epoch !== epoch ||
-      owner.reads.get(key) !== operation ||
-      current?.closing ||
-      current?.snapshot?.generation !== generation ||
-      response.workspace_id !== id ||
-      response.generation !== generation ||
-      response.sequence < sequence ||
-      (revision !== undefined && response.revision !== revision)
-    )
-      throw new Error("Telemetry reply is obsolete; retry");
-    return response;
+    try {
+      const response = await request();
+      const current = this.state.getState().workspaces[id];
+      if (
+        this.owners.get(id) !== owner ||
+        owner.epoch !== epoch ||
+        owner.reads.get(key) !== operation ||
+        current?.closing ||
+        current?.snapshot?.generation !== generation ||
+        response.workspace_id !== id ||
+        response.generation !== generation ||
+        response.sequence < sequence ||
+        (revision !== undefined && response.revision !== revision)
+      )
+        throw new Error("Telemetry reply is obsolete; retry");
+      return response;
+    } finally {
+      if (owner.reads.get(key) === operation) owner.reads.delete(key);
+    }
   }
   async widget(
     query: WidgetQuery,
     sourceRevision: string,
     previous?: WidgetSummary,
+    callerScope = "",
   ) {
     let summary = this.state
       .getState()
@@ -252,7 +257,7 @@ export class TelemetryWorkspaceStore {
       throw new Error("Telemetry table needs a first page");
     const response = await this.read(
       query.workspace_id,
-      `widget:${query.target_id}:${query.widget_id}`,
+      `widget:${query.target_id}:${query.widget_id}:${callerScope}`,
       () => this.api.widget(query),
       sourceRevision,
     );
@@ -278,7 +283,7 @@ export class TelemetryWorkspaceStore {
       throw new Error("Telemetry table changed; reload its first page");
     return response;
   }
-  series(query: SeriesQuery, sourceRevision: string) {
+  series(query: SeriesQuery, sourceRevision: string, callerScope = "") {
     const summary = this.state
       .getState()
       .workspaces[
@@ -288,7 +293,7 @@ export class TelemetryWorkspaceStore {
       return Promise.reject(new Error("Telemetry series has no sample"));
     return this.read(
       query.workspace_id,
-      `series:${query.target_id}:${query.widget_id}:${query.row_key}:${query.field}`,
+      `series:${query.target_id}:${query.widget_id}:${query.row_key}:${query.field}:${callerScope}`,
       () => this.api.series(query),
       sourceRevision,
     );

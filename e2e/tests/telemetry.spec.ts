@@ -70,6 +70,30 @@ class SyntheticTelemetryBackend {
   releaseRestore() {
     this.restoreResolve?.(null);
   }
+  advanceObservation() {
+    this.state.sequence++;
+    for (const w of this.state.widgets.filter(
+      (w) => w.target_id === "switch-0",
+    )) {
+      w.observed_at_ms += 30000;
+      w.last_success_at_ms = w.observed_at_ms;
+    }
+    const cpu = this.pages.get("switch-0:cpu")!;
+    cpu.metadata.state = "stale";
+    cpu.metadata.observed_at_ms = 1699999900000;
+    cpu.metadata.last_success_at_ms = cpu.metadata.observed_at_ms;
+    const memory = this.pages.get("switch-0:memory")!;
+    memory.metadata.state = "failed";
+    memory.metadata.severity = "info";
+    memory.metadata.last_success_at_ms = null;
+    memory.metadata.row_count = 0;
+    memory.metadata.diagnostics = [{code:"fixture_parse", message:"Fixture memory collection failed", path:"memory",line:null,column:null}];
+    memory.rows = [];
+  }
+  expireHistories() {
+    this.state.sequence++;
+    this.state.series = [];
+  }
   private read<T>(value: T, revision = "source") {
     return {
       workspace_id: this.state.workspace_id,
@@ -154,12 +178,15 @@ class SyntheticTelemetryBackend {
       output_bit_s: 2000,
       link_state: "up",
       protocol_state: "up",
+      status: "connected",
       description: "Observed fixture interface",
     };
     const make = (index: number): MetricRow => ({
       key: `row-${index}`,
       fields: Object.fromEntries(
-        Object.keys(w.fields).map((field) => {
+        [
+          ...new Set([...Object.keys(w.fields), ...Object.keys(w.rates ?? {})]),
+        ].map((field) => {
           const value =
             w.widget === "local_processes" && field === "name"
               ? `Observed process ${index + 1}`
@@ -499,6 +526,69 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     throw error;
   }
   const heartbeat = page.locator('.tab[data-tab-type="heartbeat"]');
+  await expect(
+    workspace.getByRole("cell", { name: "IOSXE", exact: true }),
+  ).toHaveCount(10);
+  await expect(workspace.getByText(/1 up \/ 1 observed/).first()).toBeVisible();
+  const routingCoverage = workspace.getByRole("region", {
+    name: "Fleet routing coverage",
+  });
+  await expect(
+    routingCoverage.getByText(/BGP summary.*8 \/ 10 current targets/),
+  ).toBeVisible();
+  const localSummary = workspace.getByRole("region", {
+    name: "Local PC summary",
+  });
+  await expect(localSummary.getByText("23 %", { exact: true })).toBeVisible();
+  await expect(
+    localSummary.getByText("250000000 B / 1000000000 B", { exact: true }),
+  ).toBeVisible();
+  await workspace
+    .getByLabel("Interface detail target")
+    .selectOption("switch-0");
+  await expect(
+    workspace
+      .getByLabel("Traffic interface")
+      .getByRole("option", { name: "Gi1/0/1", exact: true }),
+  ).toHaveCount(1);
+  await workspace.getByLabel("Traffic interface").selectOption("Gi1/0/1");
+  const traffic = workspace.getByRole("region", {
+    name: "Selected interface traffic",
+  });
+  await expect(traffic.locator(".telemetry-chart")).toHaveCount(2);
+  await traffic.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("fleet-traffic-1440.png") });
+  const beforeRefresh = backend.receipts.filter(
+    (c) => c === "telemetry_snapshot",
+  ).length;
+  backend.advanceObservation();
+  await expect(
+    workspace
+      .getByRole("table", { name: "Monitored devices" })
+      .getByText("Telemetry reply is obsolete; retry"),
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      () => backend.receipts.filter((c) => c === "telemetry_snapshot").length,
+    )
+    .toBeGreaterThan(beforeRefresh);
+  await expect(traffic.locator(".telemetry-chart")).toHaveCount(2);
+  await expect(workspace.getByText(/Telemetry reply is obsolete/)).toHaveCount(
+    0,
+  );
+  const firstDevice = workspace.getByRole("row").filter({has: page.getByRole("button", {name:"Switch 1",exact:true})});
+  await expect(firstDevice.getByRole("cell").filter({hasText:"4 %"}).getByText("Stale", {exact:true})).toBeVisible();
+  await expect(firstDevice.getByText("Fixture memory collection failed", {exact:false})).toBeVisible();
+  await firstDevice.getByText("4 %", {exact:false}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:info.outputPath("fleet-mixed-quality-1440.png")});
+  await firstDevice.getByRole("cell").filter({hasText:/up \/.*observed/}).scrollIntoViewIfNeeded();
+  await page.screenshot({path:info.outputPath("fleet-source-counts-1440.png")});
+  await workspace.getByRole("table", {name:"Monitored devices"}).evaluate((table) => {table.parentElement!.scrollLeft = 0;});
+  await localSummary.scrollIntoViewIfNeeded();
+  await page.screenshot({path:info.outputPath("fleet-local-1440.png")});
+  await workspace
+    .getByRole("heading", { name: "Fleet", exact: true })
+    .scrollIntoViewIfNeeded();
   const telemetrySelection = page.getByRole('button', { name: 'Select Telemetry workspace Telemetry' });
   for (const collapsed of [false, true]) {
     await heartbeat.click();
@@ -546,9 +636,24 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
           ),
         });
       }
+  await traffic.scrollIntoViewIfNeeded();
+  await page.screenshot({path:info.outputPath("fleet-traffic-680-matrix.png")});
   await workspace
     .getByRole("button", { name: "Switch 1", exact: true })
     .click();
+  await expect(workspace.getByText(/24 observed interfaces/)).toBeVisible();
+  await workspace.getByLabel("Traffic interface").selectOption("Gi1/0/1");
+  await expect(
+    workspace
+      .getByRole("region", { name: "Selected interface traffic" })
+      .locator(".telemetry-chart"),
+  ).toHaveCount(2);
+  await workspace
+    .getByRole("region", { name: "Selected interface traffic" })
+    .scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: info.outputPath("device-overview-680-matrix.png"),
+  });
   await workspace.getByRole("button", { name: "Routing", exact: true }).click();
   await expect(workspace.getByText("2-Way").first()).toBeVisible();
   await expect(workspace.getByText("CORP").first()).toBeVisible();
@@ -605,6 +710,18 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
   ).toBeVisible();
   await page.screenshot({
     path: info.outputPath("local-stopped-680-matrix.png"),
+  });
+  await processes.scrollIntoViewIfNeeded();
+  await workspace.getByRole("searchbox", {name:"Filter Local Processes",exact:true}).fill("Observed process 1500");
+  await expect(processes.getByText("Observed process 1500")).toBeVisible();
+  const stoppedProcesses = await processes.elementHandle();
+  backend.expireHistories();
+  await expect(workspace.locator(".telemetry-chart")).toHaveCount(0);
+  expect(await stoppedProcesses!.evaluate((el) => el.isConnected)).toBe(true);
+  await expect(workspace.getByRole("searchbox", {name:"Filter Local Processes",exact:true})).toHaveValue("Observed process 1500");
+  await expect(processes.getByText("Observed process 1500")).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath("local-expired-680-matrix.png"),
   });
   await page
     .locator(".tab")

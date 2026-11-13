@@ -141,7 +141,8 @@
   border-bottom: 1px solid var(--border-default);
 }
 .telemetry-panel > p,
-.telemetry-panel > dl {
+.telemetry-panel > dl,
+.telemetry-routing-source {
   margin: 12px 16px;
 }
 .telemetry-panel > header > span {

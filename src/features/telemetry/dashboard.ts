@@ -121,13 +121,19 @@ export function interfaceMember(
     return false;
   }
 }
+export const successfulObservation = (page: WidgetPage | undefined) =>
+  !!page &&
+  page.metadata.last_success_at_ms !== null &&
+  ["fresh", "stale", "stopped"].includes(page.metadata.state);
+let readerScope = 0;
 export class DashboardReader {
+  private readonly scope = `dashboard:${++readerScope}`;
   constructor(
     private readonly api: TelemetryApi,
     private readonly owner: TelemetryWorkspaceStore = telemetryWorkspaces,
   ) {}
   catalog(workspaceId: string, targetId: string, key: string) {
-    return this.owner.read(workspaceId, key, () =>
+    return this.owner.read(workspaceId, `${this.scope}:${key}`, () =>
       this.api.catalog(
         workspaceId,
         targetId === "local" ? "local" : { device: targetId },
@@ -154,6 +160,7 @@ export class DashboardReader {
         },
         revision,
         previous,
+        this.scope,
       );
       if (
         previous &&
@@ -193,6 +200,7 @@ export class DashboardReader {
           limit: 1000,
         },
         revision,
+        this.scope,
       );
       if (
         value.points.some(

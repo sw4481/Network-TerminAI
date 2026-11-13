@@ -1,5 +1,9 @@
 import { useState, type CSSProperties } from "react";
-import { semanticWidget, interfaceMember } from "./dashboard";
+import {
+  semanticWidget,
+  interfaceMember,
+  successfulObservation,
+} from "./dashboard";
 import {
   useDashboard,
   type DashboardProps,
@@ -8,6 +12,7 @@ import {
 } from "./useDashboard";
 import { WidgetPanel, collectionLabel, metricText } from "./WidgetPanel";
 import { TelemetryChart } from "./TelemetryChart";
+import { InterfaceTraffic } from "./InterfaceTraffic";
 import type { LayoutSection, MetricRow } from "./types";
 
 export function ConfiguredSection({
@@ -191,19 +196,20 @@ export function DeviceView(
     ) ?? [];
   const sections = layouts.flatMap((l) => l.sections);
   const section = sections.find((s) => s.id === sectionId) ?? sections[0];
-  const selectedWidget = data.widgets.find(
-    (w) => w.definition.widget === selected?.widgetId,
-  );
-  const selectedRow = selectedWidget?.page.rows.find(
-    (r) => r.key === selected?.key,
-  );
   const observedSource =
     data.catalog &&
     (semanticWidget(data.catalog, "interfaces") ??
       semanticWidget(data.catalog, "port_status"));
   const interfaceWidget = data.widgets.find(
-    (w) => w.definition.widget === observedSource?.widget,
+    (w) =>
+      w.definition.widget === observedSource?.widget &&
+      !w.previousSource &&
+      successfulObservation(w.page),
   );
+  const selectedRow =
+    interfaceWidget?.definition.widget === selected?.widgetId
+      ? interfaceWidget?.page.rows.find((r) => r.key === selected?.key)
+      : undefined;
   const ports = interfaceWidget?.page.rows ?? [];
   if (!target)
     return (
@@ -244,7 +250,7 @@ export function DeviceView(
           )}
         </p>
       )}
-      {ports.length > 0 && (
+      {interfaceWidget && (
         <p className="telemetry-muted">
           {ports.length} observed interfaces from {observedSource?.title};
           physical port capacity is unavailable.
@@ -268,7 +274,7 @@ export function DeviceView(
           }
           selectedKey={selected?.key}
           selectedInterface={selected?.label}
-          selectableWidgetId={observedSource?.widget}
+          selectableWidgetId={interfaceWidget?.definition.widget}
           onSelect={(widget, row) => {
             setHistoryRows({});
             setSelection({
@@ -277,6 +283,28 @@ export function DeviceView(
               key: row.key,
               label: metricText(row.fields.interface),
             });
+          }}
+        />
+      )}
+      {section?.id === "overview" && (
+        <InterfaceTraffic
+          data={data}
+          selected={selected?.label ?? ""}
+          onSelect={(label) => {
+            const row = ports.find(
+              (r) => metricText(r.fields.interface) === label,
+            );
+            setHistoryRows({});
+            setSelection(
+              row && interfaceWidget
+                ? {
+                    targetId,
+                    widgetId: interfaceWidget.definition.widget,
+                    key: row.key,
+                    label,
+                  }
+                : null,
+            );
           }}
         />
       )}
