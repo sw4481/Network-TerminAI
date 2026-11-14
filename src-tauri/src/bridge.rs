@@ -312,7 +312,7 @@ impl OwnedChild {
         self.child.kill()
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     fn id(&self) -> u32 {
         self.child.id()
     }
