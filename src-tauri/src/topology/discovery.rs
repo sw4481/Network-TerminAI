@@ -180,7 +180,7 @@ pub struct TopologyDiscoveryService {
 }
 impl TopologyDiscoveryService {
     pub fn new(db: Arc<Mutex<Connection>>, parser: ParserBridge) -> Self {
-        let processes = Arc::new(DiscoveryProcesses::default());
+        let processes = Arc::<DiscoveryProcesses>::default();
         let transport = processes.clone();
         let execute: Execute = Arc::new(move |target, command, cancel, deadline| {
             let transport = transport.clone();
@@ -287,8 +287,9 @@ impl TopologyDiscoveryService {
             if request.include_routing {
                 return Err("Routing collection is unavailable in SNMP mode".into());
             }
-            #[cfg(not(unix))]
-            return Err("Topology SNMP discovery is unsupported on this platform".into());
+            if cfg!(not(unix)) {
+                return Err("Topology SNMP discovery is unsupported on this platform".into());
+            }
             if self.snmp_execute.is_none() {
                 return Err("Topology SNMP worker unavailable".into());
             }

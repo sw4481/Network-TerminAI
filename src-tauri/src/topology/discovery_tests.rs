@@ -786,6 +786,24 @@ async fn routing_interface_snapshot_is_once_optional_and_never_blocks_logical_ca
     }
 }
 
+#[test]
+fn snmp_platform_guard_precedes_worker_and_vault_access() {
+    let parse: Parse =
+        Arc::new(|_, _, _, _, _, _| Box::pin(async { panic!("SNMP must not use shared parser") }));
+    let (_dir, service) = setup(1, parse);
+    let mut req = request(1, 0);
+    req.collection_mode = CollectionMode::SnmpV3;
+    assert_eq!(
+        service.start(req).err().as_deref(),
+        Some(if cfg!(unix) {
+            "Topology SNMP worker unavailable"
+        } else {
+            "Topology SNMP discovery is unsupported on this platform"
+        })
+    );
+    assert!(service.status(None).unwrap().is_none());
+}
+
 fn snmp_service(count: usize) -> (tempfile::TempDir, Arc<TopologyDiscoveryService>, String) {
     let parse: Parse =
         Arc::new(|_, _, _, _, _, _| Box::pin(async { panic!("SNMP must not use shared parser") }));
