@@ -139,7 +139,7 @@ jobs:
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Retire only the unsafe v1.1.17 draft
+      - name: Contain the unsafe v1.1.17 release
         if: github.ref == 'refs/tags/v1.1.18'
         uses: actions/github-script@v7
         with:
@@ -147,18 +147,22 @@ jobs:
             const repo = context.repo;
             const badCommit = '4cd4d5ac6633e2a4c37c6d50dd0acb5ebb365ed2';
             const oldRun = 43561458598;
+            const oldRelease = 445040852;
             if (repo.owner !== 'sw4481' || repo.repo !== 'Network-TerminAI' ||
                 context.ref !== 'refs/tags/v1.1.18') {
               throw new Error('Unsafe-release retirement is restricted to the exact repository and v1.1.18.');
             }
-            const { data: ref } = await github.rest.git.getRef({ ...repo, ref: 'tags/v1.1.17' });
-            if (ref.ref !== 'refs/tags/v1.1.17' || ref.object.type !== 'tag') {
-              throw new Error('The unsafe release must retain its original annotated Git tag.');
-            }
-            const { data: tag } = await github.rest.git.getTag({ ...repo, tag_sha: ref.object.sha });
-            if (tag.object.type !== 'commit' || tag.object.sha !== badCommit) {
-              throw new Error('The v1.1.17 tag no longer resolves to the known unsafe commit.');
-            }
+            const verifyTag = async () => {
+              const { data: ref } = await github.rest.git.getRef({ ...repo, ref: 'tags/v1.1.17' });
+              if (ref.ref !== 'refs/tags/v1.1.17' || ref.object.type !== 'tag') {
+                throw new Error('The unsafe release must retain its original annotated Git tag.');
+              }
+              const { data: tag } = await github.rest.git.getTag({ ...repo, tag_sha: ref.object.sha });
+              if (tag.object.type !== 'commit' || tag.object.sha !== badCommit) {
+                throw new Error('The v1.1.17 tag no longer resolves to the known unsafe commit.');
+              }
+            };
+            await verifyTag();
             let draft;
             try {
               ({ data: draft } = await github.rest.repos.getReleaseByTag({ ...repo, tag: 'v1.1.17' }));
@@ -167,13 +171,20 @@ jobs:
               core.info('No v1.1.17 release exists; no retirement required.');
               return;
             }
-            const requireDraft = release => {
-              if (!Number.isSafeInteger(release.id) || release.id <= 0 ||
-                  release.tag_name !== 'v1.1.17' || release.draft !== true || release.published_at !== null) {
-                throw new Error('Refusing to retire an unexpected or published v1.1.17 release.');
+            const requireRelease = release => {
+              if (release.id !== oldRelease || release.tag_name !== 'v1.1.17' ||
+                  typeof release.draft !== 'boolean' ||
+                  !(release.published_at === null || typeof release.published_at === 'string')) {
+                throw new Error('Unsafe release identity or state changed.');
               }
             };
-            requireDraft(draft);
+            const requireNeverPublished = release => {
+              requireRelease(release);
+              if (release.draft !== true || release.published_at !== null) {
+                throw new Error('An active unsafe run must have a never-published draft; require owner cancellation.');
+              }
+            };
+            requireRelease(draft);
             // Public reads need no additional Actions permission or authenticated client.
             const readPublic = async suffix => {
               const response = await fetch(`https://api.github.com/repos/sw4481/Network-TerminAI/actions/runs/${oldRun}${suffix}`, {
@@ -183,43 +194,112 @@ jobs:
               if (!response.ok) throw new Error(`Cannot verify unsafe release run: HTTP ${response.status}`);
               return response.json();
             };
-            const run = await readPublic('');
-            if (run.id !== oldRun || run.head_sha !== badCommit || run.head_branch !== 'v1.1.17' ||
-                run.repository?.full_name !== 'sw4481/Network-TerminAI' ||
-                run.head_repository?.full_name !== 'sw4481/Network-TerminAI' ||
-                run.event !== 'push' || run.path !== '.github/workflows/release.yml' || run.run_attempt !== 1) {
-              throw new Error('Unsafe release run identity changed; require owner cancellation.');
-            }
-            if (run.status === 'completed' && typeof run.conclusion === 'string' && run.conclusion) {
-              core.info('Unsafe release run is terminal; retain its unpublished draft for audit.');
+            const readRun = async () => {
+              const run = await readPublic('');
+              if (run.id !== oldRun || run.head_sha !== badCommit || run.head_branch !== 'v1.1.17' ||
+                  run.repository?.full_name !== 'sw4481/Network-TerminAI' ||
+                  run.head_repository?.full_name !== 'sw4481/Network-TerminAI' ||
+                  run.event !== 'push' || run.path !== '.github/workflows/release.yml' || run.run_attempt !== 1) {
+                throw new Error('Unsafe release run identity changed; require owner cancellation.');
+              }
+              const terminal = ['success', 'failure', 'cancelled', 'neutral', 'skipped', 'timed_out', 'action_required', 'stale', 'startup_failure'];
+              if (!(run.status === 'completed' && terminal.includes(run.conclusion)) &&
+                  !(['queued', 'in_progress'].includes(run.status) && run.conclusion === null)) {
+                throw new Error('Unexpected unsafe release run state; require owner cancellation.');
+              }
+              return run;
+            };
+            const containTerminal = async () => {
+              await verifyTag();
+              const { data: current } = await github.rest.repos.getRelease({ ...repo, release_id: oldRelease });
+              requireRelease(current);
+              if (current.draft) {
+                core.info('Unsafe release run is terminal; retain its unpublished draft and assets for audit.');
+                return;
+              }
+              const withdrawal = await github.rest.repos.updateRelease({ ...repo, release_id: oldRelease, draft: true });
+              if (withdrawal.status !== 200) throw new Error('Unsafe release withdrawal did not return 200.');
+              requireRelease(withdrawal.data);
+              if (!withdrawal.data.draft) throw new Error('Unsafe release withdrawal did not return a draft.');
+              const { data: verified } = await github.rest.repos.getRelease({ ...repo, release_id: oldRelease });
+              requireRelease(verified);
+              if (!verified.draft) throw new Error('Unsafe release remains public after withdrawal.');
+              core.info('Withdrew only the terminal unsafe release; its assets and Git tag remain intact.');
+            };
+            const waitForTerminal = async () => {
+              // Never mutate while a publisher may still be active; poll only its exact run and release.
+              for (let poll = 0; poll < 55; poll++) {
+                await new Promise(resolve => setTimeout(resolve, 60000));
+                const latest = await readRun();
+                if (latest.status === 'completed') {
+                  await containTerminal();
+                  return;
+                }
+                const { data: stillActive } = await github.rest.repos.getRelease({ ...repo, release_id: oldRelease });
+                requireRelease(stillActive);
+              }
+              throw new Error('Unsafe release is still active after 55 minutes; require owner cancellation.');
+            };
+            const run = await readRun();
+            if (run.status === 'completed') {
+              await containTerminal();
               return;
             }
-            if (!['queued', 'in_progress'].includes(run.status) || run.conclusion !== null) {
-              throw new Error('Unexpected unsafe release run state; require owner cancellation.');
+            if (!draft.draft) {
+              await waitForTerminal();
+              return;
             }
+            requireNeverPublished(draft);
             const { jobs, total_count: count } = await readPublic('/jobs?per_page=100');
             const packages = ['package-macos-aarch64', 'package-windows-x86_64', 'package-linux-x86_64'];
             const allowed = ['release-preflight', 'create-draft-release', ...packages, 'validate-and-publish'];
+            const beforeUpload = job => {
+              if (job.conclusion !== null) return false;
+              if (job.status === 'queued') return true;
+              if (job.status !== 'in_progress') return false;
+              if (!Array.isArray(job.steps)) throw new Error('Unsafe package steps are missing.');
+              const rust = job.steps.filter(step => step.name === 'Run Rust checks from Cargo.lock');
+              const upload = job.steps.filter(step => step.name === 'Build and upload native bundles');
+              const knownStep = step =>
+                (step.status === 'pending' && step.conclusion === null && step.started_at === null && step.completed_at === null) ||
+                (step.status === 'in_progress' && step.conclusion === null &&
+                  typeof step.started_at === 'string' && step.started_at.length > 0 && step.completed_at === null) ||
+                (step.status === 'completed' && typeof step.conclusion === 'string' && step.conclusion.length > 0 &&
+                  typeof step.completed_at === 'string' && step.completed_at.length > 0);
+              if (rust.length !== 1 || upload.length !== 1 || rust[0].number !== 16 || upload[0].number !== 18 ||
+                  !knownStep(rust[0]) || !knownStep(upload[0])) {
+                throw new Error('Unexpected unsafe package step metadata; require owner cancellation.');
+              }
+              return rust.length === 1 && upload.length === 1 &&
+                rust[0].number === 16 && rust[0].conclusion === null && rust[0].completed_at === null &&
+                ((rust[0].status === 'pending' && rust[0].started_at === null) ||
+                 (rust[0].status === 'in_progress' && typeof rust[0].started_at === 'string' && rust[0].started_at.length > 0)) &&
+                upload[0].number === 18 && upload[0].status === 'pending' && upload[0].conclusion === null &&
+                upload[0].started_at === null && upload[0].completed_at === null;
+            };
             if (!Array.isArray(jobs) || count !== jobs.length || jobs.length > 6 ||
                 new Set(jobs.map(job => job.name)).size !== jobs.length ||
                 jobs.some(job => !allowed.includes(job.name) || job.run_id !== oldRun || job.head_sha !== badCommit ||
                   !['queued', 'in_progress', 'completed'].includes(job.status)) ||
                 !['release-preflight', 'create-draft-release'].every(name =>
                   jobs.some(job => job.name === name && job.status === 'completed' && job.conclusion === 'success')) ||
-                !packages.every(name => jobs.some(job => job.name === name)) ||
-                !jobs.some(job => packages.includes(job.name) && job.status === 'queued' && job.conclusion === null) ||
+                !packages.every(name => jobs.some(job => job.name === name))) {
+              throw new Error('Unexpected unsafe release jobs; require owner cancellation.');
+            }
+            if (!jobs.filter(job => packages.includes(job.name)).map(beforeUpload).some(Boolean) ||
                 jobs.some(job => job.name === 'validate-and-publish' &&
                   (job.status !== 'queued' || job.conclusion !== null))) {
-              throw new Error('Unsafe release may reach publication; require owner cancellation.');
+              await waitForTerminal();
+              return;
             }
-            const { data: current } = await github.rest.repos.getRelease({ ...repo, release_id: draft.id });
-            requireDraft(current);
-            if (current.id !== draft.id) throw new Error('Unsafe draft identity changed.');
+            await verifyTag();
+            const { data: current } = await github.rest.repos.getRelease({ ...repo, release_id: oldRelease });
+            requireNeverPublished(current);
             // This narrows the race; GitHub offers no atomic draft-only release deletion.
-            const deletion = await github.rest.repos.deleteRelease({ ...repo, release_id: draft.id });
+            const deletion = await github.rest.repos.deleteRelease({ ...repo, release_id: oldRelease });
             if (deletion.status !== 204) throw new Error('Unsafe draft deletion did not return 204.');
             try {
-              await github.rest.repos.getRelease({ ...repo, release_id: draft.id });
+              await github.rest.repos.getRelease({ ...repo, release_id: oldRelease });
             } catch (error) {
               if (error.status !== 404) throw error;
               core.info('Retired the unsafe v1.1.17 draft; Git tag and Actions run audit remain intact.');

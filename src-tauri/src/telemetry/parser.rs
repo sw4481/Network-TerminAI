@@ -121,9 +121,27 @@ struct Job {
     payload: Vec<u8>,
     deadline: Instant,
     cancel: CancellationToken,
-    reply: oneshot::Sender<ParseResult>,
     // Keep the claim until request buffers and rejected replies have been destroyed.
     output_admission: Option<OutputAdmission>,
+    // Queue teardown must retire the claim before closing the caller's reply.
+    reply: oneshot::Sender<ParseReply>,
+}
+
+struct ParseReply {
+    result: ParseResult,
+    // Rejected replies drop their rows before releasing the request claim.
+    output_admission: Option<OutputAdmission>,
+}
+impl ParseReply {
+    fn into_result(self) -> ParseResult {
+        let Self {
+            result,
+            output_admission,
+        } = self;
+        // Admitted callers retain their outer reservation while accepting rows.
+        drop(output_admission);
+        result
+    }
 }
 
 struct CancelOnDrop(CancellationToken);
@@ -315,8 +333,8 @@ impl TelemetryParser {
             payload,
             deadline,
             cancel: local_cancel.clone(),
-            reply,
             output_admission,
+            reply,
         };
         tokio::select! {
             biased;
@@ -331,7 +349,7 @@ impl TelemetryParser {
             _ = self.stop.cancelled() => failure("parser_shutdown", "Parser is shut down"),
             _ = cancel.cancelled() => failure("parser_cancelled", "Parsing was cancelled"),
             _ = tokio::time::sleep_until(deadline) => failure("parser_timeout", "Parser deadline exceeded"),
-            result = &mut receive => return result.unwrap_or_else(|_| Err(failure("parser_shutdown", "Parser owner exited"))),
+            result = &mut receive => return result.map_or_else(|_| Err(failure("parser_shutdown", "Parser owner exited")), ParseReply::into_result),
         };
         local_cancel.cancel();
         match tokio::time::timeout(self.cleanup_budget, &mut receive).await {
@@ -655,7 +673,19 @@ async fn owner(mut jobs: mpsc::Receiver<Job>, spec: WorkerSpec, stop: Cancellati
                 owned.terminate(&spec).await;
             }
         }
-        let _ = job.reply.send(result);
+        let Job {
+            id,
+            cancel,
+            reply,
+            payload,
+            output_admission,
+            ..
+        } = job;
+        drop((id, payload, cancel));
+        let _ = reply.send(ParseReply {
+            result,
+            output_admission,
+        });
     }
     if let Some(mut owned) = worker {
         owned.terminate(&spec).await;
@@ -813,6 +843,72 @@ impl TelemetryParser {
 mod tests {
     use super::*;
     use crate::telemetry::model::Platform;
+
+    struct AdmissionDrop(Arc<AtomicBool>);
+    impl Drop for AdmissionDrop {
+        fn drop(&mut self) {
+            // Model a producer descheduled while retiring its request claim.
+            std::thread::sleep(Duration::from_millis(100));
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn successful_reply_retires_output_admission_before_returning() {
+        let parser = TelemetryParser::new();
+        let (capture, template) = sample("Gi1\n");
+        let retired = Arc::new(AtomicBool::new(false));
+        let admission = AdmissionDrop(retired.clone());
+        let rows = parser
+            .parse_admitted(&capture, &template, CancellationToken::new(), move |_| {
+                let _keep_alive = &admission;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let retired_before_reply = retired.load(Ordering::SeqCst);
+        parser.shutdown().await.unwrap();
+        assert!(!rows.is_empty());
+        assert!(
+            retired_before_reply,
+            "parser returned before the request admission callback retired"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn queued_owner_exit_retires_admission_before_closing_reply() {
+        let retired = Arc::new(AtomicBool::new(false));
+        let admission = AdmissionDrop(retired.clone());
+        let (send, jobs) = mpsc::channel(1);
+        let (reply, receive) = oneshot::channel();
+        assert!(send
+            .send(Job {
+                id: "queued".into(),
+                payload: vec![0; 1024],
+                deadline: Instant::now() + Duration::from_secs(1),
+                cancel: CancellationToken::new(),
+                output_admission: Some(Box::new(move |_| {
+                    let _keep_alive = &admission;
+                    Ok(())
+                })),
+                reply,
+            })
+            .await
+            .is_ok());
+        let stop = CancellationToken::new();
+        stop.cancel();
+        let spec = WorkerSpec::default();
+        let task = tokio::spawn(owner(jobs, spec.clone(), stop));
+        let closed = receive.await.is_err();
+        let retired_before_close = retired.load(Ordering::SeqCst);
+        task.await.unwrap();
+        assert!(closed);
+        assert_eq!(spec.started.load(Ordering::SeqCst), 0);
+        assert!(
+            retired_before_close,
+            "queued owner exit closed the reply before admission retired"
+        );
+    }
 
     #[tokio::test]
     async fn isolated_worker_import_preserves_module_tree_without_bytecode() {
