@@ -113,6 +113,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+      actions: read
     outputs:
       release_id: ${{ steps.release.outputs.release_id }}
       release_notes: ${{ steps.notes.outputs.body }}
@@ -140,7 +141,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Contain the unsafe v1.1.17 release
-        if: github.ref == 'refs/tags/v1.1.19'
+        if: github.ref == 'refs/tags/v1.1.20'
         uses: actions/github-script@v7
         with:
           script: |
@@ -149,8 +150,8 @@ jobs:
             const oldRun = 43561458598;
             const oldRelease = 445040852;
             if (repo.owner !== 'sw4481' || repo.repo !== 'Network-TerminAI' ||
-                context.ref !== 'refs/tags/v1.1.19') {
-              throw new Error('Unsafe-release retirement is restricted to the exact repository and v1.1.19.');
+                context.ref !== 'refs/tags/v1.1.20') {
+              throw new Error('Unsafe-release retirement is restricted to the exact repository and v1.1.20.');
             }
             const verifyTag = async () => {
               const { data: ref } = await github.rest.git.getRef({ ...repo, ref: 'tags/v1.1.17' });
@@ -178,17 +179,8 @@ jobs:
               }
             };
             requireRelease(draft);
-            // Public reads need no additional Actions permission or authenticated client.
-            const readPublic = async suffix => {
-              const response = await fetch(`https://api.github.com/repos/sw4481/Network-TerminAI/actions/runs/${oldRun}${suffix}`, {
-                headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'terminai-release-recovery' },
-                redirect: 'error', signal: AbortSignal.timeout(15000)
-              });
-              if (!response.ok) throw new Error(`Cannot verify unsafe release run: HTTP ${response.status}`);
-              return response.json();
-            };
             const readRun = async () => {
-              const run = await readPublic('');
+              const { data: run } = await github.rest.actions.getWorkflowRun({ ...repo, run_id: oldRun, request: { timeout: 15000 } });
               if (run.id !== oldRun || run.head_sha !== badCommit || run.head_branch !== 'v1.1.17' ||
                   run.repository?.full_name !== 'sw4481/Network-TerminAI' ||
                   run.head_repository?.full_name !== 'sw4481/Network-TerminAI' ||
@@ -243,7 +235,9 @@ jobs:
               return;
             }
             requireNeverPublished(draft);
-            const { jobs, total_count: count } = await readPublic('/jobs?per_page=100');
+            const { data: { jobs, total_count: count } } = await github.rest.actions.listJobsForWorkflowRun({
+              ...repo, run_id: oldRun, per_page: 100, request: { timeout: 15000 }
+            });
             const packages = ['package-macos-aarch64', 'package-windows-x86_64', 'package-linux-x86_64'];
             const allowed = ['release-preflight', 'create-draft-release', ...packages, 'validate-and-publish'];
             const beforeUpload = job => {
