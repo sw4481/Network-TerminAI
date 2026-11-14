@@ -3943,3 +3943,7 @@ The complete406676-byte protected intake is preserved by this EOF-only append. F
 ## 2026-11-13 — Telemetry local main integration output recovery
 
 - What the issue/mistake was: The137-file per-path diff-stat exceeded its output budget during integration preflight. RCA of the Issue: the branch-wide inventory was printed instead of requesting its summary. How you fixed it: recovered the exact137-file/42,716-addition/138-deletion short-stat, proved main was an ancestor with0 main-only/70 feature-only commits, and verified exact tree equality after the fast-forward. No truncated inventory was used to infer absent changes, and unrelated untracked artifacts were preserved.
+
+## 2026-11-13 — Read-only build-space audit tooling correction
+
+- What the issue/mistake was: The inventory script passed `flush` to `json.dumps` instead of `print` and exited before measuring; a process summary also truncated executable names. RCA of the Issue: output options and `ps` column widths were assumed. How you fixed it: corrected the print call, completed all122-path allocated-size measurements without errors, verified compiler-folder totals with inode/link accounting, and used macOS process-path metadata for the final active-executable check. No deletion or process stop occurred; exact candidate paths and42.841GiB compiler-output estimate are in `/tmp/ccie-build-audit-9n76j0ni.json`.
