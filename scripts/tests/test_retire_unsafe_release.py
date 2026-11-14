@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const scenario = JSON.parse(process.argv[1]);
 const bad = '4cd4d5ac6633e2a4c37c6d50dd0acb5ebb365ed2';
 const repo = 'sw4481/Network-TerminAI';
-const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.18'};
+const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.19'};
 let release = {id:445040852,tag_name:'v1.1.17',draft:true,published_at:null,assets:[{id:101}]};
 let run = {id:43561458598,head_sha:bad,head_branch:'v1.1.17',event:'push',
   path:'.github/workflows/release.yml',run_attempt:1,status:'queued',conclusion:null,
@@ -87,7 +87,7 @@ case 'early_wrong_steps': jobs[2].steps={}; break;
 case 'early_publisher_active': jobs.push({...jobs[0],name:'validate-and-publish',status:'in_progress',conclusion:null}); break;
 case 'early_publisher_success': jobs.push({...jobs[0],name:'validate-and-publish'}); break;
 case 'wrong_repo': context.repo.owner='other'; break;
-case 'wrong_current_tag': context.ref='refs/tags/v1.1.19'; break;
+case 'wrong_current_tag': context.ref='refs/tags/v1.1.18'; break;
 case 'wrong_ref': ref.ref='refs/tags/v1.1.16'; break;
 case 'wrong_tag_commit': tag.object.sha='wrong'; break;
 case 'nested_tag': tag.object.type='tag'; break;
@@ -123,12 +123,14 @@ const github={rest:{git:{
     if(scenario.name==='wait_changed_ref' && waits) return {data:{object:{type:'commit',sha:'changed'}}};
     return {data:tag};}
 },repos:{
-  getReleaseByTag:async args=>{calls.push('lookup');assert.equal(args.tag,'v1.1.17');
-    if(scenario.name==='missing') throw error(404);
-    if(scenario.name==='lookup_error') throw error(403);
-    return {data:release};},
+  getReleaseByTag:async()=>{calls.push('lookup');throw error(404);},
   getRelease:async args=>{calls.push('get');
     assert([445040852,445040853].includes(args.release_id));
+    if(calls.filter(call=>call==='get').length===1) {
+      assert.equal(args.release_id,445040852);
+      if(scenario.name==='missing') throw error(404);
+      if(scenario.name==='lookup_error') throw error(403);
+    }
     if(calls.includes('update')) {
       if(scenario.name==='terminal_verify_public') return {data:{...release,draft:false}};
       if(scenario.name==='terminal_verify_id') return {data:{...release,id:445040853}};
@@ -142,8 +144,8 @@ const github={rest:{git:{
     }
     if(scenario.name==='changed_id') return {data:{...release,id:18}};
     if(scenario.name==='wait_changed_id' && waits) return {data:{...release,id:445040853}};
-    if(scenario.name==='became_public') return {data:{...release,draft:false,published_at:'today'}};
-    if(scenario.name==='reread_error') throw error(404);
+    if(scenario.name==='became_public' && calls.filter(call=>call==='get').length>1) return {data:{...release,draft:false,published_at:'today'}};
+    if(scenario.name==='reread_error' && calls.filter(call=>call==='get').length>1) throw error(404);
     return {data:release};},
   updateRelease:async args=>{calls.push('update');
     assert.deepEqual(args,{owner:'sw4481',repo:'Network-TerminAI',release_id:445040852,draft:true});
@@ -187,7 +189,11 @@ const source=fs.readFileSync(0,'utf8');
   assert.equal(failed,scenario.fails,JSON.stringify({scenario,calls}));
   assert.equal(calls.includes('delete'),scenario.deletes,JSON.stringify({scenario,calls}));
   assert.equal(calls.includes('update'),scenario.updates,JSON.stringify({scenario,calls}));
-  if(scenario.deletes) assert(calls.indexOf('jobs')<calls.indexOf('get') && calls.indexOf('get')<calls.indexOf('delete'));
+  assert(!calls.includes('lookup'),'published-only tag lookup must never bypass the known draft ID');
+  if(scenario.deletes) {
+    const reread=calls.indexOf('get',calls.indexOf('jobs')+1);
+    assert(calls.indexOf('jobs')<reread && reread<calls.indexOf('delete'));
+  }
   if(scenario.name==='terminal') assert(!calls.includes('jobs'));
   if(scenario.name==='wait_timeout') assert.equal(waits,55);
   if(scenario.name==='active_public_timeout') assert.equal(waits,55);
@@ -206,7 +212,7 @@ class UnsafeReleaseRetirementTests(unittest.TestCase):
         self.assertIn(marker, workflow, "incident-only retirement step is absent")
         step = workflow.split(marker, 1)[1].split("      - name:", 1)[0]
         script = "\n".join(line[12:] for line in step.split("          script: |\n", 1)[1].splitlines())
-        noops = ["missing", "terminal", "terminal_historical", "wait_draft"]
+        noops = ["terminal", "terminal_historical", "wait_draft"]
         withdrawals = ["terminal_public", "wait_withdraw", "wait_public_transition", "active_public_terminal"]
         positives = ["active", "publisher_queued", "early_rust_active", "early_rust_pending"]
         failures = [
@@ -235,6 +241,7 @@ class UnsafeReleaseRetirementTests(unittest.TestCase):
             "terminal_unknown_conclusion", "terminal_null_conclusion",
             "invalid_draft_flag", "invalid_published_at",
             "active_public_timeout",
+            "missing",
         ]
         after_delete = {"delete_error", "delete_bad_status", "delete_not_effective", "verify_error"}
         after_update = {name for name in failures if name.startswith("terminal_patch") or name.startswith("terminal_verify")}
