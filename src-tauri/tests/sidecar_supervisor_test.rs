@@ -1,8 +1,10 @@
+mod support;
+
 use ccie_terminal_lib::bridge::SidecarSupervisor;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-fn python_cmd() -> (String, Vec<String>) {
+fn python_cmd() -> support::SidecarTestCommand {
     let repo_root = match std::env::var("CCIE_REPO_ROOT") {
         Ok(p) => PathBuf::from(p),
         Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -15,15 +17,13 @@ fn python_cmd() -> (String, Vec<String>) {
     } else {
         repo_root.join("sidecar/.venv/bin/python")
     };
-    (
-        venv_python.to_string_lossy().into_owned(),
-        vec!["-m".into(), "ccie_sidecar".into()],
-    )
+    support::SidecarTestCommand::new(venv_python.to_string_lossy().into_owned())
 }
 
 #[test]
 fn supervisor_ping_reuses_single_child() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let sup = SidecarSupervisor::new(cmd, args);
     // Two sequential pings share the same child process.
     for _ in 0..2 {
@@ -37,7 +37,8 @@ fn supervisor_ping_reuses_single_child() {
 
 #[tokio::test]
 async fn two_concurrent_pings_correlate_by_id() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let sup = Arc::new(SidecarSupervisor::new(cmd, args));
     let a = sup.clone();
     let b = sup.clone();
@@ -54,7 +55,8 @@ async fn two_concurrent_pings_correlate_by_id() {
 
 #[test]
 fn supervisor_respawns_after_shutdown() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let sup = SidecarSupervisor::new(cmd, args);
     let r1 = sup.call("ping", serde_json::json!({})).expect("call 1");
     assert_eq!(r1.as_str(), Some("pong"));
@@ -67,7 +69,8 @@ fn supervisor_respawns_after_shutdown() {
 
 #[test]
 fn supervisor_surfaces_sidecar_error() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let sup = SidecarSupervisor::new(cmd, args);
     let err = sup
         .call("nonexistent.method", serde_json::json!({}))

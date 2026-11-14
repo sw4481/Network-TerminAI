@@ -1,7 +1,9 @@
+mod support;
+
 use ccie_terminal_lib::agent_bridge::AgentBridge;
 use std::path::PathBuf;
 
-fn python_cmd() -> (String, Vec<String>) {
+fn python_cmd() -> support::SidecarTestCommand {
     let repo_root = match std::env::var("CCIE_REPO_ROOT") {
         Ok(p) => PathBuf::from(p),
         Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -14,10 +16,7 @@ fn python_cmd() -> (String, Vec<String>) {
     } else {
         repo_root.join("sidecar/.venv/bin/python")
     };
-    (
-        venv_python.to_string_lossy().into_owned(),
-        vec!["-m".into(), "ccie_sidecar".into()],
-    )
+    support::SidecarTestCommand::new(venv_python.to_string_lossy().into_owned())
 }
 
 fn temp_cwd() -> String {
@@ -26,7 +25,8 @@ fn temp_cwd() -> String {
 
 #[tokio::test]
 async fn spawn_agent_and_ping() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let bridge = AgentBridge::new(cmd, args);
 
     let resp = bridge
@@ -50,7 +50,8 @@ async fn spawn_agent_and_ping() {
 
 #[tokio::test]
 async fn agent_nl_to_command() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let bridge = AgentBridge::new(cmd, args);
 
     let params = serde_json::json!({
@@ -86,7 +87,8 @@ async fn agent_nl_to_command() {
 
 #[tokio::test]
 async fn agent_explain_error() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let bridge = AgentBridge::new(cmd, args);
 
     let params = serde_json::json!({
@@ -128,7 +130,8 @@ async fn agent_explain_error() {
 
 #[tokio::test]
 async fn agent_restart_after_stop() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let bridge = AgentBridge::new(cmd, args);
 
     // First call should work

@@ -86,7 +86,8 @@ impl ParserBridge {
         command: &str,
         raw: &str,
     ) -> Result<NeighborCapture> {
-        self.neighbor_capture_with_interfaces(protocol, vendor, platform, command, raw, None).await
+        self.neighbor_capture_with_interfaces(protocol, vendor, platform, command, raw, None)
+            .await
     }
 
     pub async fn neighbor_capture_with_interfaces(

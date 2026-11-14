@@ -2,11 +2,13 @@
 // sidecar emits `sidecar.heartbeat` NDJSON → supervisor demuxes → sink
 // persists into the `sidecar_status` row.
 
+mod support;
+
 use ccie_terminal_lib::bridge::SidecarSupervisor;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-fn python_cmd() -> (String, Vec<String>) {
+fn python_cmd() -> support::SidecarTestCommand {
     let repo_root = match std::env::var("CCIE_REPO_ROOT") {
         Ok(p) => PathBuf::from(p),
         Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -19,15 +21,13 @@ fn python_cmd() -> (String, Vec<String>) {
     } else {
         repo_root.join("sidecar/.venv/bin/python")
     };
-    (
-        venv_python.to_string_lossy().into_owned(),
-        vec!["-m".into(), "ccie_sidecar".into()],
-    )
+    support::SidecarTestCommand::new(venv_python.to_string_lossy().into_owned())
 }
 
 #[test]
 fn heartbeat_sink_receives_initial_and_periodic_beats() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     // Shorten the cadence so the test finishes quickly.
     std::env::set_var("CCIE_SIDECAR_HEARTBEAT_S", "1");
 

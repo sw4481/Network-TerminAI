@@ -50,7 +50,8 @@ impl AgentBridge {
     }
 
     pub async fn call(&self, method: &str, params: Value) -> Result<AgentResponse> {
-        self.call_with_idle_timeout(method, params, std::time::Duration::from_secs(720)).await
+        self.call_with_idle_timeout(method, params, std::time::Duration::from_secs(720))
+            .await
     }
 
     pub async fn call_with_idle_timeout(

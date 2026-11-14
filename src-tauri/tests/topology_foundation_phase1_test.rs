@@ -313,7 +313,8 @@ fn populated_legacy_upgrade_preserves_rows_and_enables_cascade() {
              VALUES (?1, 'legacy-source', 'ssh', 'legacy-source'),
                     (?1, 'synthetic-peer', 'discovered', 'synthetic-peer')",
             [GLOBAL_GRAPH_ID],
-        ).unwrap();
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO topology_edges(graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol)
              VALUES (?1, 'legacy-source', 'Gi1', 'synthetic-peer', 'Gi2', 'cdp')",

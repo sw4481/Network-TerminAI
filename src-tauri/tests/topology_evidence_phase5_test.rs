@@ -47,22 +47,45 @@ fn eigrp_migration_preserves_existing_receipts_and_attempt_authority() {
         rusqlite::params![GLOBAL_GRAPH_ID, old],
     ).unwrap();
     db::apply_migrations(&mut conn).unwrap();
-    let retained: String = conn.query_row(
-        "SELECT evidence_json FROM topology_capture_evidence WHERE source_ref='saved'",
-        [], |row| row.get(0),
-    ).unwrap();
+    let retained: String = conn
+        .query_row(
+            "SELECT evidence_json FROM topology_capture_evidence WHERE source_ref='saved'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
     assert_eq!(retained, old);
-    CaptureEvidence::require_owner(&conn, GLOBAL_GRAPH_ID, "saved", "show cdp neighbors detail", "preserved-owner").unwrap();
-    CaptureEvidence::attempt(&conn, GLOBAL_GRAPH_ID, "saved", "show ip eigrp neighbors", "incomplete").unwrap();
+    CaptureEvidence::require_owner(
+        &conn,
+        GLOBAL_GRAPH_ID,
+        "saved",
+        "show cdp neighbors detail",
+        "preserved-owner",
+    )
+    .unwrap();
+    CaptureEvidence::attempt(
+        &conn,
+        GLOBAL_GRAPH_ID,
+        "saved",
+        "show ip eigrp neighbors",
+        "incomplete",
+    )
+    .unwrap();
     assert!(conn.execute(
         "INSERT INTO topology_capture_evidence(graph_id,source_ref,protocol,source_command,evidence_json) VALUES(?1,'saved','rip','unsupported','{}')",
         [GLOBAL_GRAPH_ID],
     ).is_err());
     drop(conn);
     let conn = db::open_and_migrate(&path).unwrap();
-    assert_eq!(CaptureEvidence::list(&conn, GLOBAL_GRAPH_ID).unwrap().len(), 2);
-    conn.execute("DELETE FROM topology_graphs WHERE id=?1", [GLOBAL_GRAPH_ID]).unwrap();
-    assert!(CaptureEvidence::list(&conn, GLOBAL_GRAPH_ID).unwrap().is_empty());
+    assert_eq!(
+        CaptureEvidence::list(&conn, GLOBAL_GRAPH_ID).unwrap().len(),
+        2
+    );
+    conn.execute("DELETE FROM topology_graphs WHERE id=?1", [GLOBAL_GRAPH_ID])
+        .unwrap();
+    assert!(CaptureEvidence::list(&conn, GLOBAL_GRAPH_ID)
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -71,42 +94,78 @@ fn eigrp_preserves_as_identity_scope_history_and_never_creates_management_target
     let (_dir, conn) = database();
     let src = source();
     let command = "show ip eigrp neighbors";
-    let rows: Vec<NeighborRecord> = ["100", "200", "300"].into_iter().map(|instance| {
-        let mut row = record("up", true, "192.0.2.2");
-        row.protocol = "eigrp".into();
-        row.local_port = "GigabitEthernet1".into();
-        let routing = row.routing.as_mut().unwrap();
-        routing.instance = Some(instance.into());
-        if instance == "300" {
-            routing.vrf = Some("blue".into());
-            routing.scope_supported = false;
-        }
-        row
-    }).collect();
-    let token = CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete").unwrap();
-    let result = ingest::ingest_owned_capture(&conn, &src, command, "synthetic", &rows, &token).unwrap();
-    assert_eq!(result.edges_added, 2, "unsupported VRF remains evidence only");
-    let peers: Vec<_> = graph::list_nodes(&conn, &src.graph_id).unwrap().into_iter()
-        .filter(|node| node.device_ref != src.device_ref).collect();
+    let rows: Vec<NeighborRecord> = ["100", "200", "300"]
+        .into_iter()
+        .map(|instance| {
+            let mut row = record("up", true, "192.0.2.2");
+            row.protocol = "eigrp".into();
+            row.local_port = "GigabitEthernet1".into();
+            let routing = row.routing.as_mut().unwrap();
+            routing.instance = Some(instance.into());
+            if instance == "300" {
+                routing.vrf = Some("blue".into());
+                routing.scope_supported = false;
+            }
+            row
+        })
+        .collect();
+    let token =
+        CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete")
+            .unwrap();
+    let result =
+        ingest::ingest_owned_capture(&conn, &src, command, "synthetic", &rows, &token).unwrap();
+    assert_eq!(
+        result.edges_added, 2,
+        "unsupported VRF remains evidence only"
+    );
+    let peers: Vec<_> = graph::list_nodes(&conn, &src.graph_id)
+        .unwrap()
+        .into_iter()
+        .filter(|node| node.device_ref != src.device_ref)
+        .collect();
     assert_eq!(peers.len(), 2, "same peer in different AS must not merge");
-    assert!(peers.iter().all(|node| node.device_ref.starts_with("routing:") && node.mgmt_ip.is_none() && node.device_kind == "discovered"));
+    assert!(peers
+        .iter()
+        .all(|node| node.device_ref.starts_with("routing:")
+            && node.mgmt_ip.is_none()
+            && node.device_kind == "discovered"));
     let edges = graph::list_edges(&conn, &src.graph_id).unwrap();
-    assert!(edges.iter().all(|edge| edge.protocol == "eigrp" && (edge.a_port == "GigabitEthernet1" || edge.b_port == "GigabitEthernet1")));
+    assert!(edges.iter().all(|edge| edge.protocol == "eigrp"
+        && (edge.a_port == "GigabitEthernet1" || edge.b_port == "GigabitEthernet1")));
     let receipts = CaptureEvidence::list(&conn, &src.graph_id).unwrap();
     assert_eq!(receipts[0].protocol, "eigrp");
     assert_eq!(receipts[0].observations.len(), 3);
-    conn.execute("UPDATE topology_edges SET captured_at=123", []).unwrap();
-    let failed = CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete").unwrap();
-    CaptureEvidence::finish(&conn, &src.graph_id, &src.device_ref, command, &failed, "failed").unwrap();
+    conn.execute("UPDATE topology_edges SET captured_at=123", [])
+        .unwrap();
+    let failed =
+        CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete")
+            .unwrap();
+    CaptureEvidence::finish(
+        &conn,
+        &src.graph_id,
+        &src.device_ref,
+        command,
+        &failed,
+        "failed",
+    )
+    .unwrap();
     let receipts = CaptureEvidence::list(&conn, &src.graph_id).unwrap();
     assert_eq!(receipts[0].status, "failed");
     assert_eq!(receipts[0].observations.len(), 3);
-    let empty = CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete").unwrap();
+    let empty =
+        CaptureEvidence::attempt(&conn, &src.graph_id, &src.device_ref, command, "incomplete")
+            .unwrap();
     ingest::ingest_owned_capture(&conn, &src, command, "synthetic empty", &[], &empty).unwrap();
     let receipts = CaptureEvidence::list(&conn, &src.graph_id).unwrap();
     assert_eq!(receipts[0].status, "completed");
-    assert!(receipts[0].observations.iter().all(|row| !row.in_latest_capture));
-    assert!(graph::list_edges(&conn, &src.graph_id).unwrap().iter().all(|edge| edge.captured_at == 123));
+    assert!(receipts[0]
+        .observations
+        .iter()
+        .all(|row| !row.in_latest_capture));
+    assert!(graph::list_edges(&conn, &src.graph_id)
+        .unwrap()
+        .iter()
+        .all(|edge| edge.captured_at == 123));
 }
 
 #[test]

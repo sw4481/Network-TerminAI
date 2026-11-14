@@ -535,13 +535,18 @@ async fn routing_is_opt_in_and_never_admits_a_saved_peer_for_recursion() {
     assert_eq!(report.devices[0].captures.len(), 6);
     assert_eq!(report.devices[0].status, "completed");
     assert_eq!(commands.lock().len(), 6);
-    assert!(commands.lock().iter().any(|c| c == "show ip eigrp neighbors"));
+    assert!(commands
+        .lock()
+        .iter()
+        .any(|c| c == "show ip eigrp neighbors"));
     assert_eq!(report.edges_processed, 4);
     let receipts =
         super::super::evidence::CaptureEvidence::list(&service.db.lock(), &run.graph_id).unwrap();
     assert_eq!(receipts.len(), 6);
     assert!(receipts.iter().all(|r| r.status == "completed"));
-    assert!(receipts.iter().any(|r| r.protocol == "eigrp" && r.source_command == "show ip eigrp neighbors"));
+    assert!(receipts
+        .iter()
+        .any(|r| r.protocol == "eigrp" && r.source_command == "show ip eigrp neighbors"));
 }
 
 #[tokio::test]
@@ -551,7 +556,10 @@ async fn eigrp_missing_evidence_or_unsupported_parser_never_creates_links() {
             Box::pin(async move {
                 if protocol == "eigrp" {
                     if unsupported {
-                        Ok(NeighborCapture { status: CaptureStatus::Unsupported, records: vec![] })
+                        Ok(NeighborCapture {
+                            status: CaptureStatus::Unsupported,
+                            records: vec![],
+                        })
                     } else {
                         Ok(capture(vec![neighbor("eigrp", "192.0.2.2")]))
                     }
@@ -566,13 +574,27 @@ async fn eigrp_missing_evidence_or_unsupported_parser_never_creates_links() {
         let run = service.start(req).unwrap();
         let report = finish(&service, &run.run_id).await;
         assert_eq!(report.devices.len(), 1);
-        let outcome = report.devices[0].captures.iter().find(|c| c.protocol == "eigrp").unwrap();
-        assert_eq!(outcome.status, if unsupported { CaptureStatus::Unsupported } else { CaptureStatus::Failed });
+        let outcome = report.devices[0]
+            .captures
+            .iter()
+            .find(|c| c.protocol == "eigrp")
+            .unwrap();
+        assert_eq!(
+            outcome.status,
+            if unsupported {
+                CaptureStatus::Unsupported
+            } else {
+                CaptureStatus::Failed
+            }
+        );
         let conn = service.db.lock();
         assert!(graph::list_edges(&conn, &run.graph_id).unwrap().is_empty());
         let receipts = super::super::evidence::CaptureEvidence::list(&conn, &run.graph_id).unwrap();
         let receipt = receipts.iter().find(|c| c.protocol == "eigrp").unwrap();
-        assert_eq!(receipt.status, if unsupported { "unsupported" } else { "failed" });
+        assert_eq!(
+            receipt.status,
+            if unsupported { "unsupported" } else { "failed" }
+        );
         assert!(receipt.observations.is_empty());
     }
 }
@@ -753,11 +775,12 @@ async fn routing_interface_snapshot_is_once_optional_and_never_blocks_logical_ca
         );
         assert_eq!(parsed.lock().len(), 6);
         for (protocol, interfaces) in parsed.lock().iter() {
-            let expected = if !fail && matches!(protocol.as_str(), "bgp" | "ospf" | "isis" | "eigrp") {
-                Some("synthetic-interface-projection")
-            } else {
-                None
-            };
+            let expected =
+                if !fail && matches!(protocol.as_str(), "bgp" | "ospf" | "isis" | "eigrp") {
+                    Some("synthetic-interface-projection")
+                } else {
+                    None
+                };
             assert_eq!(interfaces.as_deref(), expected);
         }
     }
