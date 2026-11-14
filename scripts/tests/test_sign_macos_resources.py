@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -411,6 +412,11 @@ class MacBundleHookTests(unittest.TestCase):
 
 
 class BundledPythonChildEnvironmentTests(unittest.TestCase):
+    ISOLATED_BOUNDARIES = (
+        ("telemetry/parser.rs", "Command::new(python)", ".kill_on_drop(true)"),
+        ("topology/snmp.rs", "Command::new(&self.python)", "if let Some(source)"),
+    )
+
     def test_all_managed_python_boundaries_disable_bytecode_before_startup(self) -> None:
         boundaries = (
             ("bridge.rs", "Command::new(program)", ".spawn()"),
@@ -419,7 +425,7 @@ class BundledPythonChildEnvironmentTests(unittest.TestCase):
             ("dap/mod.rs", "Command::new(&adapter.command)", ".spawn()"),
             ("dap/mod.rs", "Command::new(&adapter.command)", ".status()"),
             ("commands/rag_seed.rs", "Command::new(&python)", ".spawn()"),
-        )
+        ) + self.ISOLATED_BOUNDARIES
         for file, anchor, end in boundaries:
             with self.subTest(file=file, end=end):
                 source = (ROOT / "src-tauri/src" / file).read_text()
@@ -427,10 +433,43 @@ class BundledPythonChildEnvironmentTests(unittest.TestCase):
                 if end == ".status()":
                     start = source.index(anchor, start + len(anchor))
                 boundary = source[start:source.index(end, start)]
-                self.assertIn('.env("PYTHONDONTWRITEBYTECODE", "1")', boundary)
+                if (file, anchor, end) in self.ISOLATED_BOUNDARIES:
+                    self.assertIn('.arg("-I")', boundary)
+                    self.assertIn('.arg("-B")', boundary)
+                else:
+                    self.assertIn('.env("PYTHONDONTWRITEBYTECODE", "1")', boundary)
                 if file == "mcp/transport.rs":
                     self.assertGreater(boundary.index('.env("PYTHONDONTWRITEBYTECODE", "1")'),
                                        boundary.index("cmd.env(key, value)"))
+
+    def test_isolated_worker_options_preserve_imported_module_bytes(self) -> None:
+        for file, anchor, end in self.ISOLATED_BOUNDARIES:
+            with self.subTest(file=file), tempfile.TemporaryDirectory(prefix="isolated worker ") as temp:
+                source = (ROOT / "src-tauri/src" / file).read_text()
+                start = source.index(anchor)
+                boundary = source[start:source.index(end, start)]
+                options = re.findall(r'\.arg\("(-[A-Za-z]+)"\)', boundary)
+                self.assertIn("-I", options)
+                env = {"LC_ALL": "C", "PYTHONDONTWRITEBYTECODE": "1"}
+                if "SystemRoot" in os.environ:
+                    env["SystemRoot"] = os.environ["SystemRoot"]
+                code = ("import sys; sys.path.insert(0, sys.argv[1]); import sealed_fixture; "
+                        "assert sealed_fixture.VALUE == 42; print(sys.dont_write_bytecode)")
+                for protected in (False, True):
+                    directory = Path(temp) / ("protected" if protected else "control")
+                    directory.mkdir()
+                    module = directory / "sealed_fixture.py"
+                    module.write_text("VALUE = 42\n")
+                    before = module.read_bytes()
+                    flags = options if protected else [flag for flag in options if flag != "-B"]
+                    child = subprocess.run([sys.executable, *flags, "-c", code, str(directory)],
+                                           cwd=temp, env=env, capture_output=True, text=True, check=True)
+                    self.assertEqual(child.stdout.strip(), str(protected))
+                    self.assertEqual(module.read_bytes(), before)
+                    if protected:
+                        self.assertEqual(list(directory.iterdir()), [module])
+                    else:
+                        self.assertTrue(list(directory.rglob("*.pyc")))
 
     def test_child_only_env_prevents_new_bytecode_without_affecting_other_python(self) -> None:
         with tempfile.TemporaryDirectory(prefix="python child env ") as temp:
