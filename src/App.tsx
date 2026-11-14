@@ -1381,6 +1381,11 @@ export default function App() {
     addTab({ id, title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: Math.floor(Date.now() / 1000), tab_type: 'telemetry' });
   }, [addTab]);
 
+  useEffect(() => {
+    const unlisten = listen('menu:telemetry_new', handleNewTelemetry);
+    return () => { void unlisten.then(stop => stop()); };
+  }, [handleNewTelemetry]);
+
   // Pair a freshly-spawned Terminal's tab_id back into its slot. If the slot
   // carried a run-in-terminal command, hand it to the terminal registry keyed
   // by the tab id. We do NOT pipe to the PTY directly here: the slot that first

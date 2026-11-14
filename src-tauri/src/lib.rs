@@ -1292,6 +1292,8 @@ pub fn run() {
             // submenus; their MenuItem IDs and shortcuts remain unchanged so
             // the JS-side `app.on_menu_event` dispatcher and frontend
             // `listen('menu:...')` calls keep working.
+            let telemetry_new = MenuItem::with_id(app, "telemetry_new", "New Telemetry Tab", true, None::<&str>)?;
+            let telemetry_menu = Submenu::with_items(app, "Telemetry", true, &[&telemetry_new])?;
             let operate_menu = Submenu::with_items(
                 app,
                 "Operate",
@@ -1305,6 +1307,7 @@ pub fn run() {
                     &browser_menu,
                     &pane_menu,
                     &heartbeat_menu,
+                    &telemetry_menu,
                     &PredefinedMenuItem::separator(app)?,
                     &ssh_menu,
                     &vault_menu,
@@ -1386,6 +1389,7 @@ pub fn run() {
                     "iac_get_started_pipelines" => { window.emit("menu:iac_get_started_pipelines", ()).ok(); }
                     "guardrails_rules" => { window.emit("menu:guardrails_rules", ()).ok(); }
                     "guardrails_log" => { window.emit("menu:guardrails_log", ()).ok(); }
+                    "telemetry_new" => { window.emit("menu:telemetry_new", ()).ok(); }
                     "browser_new" => { window.emit("menu:browser_new", ()).ok(); }
                     "captures_open" => { window.emit("menu:captures_open", ()).ok(); }
                     "diagram_open" => { window.emit("menu:diagram_open", ()).ok(); }
