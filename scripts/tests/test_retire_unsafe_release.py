@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const scenario = JSON.parse(process.argv[1]);
 const bad = '4cd4d5ac6633e2a4c37c6d50dd0acb5ebb365ed2';
 const repo = 'sw4481/Network-TerminAI';
-const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.20'};
+const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.21'};
 let release = {id:445040852,tag_name:'v1.1.17',draft:true,published_at:null,assets:[{id:101}]};
 let run = {id:43561458598,head_sha:bad,head_branch:'v1.1.17',event:'push',
   path:'.github/workflows/release.yml',run_attempt:1,status:'queued',conclusion:null,
@@ -87,7 +87,7 @@ case 'early_wrong_steps': jobs[2].steps={}; break;
 case 'early_publisher_active': jobs.push({...jobs[0],name:'validate-and-publish',status:'in_progress',conclusion:null}); break;
 case 'early_publisher_success': jobs.push({...jobs[0],name:'validate-and-publish'}); break;
 case 'wrong_repo': context.repo.owner='other'; break;
-case 'wrong_current_tag': context.ref='refs/tags/v1.1.19'; break;
+case 'wrong_current_tag': context.ref='refs/tags/v1.1.20'; break;
 case 'wrong_ref': ref.ref='refs/tags/v1.1.16'; break;
 case 'wrong_tag_commit': tag.object.sha='wrong'; break;
 case 'nested_tag': tag.object.type='tag'; break;
