@@ -72,6 +72,30 @@ export async function downloadFile(
   return true;
 }
 
+/** Binary counterpart to downloadFile; an aborted/stale export never writes after its dialog returns. */
+export async function downloadBinaryFile(filename: string, content: Uint8Array, mime: string, signal?: AbortSignal): Promise<boolean> {
+  signal?.throwIfAborted();
+  if (isTauri()) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { writeFile } = await import("@tauri-apps/plugin-fs");
+    signal?.throwIfAborted();
+    const ext = filename.includes(".") ? filename.slice(filename.lastIndexOf(".") + 1) : "";
+    const path = await save({ defaultPath: filename, filters: ext ? [{ name: ext.toUpperCase(), extensions: [ext] }] : undefined });
+    signal?.throwIfAborted();
+    if (!path) return false;
+    await writeFile(path, content);
+    return true;
+  }
+  const url = URL.createObjectURL(new Blob([new Uint8Array(content)], { type: mime }));
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url; anchor.download = filename;
+    document.body.appendChild(anchor);
+    try { anchor.click(); } finally { anchor.remove(); }
+    return true;
+  } finally { URL.revokeObjectURL(url); }
+}
+
 export async function copyToClipboard(text: string): Promise<void> {
   // Inside the Tauri webview, navigator.clipboard.writeText is unreliable
   // (WKWebView may expose it but silently no-op without a Secure Context),

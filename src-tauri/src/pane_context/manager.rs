@@ -1,5 +1,8 @@
 use crate::command_parser::ParseEvent;
-use crate::pane_context::{AgentSessionTracker, AgentStatus, CommandState, NotificationConfig, NotificationState, PaneActivity, should_notify};
+use crate::pane_context::{
+    should_notify, AgentSessionTracker, AgentStatus, CommandState, NotificationConfig,
+    NotificationState, PaneActivity,
+};
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
 use rusqlite::{params, Connection};
@@ -104,16 +107,18 @@ impl PaneContextManager {
     /// Handle a parsed PTY event for a specific pane
     pub fn handle_event(&self, pane_id: &str, tab_id: &str, event: ParseEvent) {
         let mut states = self.states.write();
-        let state = states.entry(pane_id.to_string()).or_insert_with(|| PaneState {
-            pane_id: pane_id.to_string(),
-            tab_id: tab_id.to_string(),
-            active_command: None,
-            cwd: "/".to_string(),
-            last_focus_time: None,
-            notification_state: NotificationState::Idle,
-            in_alt_screen: false,
-            updated_at: Self::now(),
-        });
+        let state = states
+            .entry(pane_id.to_string())
+            .or_insert_with(|| PaneState {
+                pane_id: pane_id.to_string(),
+                tab_id: tab_id.to_string(),
+                active_command: None,
+                cwd: "/".to_string(),
+                last_focus_time: None,
+                notification_state: NotificationState::Idle,
+                in_alt_screen: false,
+                updated_at: Self::now(),
+            });
 
         match event {
             ParseEvent::CommandStart { cmd } => {
@@ -261,9 +266,7 @@ impl PaneContextManager {
     /// Persist a pane's activity to database
     pub fn persist_activity(&self, conn: &Connection, pane_id: &str) -> Result<()> {
         let states = self.states.read();
-        let state = states
-            .get(pane_id)
-            .context("pane not found in state")?;
+        let state = states.get(pane_id).context("pane not found in state")?;
 
         let active_command_json = state
             .active_command
@@ -339,7 +342,10 @@ impl PaneContextManager {
 
     /// Delete pane activity from database (on pane close)
     pub fn delete_activity(&self, conn: &Connection, pane_id: &str) -> Result<()> {
-        conn.execute("DELETE FROM pane_activity WHERE pane_id = ?1", params![pane_id])?;
+        conn.execute(
+            "DELETE FROM pane_activity WHERE pane_id = ?1",
+            params![pane_id],
+        )?;
         Ok(())
     }
 
@@ -357,7 +363,8 @@ impl PaneContextManager {
         match status {
             AgentStatus::Working | AgentStatus::Waiting => {
                 if self.get_agent_session(pane_id).is_none() {
-                    self.agent_sessions.register(pane_id.to_string(), agent_type.to_string());
+                    self.agent_sessions
+                        .register(pane_id.to_string(), agent_type.to_string());
                 }
                 self.agent_sessions
                     .update_activity(pane_id, matches!(status, AgentStatus::Waiting));
@@ -368,16 +375,18 @@ impl PaneContextManager {
         }
 
         let mut states = self.states.write();
-        let state = states.entry(pane_id.to_string()).or_insert_with(|| PaneState {
-            pane_id: pane_id.to_string(),
-            tab_id: pane_id.to_string(),
-            active_command: None,
-            cwd: "/".to_string(),
-            last_focus_time: None,
-            notification_state: NotificationState::Idle,
-            in_alt_screen: false,
-            updated_at: Self::now(),
-        });
+        let state = states
+            .entry(pane_id.to_string())
+            .or_insert_with(|| PaneState {
+                pane_id: pane_id.to_string(),
+                tab_id: pane_id.to_string(),
+                active_command: None,
+                cwd: "/".to_string(),
+                last_focus_time: None,
+                notification_state: NotificationState::Idle,
+                in_alt_screen: false,
+                updated_at: Self::now(),
+            });
         state.notification_state = match status {
             AgentStatus::Working => NotificationState::Running,
             AgentStatus::Waiting => NotificationState::NeedsAttention,
@@ -388,7 +397,8 @@ impl PaneContextManager {
 
     /// Register an agent session for a pane
     pub fn register_agent_session(&self, pane_id: &str, agent_type: &str) {
-        self.agent_sessions.register(pane_id.to_string(), agent_type.to_string());
+        self.agent_sessions
+            .register(pane_id.to_string(), agent_type.to_string());
     }
 
     /// Unregister an agent session for a pane
@@ -408,7 +418,8 @@ impl PaneContextManager {
 
     /// Get agent session for a specific pane
     pub fn get_agent_session(&self, pane_id: &str) -> Option<crate::pane_context::AgentSession> {
-        self.agent_sessions.get_active_sessions()
+        self.agent_sessions
+            .get_active_sessions()
             .into_iter()
             .find(|s| s.pane_id == pane_id)
     }
@@ -421,7 +432,11 @@ mod tests {
     #[test]
     fn test_manager_command_lifecycle() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         // Start command
         manager.handle_event(
@@ -444,7 +459,15 @@ mod tests {
         );
 
         let activity = manager.get_activity("pane-1").unwrap();
-        assert_eq!(activity.active_command.as_ref().unwrap().output_preview.len(), 2); // "$ sleep 60" + "waiting..."
+        assert_eq!(
+            activity
+                .active_command
+                .as_ref()
+                .unwrap()
+                .output_preview
+                .len(),
+            2
+        ); // "$ sleep 60" + "waiting..."
 
         // End command
         manager.handle_event(
@@ -460,7 +483,11 @@ mod tests {
     #[test]
     fn test_manager_focus_clears_notification() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         // Manually set needs-attention
         {
@@ -471,7 +498,10 @@ mod tests {
         }
 
         let activity = manager.get_activity("pane-1").unwrap();
-        assert_eq!(activity.notification_state, NotificationState::NeedsAttention);
+        assert_eq!(
+            activity.notification_state,
+            NotificationState::NeedsAttention
+        );
 
         // Focus should clear it
         manager.set_focus("pane-1");
@@ -551,7 +581,12 @@ mod tests {
         // Backdate only 20s — below the 30s threshold.
         {
             let mut states = manager.states.write();
-            let cmd = states.get_mut("pane-bg").unwrap().active_command.as_mut().unwrap();
+            let cmd = states
+                .get_mut("pane-bg")
+                .unwrap()
+                .active_command
+                .as_mut()
+                .unwrap();
             cmd.start_time -= 20;
         }
         for ev in parser.feed(b"\x1b]133;D;0\x07") {
@@ -630,9 +665,21 @@ mod tests {
     #[test]
     fn test_manager_get_all_activities_filters_by_tab() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
-        manager.register_pane("pane-2".to_string(), "tab-1".to_string(), "/tmp".to_string());
-        manager.register_pane("pane-3".to_string(), "tab-2".to_string(), "/var".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
+        manager.register_pane(
+            "pane-2".to_string(),
+            "tab-1".to_string(),
+            "/tmp".to_string(),
+        );
+        manager.register_pane(
+            "pane-3".to_string(),
+            "tab-2".to_string(),
+            "/var".to_string(),
+        );
 
         let tab1_activities = manager.get_all_activities("tab-1");
         assert_eq!(tab1_activities.len(), 2);
@@ -644,7 +691,11 @@ mod tests {
     #[test]
     fn test_manager_persistence() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         manager.handle_event(
             "pane-1",
@@ -679,14 +730,19 @@ mod tests {
                 FOREIGN KEY(tab_id) REFERENCES tabs(id) ON DELETE CASCADE
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Persist
         manager.persist_activity(&conn, "pane-1").unwrap();
 
         // Verify database
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM pane_activity WHERE pane_id = ?1", params!["pane-1"], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM pane_activity WHERE pane_id = ?1",
+                params!["pane-1"],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 1);
 
@@ -704,7 +760,11 @@ mod tests {
     #[test]
     fn test_manager_agent_session_lifecycle() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         manager.register_agent_session("pane-1", "claude-code");
         let sessions = manager.get_active_agent_sessions();
@@ -728,21 +788,35 @@ mod tests {
     #[test]
     fn test_set_agent_status_drives_notification_state() {
         let manager = PaneContextManager::new();
-        manager.register_pane("pane-1".to_string(), "tab-1".to_string(), "/home".to_string());
+        manager.register_pane(
+            "pane-1".to_string(),
+            "tab-1".to_string(),
+            "/home".to_string(),
+        );
 
         // working -> Running, and registers an agent session.
         manager.set_agent_status("pane-1", "claude-code", AgentStatus::Working);
         let activity = manager.get_activity("pane-1").unwrap();
         assert_eq!(activity.notification_state, NotificationState::Running);
-        let session = manager.get_agent_session("pane-1").expect("session registered");
+        let session = manager
+            .get_agent_session("pane-1")
+            .expect("session registered");
         assert_eq!(session.agent_type, "claude-code");
         assert!(!session.is_waiting_for_user);
 
         // waiting -> NeedsAttention (the user needs to act), session marked waiting.
         manager.set_agent_status("pane-1", "claude-code", AgentStatus::Waiting);
         let activity = manager.get_activity("pane-1").unwrap();
-        assert_eq!(activity.notification_state, NotificationState::NeedsAttention);
-        assert!(manager.get_agent_session("pane-1").unwrap().is_waiting_for_user);
+        assert_eq!(
+            activity.notification_state,
+            NotificationState::NeedsAttention
+        );
+        assert!(
+            manager
+                .get_agent_session("pane-1")
+                .unwrap()
+                .is_waiting_for_user
+        );
 
         // idle -> Idle, session cleared (turn fully done / agent exited).
         manager.set_agent_status("pane-1", "claude-code", AgentStatus::Idle);
@@ -789,10 +863,16 @@ mod tests {
             manager.handle_event("pane-1", "tab-1", ev);
         }
         // Calm at launch...
-        assert_eq!(manager.get_activity("pane-1").unwrap().notification_state, NotificationState::Idle);
+        assert_eq!(
+            manager.get_activity("pane-1").unwrap().notification_state,
+            NotificationState::Idle
+        );
         // ...then a hook fires.
         manager.set_agent_status("pane-1", "claude-code", AgentStatus::Working);
-        assert_eq!(manager.get_activity("pane-1").unwrap().notification_state, NotificationState::Running);
+        assert_eq!(
+            manager.get_activity("pane-1").unwrap().notification_state,
+            NotificationState::Running
+        );
     }
 
     #[test]
@@ -822,7 +902,10 @@ mod tests {
         for ev in parser.feed(b"\x1b]133;C;npm run build\x07") {
             manager.handle_event("pane-1", "tab-1", ev);
         }
-        assert_eq!(manager.get_activity("pane-1").unwrap().notification_state, NotificationState::Running);
+        assert_eq!(
+            manager.get_activity("pane-1").unwrap().notification_state,
+            NotificationState::Running
+        );
     }
 
     /// An agent reporting status must show through even if the pane is in the

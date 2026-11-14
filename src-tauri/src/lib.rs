@@ -27,6 +27,7 @@ pub mod codex_hooks;
 pub mod command_parser;
 pub mod commands;
 pub mod config;
+pub mod copilot_canvas;
 pub mod dap;
 pub mod database;
 pub mod db;
@@ -63,7 +64,9 @@ pub mod shell_integration;
 pub mod skills;
 pub mod ssh_exec;
 pub mod structured;
+pub mod telemetry;
 pub mod terminal_agent;
+pub mod terminal_logging;
 pub mod tftp;
 pub mod topology;
 pub mod transcript_export;
@@ -113,6 +116,10 @@ pub fn run() {
         let path = db::default_db_path().expect("default_db_path");
         tracing::info!(?path, "Opening database");
         let db = db::open_and_migrate(&path).expect("open_and_migrate");
+        // Only a new process owns this reconciliation; reopening a live tab must not interrupt it.
+        if let Err(error) = copilot_canvas::CanvasRepository::new(&db).interrupt_orphan_runs() {
+            tracing::warn!(%error, "canvas: orphan reconciliation failed");
+        }
         (db, path)
     };
     let state = AppState::new(db, db_path);
@@ -291,15 +298,11 @@ pub fn run() {
                 use tauri::Manager;
 
                 api.prevent_close();
-                let _ = window.state::<AppState>().stp.shutdown();
-                window
-                    .state::<AppState>()
-                    .terminal_agent
-                    .revoke_all("application shutdown");
-                app_lifecycle::request_shutdown(
+                app_lifecycle::request_shutdown_preflight(
                     window.app_handle(),
                     &shutdown_for_window_events,
                     "main-window-close",
+                    Some(0),
                 );
             }
         })
@@ -307,7 +310,25 @@ pub fn run() {
         .manage(config_manager)
         .manage(shutdown)
         .invoke_handler(tauri::generate_handler![
+            commands::telemetry::telemetry_establish,
+            commands::telemetry::telemetry_start,
+            commands::telemetry::telemetry_select,
+            commands::telemetry::telemetry_stop,
+            commands::telemetry::telemetry_close,
+            commands::telemetry::telemetry_snapshot,
+            commands::telemetry::telemetry_validate,
+            commands::telemetry::telemetry_preview,
+            commands::telemetry::telemetry_apply,
+            commands::telemetry::telemetry_catalog,
+            commands::telemetry::telemetry_series,
+            commands::telemetry::telemetry_widget,
+            commands::telemetry::telemetry_capture_sample,
+            commands::telemetry::telemetry_test_template,
+            commands::telemetry::telemetry_import,
+            commands::telemetry::telemetry_reset,
             commands::ping_cmd,
+            commands::agent_catalog::agent_catalog_update_start,
+            commands::agent_catalog::agent_catalog_update_status,
             commands::dictation_start,
             commands::dictation_stop,
             commands::dictation_cancel,
@@ -363,6 +384,7 @@ pub fn run() {
             commands::appearance::appearance_settings_set,
             commands::appearance::appearance_settings_patch,
             app_lifecycle::app_shutdown_acknowledge,
+            app_lifecycle::app_shutdown_preflight_decide,
             commands::editor::editor_buffer_register,
             commands::editor::editor_buffer_get,
             commands::editor::editor_buffer_update,
@@ -489,6 +511,12 @@ pub fn run() {
             commands::ai::agent_react_run,
             commands::ai::agent_code_exec_run,
             commands::ai::agent_react_code_run,
+            commands::copilot_canvas::canvas_create_workspace,
+            commands::copilot_canvas::canvas_list_workspaces,
+            commands::copilot_canvas::canvas_open_workspace,
+            commands::copilot_canvas::canvas_rename_workspace,
+            commands::copilot_canvas::canvas_save_run,
+            commands::copilot_canvas::canvas_save_event,
             commands::ai::agent_react_resume,
             commands::ai::agent_terminal_preview_fix_edit,
             commands::ai::agent_terminal_approve_fix,
@@ -851,11 +879,18 @@ pub fn run() {
             commands::topology::topology_ingest_from_block,
             commands::topology::topology_ingest_from_text,
             commands::topology::topology_discover_device,
+            commands::topology::topology_discovery_start,
+            commands::topology::topology_discovery_status,
+            commands::topology::topology_discovery_cancel,
             commands::topology::topology_list_graphs,
             commands::topology::topology_get_graph,
+            commands::topology::topology_preview_import,
+            commands::topology::topology_import_graph,
             commands::topology::topology_create_graph,
             commands::topology::topology_delete_graph,
             commands::topology::topology_clear_graph,
+            commands::topology::topology_save_layout,
+            commands::topology::topology_reset_layout,
             commands::topology::topology_neighbor_cache_list,
             commands::topology::device_lookup_by_ref,
             // Saved diagrams (agent-generated draw.io/mermaid, persisted).
@@ -878,6 +913,9 @@ pub fn run() {
             commands::vault::vault_idle_sweep,
             commands::vault::vault_audit_list,
             commands::vault::vault_import_csv,
+            commands::terminal_log_start,
+            commands::terminal_log_stop,
+            commands::terminal_log_status,
             // Plan 14 — Session recording.
             commands::recording::recording_start,
             commands::recording::recording_stop,
@@ -1813,13 +1851,17 @@ pub fn run() {
 
         match event {
             tauri::RunEvent::ExitRequested { code, api, .. } => {
-                let _ = app_handle.state::<commands::AppState>().stp.shutdown();
                 let shutdown = app_handle.state::<app_lifecycle::ShutdownCoordinator>();
                 if app_lifecycle::exit_request_disposition(&shutdown, code)
                     == app_lifecycle::ExitRequestDisposition::Intercept
                 {
                     api.prevent_exit();
-                    app_lifecycle::request_shutdown(app_handle, &shutdown, "application-quit");
+                    app_lifecycle::request_shutdown_preflight(
+                        app_handle,
+                        &shutdown,
+                        "application-quit",
+                        code,
+                    );
                 }
             }
             tauri::RunEvent::Exit => {

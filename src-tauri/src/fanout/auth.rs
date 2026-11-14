@@ -47,8 +47,14 @@ pub fn resolve_creds(
 ) -> Result<DeviceCreds, FailureKind> {
     match kind {
         DeviceKind::Ssh => {
-            let row: Option<(String, Option<i64>, Option<String>, Option<String>, Option<String>)> =
-                conn.query_row(
+            let row: Option<(
+                String,
+                Option<i64>,
+                Option<String>,
+                Option<String>,
+                Option<String>,
+            )> = conn
+                .query_row(
                     "SELECT host, port, user, identity_file, password_encrypted
                      FROM ssh_connections WHERE id = ?1",
                     [id],
@@ -65,8 +71,7 @@ pub fn resolve_creds(
                 .optional()
                 .map_err(|_| FailureKind::Auth)?;
 
-            let (host, port, user, identity, password_enc) =
-                row.ok_or(FailureKind::Auth)?;
+            let (host, port, user, identity, password_enc) = row.ok_or(FailureKind::Auth)?;
             let password = password_enc.as_deref().and_then(decrypt_password);
             Ok(DeviceCreds::Ssh {
                 host,
@@ -95,8 +100,7 @@ pub fn resolve_creds(
                 )
                 .optional()
                 .map_err(|_| FailureKind::Auth)?;
-            let (host, port, user, platform, hostkey_verify) =
-                row.ok_or(FailureKind::Auth)?;
+            let (host, port, user, platform, hostkey_verify) = row.ok_or(FailureKind::Auth)?;
             // Real password resolution lives in `keyring` for NETCONF; in fan-out
             // we leave it None here and the executor's auth phase will fail
             // fast with FailureKind::Auth (UI must collect the password before

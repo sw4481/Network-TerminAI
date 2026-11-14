@@ -14,16 +14,46 @@ const SEED_FLAG_KEY: &str = "notebooks.runnable.seeded.v1";
 
 /// 10 canonical MOPs bundled with the application. Add new seeds here.
 pub const SEED_MARKDOWN: &[(&str, &str)] = &[
-    ("bgp_peer_bringup", include_str!("../../notebooks/seeds/bgp_peer_bringup.mop.md")),
-    ("ospf_neighbor_add", include_str!("../../notebooks/seeds/ospf_neighbor_add.mop.md")),
-    ("isis_neighbor_add", include_str!("../../notebooks/seeds/isis_neighbor_add.mop.md")),
-    ("interface_mtu_change_validation", include_str!("../../notebooks/seeds/interface_mtu_change_validation.mop.md")),
-    ("vlan_trunk_add", include_str!("../../notebooks/seeds/vlan_trunk_add.mop.md")),
-    ("hsrp_failover_test", include_str!("../../notebooks/seeds/hsrp_failover_test.mop.md")),
-    ("bfd_single_hop_enable", include_str!("../../notebooks/seeds/bfd_single_hop_enable.mop.md")),
-    ("acl_apply_with_rollback", include_str!("../../notebooks/seeds/acl_apply_with_rollback.mop.md")),
-    ("ntp_server_change", include_str!("../../notebooks/seeds/ntp_server_change.mop.md")),
-    ("snmpv3_user_add", include_str!("../../notebooks/seeds/snmpv3_user_add.mop.md")),
+    (
+        "bgp_peer_bringup",
+        include_str!("../../notebooks/seeds/bgp_peer_bringup.mop.md"),
+    ),
+    (
+        "ospf_neighbor_add",
+        include_str!("../../notebooks/seeds/ospf_neighbor_add.mop.md"),
+    ),
+    (
+        "isis_neighbor_add",
+        include_str!("../../notebooks/seeds/isis_neighbor_add.mop.md"),
+    ),
+    (
+        "interface_mtu_change_validation",
+        include_str!("../../notebooks/seeds/interface_mtu_change_validation.mop.md"),
+    ),
+    (
+        "vlan_trunk_add",
+        include_str!("../../notebooks/seeds/vlan_trunk_add.mop.md"),
+    ),
+    (
+        "hsrp_failover_test",
+        include_str!("../../notebooks/seeds/hsrp_failover_test.mop.md"),
+    ),
+    (
+        "bfd_single_hop_enable",
+        include_str!("../../notebooks/seeds/bfd_single_hop_enable.mop.md"),
+    ),
+    (
+        "acl_apply_with_rollback",
+        include_str!("../../notebooks/seeds/acl_apply_with_rollback.mop.md"),
+    ),
+    (
+        "ntp_server_change",
+        include_str!("../../notebooks/seeds/ntp_server_change.mop.md"),
+    ),
+    (
+        "snmpv3_user_add",
+        include_str!("../../notebooks/seeds/snmpv3_user_add.mop.md"),
+    ),
 ];
 
 pub fn ensure_seed_marker_table(conn: &Connection) -> Result<()> {

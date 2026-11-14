@@ -197,12 +197,10 @@ pub fn resolve_request(
         other: &mut Option<ResolveError>,
     ) -> TokenLoginCredentials {
         match c {
-            TokenLoginCredentials::Basic { username, password } => {
-                TokenLoginCredentials::Basic {
-                    username: resolve_collect(&username, ctx, missing, other),
-                    password: resolve_collect(&password, ctx, missing, other),
-                }
-            }
+            TokenLoginCredentials::Basic { username, password } => TokenLoginCredentials::Basic {
+                username: resolve_collect(&username, ctx, missing, other),
+                password: resolve_collect(&password, ctx, missing, other),
+            },
             TokenLoginCredentials::JsonBody { body } => TokenLoginCredentials::JsonBody {
                 body: resolve_collect(&body, ctx, missing, other),
             },
@@ -308,24 +306,25 @@ fn resolve_inner(
                         i += 2;
                         continue;
                     }
-                    b'\\' if i + 2 < bytes.len() && (bytes[i + 2] == b'{' || bytes[i + 2] == b'}') => {
+                    b'\\'
+                        if i + 2 < bytes.len()
+                            && (bytes[i + 2] == b'{' || bytes[i + 2] == b'}') =>
+                    {
                         out.push(bytes[i + 2] as char);
                         i += 3;
                         continue;
                     }
                     b'{' => {
                         // Parse ${prefix:name}
-                        let close = find_matching_brace(bytes, i + 2)
-                            .ok_or_else(|| {
-                                ResolveError::Malformed(format!(
-                                    "unterminated placeholder near {}",
-                                    snippet(input, i)
-                                ))
-                            })?;
-                        let inner = std::str::from_utf8(&bytes[i + 2..close])
-                            .map_err(|_| {
-                                ResolveError::Malformed("placeholder is not UTF-8".into())
-                            })?;
+                        let close = find_matching_brace(bytes, i + 2).ok_or_else(|| {
+                            ResolveError::Malformed(format!(
+                                "unterminated placeholder near {}",
+                                snippet(input, i)
+                            ))
+                        })?;
+                        let inner = std::str::from_utf8(&bytes[i + 2..close]).map_err(|_| {
+                            ResolveError::Malformed("placeholder is not UTF-8".into())
+                        })?;
                         // `response.<saved>.<jsonpath>` chaining. Dot-
                         // separated because JSONPath itself needs the `:`
                         // character free for filters like `$.[*]:`.
@@ -437,11 +436,7 @@ fn apply_jsonpath(json: &serde_json::Value, path: &str) -> Option<String> {
             } else {
                 (segment, None)
             };
-            cur = if name.is_empty() {
-                cur
-            } else {
-                cur.get(name)?
-            };
+            cur = if name.is_empty() { cur } else { cur.get(name)? };
             if let Some(i) = idx {
                 cur = cur.get(i)?;
             }

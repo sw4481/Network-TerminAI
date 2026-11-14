@@ -60,7 +60,10 @@ fn bundled_python_parses_show_version_via_genie() {
         .get("parser")
         .and_then(|v| v.as_str())
         .expect("response has parser field");
-    assert_eq!(parser, "genie", "expected Genie to handle iosxe show version");
+    assert_eq!(
+        parser, "genie",
+        "expected Genie to handle iosxe show version"
+    );
     assert!(resp.get("data").is_some(), "missing data field");
     sup.shutdown();
 }

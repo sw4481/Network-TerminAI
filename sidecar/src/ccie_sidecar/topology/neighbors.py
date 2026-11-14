@@ -21,7 +21,7 @@ layer fills them in just before constructing the canonical edge.
 Public API:
 
     NeighborRecord — dataclass; canonical schema
-    normalize_neighbors(protocol, parsed_envelope) -> list[dict]
+    normalize_neighbors(protocol, parsed_envelope, *, include_evidence=False) -> list[dict]
 
 `parsed_envelope` is whatever `ccie_sidecar.parsers.dispatcher.parse_show`
 returns; we look at its `parser` discriminator to pick the right helper.
@@ -29,11 +29,27 @@ returns; we look at its `parser` discriminator to pick the right helper.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from ipaddress import ip_address
+import re
 from typing import Any, List, Literal, Optional
 
-Protocol = Literal["cdp", "lldp", "bgp", "ospf", "isis"]
-_ROUTING_PROTOCOLS: tuple[str, ...] = ("bgp", "ospf", "isis")
+Protocol = Literal["cdp", "lldp", "bgp", "ospf", "isis", "eigrp"]
+_ROUTING_PROTOCOLS: tuple[str, ...] = ("bgp", "ospf", "isis", "eigrp")
 _ALL_PROTOCOLS: tuple[str, ...] = ("cdp", "lldp", *_ROUTING_PROTOCOLS)
+
+
+@dataclass
+class RoutingEvidence:
+    """A logical routing observation, not proof of a physical cable."""
+
+    state: str
+    established: bool
+    peer_address: Optional[str]
+    vrf: Optional[str]
+    address_family: Optional[str]
+    instance: Optional[str] = None
+    level: Optional[str] = None
+    scope_supported: bool = False
 
 
 @dataclass
@@ -41,10 +57,10 @@ class NeighborRecord:
     """One row of normalized neighbor information.
 
     Field semantics:
-      * ``local_port``   — interface on the *local* device (the one we ran
-        the show on). Always populated.
-      * ``neighbor_name`` — best-effort short-name; FQDN suffixes and
-        Cisco "(serial)" decorations are stripped.
+      * ``local_port``   — reported interface on the *local* device, empty
+        when unknown (including BGP summary observations).
+      * ``neighbor_name`` — legacy best-effort short-name; opt-in evidence
+        preserves full advertised L2 names instead.
       * ``neighbor_port`` — neighbor's port id as advertised.
       * ``neighbor_mgmt_ip`` — first management IP if any.
       * ``neighbor_platform`` — vendor-supplied platform/model string.
@@ -63,8 +79,11 @@ class NeighborRecord:
     neighbor_vendor: Optional[str] = None
     capabilities: List[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
-        return asdict(self)
+    def to_dict(self, *, routing: Optional[RoutingEvidence] = None) -> dict:
+        record = asdict(self)
+        if routing is not None:
+            record["routing"] = asdict(routing)
+        return record
 
 
 # ---------------------------------------------------------------------------
@@ -72,9 +91,13 @@ class NeighborRecord:
 # ---------------------------------------------------------------------------
 
 
-def normalize_neighbors(protocol: Protocol, parsed_envelope: dict) -> list[dict]:
+def normalize_neighbors(
+    protocol: Protocol, parsed_envelope: dict, *, include_evidence: bool = False
+) -> list[dict]:
     """Convert a `parse_show` envelope into canonical neighbor dicts.
 
+    Evidence mode adds routing scope/state without treating peer addresses
+    as management IPs; legacy records keep their original shape and semantics.
     Returns ``[]`` for an unrecognized parser discriminator so callers can
     treat "no parser" and "no neighbors" uniformly. Errors raised by the
     helpers are intentionally not swallowed — they indicate a schema
@@ -87,15 +110,51 @@ def normalize_neighbors(protocol: Protocol, parsed_envelope: dict) -> list[dict]
     parser = parsed_envelope.get("parser")
     data = parsed_envelope.get("data") or {}
     if parser == "genie":
-        return _from_genie(protocol, data)
+        return _from_genie(protocol, data, include_evidence=include_evidence)
     if parser == "textfsm":
         # TextFSM coverage is Phase 1 only (CDP/LLDP). Routing adjacencies
         # come exclusively from Genie for now; if Genie fails the dispatcher
         # raises NoParserError before we get here.
         if protocol in _ROUTING_PROTOCOLS:
             return []
-        return _from_textfsm(protocol, data)
+        return _from_textfsm(protocol, data, include_evidence=include_evidence)
     return []
+
+
+def normalize_neighbor_capture(protocol: Protocol, parsed_envelope: dict, raw: str) -> dict:
+    """Opt-in collection contract; do not change legacy normalization semantics.
+
+    Genie cli() may return {} for both valid zero CDP and arbitrary junk. Only
+    explicit zero summaries establish empty success for manual L2 collection.
+    """
+    parser = parsed_envelope.get("parser") if isinstance(parsed_envelope, dict) else None
+    if parser not in ("genie", "textfsm") or (parser == "textfsm" and protocol in _ROUTING_PROTOCOLS):
+        return {"status": "unsupported", "records": []}
+    records = normalize_neighbors(protocol, parsed_envelope, include_evidence=True)
+    if protocol == "eigrp":
+        if re.search(r"^\s*%", raw, re.MULTILINE):
+            raise ValueError("EIGRP neighbor output contains a CLI diagnostic")
+        # Genie emits {} for header-only output AND junk. Accept only a complete
+        # IPv4/default-VRF empty table, optionally preceded by the exact command.
+        empty_table = (
+            r"(?:(?:[\w.():/-]+[>#][ \t]*)?show[ \t]+ip[ \t]+eigrp[ \t]+neighbors\s+)?"
+            r"EIGRP-IPv4(?:\s+VR\(\S+\)\s+Address-Family)?\s+Neighbors\s+for\s+AS\([0-9]+\)"
+            r"(?:[ \t]+VRF\(default\))?\s+"
+            r"H\s+Address\s+Interface\s+Hold\s+Uptime\s+SRTT\s+RTO\s+Q\s+Seq\s+"
+            r"\(sec\)\s+\(ms\)\s+Cnt\s+Num"
+        )
+        if not records and re.fullmatch(empty_table, raw.strip(), re.IGNORECASE):
+            return {"status": "completed", "records": []}
+    zero_summary = {
+        "cdp": r"Total\s+cdp\s+entries\s+displayed\s*:\s*0",
+        "lldp": r"Total\s+entries\s+displayed\s*:\s*0",
+    }.get(protocol)
+    command_echo = (
+        rf"(?:(?:[\w.():/-]+[>#][ \t]*)?show[ \t]+{protocol}[ \t]+neighbors[ \t]+detail[ \t]*\r?\n[ \t\r\n]*)?"
+    )
+    if not records and not (zero_summary and re.fullmatch(command_echo + zero_summary, raw.strip(), re.IGNORECASE)):
+        raise ValueError("neighbor output did not establish records or a supported empty capture")
+    return {"status": "completed", "records": records}
 
 
 # ---------------------------------------------------------------------------
@@ -103,21 +162,25 @@ def normalize_neighbors(protocol: Protocol, parsed_envelope: dict) -> list[dict]
 # ---------------------------------------------------------------------------
 
 
-def _from_genie(protocol: Protocol, data: dict) -> list[dict]:
+def _from_genie(
+    protocol: Protocol, data: dict, *, include_evidence: bool = False
+) -> list[dict]:
     if protocol == "cdp":
-        return _from_genie_cdp(data)
+        return _from_genie_cdp(data, include_evidence=include_evidence)
     if protocol == "lldp":
-        return _from_genie_lldp(data)
+        return _from_genie_lldp(data, include_evidence=include_evidence)
     if protocol == "bgp":
-        return _from_genie_bgp(data)
+        return _from_genie_bgp(data, include_evidence=include_evidence)
     if protocol == "ospf":
-        return _from_genie_ospf(data)
+        return _from_genie_ospf(data, include_evidence=include_evidence)
     if protocol == "isis":
-        return _from_genie_isis(data)
+        return _from_genie_isis(data, include_evidence=include_evidence)
+    if protocol == "eigrp":
+        return _from_genie_eigrp(data, include_evidence=include_evidence)
     return []
 
 
-def _from_genie_cdp(data: dict) -> list[dict]:
+def _from_genie_cdp(data: dict, *, include_evidence: bool = False) -> list[dict]:
     """Genie CDP shape: ``data["index"][N] -> {device_id, local_interface,
     port_id, management_addresses, platform, capabilities}``."""
     out: list[dict] = []
@@ -141,7 +204,7 @@ def _from_genie_cdp(data: dict) -> list[dict]:
         record = NeighborRecord(
             protocol="cdp",
             local_port=local_port,
-            neighbor_name=_clean_device_id(device_id),
+            neighbor_name=device_id.strip() if include_evidence else _clean_device_id(device_id),
             neighbor_port=neighbor_port,
             neighbor_mgmt_ip=mgmt_ip,
             neighbor_platform=platform,
@@ -152,7 +215,7 @@ def _from_genie_cdp(data: dict) -> list[dict]:
     return out
 
 
-def _from_genie_lldp(data: dict) -> list[dict]:
+def _from_genie_lldp(data: dict, *, include_evidence: bool = False) -> list[dict]:
     """Genie LLDP shape: ``data["interfaces"][<local_if>]["port_id"][<pid>]
     ["neighbors"][<chassis_or_name>] -> { system_name, management_address |
     management_address_v4, system_description, capabilities }``."""
@@ -195,7 +258,8 @@ def _from_genie_lldp(data: dict) -> list[dict]:
                 record = NeighborRecord(
                     protocol="lldp",
                     local_port=str(local_port),
-                    neighbor_name=_clean_device_id(str(system_name)),
+                    neighbor_name=(str(system_name).strip() if include_evidence
+                                   else _clean_device_id(str(system_name))),
                     neighbor_port=str(neighbor_port),
                     neighbor_mgmt_ip=mgmt_ip if isinstance(mgmt_ip, str) else None,
                     neighbor_platform=platform,
@@ -241,21 +305,20 @@ def _genie_lldp_capabilities(caps: Any) -> list[str]:
 # upsert. See `src-tauri/src/topology/ingest.rs`.
 
 
-def _from_genie_bgp(data: dict) -> list[dict]:
+def _from_genie_bgp(data: dict, *, include_evidence: bool = False) -> list[dict]:
     """Genie ``show ip bgp summary`` shape::
 
         data["vrf"][<vrf>]["neighbor"][<peer_ip>]["address_family"][<af>]
             { as, msg_rcvd, msg_sent, up_down, state_pfxrcd, ... }
 
-    Note the extra ``address_family`` level — collapse it by taking the
-    first AF entry per peer (multi-AF sessions surface as a single edge,
-    matching how a network engineer thinks of the peering).
+    Legacy records collapse AFs per peer. Evidence mode preserves every VRF
+    and AF with its session state; unsupported scope stays explicitly marked.
     """
     out: list[dict] = []
     vrfs = data.get("vrf") or {}
     if not isinstance(vrfs, dict):
         return out
-    for _vrf, vrf_entry in vrfs.items():
+    for vrf, vrf_entry in vrfs.items():
         if not isinstance(vrf_entry, dict):
             continue
         neighbors = vrf_entry.get("neighbor") or {}
@@ -268,33 +331,42 @@ def _from_genie_bgp(data: dict) -> list[dict]:
             # session fields directly under the peer. Tolerate both.
             af_map = peer_entry.get("address_family")
             if isinstance(af_map, dict) and af_map:
-                # First AF row carries the session counters we care about.
-                _af_key, af_entry = next(iter(af_map.items()))
-                session = af_entry if isinstance(af_entry, dict) else {}
+                sessions = af_map.items() if include_evidence else [next(iter(af_map.items()))]
             else:
-                session = peer_entry
-            record = NeighborRecord(
-                protocol="bgp",
-                # BGP has no concept of a "local interface" in the summary
-                # output; ingest layer fills in `peer:<peer_ip>`.
-                local_port="",
-                neighbor_name=str(peer_ip),
-                # Likewise, BGP doesn't expose a neighbor port.
-                neighbor_port="",
-                neighbor_mgmt_ip=str(peer_ip),
-                neighbor_platform=None,
-                neighbor_vendor=None,
-                capabilities=[],
-            )
-            # Drop the unused ``session`` reference but keep the lookup so
-            # future expansions (state, AS) can pull from it without
-            # restructuring this loop.
-            _ = session
-            out.append(record.to_dict())
+                sessions = [(None, peer_entry)]
+            for af, af_entry in sessions:
+                session = af_entry if isinstance(af_entry, dict) else {}
+                routing = None
+                if include_evidence:
+                    state = _routing_state(session.get("session_state", session.get("state_pfxrcd")))
+                    routing = RoutingEvidence(
+                        state=state,
+                        established=state.lower() == "established" or (
+                            "session_state" not in session
+                            and re.fullmatch(r"[0-9]+", state) is not None
+                        ),
+                        peer_address=str(peer_ip),
+                        vrf=vrf if isinstance(vrf, str) else None,
+                        address_family=af if isinstance(af, str) else None,
+                        scope_supported=(vrf == "default" and af == "ipv4 unicast"
+                                         and _is_ipv4(str(peer_ip))),
+                    )
+                record = NeighborRecord(
+                    protocol="bgp",
+                    # Summary output does not identify either physical port.
+                    local_port="",
+                    neighbor_name=str(peer_ip),
+                    neighbor_port="",
+                    neighbor_mgmt_ip=None if include_evidence else str(peer_ip),
+                    neighbor_platform=None,
+                    neighbor_vendor=None,
+                    capabilities=[],
+                )
+                out.append(record.to_dict(routing=routing))
     return out
 
 
-def _from_genie_ospf(data: dict) -> list[dict]:
+def _from_genie_ospf(data: dict, *, include_evidence: bool = False) -> list[dict]:
     """Genie ``show ip ospf neighbor`` shape::
 
         data["interfaces"][<local_if>]["neighbors"][<router_id>]
@@ -315,6 +387,18 @@ def _from_genie_ospf(data: dict) -> list[dict]:
                 continue
             address = nbr.get("address")
             mgmt_ip = address if isinstance(address, str) and address else None
+            routing = None
+            if include_evidence:
+                state = _routing_state(nbr.get("state"))
+                ipv4 = _is_ipv4(mgmt_ip)
+                routing = RoutingEvidence(
+                    state=state,
+                    established=state.upper().split("/", 1)[0] == "FULL",
+                    peer_address=mgmt_ip,
+                    vrf="default",
+                    address_family="ipv4 unicast" if ipv4 else None,
+                    scope_supported=ipv4,
+                )
             record = NeighborRecord(
                 protocol="ospf",
                 local_port=str(local_if),
@@ -322,34 +406,95 @@ def _from_genie_ospf(data: dict) -> list[dict]:
                 # OSPF doesn't expose the neighbor's port id; ingest fills
                 # in `peer:<source_device_ref>`.
                 neighbor_port="",
-                neighbor_mgmt_ip=mgmt_ip,
+                neighbor_mgmt_ip=None if include_evidence else mgmt_ip,
                 neighbor_platform=None,
                 neighbor_vendor=None,
                 capabilities=[],
             )
-            out.append(record.to_dict())
+            out.append(record.to_dict(routing=routing))
     return out
 
 
-def _from_genie_isis(data: dict) -> list[dict]:
+def _from_genie_eigrp(data: dict, *, include_evidence: bool = False) -> list[dict]:
+    """Genie AS -> VRF -> AF -> eigrp_interface -> eigrp_nbr rows.
+
+    A complete neighbor-table entry establishes an observed adjacency, not
+    routes or a physical cable. Genie exposes no separate session-state field.
+    """
+    out: list[dict] = []
+    instances = data.get("eigrp_instance") if isinstance(data, dict) else None
+    if not isinstance(instances, dict):
+        return out
+    for instance, process in instances.items():
+        vrfs = process.get("vrf") if isinstance(process, dict) else None
+        if not isinstance(vrfs, dict):
+            continue
+        for vrf, context in vrfs.items():
+            families = context.get("address_family") if isinstance(context, dict) else None
+            if not isinstance(families, dict):
+                continue
+            for af, family in families.items():
+                interfaces = family.get("eigrp_interface") if isinstance(family, dict) else None
+                if not isinstance(interfaces, dict):
+                    continue
+                for local_if, interface in interfaces.items():
+                    peers = interface.get("eigrp_nbr") if isinstance(interface, dict) else None
+                    if not isinstance(local_if, str) or not local_if.strip() or not isinstance(peers, dict):
+                        continue
+                    for peer, row in peers.items():
+                        if not isinstance(peer, str) or not peer or not isinstance(row, dict):
+                            continue
+                        try:
+                            valid_peer = not (ip_address(peer).is_unspecified or ip_address(peer).is_multicast)
+                        except ValueError:
+                            valid_peer = False
+                        # Queue/sequence values are table fields, not session states.
+                        complete = valid_peer and all(
+                            type(row.get(key)) is int and row[key] >= 0
+                            for key in ("peer_handle", "hold", "q_cnt", "last_seq_number", "rto")
+                        ) and type(row.get("srtt")) in (int, float) and row["srtt"] >= 0 and bool(
+                            isinstance(row.get("uptime"), str) and row["uptime"].strip()
+                        )
+                        routing = None
+                        if include_evidence:
+                            routing = RoutingEvidence(
+                                state="up" if complete else "unknown",
+                                established=complete,
+                                peer_address=peer,
+                                vrf=vrf if isinstance(vrf, str) else None,
+                                address_family=(f"{af} unicast" if af in ("ipv4", "ipv6")
+                                                else af if isinstance(af, str) else None),
+                                instance=str(instance) if instance is not None else None,
+                                scope_supported=(valid_peer and vrf == "default" and af == "ipv4" and _is_ipv4(peer)
+                                                 and re.fullmatch(r"[0-9]{1,5}", str(instance)) is not None
+                                                 and 1 <= int(instance) <= 65535),
+                            )
+                        record = NeighborRecord(
+                            protocol="eigrp", local_port=local_if.strip(), neighbor_name=peer,
+                            neighbor_port="", neighbor_mgmt_ip=None,
+                        )
+                        out.append(record.to_dict(routing=routing))
+    return out
+
+
+def _from_genie_isis(data: dict, *, include_evidence: bool = False) -> list[dict]:
     """Genie ``show isis neighbors`` shape::
 
         data["isis"][<tag>]["neighbors"][<system_id>]["type"][<L1|L2>]
             ["interfaces"][<local_if>]{ ip_address, state, holdtime, ... }
 
     Note the schema is rooted at ``data["isis"]`` (not ``data["tag"]``) and
-    nests by adjacency *type* (L1/L2). Multi-type adjacencies on the same
-    interface produce one record per type; the canonical edge key is
-    `(local_port, neighbor_name, "isis")` so L1 and L2 collapse into a
-    single edge in the graph — that matches how operators visualise an
-    IS-IS adjacency in topology diagrams.
+    nests by adjacency *type* (L1/L2). Legacy normalization collapses the
+    same system/interface across types and tags. Evidence mode retains each
+    instance and level separately; only the fixture-backed default ``null``
+    tag, known levels and IPv4 addresses establish supported scope.
     """
     out: list[dict] = []
     isis_root = data.get("isis") or {}
     if not isinstance(isis_root, dict):
         return out
     seen_keys: set[tuple[str, str]] = set()
-    for _tag, tag_entry in isis_root.items():
+    for tag, tag_entry in isis_root.items():
         if not isinstance(tag_entry, dict):
             continue
         nbrs = tag_entry.get("neighbors") or {}
@@ -361,7 +506,7 @@ def _from_genie_isis(data: dict) -> list[dict]:
             type_map = nbr.get("type") or {}
             if not isinstance(type_map, dict):
                 continue
-            for _atype, atype_entry in type_map.items():
+            for atype, atype_entry in type_map.items():
                 if not isinstance(atype_entry, dict):
                     continue
                 ifaces = atype_entry.get("interfaces") or {}
@@ -372,22 +517,37 @@ def _from_genie_isis(data: dict) -> list[dict]:
                         continue
                     # Collapse L1+L2 same-interface duplicates.
                     dedup_key = (str(local_if), str(system_id))
-                    if dedup_key in seen_keys:
+                    if not include_evidence and dedup_key in seen_keys:
                         continue
                     seen_keys.add(dedup_key)
                     ipv4 = iface_entry.get("ip_address")
                     mgmt_ip = ipv4 if isinstance(ipv4, str) and ipv4 else None
+                    routing = None
+                    if include_evidence:
+                        state = _routing_state(iface_entry.get("state"))
+                        address_is_ipv4 = _is_ipv4(mgmt_ip)
+                        routing = RoutingEvidence(
+                            state=state,
+                            established=state.upper() == "UP",
+                            peer_address=mgmt_ip,
+                            vrf="default" if tag == "null" else None,
+                            address_family="ipv4 unicast" if address_is_ipv4 else None,
+                            instance=str(tag) if tag is not None else None,
+                            level=str(atype),
+                            scope_supported=(tag == "null" and atype in ("L1", "L2")
+                                             and address_is_ipv4),
+                        )
                     record = NeighborRecord(
                         protocol="isis",
                         local_port=str(local_if),
                         neighbor_name=str(system_id),
                         neighbor_port="",
-                        neighbor_mgmt_ip=mgmt_ip,
+                        neighbor_mgmt_ip=None if include_evidence else mgmt_ip,
                         neighbor_platform=None,
                         neighbor_vendor=None,
                         capabilities=[],
                     )
-                    out.append(record.to_dict())
+                    out.append(record.to_dict(routing=routing))
     return out
 
 
@@ -396,7 +556,9 @@ def _from_genie_isis(data: dict) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def _from_textfsm(protocol: Protocol, data: Any) -> list[dict]:
+def _from_textfsm(
+    protocol: Protocol, data: Any, *, include_evidence: bool = False
+) -> list[dict]:
     """ntc-templates yields a list of row dicts. Field names vary across
     templates and platforms — try the canonical set first then fall back to
     common aliases. Rows missing all three required positional fields
@@ -425,7 +587,7 @@ def _from_textfsm(protocol: Protocol, data: Any) -> list[dict]:
         record = NeighborRecord(
             protocol=protocol,
             local_port=local_port,
-            neighbor_name=_clean_device_id(neighbor_name),
+            neighbor_name=neighbor_name if include_evidence else _clean_device_id(neighbor_name),
             neighbor_port=neighbor_port,
             neighbor_mgmt_ip=mgmt_ip or None,
             neighbor_platform=platform,
@@ -439,6 +601,23 @@ def _from_textfsm(protocol: Protocol, data: Any) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+
+def _routing_state(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip() or "unknown"
+    if type(value) is int:
+        return str(value)
+    return "unknown"
+
+
+def _is_ipv4(value: Optional[str]) -> bool:
+    if not value:
+        return False
+    try:
+        return ip_address(value).version == 4
+    except ValueError:
+        return False
 
 
 def _first_key(d: Any) -> Optional[str]:

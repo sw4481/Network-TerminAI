@@ -100,7 +100,8 @@ impl RagStore {
     pub fn set_tags(&self, doc_id: i64, tags: &[&str]) -> Result<()> {
         // Validate up-front so we don't half-apply on the first bad tag.
         for t in tags {
-            validate_tag_shape(t).with_context(|| format!("validate tag '{t}' for doc {doc_id}"))?;
+            validate_tag_shape(t)
+                .with_context(|| format!("validate tag '{t}' for doc {doc_id}"))?;
         }
         let conn = self.conn.lock();
         let tx = conn.unchecked_transaction()?;
@@ -122,9 +123,8 @@ impl RagStore {
     /// callers can use the result directly for stable display.
     pub fn list_tags(&self, doc_id: i64) -> Result<Vec<String>> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare(
-            "SELECT tag FROM rag_document_tags WHERE document_id=?1 ORDER BY tag",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT tag FROM rag_document_tags WHERE document_id=?1 ORDER BY tag")?;
         let rows = stmt.query_map(params![doc_id], |r| r.get::<_, String>(0))?;
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
@@ -142,9 +142,7 @@ impl RagStore {
                  FROM rag_document_tags
              GROUP BY tag",
         )?;
-        let rows = stmt.query_map([], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
-        })?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
         let mut out: Vec<UserTagSummary> = Vec::new();
         for row in rows {
             let (tag, usage_count) = row?;

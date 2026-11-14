@@ -4,15 +4,17 @@
  * Lazy-loaded by `PlaybookEditor.tsx` so jsdom unit tests can fall
  * back to a `<textarea>` without paying the 3MB Monaco load cost.
  *
- * monaco-yaml configuration is applied exactly once per `monaco`
- * module instance — the module is a singleton, so we set a guard on
- * `globalThis` to make the call idempotent across editor mounts.
+ * Each document owns one exact URI in the shared YAML language service.
  *
  * The component exposes a global `__tbEditorJumpTo(line, col)` so the
  * diagnostics panel rows can position the cursor when clicked.
  */
-import { Editor, type OnMount } from "@monaco-editor/react";
-import { useCallback } from "react";
+import { Editor, loader, type OnMount } from "@monaco-editor/react";
+import * as localMonaco from "monaco-editor";
+import { useCallback, useEffect, useRef } from "react";
+import { yamlSchemaRegistry } from "../../components/editor/yamlSchemaRegistry";
+
+loader.config({ monaco: localMonaco });
 
 interface MonacoYamlSchema {
   $schema?: string;
@@ -32,40 +34,52 @@ export default function PlaybookEditorMonaco({
   readOnly,
   schema,
 }: PlaybookEditorMonacoProps) {
+  const uri = useRef(`inmemory://ccie-playbook/${crypto.randomUUID()}.yaml`);
+  const lease = useRef<{ release(): void } | null>(null);
+  const host = useRef<{
+    editor: Parameters<OnMount>[0];
+    monaco: Parameters<OnMount>[1];
+  } | null>(null);
+  const jump = useRef<((line: number, col: number) => void) | null>(null);
+  useEffect(() => {
+    const mounted = host.current;
+    if (mounted) {
+      lease.current?.release();
+      lease.current = yamlSchemaRegistry.acquire(
+        mounted.monaco,
+        uri.current,
+        schema,
+      );
+    }
+  }, [schema]);
+  useEffect(
+    () => () => {
+      lease.current?.release();
+      lease.current = null;
+      host.current = null;
+      const target = window as {
+        __tbEditorJumpTo?: (line: number, col: number) => void;
+      };
+      if (target.__tbEditorJumpTo === jump.current)
+        delete target.__tbEditorJumpTo;
+    },
+    [],
+  );
   const handleMount: OnMount = useCallback(
-    async (editor, monaco) => {
-      // Configure monaco-yaml once. The module mutates monaco's
-      // language registry globally, so re-running it on every mount
-      // wastes work and can race; guard with a global flag.
-      const flagKey = "__ccieMonacoYamlConfigured";
-      const g = globalThis as Record<string, unknown>;
-      if (!g[flagKey]) {
-        try {
-          const { configureMonacoYaml } = await import("monaco-yaml");
-          configureMonacoYaml(monaco, {
-            validate: true,
-            enableSchemaRequest: false,
-            schemas: [
-              {
-                uri: "in-memory://ccie-playbook-schema.json",
-                fileMatch: ["*"],
-                schema: schema as Record<string, unknown>,
-              },
-            ],
-          });
-          g[flagKey] = true;
-        } catch (e) {
-          console.warn("[troubleshoot] monaco-yaml configure failed", e);
-        }
-      }
+    (editor, monaco) => {
+      host.current = { editor, monaco };
+      lease.current?.release();
+      lease.current = yamlSchemaRegistry.acquire(monaco, uri.current, schema);
 
       // Expose a jump-to-line setter for the diagnostics panel.
-      (window as { __tbEditorJumpTo?: (line: number, col: number) => void })
-        .__tbEditorJumpTo = (line: number, col: number) => {
+      jump.current = (line: number, col: number) => {
         editor.revealLineInCenter(line);
         editor.setPosition({ lineNumber: line, column: col });
         editor.focus();
       };
+      (
+        window as { __tbEditorJumpTo?: (line: number, col: number) => void }
+      ).__tbEditorJumpTo = jump.current;
     },
     [schema],
   );
@@ -74,6 +88,7 @@ export default function PlaybookEditorMonaco({
     <Editor
       height="100%"
       defaultLanguage="yaml"
+      path={uri.current}
       language="yaml"
       theme="vs-dark"
       value={value}

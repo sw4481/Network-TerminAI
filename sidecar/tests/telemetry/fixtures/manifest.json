@@ -1,0 +1,300 @@
+{
+  "source_commit": "e60dae39a28d148253e751176bd3ff15e35bfd56",
+  "provenance": "Public NTC offline format evidence; no authorized lab/release/channel/empty/reset proof.",
+  "sanitization": "Deterministic per-fixture unique pseudonyms: IPv4 documentation addresses, locally administered MACs, processor/inventory serials and CDP/LLDP names; equal original identities remain equal and distinct identities remain distinct. Uptime hostname replaced. Public remaining vendor/model/interface/VRF labels retained. Original/sanitized hashes recorded.",
+  "supported_empty": [],
+  "samples": [
+    {
+      "file": "interfaces_one.raw",
+      "template": "cisco_ios_show_interfaces.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "source_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "sha256": "6b167b614a48b704c0dc9f01af31a6e0244879905a8784de623993d8863717cd",
+      "rows": 1,
+      "first": {
+        "interface": "GigabitEthernet0/0"
+      },
+      "selection": "First complete interface block before next interface header; not a complete inventory. Full public raw contains contradictory repeated Gi0/2 blocks and remains preserved."
+    },
+    {
+      "file": "interfaces_one.raw",
+      "template": "ios_interface_bytes.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "source_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "sha256": "6b167b614a48b704c0dc9f01af31a6e0244879905a8784de623993d8863717cd",
+      "rows": 1,
+      "first": {
+        "input_bytes": "48614",
+        "output_bytes": "62737"
+      },
+      "selection": "First complete interface block before next interface header; not a complete inventory. Full public raw contains contradictory repeated Gi0/2 blocks and remains preserved."
+    },
+    {
+      "file": "show_version.raw",
+      "template": "cisco_ios_show_version.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_version/cisco_ios_show_version.raw",
+      "source_sha256": "84a1de953028fd7339674e009bf98f645e9f596c3f377a5153975c52506e48cf",
+      "sha256": "33aed7a52741b9a0e9b267dd933414de84ea71e297a25aafb6aa0bb123c5a915",
+      "rows": 1,
+      "first": {
+        "software_image": "cat4500e-ENTSERVICESK9-M"
+      }
+    },
+    {
+      "file": "show_processes_cpu.raw",
+      "template": "cisco_ios_show_processes_cpu.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_processes_cpu/cisco_ios_show_processes_cpu.raw",
+      "source_sha256": "1b8c8d24d6f4b7fc7b8f68d1aa8ff97339e29623bf38b3060977617274d071eb",
+      "sha256": "1b8c8d24d6f4b7fc7b8f68d1aa8ff97339e29623bf38b3060977617274d071eb",
+      "rows": 316,
+      "first": {
+        "cpu_usage_5_sec": "4"
+      }
+    },
+    {
+      "file": "show_processes_memory_sorted.raw",
+      "template": "cisco_ios_show_processes_memory_sorted.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_processes_memory_sorted/cisco_ios_show_processes_memory_sorted.raw",
+      "source_sha256": "ba1313e6b7c7f19a757cb47223d9fdf30d3391977992089af2e084117642c320",
+      "sha256": "ba1313e6b7c7f19a757cb47223d9fdf30d3391977992089af2e084117642c320",
+      "rows": 1,
+      "first": {
+        "memory_total": "919638648"
+      }
+    },
+    {
+      "file": "interfaces.raw",
+      "template": "cisco_ios_show_interfaces.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "source_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "sha256": "a25c3392b2799d2ae2e62e3b8d05ff7d3dc688b31bc01c165fc871acc3760087",
+      "rows": 9,
+      "first": {
+        "interface": "GigabitEthernet0/0"
+      }
+    },
+    {
+      "file": "show_interfaces_description.raw",
+      "template": "cisco_ios_show_interfaces_description.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces_description/cisco_ios_show_interfaces_description.raw",
+      "source_sha256": "ea174ccda77d788ed5567e87d8cf76092747606f54cac3096b94c71f3df0e954",
+      "sha256": "ea174ccda77d788ed5567e87d8cf76092747606f54cac3096b94c71f3df0e954",
+      "rows": 15,
+      "first": {
+        "port": "Vl1"
+      }
+    },
+    {
+      "file": "show_interfaces_status.raw",
+      "template": "cisco_ios_show_interfaces_status.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces_status/cisco_ios_show_interfaces_status.raw",
+      "source_sha256": "bea3ff9aa7321fbac39583b3deb5e671c6926b1d7d36e0c4abafabbccbb08814",
+      "sha256": "bea3ff9aa7321fbac39583b3deb5e671c6926b1d7d36e0c4abafabbccbb08814",
+      "rows": 25,
+      "first": {
+        "port": "Gi1/0/1"
+      }
+    },
+    {
+      "file": "show_ip_interface.raw",
+      "template": "cisco_ios_show_ip_interface.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_interface/cisco_ios_show_ip_interface.raw",
+      "source_sha256": "93c4cf3c5f5dfd109d603ff73faac8009d99b2e77a52d336bd72a47902590de2",
+      "sha256": "3da6abcba5863fdfa3e919b9d13091c57717ade41e2aa20f0d023231074c503c",
+      "rows": 83,
+      "first": {
+        "interface": "GigabitEthernet0/0/0"
+      }
+    },
+    {
+      "file": "show_ip_interface_brief.raw",
+      "template": "cisco_ios_show_ip_interface_brief.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_interface_brief/cisco_ios_show_ip_interface_brief.raw",
+      "source_sha256": "3ae206d00c82f04b23062add5819b4dbf45e308b519436eae11441cdc8255371",
+      "sha256": "f3c81792373cbce4a427a2af33fe76f4782ce6724e2e69eb75a920998f0156f1",
+      "rows": 7,
+      "first": {
+        "interface": "Ethernet0/0"
+      }
+    },
+    {
+      "file": "bgp_summary.raw",
+      "template": "cisco_ios_show_ip_bgp_summary.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_bgp_summary/cisco_ios_show_ip_bgp_summary_all.raw",
+      "source_sha256": "cae46b88c8f7d3a3e9d70e9cb5539bc6eba092010ee7dadf11e698b5554e97d2",
+      "sha256": "f83e2dd587e442f6285dcd2497fa78815b3c887efdd74080735b42d33991c819",
+      "rows": 3,
+      "first": {
+        "router_id": "192.0.2.1"
+      }
+    },
+    {
+      "file": "bgp_vrf.raw",
+      "template": "cisco_ios_show_ip_bgp_vpnv4_all_neighbors.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_bgp_vpnv4_all_neighbors/cisco_ios_show_ip_bgp_vpnv4_all_neighbors_desc1.raw",
+      "source_sha256": "1259621e965cb4df8c09fa88f9cb36ac72568e2bc44efbe80c79bc5356a00ed3",
+      "sha256": "b5708028555999146e7abe6e052923ed8905d603e07878d94857a772a1a0a40f",
+      "rows": 4,
+      "first": {
+        "neighbor": "192.0.2.1"
+      }
+    },
+    {
+      "file": "show_ip_ospf_neighbor.raw",
+      "template": "cisco_ios_show_ip_ospf_neighbor.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_ospf_neighbor/four_neighbors.raw",
+      "source_sha256": "ea43ac62a392bf83fe8d2ddff5bd5fd6eb39c1cc2cca51dc79f094c6c1434f3c",
+      "sha256": "bb6f4127a740542b37d72511df63070e01312e7c4c0155e9d2121eb2906bd490",
+      "rows": 4,
+      "first": {
+        "neighbor_id": "192.0.2.1"
+      }
+    },
+    {
+      "file": "show_ip_ospf_interface_brief.raw",
+      "template": "cisco_ios_show_ip_ospf_interface_brief.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_ospf_interface_brief/cisco_ios_show_ip_ospf_interface_brief.raw",
+      "source_sha256": "9ade4137952511bf792c47d02b308ec06bca8f2525eb34815bba0f3b2e24d3ac",
+      "sha256": "c369f9c410186c586aa06f1abff4835c612edfb0210b38b376cab730ed6b251a",
+      "rows": 12,
+      "first": {
+        "interface": "Lo0"
+      }
+    },
+    {
+      "file": "show_ip_eigrp_neighbors.raw",
+      "template": "cisco_ios_show_ip_eigrp_neighbors.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_ip_eigrp_neighbors/cisco_ios_show_ip_eigrp_neighbors.raw",
+      "source_sha256": "0daced3b200f1bee81f09d47b8f1af10c7c3b24f777194b71f3b1981fcbf20d1",
+      "sha256": "cdc803af52f28eb983d9c130e6dc84787331903dbf8bd90febaa4272718cb4dd",
+      "rows": 2,
+      "first": {
+        "as": "1"
+      }
+    },
+    {
+      "file": "show_vlan.raw",
+      "template": "cisco_ios_show_vlan.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_vlan/cisco_ios_show_vlan.raw",
+      "source_sha256": "7ed45650a03de3463b980812fb86fda77172dbd9fda99c89cf9ccc179c006876",
+      "sha256": "7ed45650a03de3463b980812fb86fda77172dbd9fda99c89cf9ccc179c006876",
+      "rows": 8,
+      "first": {
+        "vlan_id": "1"
+      }
+    },
+    {
+      "file": "switchport.raw",
+      "template": "cisco_ios_show_interfaces_switchport.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces_switchport/cisco_ios_show_interfaces_switchport.raw",
+      "source_sha256": "254748026b136a8779817ec3133ecff52f515fbf0fb036b68400a0f855cf8d40",
+      "sha256": "254748026b136a8779817ec3133ecff52f515fbf0fb036b68400a0f855cf8d40",
+      "rows": 7,
+      "first": {
+        "interface": "Gi0/1"
+      }
+    },
+    {
+      "file": "show_spanning-tree.raw",
+      "template": "cisco_ios_show_spanning-tree.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_spanning-tree/cisco_ios_show_spanning_tree.raw",
+      "source_sha256": "fe2ada98eac976c6732c8f8cd6a8b9d9b77e20392abb12117a080c5b4b981f81",
+      "sha256": "41824ce5c990028a5d5ed63a0925a86f941b2a2861d16c5b4371d5aa13d1f1a5",
+      "rows": 7,
+      "first": {
+        "vlan_id": "1"
+      }
+    },
+    {
+      "file": "show_spanning-tree_root.raw",
+      "template": "cisco_ios_show_spanning-tree_root.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_spanning-tree_root/cisco_ios_show_spanning_tree_root.raw",
+      "source_sha256": "9eca271c99feb61039b26a25f234f23134df0ed98e039810c600c6daab1dc20f",
+      "sha256": "bad54df1bfb1e580c231a2a15216b75e82a21cab275bfd27a484103f17c8b836",
+      "rows": 3,
+      "first": {
+        "vlan_id": "VLAN0001"
+      }
+    },
+    {
+      "file": "show_etherchannel_summary.raw",
+      "template": "cisco_ios_show_etherchannel_summary.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_etherchannel_summary/show_etherchannel_summary.raw",
+      "source_sha256": "75e84d9a030044651d04ab786a862079efd31a21318652219aec898020a29844",
+      "sha256": "75e84d9a030044651d04ab786a862079efd31a21318652219aec898020a29844",
+      "rows": 6,
+      "first": {
+        "group": "1"
+      }
+    },
+    {
+      "file": "show_cdp_neighbors_detail.raw",
+      "template": "cisco_ios_show_cdp_neighbors_detail.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_cdp_neighbors_detail/cisco_ios_show_cdp_neighbors_detail.raw",
+      "source_sha256": "e286d988255ed1c723287e7e129c4307d9e90825c4571604e52238bdf37d4081",
+      "sha256": "129c365898f72f75f70726151585ff88847d331baabf55d726b4247c8cb14570",
+      "rows": 4,
+      "first": {
+        "neighbor_name": "telemetry-neighbor-1"
+      }
+    },
+    {
+      "file": "show_lldp_neighbors_detail.raw",
+      "template": "cisco_ios_show_lldp_neighbors_detail.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_lldp_neighbors_detail/cisco_ios_show_lldp_neighbors_detail1.raw",
+      "source_sha256": "6d9d7dbe53cc91ef949a709b6f21064d6b1182ae8be5324bc0be8a0f10a7a662",
+      "sha256": "47ec94566b4fecf7e586294ab034dde741931fef1aebcdaee7d6d8bdda2fb1bc",
+      "rows": 3,
+      "first": {
+        "local_interface": "Gi1/0/2"
+      }
+    },
+    {
+      "file": "show_mac-address-table.raw",
+      "template": "cisco_ios_show_mac-address-table.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_mac-address-table/cisco_ios_show_mac-address-table.raw",
+      "source_sha256": "6ab4b1e6b8297834a9b9ede09291fb95df55cbbfb3947bc08d32afb213c24416",
+      "sha256": "aa7527a426f339d0a6d05819e82b7fb3cc3d8799ced29dadca9f9531884c74f5",
+      "rows": 9,
+      "first": {
+        "destination_address": "0200.0000.0001"
+      }
+    },
+    {
+      "file": "show_inventory.raw",
+      "template": "cisco_ios_show_inventory.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_inventory/cisco_ios_show_inventory.raw",
+      "source_sha256": "7f8531c4dbe5848e44a2695dcd5509515c9a3fba0e378eef2ec4a81461a2db8a",
+      "sha256": "76c5e40309da45605b0d50563cb8020bcf0efcca2dfc19572fb1235d2411280a",
+      "rows": 4,
+      "first": {
+        "name": "3640 chassis"
+      }
+    },
+    {
+      "file": "switchport_wrapped.raw",
+      "template": "cisco_ios_show_interfaces_switchport.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces_switchport/cisco_ios_show_interfaces_switchport2.raw",
+      "source_sha256": "9941809176d6248e1aadc9335a9112cf0c8dfa4ed976c39e6dabd30c88cfd862",
+      "sha256": "9941809176d6248e1aadc9335a9112cf0c8dfa4ed976c39e6dabd30c88cfd862",
+      "rows": 2,
+      "first": {
+        "interface": "Te5/0/1"
+      }
+    },
+    {
+      "file": "interfaces.raw",
+      "template": "ios_interface_bytes.textfsm",
+      "source_url": "https://raw.githubusercontent.com/networktocode/ntc-templates/e60dae39a28d148253e751176bd3ff15e35bfd56/tests/cisco_ios/show_interfaces/cisco_ios_show_interfaces.raw",
+      "source_sha256": "8df62097736298e6a4179506f8943a402f508ec60272990cd32964faed3d33ce",
+      "sha256": "a25c3392b2799d2ae2e62e3b8d05ff7d3dc688b31bc01c165fc871acc3760087",
+      "rows": 9,
+      "first": {
+        "input_bytes": "48614",
+        "output_bytes": "62737"
+      }
+    }
+  ],
+  "license": "Apache-2.0",
+  "attribution": "Copyright 2015 Jason Edelman / Network to Code, LLC; see src-tauri/telemetry/NTC-LICENSE and NOTICE.md."
+}

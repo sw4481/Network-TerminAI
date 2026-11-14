@@ -4,9 +4,30 @@
 //! of a link collapse into a single PK row.
 
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
-use super::{TopologyEdge, TopologyGraph, TopologyNode};
+use super::{GraphSnapshot, NodePosition, TopologyEdge, TopologyGraph, TopologyNode};
+
+/// Complete persisted representation shared by reads and import results.
+pub fn snapshot(conn: &Connection, graph_id: &str) -> Result<GraphSnapshot> {
+    let graph = get_graph(conn, graph_id)?
+        .ok_or_else(|| anyhow::anyhow!("topology graph not found"))?;
+    let provenance: Option<String> = conn
+        .query_row(
+            "SELECT provenance_json FROM topology_import_provenance WHERE graph_id = ?1",
+            [graph_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(GraphSnapshot {
+        graph,
+        nodes: list_nodes(conn, graph_id)?,
+        edges: list_edges(conn, graph_id)?,
+        positions: list_positions(conn, graph_id)?,
+        import_provenance: provenance.map(|json| serde_json::from_str(&json)).transpose()?,
+        capture_evidence: super::evidence::CaptureEvidence::list(conn, graph_id)?,
+    })
+}
 
 /// Create a new topology_graphs row. Caller supplies the id (uuidv4 from
 /// the command layer) so this function stays trivially testable.
@@ -120,7 +141,7 @@ pub fn upsert_edge(conn: &Connection, edge: &TopologyEdge) -> Result<()> {
             "INSERT INTO topology_edges
                 (graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-             ON CONFLICT(graph_id, a_device_ref, a_port, b_device_ref, b_port) DO UPDATE SET
+             ON CONFLICT(graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol) DO UPDATE SET
                 protocol    = excluded.protocol,
                 captured_at = strftime('%s','now')",
             params![edge.graph_id, a_dev, a_port, b_dev, b_port, edge.protocol],
@@ -130,7 +151,7 @@ pub fn upsert_edge(conn: &Connection, edge: &TopologyEdge) -> Result<()> {
             "INSERT INTO topology_edges
                 (graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol, captured_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-             ON CONFLICT(graph_id, a_device_ref, a_port, b_device_ref, b_port) DO UPDATE SET
+             ON CONFLICT(graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol) DO UPDATE SET
                 protocol    = excluded.protocol,
                 captured_at = excluded.captured_at",
             params![
@@ -175,7 +196,7 @@ pub fn list_edges(conn: &Connection, graph_id: &str) -> Result<Vec<TopologyEdge>
     let mut stmt = conn.prepare(
         "SELECT graph_id, a_device_ref, a_port, b_device_ref, b_port, protocol, captured_at
          FROM topology_edges WHERE graph_id = ?1
-         ORDER BY a_device_ref ASC, a_port ASC, b_device_ref ASC, b_port ASC",
+         ORDER BY a_device_ref ASC, a_port ASC, b_device_ref ASC, b_port ASC, protocol ASC",
     )?;
     let rows = stmt
         .query_map(params![graph_id], |row| {
@@ -195,13 +216,76 @@ pub fn list_edges(conn: &Connection, graph_id: &str) -> Result<Vec<TopologyEdge>
 
 /// Wipe every node and edge belonging to a graph; preserve the graph row.
 pub fn clear_graph(conn: &Connection, graph_id: &str) -> Result<()> {
-    conn.execute(
+    let tx = conn.unchecked_transaction()?;
+    reset_layout(&tx, graph_id)?;
+    tx.execute("DELETE FROM topology_capture_evidence WHERE graph_id = ?1", [graph_id])?;
+    tx.execute(
+        "DELETE FROM topology_import_provenance WHERE graph_id = ?1",
+        [graph_id],
+    )?;
+    tx.execute(
         "DELETE FROM topology_edges WHERE graph_id = ?1",
         params![graph_id],
     )?;
-    conn.execute(
+    tx.execute(
         "DELETE FROM topology_nodes WHERE graph_id = ?1",
         params![graph_id],
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+/// Validate and persist a drag/arrange batch atomically. A late save after clear
+/// cannot recreate coordinates for removed nodes.
+pub fn save_layout(conn: &Connection, graph_id: &str, positions: &[NodePosition]) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    anyhow::ensure!(
+        get_graph(&tx, graph_id)?.is_some(),
+        "topology graph not found"
+    );
+    for position in positions {
+        anyhow::ensure!(
+            position.x.is_finite() && position.y.is_finite(),
+            "topology coordinates must be finite"
+        );
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM topology_nodes WHERE graph_id = ?1 AND device_ref = ?2)",
+            params![graph_id, position.device_ref],
+            |row| row.get(0),
+        )?;
+        anyhow::ensure!(exists, "topology layout node not found in graph");
+    }
+    for position in positions {
+        tx.execute(
+            "INSERT INTO topology_node_positions (graph_id, device_ref, x, y) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(graph_id, device_ref) DO UPDATE SET x = excluded.x, y = excluded.y",
+            params![graph_id, position.device_ref, position.x, position.y],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn list_positions(conn: &Connection, graph_id: &str) -> Result<Vec<NodePosition>> {
+    let mut stmt = conn.prepare(
+        "SELECT device_ref, x, y FROM topology_node_positions WHERE graph_id = ?1 ORDER BY device_ref",
+    )?;
+    let rows = stmt
+        .query_map([graph_id], |row| {
+            Ok(NodePosition {
+                device_ref: row.get(0)?,
+                x: row.get(1)?,
+                y: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+pub fn reset_layout(conn: &Connection, graph_id: &str) -> Result<()> {
+    conn.execute(
+        "DELETE FROM topology_node_positions WHERE graph_id = ?1",
+        [graph_id],
     )?;
     Ok(())
 }

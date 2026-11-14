@@ -5,6 +5,7 @@ export type TabType =
   | "editor"
   | "iac-studio"
   | "topology"
+  | "telemetry"
   | "vault"
   | "recordings"
   | "recording-player"
@@ -12,7 +13,8 @@ export type TabType =
   | "troubleshoot-editor"
   | "subnet"
   | "heartbeat"
-  | "kanban";
+  | "kanban"
+  | "canvas";
 
 export type Tab = {
   id: string;

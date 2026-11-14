@@ -12,7 +12,7 @@ describe("Vite Monaco test resolver", () => {
 
     expect(aliases).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        find: "monaco-editor",
+        find: /^monaco-editor$/,
         replacement: requireFromTest.resolve("monaco-editor/esm/vs/editor/editor.main.js"),
       }),
       expect.objectContaining({
@@ -20,6 +20,9 @@ describe("Vite Monaco test resolver", () => {
         replacement: requireFromTest.resolve("monaco-editor/esm/vs/editor/editor.api.js"),
       }),
     ]));
+    const packageAlias = aliases.find((alias) => alias.find instanceof RegExp)!;
+    expect((packageAlias.find as RegExp).test("monaco-editor")).toBe(true);
+    expect((packageAlias.find as RegExp).test("monaco-editor/esm/vs/editor/editor.worker?worker")).toBe(false);
     expect(createTerminaiViteConfig({ command: "build", mode: "production" }).resolve).toBeUndefined();
     expect(createTerminaiViteConfig({ command: "serve", mode: "test" }).resolve?.alias).toEqual(aliases);
   });

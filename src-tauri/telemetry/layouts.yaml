@@ -1,0 +1,81 @@
+schema_version: 1
+layouts:
+- layout: device
+  platforms:
+  - ios
+  - iosxe
+  sections:
+  - id: overview
+    title: Overview
+    rows:
+    - - widget: version
+        span: 12
+    - - widget: cpu
+        span: 12
+    - - widget: memory
+        span: 12
+    - - widget: inventory
+        span: 12
+  - id: routing
+    title: Routing
+    rows:
+    - - widget: bgp_peers
+        span: 12
+    - - widget: bgp_vrf_peers
+        span: 12
+    - - widget: ospf_neighbors
+        span: 12
+    - - widget: ospf_interfaces
+        span: 12
+    - - widget: eigrp_neighbors
+        span: 12
+  - id: switching
+    title: Switching
+    rows:
+    - - widget: vlans
+        span: 12
+    - - widget: trunks
+        span: 12
+    - - widget: stp_ports
+        span: 12
+    - - widget: stp_roots
+        span: 12
+    - - widget: etherchannel
+        span: 12
+    - - widget: cdp_neighbors
+        span: 12
+    - - widget: lldp_neighbors
+        span: 12
+    - - widget: mac_table
+        span: 12
+  - id: interfaces
+    title: Interfaces
+    rows:
+    - - widget: interfaces
+        span: 12
+    - - widget: interface_traffic
+        span: 12
+    - - widget: interface_descriptions
+        span: 12
+    - - widget: port_status
+        span: 12
+    - - widget: ip_interfaces
+        span: 12
+    - - widget: ip_interface_brief
+        span: 12
+- layout: local_pc
+  platforms: []
+  sections:
+  - id: local
+    title: Local PC
+    rows:
+    - - widget: local_cpu
+        span: 12
+    - - widget: local_memory
+        span: 12
+    - - widget: local_filesystems
+        span: 12
+    - - widget: local_network
+        span: 12
+    - - widget: local_processes
+        span: 12

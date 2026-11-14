@@ -3,8 +3,7 @@ use ccie_terminal_lib::recording::asciinema::CastWriter;
 #[test]
 fn writes_valid_asciinema_v2_header_and_events() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
-    let mut w =
-        CastWriter::create(tmp.path(), 120, 40, "xterm-256color", "/bin/zsh").unwrap();
+    let mut w = CastWriter::create(tmp.path(), 120, 40, "xterm-256color", "/bin/zsh").unwrap();
     w.write_output(0.0, b"hello").unwrap();
     w.write_output(0.25, b" world\r\n").unwrap();
     let summary = w.finalize().unwrap();

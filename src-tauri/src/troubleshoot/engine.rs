@@ -50,31 +50,17 @@ pub trait StepExecutor: Send + Sync {
     /// substituted `{{var}}` and re-classified the substituted
     /// string; if execution reaches this method the gate has
     /// already cleared.
-    async fn run_command(
-        &self,
-        ctx: &mut RunContext,
-        command: &str,
-    ) -> Result<serde_json::Value>;
+    async fn run_command(&self, ctx: &mut RunContext, command: &str) -> Result<serde_json::Value>;
 
     /// Classify a candidate command line. Must NOT have side
     /// effects; the engine calls this BEFORE `run_command` to
     /// implement the Tier-0 gate.
-    async fn classify(
-        &self,
-        command: &str,
-        vendor: &str,
-        platform: &str,
-    ) -> Result<Tier>;
+    async fn classify(&self, command: &str, vendor: &str, platform: &str) -> Result<Tier>;
 
     /// Render narration text for a `narration` step. Phase 3
     /// adds RAG-enriched output; Phase 2 implementations may
     /// return the literal `text` from the playbook.
-    async fn narrate(
-        &self,
-        ctx: &RunContext,
-        step_id: &str,
-        text: &str,
-    ) -> Result<String>;
+    async fn narrate(&self, ctx: &RunContext, step_id: &str, text: &str) -> Result<String>;
 
     /// Pause and ask the operator a question. `Ok(None)` means
     /// "engine should pause now"; `Ok(Some(answer))` means the
@@ -172,8 +158,7 @@ where
     let target = RunTarget::from_playbook(pb);
 
     let mut idx: i64 = start_idx;
-    let mut current_id: String = start_at_step_id
-        .unwrap_or_else(|| pb.steps[0].id().to_string());
+    let mut current_id: String = start_at_step_id.unwrap_or_else(|| pb.steps[0].id().to_string());
 
     loop {
         let step = pb
@@ -184,7 +169,12 @@ where
         idx += 1;
 
         let outcome = match step {
-            Step::Command { id, command, on_pass, on_fail } => {
+            Step::Command {
+                id,
+                command,
+                on_pass,
+                on_fail,
+            } => {
                 run_command_step(
                     ctx,
                     exec.as_ref(),
@@ -198,7 +188,11 @@ where
                 .await?
             }
             Step::Assertion {
-                id, expression, expects, on_pass, on_fail,
+                id,
+                expression,
+                expects,
+                on_pass,
+                on_fail,
             } => run_assertion_step(
                 ctx,
                 id,
@@ -208,13 +202,11 @@ where
                 on_fail.as_deref(),
                 this_idx,
             )?,
-            Step::Branch { id, expression, cases } => run_branch_step(
-                ctx,
+            Step::Branch {
                 id,
                 expression,
                 cases,
-                this_idx,
-            )?,
+            } => run_branch_step(ctx, id, expression, cases, this_idx)?,
             Step::Narration { id, text } => {
                 run_narration_step(ctx, exec.as_ref(), id, text, this_idx).await?
             }
@@ -363,7 +355,10 @@ async fn run_command_step(
             }),
             next_step_id: None,
         };
-        return Ok(StepOutcome { result, transition: Transition::Pause });
+        return Ok(StepOutcome {
+            result,
+            transition: Transition::Pause,
+        });
     }
 
     let parsed = match exec.run_command(ctx, &substituted).await {
@@ -421,7 +416,11 @@ fn run_assertion_step(
     } else {
         on_fail.map(|s| s.to_string())
     };
-    let status = if passed { StepStatus::Passed } else { StepStatus::Failed };
+    let status = if passed {
+        StepStatus::Passed
+    } else {
+        StepStatus::Failed
+    };
     let result = StepResult {
         step_id: step_id.to_string(),
         idx,
@@ -507,7 +506,11 @@ async fn run_narration_step(
         .narrate(ctx, step_id, &literal)
         .await
         .unwrap_or_else(|_| literal.clone());
-    let display = if rendered.is_empty() { literal } else { rendered };
+    let display = if rendered.is_empty() {
+        literal
+    } else {
+        rendered
+    };
     let result = StepResult {
         step_id: step_id.to_string(),
         idx,

@@ -82,14 +82,11 @@ def test_topology_neighbors_rejects_unknown_protocol():
             "id": "t2",
             "method": "topology.neighbors",
             "params": {
-                # Plan 13 Phase 5 expanded the accepted set to cdp/lldp/bgp
-                # /ospf/isis; anything outside that union must still be
-                # rejected with a clear error. ``eigrp`` is a representative
-                # adjacent-but-unsupported routing protocol.
-                "protocol": "eigrp",
+                # EIGRP is supported; RIP remains outside the protocol union.
+                "protocol": "rip",
                 "vendor": "cisco",
                 "platform": "iosxe",
-                "command": "show ip eigrp neighbors",
+                "command": "show ip rip neighbors",
                 "raw": "junk",
             },
         }

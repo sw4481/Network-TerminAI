@@ -104,11 +104,11 @@ pub fn export_run_zip(conn: &Connection, run_id: &str, dest: &Path) -> Result<Ex
 
 fn render_report(m: &ExportManifest) -> String {
     let mut out = String::new();
+    out.push_str(&format!("# Fan-Out Run `{}`\n\n", m.run_id));
     out.push_str(&format!(
-        "# Fan-Out Run `{}`\n\n",
-        m.run_id
+        "**Command:** `{}`\n\n",
+        m.command.replace('`', "\\`")
     ));
-    out.push_str(&format!("**Command:** `{}`\n\n", m.command.replace('`', "\\`")));
     out.push_str(&format!(
         "**Status:** {} ({}/{} succeeded, {} failed)\n\n",
         m.status, m.succeeded, m.total, m.failed

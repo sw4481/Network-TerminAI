@@ -244,7 +244,6 @@ async def react_loop(
             })
             return
 
-        # Parse catalog
         try:
             catalog = json.loads(catalog_json)
         except json.JSONDecodeError as e:

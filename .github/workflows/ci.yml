@@ -194,7 +194,7 @@ jobs:
             commands::tests commands::topolograph commands::workflows \
             config dap database db drift editor git guardrails heartbeat iac logging lsp \
             mcp metadata netconf_runner notebooks pane_context pcap pty pyats rag search session sftp \
-            skills ssh_exec terminal_agent tftp troubleshoot unicode_truncation_tests validation whatsapp
+            skills ssh_exec telemetry terminal_agent tftp troubleshoot unicode_truncation_tests validation whatsapp
           do
             run_rust_test "cargo test --lib $module" cargo test --locked --lib "$module" -- --test-threads=1
           done
@@ -282,3 +282,37 @@ jobs:
 
       - name: Build frontend
         run: bun run build:relaxed
+
+      - name: Provision Chromium for telemetry browser acceptance
+        run: bunx playwright install chromium --with-deps
+
+      - name: Run guarded telemetry browser acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          telemetry_output="$(mktemp -d /tmp/ccie-telemetry-task12.XXXXXXXX)"
+          mkdir "$telemetry_output/tmp"
+          export TELEMETRY_E2E_OUTPUT="$telemetry_output"
+          TELEMETRY_E2E_CHROMIUM="$(bun -e 'import { chromium } from "@playwright/test"; console.log(chromium.executablePath())')"
+          export TELEMETRY_E2E_CHROMIUM
+          export TMPDIR="$telemetry_output/tmp"
+          echo "TELEMETRY_E2E_OUTPUT=$telemetry_output" >> "$GITHUB_ENV"
+          bunx playwright test --config e2e/telemetry/playwright.config.ts
+
+      - name: Validate synthetic browser result upload path
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${TELEMETRY_E2E_OUTPUT:-}" =~ ^/tmp/ccie-telemetry-task12\.[A-Za-z0-9]+$ ]]
+          test -d "$TELEMETRY_E2E_OUTPUT/results"
+          test ! -L "$TELEMETRY_E2E_OUTPUT/results"
+          echo "TELEMETRY_E2E_RESULTS=$TELEMETRY_E2E_OUTPUT/results" >> "$GITHUB_ENV"
+
+      - name: Upload synthetic telemetry browser results
+        if: always() && env.TELEMETRY_E2E_RESULTS != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: telemetry-browser-results
+          path: ${{ env.TELEMETRY_E2E_RESULTS }}
+          if-no-files-found: error

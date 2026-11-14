@@ -119,7 +119,13 @@ async fn adhoc_synthetic_blocks_are_hidden_from_list_blocks() {
     let parser = FakeParser::new(r#"{"v":"1"}"#);
 
     auto_parse::parse_and_store_adhoc(
-        db.clone(), &parser, "t1", "show version", "out", "cisco", "iosxe",
+        db.clone(),
+        &parser,
+        "t1",
+        "show version",
+        "out",
+        "cisco",
+        "iosxe",
     )
     .await
     .unwrap();
@@ -142,12 +148,24 @@ async fn adhoc_parse_each_call_creates_a_distinct_block() {
     let parser = FakeParser::new(r#"{"ok":true}"#);
 
     let b1 = auto_parse::parse_and_store_adhoc(
-        db.clone(), &parser, "t1", "show version", "out1", "cisco", "iosxe",
+        db.clone(),
+        &parser,
+        "t1",
+        "show version",
+        "out1",
+        "cisco",
+        "iosxe",
     )
     .await
     .unwrap();
     let b2 = auto_parse::parse_and_store_adhoc(
-        db.clone(), &parser, "t1", "show version", "out2", "cisco", "iosxe",
+        db.clone(),
+        &parser,
+        "t1",
+        "show version",
+        "out2",
+        "cisco",
+        "iosxe",
     )
     .await
     .unwrap();

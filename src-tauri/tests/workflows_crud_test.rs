@@ -149,8 +149,14 @@ fn upsert_replaces_steps_and_params() {
         platform: "iosxe".into(),
         tags: vec![],
         steps: vec![
-            WorkflowStep { idx: 0, command_template: "old".into() },
-            WorkflowStep { idx: 1, command_template: "old2".into() },
+            WorkflowStep {
+                idx: 0,
+                command_template: "old".into(),
+            },
+            WorkflowStep {
+                idx: 1,
+                command_template: "old2".into(),
+            },
         ],
         params: vec![WorkflowParam {
             name: "a".into(),
@@ -165,7 +171,10 @@ fn upsert_replaces_steps_and_params() {
     };
     workflow_upsert_impl(&conn, &wf).unwrap();
 
-    wf.steps = vec![WorkflowStep { idx: 0, command_template: "new".into() }];
+    wf.steps = vec![WorkflowStep {
+        idx: 0,
+        command_template: "new".into(),
+    }];
     wf.params = vec![];
     workflow_upsert_impl(&conn, &wf).unwrap();
 

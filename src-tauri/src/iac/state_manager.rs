@@ -28,13 +28,24 @@ pub fn parse_terraform_state(raw: &str) -> Result<TerraformState> {
     let root: serde_json::Value =
         serde_json::from_str(raw).context("parse terraform.tfstate JSON")?;
     let serial = root.get("serial").and_then(|v| v.as_u64()).unwrap_or(0);
-    let outputs = root.get("outputs").cloned().unwrap_or(serde_json::Value::Null);
+    let outputs = root
+        .get("outputs")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
 
     let mut resources = Vec::new();
     if let Some(arr) = root.get("resources").and_then(|v| v.as_array()) {
         for r in arr {
-            let rtype = r.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let rname = r.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let rtype = r
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let rname = r
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let attributes = r
                 .get("instances")
                 .and_then(|i| i.as_array())
@@ -55,7 +66,11 @@ pub fn parse_terraform_state(raw: &str) -> Result<TerraformState> {
             });
         }
     }
-    Ok(TerraformState { serial, resources, outputs })
+    Ok(TerraformState {
+        serial,
+        resources,
+        outputs,
+    })
 }
 
 /// Filter resources by a case-insensitive substring over type / name / id.
@@ -105,7 +120,11 @@ mod tests {
         let state = parse_terraform_state(FIXTURE).unwrap();
         assert_eq!(state.serial, 7);
         assert_eq!(state.resources.len(), 2);
-        let sg = state.resources.iter().find(|r| r.resource_type == "aws_security_group").unwrap();
+        let sg = state
+            .resources
+            .iter()
+            .find(|r| r.resource_type == "aws_security_group")
+            .unwrap();
         assert_eq!(sg.address, "aws_security_group.alb");
         assert_eq!(sg.resource_id.as_deref(), Some("sg-abc123"));
     }
@@ -151,7 +170,8 @@ mod robustness_tests {
 
     #[test]
     fn parse_handles_missing_type_or_name() {
-        let missing = r#"{"version":4,"serial":1,"resources":[{"instances":[{"attributes":{"id":"x"}}]}]}"#;
+        let missing =
+            r#"{"version":4,"serial":1,"resources":[{"instances":[{"attributes":{"id":"x"}}]}]}"#;
         let state = parse_terraform_state(missing).unwrap();
         assert_eq!(state.resources.len(), 1);
         assert_eq!(state.resources[0].address, ".");

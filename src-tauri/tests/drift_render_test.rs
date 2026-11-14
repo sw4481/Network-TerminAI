@@ -62,11 +62,7 @@ fn jinja_supports_loops() {
 
 #[test]
 fn jinja_missing_var_errors_clearly() {
-    let t = tpl(
-        IntentKind::Jinja,
-        "hostname {{ unset_var }}\n",
-        "",
-    );
+    let t = tpl(IntentKind::Jinja, "hostname {{ unset_var }}\n", "");
     // MiniJinja's default behavior: missing vars render as empty string in
     // strict mode they'd error. We rely on default permissive behavior so a
     // partial render still produces output the operator can review.

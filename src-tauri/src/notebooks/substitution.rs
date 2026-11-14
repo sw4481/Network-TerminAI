@@ -3,9 +3,8 @@
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-static VAR_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}").expect("valid regex")
-});
+static VAR_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}").expect("valid regex"));
 
 /// Substitute `{{name}}` placeholders with values from `params`.
 ///
@@ -75,7 +74,10 @@ mod tests {
 
     #[test]
     fn multiple_occurrences_replaced() {
-        let out = substitute("{{a}} {{a}} {{b}}", &p(&[("a", "1".into()), ("b", "2".into())]));
+        let out = substitute(
+            "{{a}} {{a}} {{b}}",
+            &p(&[("a", "1".into()), ("b", "2".into())]),
+        );
         assert_eq!(out, "1 1 2");
     }
 }

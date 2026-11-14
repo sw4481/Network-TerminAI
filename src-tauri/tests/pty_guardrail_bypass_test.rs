@@ -30,8 +30,8 @@ fn local_shell_files_do_not_import_guardrails() {
     let root = manifest_dir();
     for rel in FORBIDDEN_FILES {
         let p = root.join(rel);
-        let body = fs::read_to_string(&p)
-            .unwrap_or_else(|e| panic!("could not read {}: {}", rel, e));
+        let body =
+            fs::read_to_string(&p).unwrap_or_else(|e| panic!("could not read {}: {}", rel, e));
         assert!(
             !body.contains("crate::guardrails"),
             "{rel} imports crate::guardrails — local PTY scope guard violated. \

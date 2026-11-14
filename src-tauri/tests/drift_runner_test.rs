@@ -1,4 +1,6 @@
-use ccie_terminal_lib::drift::intent::{IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode};
+use ccie_terminal_lib::drift::intent::{
+    IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode,
+};
 use ccie_terminal_lib::drift::runner;
 use ccie_terminal_lib::fanout::events::FanoutEvent;
 use ccie_terminal_lib::fanout::executor::{EventSink, Executor, NoopParse};
@@ -53,11 +55,7 @@ struct CannedWorker {
 
 #[async_trait::async_trait]
 impl DeviceWorker for CannedWorker {
-    async fn run(
-        &self,
-        _command: &str,
-        _timeout: Duration,
-    ) -> Result<WorkerOutcome, WorkerError> {
+    async fn run(&self, _command: &str, _timeout: Duration) -> Result<WorkerOutcome, WorkerError> {
         Ok(WorkerOutcome {
             raw_output: self.stdout.clone(),
             duration_ms: 1,
@@ -151,8 +149,10 @@ async fn run_on_demand_emits_in_sync_and_drift_reports() {
         .blocks
         .iter()
         .flat_map(|b| &b.changes)
-        .any(|c| matches!(c, ccie_terminal_lib::drift::diff::LineChange::Delete { line }
-            if line.contains("ip name-server"))));
+        .any(
+            |c| matches!(c, ccie_terminal_lib::drift::diff::LineChange::Delete { line }
+            if line.contains("ip name-server"))
+        ));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -296,8 +296,13 @@ fn resolve_selector_group_takes_precedence_over_ssh_and_device_ids() {
     };
 
     let tpl = IntentTemplate {
-        id: "t".into(), name: "t".into(), vendor: "cisco".into(), platform: "iosxe".into(),
-        kind: IntentKind::Golden, body: String::new(), vars_yaml: String::new(),
+        id: "t".into(),
+        name: "t".into(),
+        vendor: "cisco".into(),
+        platform: "iosxe".into(),
+        kind: IntentKind::Golden,
+        body: String::new(),
+        vars_yaml: String::new(),
         selector: IntentSelector {
             group_id: Some(group_id),
             ssh_connection_id: Some(other.clone()),
@@ -305,7 +310,8 @@ fn resolve_selector_group_takes_precedence_over_ssh_and_device_ids() {
             ..Default::default()
         },
         match_mode: MatchMode::Baseline,
-        created_at: 0, updated_at: 0,
+        created_at: 0,
+        updated_at: 0,
     };
 
     let conn = db.lock();

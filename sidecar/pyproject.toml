@@ -15,6 +15,8 @@ dependencies = [
     "truststore>=0.10",
     "cryptography==48.0.0",
     "pyopenssl==26.2.0",
+    # Standalone topology worker must ship on Windows too (not via conditional pyATS).
+    "pysnmp==7.1.22",
     "proxmoxer>=2.0",
     "mcp-for-blender>=2.0.0",
     # pyATS/Genie ship no Windows wheels (Cisco supports Linux/macOS only), so
@@ -23,6 +25,7 @@ dependencies = [
     # unicon-based pcap capture is unavailable. See genie_adapter.py.
     "pyats[library] >= 25.1; platform_system != 'Windows'",
     "ntc-templates >= 7.0.0",
+    "textfsm==2.1.0",
     "pyshark >= 0.6",
     "onnxruntime >= 1.18",
     "tokenizers >= 0.20",
@@ -36,7 +39,8 @@ dependencies = [
     # DeepAgents migration dependencies (Phase 1+)
     "deepagents>=0.6.8",
     "langgraph>=0.2.50",
-    "langchain-core>=0.3",
+    "langchain>=1.0.0",
+    "langchain-core>=1.0.0",
     "langchain-anthropic>=0.3",
     "langchain-openai>=0.2",
     "langchain-google-genai>=4.2",
@@ -78,6 +82,7 @@ exclude = [
 [tool.hatch.build.targets.wheel.force-include]
 # Agent definitions and API allowlists must travel with the installed sidecar.
 "../bundled-agents" = "ccie_sidecar/bundled-agents"
+"licenses/PySNMP-LICENSE.txt" = "ccie_sidecar/licenses/PySNMP-LICENSE.txt"
 "src/ccie_sidecar/rag/models" = "ccie_sidecar/rag/models"
 "src/ccie_sidecar/troubleshoot/prompts" = "ccie_sidecar/troubleshoot/prompts"
 "src/ccie_sidecar/troubleshoot/seeds" = "ccie_sidecar/troubleshoot/seeds"

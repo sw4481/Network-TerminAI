@@ -21,6 +21,7 @@ HEARTBEAT_INTERVAL_S = int(os.environ.get("CCIE_SIDECAR_HEARTBEAT_S", "30"))
 # Serialize stdout writes so the background heartbeat thread doesn't interleave
 # bytes with response lines from the request handler.
 _STDOUT_LOCK = threading.Lock()
+_catalog_updater = None
 
 
 def build_deepagents_agent_definition(
@@ -310,6 +311,28 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
     req_id = str(req.get("id", ""))
     method = req.get("method")
     params = req.get("params", {})
+
+    if method in {"agent.catalog_update_start", "agent.catalog_update_status"}:
+        try:
+            if not isinstance(params, dict):
+                raise ValueError("API update params must be an object.")
+            allowed = {"agent_id"} if method.endswith("_start") else {"agent_id", "job_id"}
+            if set(params) - allowed or not isinstance(params.get("agent_id"), str):
+                raise ValueError("Select one Cisco product; URLs, paths and replacement data are not accepted.")
+            job_id = params.get("job_id")
+            if job_id is not None and (not isinstance(job_id, str) or len(job_id) > 128):
+                raise ValueError("Invalid API update job ID.")
+            global _catalog_updater
+            if _catalog_updater is None:
+                from ccie_sidecar.agents.api_catalog_update import ApiCatalogUpdater
+                _catalog_updater = ApiCatalogUpdater()
+            result = (_catalog_updater.start(params["agent_id"]) if method.endswith("_start")
+                      else _catalog_updater.status(params["agent_id"], job_id))
+            return {"id": req_id, "type": "done", "result": result}
+        except ValueError as error:
+            return {"id": req_id, "type": "error", "message": str(error)}
+        except Exception:
+            return {"id": req_id, "type": "error", "message": "API updater is unavailable; no catalog update was started."}
 
     if method == "topolograph.import_lsdb_from_pyats":
         from ccie_sidecar.topolograph_pyats_import import (
@@ -799,13 +822,13 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
         platform = params.get("platform")
         command = params.get("command")
         raw = params.get("raw")
-        if protocol not in ("cdp", "lldp", "bgp", "ospf", "isis"):
+        if protocol not in ("cdp", "lldp", "bgp", "ospf", "isis", "eigrp"):
             return {
                 "id": req_id,
                 "type": "error",
                 "message": (
                     "topology.neighbors 'protocol' must be one of "
-                    "'cdp', 'lldp', 'bgp', 'ospf', 'isis'"
+                    "'cdp', 'lldp', 'bgp', 'ospf', 'isis', 'eigrp'"
                 ),
             }
         if not (
@@ -819,19 +842,37 @@ def handle_request(req: dict[str, Any]) -> dict[str, Any]:
                 "type": "error",
                 "message": "topology.neighbors requires 'vendor', 'platform', 'command', 'raw' params",
             }
+        if protocol == "eigrp" and command != "show ip eigrp neighbors":
+            return {"id": req_id, "type": "error", "message": "EIGRP collection requires show ip eigrp neighbors"}
         try:
             from ccie_sidecar.parsers.dispatcher import parse_show
             from ccie_sidecar.parsers.errors import NoParserError
-            from ccie_sidecar.topology.neighbors import normalize_neighbors
+            from ccie_sidecar.topology.neighbors import normalize_neighbors, normalize_neighbor_capture
 
             envelope = parse_show(vendor, platform, command, raw)
-            records = normalize_neighbors(protocol, envelope)
-            return {
-                "id": req_id,
-                "type": "done",
-                "result": {"records": records},
-            }
+            result = (
+                normalize_neighbor_capture(protocol, envelope, raw)
+                if params.get("include_status") is True
+                else {"records": normalize_neighbors(protocol, envelope)}
+            )
+            if params.get("include_status") is True and protocol in ("bgp", "ospf", "isis", "eigrp"):
+                interfaces_raw = params.get("interfaces_raw")
+                if interfaces_raw is not None:
+                    if not isinstance(interfaces_raw, str) or len(interfaces_raw.encode("utf-8")) > 2 * 1024 * 1024:
+                        raise ValueError("invalid interface evidence input")
+                    from ccie_sidecar.topology.interface_addresses import InterfaceAddressEvidence
+                    try:
+                        addresses = InterfaceAddressEvidence(parse_show(vendor, platform, InterfaceAddressEvidence.command, interfaces_raw))
+                    except (NoParserError, ValueError, TypeError, KeyError):
+                        addresses = None
+                    # Missing/unsupported evidence never blocks the logical observation.
+                    for record in result["records"]:
+                        if addresses is not None:
+                            addresses.associate(record)
+            return {"id": req_id, "type": "done", "result": result}
         except NoParserError as e:
+            if params.get("include_status") is True:
+                return {"id": req_id, "type": "done", "result": {"status": "unsupported", "records": []}}
             return {"id": req_id, "type": "error", "message": str(e)}
         except Exception as e:
             return {"id": req_id, "type": "error", "message": str(e)}
@@ -2045,17 +2086,18 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             stream_output=stream_output,
                         ))
                     else:
-                        # Legacy: expects catalog as JSON string
+                        # Legacy function bindings must exclude imported endpoint knowledge.
+                        from ccie_sidecar.agents.catalog_grounding import legacy_function_catalog
                         if isinstance(attachments_raw, list) and attachments_raw:
                             attached_tools = []
                             for attachment in attachments_raw:
                                 catalog = attachment.get("catalog", [])
                                 attached_tools.append({
                                     **attachment,
-                                    "catalog": json.dumps(catalog) if isinstance(catalog, list) else catalog,
+                                    "catalog": json.dumps(legacy_function_catalog(catalog)),
                                 })
                         else:
-                            catalog_json_str = json.dumps(tools_raw) if isinstance(tools_raw, list) else tools_raw
+                            catalog_json_str = json.dumps(legacy_function_catalog(tools_raw))
                             attached_tools = [{
                                 "catalog": catalog_json_str,
                                 "vault_entry": vault_entry,
@@ -2204,6 +2246,11 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                             ctx={
                                 "history": history,
                                 **(
+                                    {"canvas": params["canvas"]}
+                                    if params.get("canvas") is not None
+                                    else {}
+                                ),
+                                **(
                                     {"run_id": params.get("run_id")}
                                     if params.get("run_id") is not None
                                     else {}
@@ -2230,7 +2277,7 @@ def run_loop(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
                         asyncio.run(react_code_loop(
                             agent_def=agent_def,
                             user_msg=message,
-                            ctx={"history": history},
+                            ctx={"history": history, **({"canvas": params["canvas"]} if params.get("canvas") is not None else {})},
                             on_event=emit_event
                         ))
 

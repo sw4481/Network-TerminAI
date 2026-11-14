@@ -57,9 +57,18 @@ fn v0028_preserves_legacy_blocks_and_creates_new_tables() {
         let conn = db::open_and_migrate_to(&db_path, 27).expect("migrate to V0027");
 
         // V0028's pieces must NOT exist yet.
-        assert!(!has_table(&conn, "block_tags"), "block_tags should not exist at V0027");
-        assert!(!has_table(&conn, "block_pins"), "block_pins should not exist at V0027");
-        assert!(!has_table(&conn, "block_shares"), "block_shares should not exist at V0027");
+        assert!(
+            !has_table(&conn, "block_tags"),
+            "block_tags should not exist at V0027"
+        );
+        assert!(
+            !has_table(&conn, "block_pins"),
+            "block_pins should not exist at V0027"
+        );
+        assert!(
+            !has_table(&conn, "block_shares"),
+            "block_shares should not exist at V0027"
+        );
         assert!(
             !has_column(&conn, "command_blocks", "collapsed"),
             "collapsed column should not exist at V0027"
@@ -132,7 +141,10 @@ fn v0028_preserves_legacy_blocks_and_creates_new_tables() {
     }
 
     // Step 3b — block_tags index landed.
-    assert!(has_index(&conn, "idx_block_tags_tag"), "idx_block_tags_tag missing");
+    assert!(
+        has_index(&conn, "idx_block_tags_tag"),
+        "idx_block_tags_tag missing"
+    );
 
     // Step 3c — `collapsed` column added with default 0; defaulted on legacy rows.
     assert!(
@@ -153,8 +165,14 @@ fn v0028_preserves_legacy_blocks_and_creates_new_tables() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(collapsed_blk1, 0, "legacy row blk-1 should default to collapsed=0");
-    assert_eq!(collapsed_blk2, 0, "legacy row blk-2 should default to collapsed=0");
+    assert_eq!(
+        collapsed_blk1, 0,
+        "legacy row blk-1 should default to collapsed=0"
+    );
+    assert_eq!(
+        collapsed_blk2, 0,
+        "legacy row blk-2 should default to collapsed=0"
+    );
 
     // Step 3d — every other legacy column survived untouched on both rows.
     let (cmd, cwd, exit_code, started_at, ended_at, line_count, bookmarked, ai, dur): (

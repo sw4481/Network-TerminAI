@@ -80,15 +80,8 @@ fn blocks_device_scope_restricts_to_device_tabs() {
     let (_dir, conn) = open_test_db();
     seed_device_setup(&conn);
 
-    let hits = blocks::search_with_device(
-        &conn,
-        "show",
-        PaletteScope::Device,
-        None,
-        Some("1"),
-        50,
-    )
-    .unwrap();
+    let hits = blocks::search_with_device(&conn, "show", PaletteScope::Device, None, Some("1"), 50)
+        .unwrap();
     let ids: Vec<&str> = hits.iter().map(|h| h.target_id.as_str()).collect();
     assert!(ids.contains(&"b-core"));
     assert!(!ids.contains(&"b-edge"));
@@ -99,15 +92,8 @@ fn blocks_device_scope_restricts_to_device_tabs() {
 fn blocks_device_scope_with_no_device_id_returns_empty() {
     let (_dir, conn) = open_test_db();
     seed_device_setup(&conn);
-    let hits = blocks::search_with_device(
-        &conn,
-        "show",
-        PaletteScope::Device,
-        None,
-        None,
-        50,
-    )
-    .unwrap();
+    let hits =
+        blocks::search_with_device(&conn, "show", PaletteScope::Device, None, None, 50).unwrap();
     assert!(hits.is_empty());
 }
 
@@ -116,15 +102,7 @@ fn commands_device_scope_restricts_to_device_tabs() {
     let (_dir, conn) = open_test_db();
     seed_device_setup(&conn);
 
-    let hits = commands::search(
-        &conn,
-        "show",
-        PaletteScope::Device,
-        None,
-        Some("1"),
-        50,
-    )
-    .unwrap();
+    let hits = commands::search(&conn, "show", PaletteScope::Device, None, Some("1"), 50).unwrap();
     let titles: Vec<&str> = hits.iter().map(|h| h.title.as_str()).collect();
     assert!(titles.iter().any(|t| t.contains("core")));
     assert!(!titles.iter().any(|t| t.contains("edge")));
@@ -135,15 +113,7 @@ fn commands_device_scope_restricts_to_device_tabs() {
 fn devices_device_scope_returns_only_active_device() {
     let (_dir, conn) = open_test_db();
     seed_device_setup(&conn);
-    let hits = devices::search(
-        &conn,
-        "",
-        PaletteScope::Device,
-        None,
-        Some("2"),
-        50,
-    )
-    .unwrap();
+    let hits = devices::search(&conn, "", PaletteScope::Device, None, Some("2"), 50).unwrap();
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].kind, PaletteKind::Device);
     assert_eq!(hits[0].title, "edge1");

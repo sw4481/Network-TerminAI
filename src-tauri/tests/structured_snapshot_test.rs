@@ -1,8 +1,8 @@
 //! Plan 05 Phase 3 — snapshot CRUD over `parsed_snapshots`.
 
 use ccie_terminal_lib::db;
-use ccie_terminal_lib::structured::{auto_parse, snapshot};
 use ccie_terminal_lib::structured::auto_parse::testing::FakeParser;
+use ccie_terminal_lib::structured::{auto_parse, snapshot};
 use parking_lot::Mutex;
 use rusqlite::{params, Connection};
 use std::sync::Arc;

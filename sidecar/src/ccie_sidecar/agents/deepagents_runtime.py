@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from deepagents import create_deep_agent, SubAgent, RubricMiddleware
+from deepagents.middleware.rubric import GraderResponse, _coerce_text
 from langchain_core.messages import AIMessage, HumanMessage
 
 
@@ -67,7 +68,9 @@ from ccie_sidecar.agents.deepagents_tools import (
 from ccie_sidecar.agents.architect_subagents import is_blender_only_request
 from ccie_sidecar.agents.deepagents_stream import run_and_stream_code_exec
 from ccie_sidecar.agents.deepagents_hitl import tier_for_tool, should_interrupt
-from ccie_sidecar.agents.deepagents_middleware import ToolCallSanitizerMiddleware
+from ccie_sidecar.agents.deepagents_middleware import (
+    ToolCallSanitizerMiddleware, VisibleRoundBudgetMiddleware,
+)
 from ccie_sidecar.agents.model_recovery import (
     AgentExecutionPolicy,
     ModelProtocolRecoveryMiddleware,
@@ -83,6 +86,45 @@ from ccie_sidecar.agents.model_recovery import (
 RECURSION_LIMIT = 60
 
 
+def _budget_subagents(subagents: list, limit: int | None) -> list:
+    """Give each agent (including DeepAgents' implicit specialist) its own budget."""
+    if limit is None:
+        return subagents
+    from deepagents.middleware.subagents import GENERAL_PURPOSE_SUBAGENT
+
+    return [
+        SubAgent(**{**spec, "middleware": [
+            *(spec.get("middleware") or []), VisibleRoundBudgetMiddleware(limit),
+        ]})
+        for spec in [*subagents, *(
+            [] if any(spec["name"] == "general-purpose" for spec in subagents)
+            else [GENERAL_PURPOSE_SUBAGENT]
+        )]
+    ]
+
+
+INVESTIGATION_EVIDENCE_CONTRACT = (
+    "INVESTIGATION EVIDENCE CHECK — applies to every headline, card and final answer:\n"
+    "- Compute counts and percentages from the same retained rows, with distinct identities "
+    "and the queried population stated. Distinguish records, sessions and endpoints. "
+    "State the observation window, pagination and record caps; bounded history is not "
+    "all activity in that window. Empty history means no records returned, not inactivity. "
+    "Never subtract the queried subset from inventory to infer inactive or healthy endpoints.\n"
+    "- Limit negative findings to the retrieved population: 'no failures found in the "
+    "retrieved records' does not establish no failures anywhere. Put material scope limits "
+    "in the headline, not only in a later caveat.\n"
+    "- A state label or missing field is an observation, not a fault or cause. Require "
+    "applicable policy and outcome evidence to call it unhealthy; otherwise report "
+    "unassessed or undetermined. Timestamps or event codes alone do not prove missing "
+    "configuration, fallback or client failure.\n"
+    "- Reconcile every diagnosis and recommendation with its unknowns. If the policy, "
+    "configuration or causal evidence was not inspected, withdraw the categorical claim "
+    "and make the next step a conditional verification, not a prescribed configuration fix. "
+    "A caveat cannot repair a contradictory headline or card. An honestly scoped partial "
+    "answer may finish without more source calls.\n"
+)
+
+
 ARCHITECT_EXECUTION_CONTRACT = (
     "CURRENT NETWORK ARCHITECT RUNTIME CONTRACT (overrides older prompt wording):\n"
     "- For a single-platform request about live/current data, your FIRST action is "
@@ -92,12 +134,23 @@ ARCHITECT_EXECUTION_CONTRACT = (
     "repeat searches, or guess paths.\n"
     "- After enough real API data answers the request, answer and stop. Search again only "
     "for a genuinely different endpoint the request still requires.\n"
+    "- Evidence discipline: distinguish observed values, hypotheses, and confirmed causes. "
+    "Missing fields are unknown, not success or failure; policy-dependent states require "
+    "applicable policy and outcome evidence before calling them unhealthy.\n"
+    "- Match collection to the requested population and observation window. For failures "
+    "over time, discover documented event/history sources, not only current active records "
+    "or a reason dictionary. If no window was supplied, state the bounded window used. "
+    "State assessed scope, pagination/record limits, unavailable sources and unassessed "
+    "populations; a subset or blocked source cannot establish 'all' or 'none'. "
+    "When blocked, retain successful evidence and give an explicitly partial final answer "
+    "with the remaining unknowns, not endpoint variations or invented conclusions.\n"
     "- Use task() specialists only for genuine multi-platform correlation.\n"
     "- Cisco Workflows: discover the operation and its complete action/input schema "
     "from the cisco_workflows catalog. Use cisco_workflows_api_call only for reads "
     "(including POST list/batch_get); submit every create/import/update/start/delete/"
     "control through cisco_workflows_apply with the bound organization_id shown "
-    "in its tool description for operator approval, never Python."
+    "in its tool description for operator approval, never Python.\n"
+    + INVESTIGATION_EVIDENCE_CONTRACT
 )
 
 
@@ -125,9 +178,20 @@ TASK_COMPLETION_RUBRIC = (
     "(not a placeholder or a promise to do it)?\n"
     "3. Is the final answer a single, complete, non-repeating response with the "
     "actual results — not a half-formed sentence, not the same paragraph repeated?\n"
-    "Grade 'satisfied' ONLY if the task is genuinely done and the answer is clean. "
-    "Grade 'failed' with specific feedback if the agent looped, repeated itself, "
-    "stopped early, or only narrated an action without performing it."
+    "For investigations, require an explicit observation window and assessed scope; "
+    "missing fields or policy-dependent states alone do not prove success, failure or cause. "
+    "A blocked investigation may finish with an honestly scoped partial answer naming "
+    "the blocker and unknowns; do not demand ineffective retries or grade it as a "
+    "complete assessment.\n"
+    "Grade 'satisfied' ONLY if the task is genuinely done or the investigation is "
+    "honestly partial, and all conclusions meet the evidence check below. "
+    "Grade 'needs_revision' for fixable answer errors, unsupported claims, inconsistent "
+    "counts, contradictions between a headline/card and its caveats, or narrated actions "
+    "not performed. Give specific gaps; prefer narrowing or withdrawing unsupported "
+    "claims over demanding more calls when evidence is unavailable. "
+    "Reserve 'failed' for a rubric that is malformed or impossible to evaluate, "
+    "not for an answer that needs correction.\n"
+    + INVESTIGATION_EVIDENCE_CONTRACT
 )
 
 
@@ -146,7 +210,7 @@ def _platform_aware_rubric(user_msg: str, configured_ids: list) -> str:
         TASK_COMPLETION_RUBRIC
         + "\n4. PLATFORM MATCH: the user's question is about "
         + f"{names}. The answer MUST present data from that platform. Grade "
-        "'failed' if the answer reports data from a DIFFERENT vendor (e.g. "
+        "'needs_revision' if the answer reports data from a DIFFERENT vendor (e.g. "
         "repeats a prior platform's results) instead of the one asked about."
     )
 
@@ -167,16 +231,48 @@ def _build_grader_model(config: dict):
         return build_chat_model(config)
 
 
-def _rubric_middleware(config: dict) -> RubricMiddleware:
+class _CanvasRubricMiddleware(RubricMiddleware):
+    """Make an unreviewable draft revisable within the existing review budget."""
+
+    name = "RubricMiddleware"
+    canvas = False
+
+    def _length_verdict(self, state) -> GraderResponse | None:
+        if not self.canvas:
+            return None
+        messages = state.get("messages") or []
+        candidate = messages[-1] if messages else None
+        if not isinstance(candidate, AIMessage) or candidate.tool_calls:
+            return None
+        length = len(_coerce_text(candidate))
+        if length <= 4000:
+            return None
+        return GraderResponse(
+            result="needs_revision",
+            explanation=f"The Canvas answer is {length} characters; the reviewer can see only 4000.",
+            criteria=[{
+                "name": "Complete Canvas answer within review bound",
+                "passed": False,
+                "gap": "Rewrite the complete answer in at most 4000 characters. Leave row-by-row "
+                       "tables in cards. Include assessed scope, window, conclusions, unknowns and "
+                       "conditional next steps; withdraw unresolved counts rather than assert them. "
+                       "Do not repeat source calls just to shorten the answer.",
+            }],
+        )
+
+    def _grade(self, state, iteration) -> GraderResponse:
+        return self._length_verdict(state) or super()._grade(state, iteration)
+
+    async def _agrade(self, state, iteration) -> GraderResponse:
+        return self._length_verdict(state) or await super()._agrade(state, iteration)
+
+
+def _rubric_middleware(config: dict) -> _CanvasRubricMiddleware:
     """RubricMiddleware is safe to include unconditionally; it activates only when
     a `rubric` is present in invocation state (which we pass for change/verify
     flows). max_iterations bounds how many times it can loop the model back."""
-    return RubricMiddleware(
+    return _CanvasRubricMiddleware(
         model=_build_grader_model(config),
-        system_prompt=(
-            "You are a strict grader checking whether a network-automation agent "
-            "completed the user's request. Be concise and decisive."
-        ),
         max_iterations=2,
     )
 
@@ -419,7 +515,10 @@ async def deepagents_code_exec_loop(
             + "\n\n" + SANDBOX_SHAPE_DISCIPLINE_BLURB
             + graph_sandbox_blurb_suffix(user_msg),
             store=InMemoryStore(),  # Required by DeepAgents
-            middleware=[ToolCallSanitizerMiddleware(), _rubric_middleware(config)],
+            middleware=[ToolCallSanitizerMiddleware(), _rubric_middleware(config),
+                        *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else [])],
+            **({"checkpointer": _get_checkpointer(),
+                "subagents": _budget_subagents([], budget.configured)} if budget.configured else {}),
         )
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation)
@@ -576,8 +675,9 @@ async def deepagents_react_loop(
             tools=tools,
             system_prompt=agent_def.get("system_prompt", ""),
             store=InMemoryStore(),
-            subagents=subagents,  # Phase 3: SubAgent middleware
-            middleware=middleware,
+            subagents=_budget_subagents(subagents, budget.configured),
+            middleware=[*middleware, *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else [])],
+            **({"checkpointer": _get_checkpointer()} if budget.configured else {}),
         )
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation)
@@ -686,6 +786,18 @@ async def deepagents_react_code_loop(
         agent_id = agent_def.get("agent_id") or agent_def.get("name") or ""
         is_architect = agent_id == "network-architect"
         focused_api_mode = bool(agent_def.get("focused_api_mode"))
+        canvas_turn = None
+        canvas = None
+        if is_architect and (ctx or {}).get("canvas") is not None:
+            from ccie_sidecar.agents.code_exec import _CanvasTurn, _build_env_overrides
+            binding = agent_def.get("topolograph_binding")
+            sensitive_values = tuple(value for value in (
+                *vault_secrets.values(), *_build_env_overrides(vault_secrets).values(),
+                config.get("api_key"), getattr(binding, "token", None),
+            ) if isinstance(value, str) and value)
+            canvas_turn = _CanvasTurn(ctx["canvas"], emit_custom, sensitive_values)
+            canvas = canvas_turn.context
+        canvas_options = {"canvas": canvas} if canvas is not None else {}
 
         graph_kwargs: dict = {}
         continuation_kwargs, graph_thread_id, continue_on_step_limit = (
@@ -737,6 +849,7 @@ async def deepagents_react_code_loop(
                     if topolograph_binding is not None and topolograph_binding.usable
                     else set()
                 ),
+                **canvas_options,
             )
             # Declarative DeepAgents subagents have their own middleware stacks;
             # explicitly add the same provider-neutral recovery policy so both
@@ -746,6 +859,7 @@ async def deepagents_react_code_loop(
                 emit=emit_custom,
                 catalogs=catalogs,
                 topolograph_binding=topolograph_binding,
+                **canvas_options,
             ):
                 vendor_subagents.append(
                     SubAgent(
@@ -779,6 +893,9 @@ async def deepagents_react_code_loop(
         # can show an approval modal (the tool is also self-tagged destructive). A
         # checkpointer is required for interrupt/resume.
         tools = topolograph_tools or [execute_code_tool]
+        if canvas is not None:
+            from ccie_sidecar.agents.deepagents_tools import create_canvas_tools
+            tools.extend(create_canvas_tools(canvas, publishing=True))
         skip_catalog_search = topolograph_tools is not None or (
             is_architect and is_blender_only_request(user_msg, arch_configured_ids)
         )
@@ -830,6 +947,12 @@ async def deepagents_react_code_loop(
         if focused_api_mode:
             from ccie_sidecar.agents.deepagents_middleware import FocusedApiToolsMiddleware
             extra_middleware.append(FocusedApiToolsMiddleware())
+
+        if budget.configured:
+            graph_kwargs["subagents"] = _budget_subagents(
+                graph_kwargs.get("subagents", []), budget.configured
+            )
+            graph_kwargs.setdefault("checkpointer", _get_checkpointer())
 
         # 4. Create DeepAgents graph
         # Sanitizer repairs malformed tool-call args (NVIDIA/Nemotron 400).
@@ -895,6 +1018,12 @@ async def deepagents_react_code_loop(
         # ordinary vendor keyword routing (for example RADIUS -> ISE API).
         if terminal_routing_prompt:
             system_prompt = system_prompt + "\n\n" + terminal_routing_prompt
+        if canvas is not None:
+            from ccie_sidecar.agents.code_exec import CANVAS_PRESENTATION_GUIDANCE
+            system_prompt += "\n\n" + CANVAS_PRESENTATION_GUIDANCE
+        rubric_middleware = _rubric_middleware(config)
+        if canvas_turn is not None:
+            rubric_middleware.canvas = True
         graph = create_deep_agent(
             model=chat_model,
             tools=tools,
@@ -903,11 +1032,17 @@ async def deepagents_react_code_loop(
             middleware=[
                 primary_recovery,
                 ToolCallSanitizerMiddleware(),
-                _rubric_middleware(config),
+                rubric_middleware,
                 *extra_middleware,
+                *([VisibleRoundBudgetMiddleware(budget.configured)] if budget.configured else []),
             ],
             **graph_kwargs,
         )
+
+        if canvas_turn is not None:
+            # The retained compiled graph owns the same context through approval
+            # and step-limit continuations; no restart reconstruction or registry.
+            graph._ccie_canvas_turn = canvas_turn
 
         # 5. Prepare input (rubric activates RubricMiddleware self-evaluation).
         # Fix #1 (architect only): condense stale prior-turn answers about a

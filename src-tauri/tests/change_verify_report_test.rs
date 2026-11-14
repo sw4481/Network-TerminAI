@@ -89,7 +89,11 @@ async fn pre_post_flow_detects_bgp_state_change() {
     .await
     .unwrap();
 
-    assert!(summary.counts.red >= 1, "expected at least one red, got {:?}", summary.counts);
+    assert!(
+        summary.counts.red >= 1,
+        "expected at least one red, got {:?}",
+        summary.counts
+    );
     assert!(summary.deltas.iter().any(|d| d.family == "bgp-neighbor"));
     assert_eq!(summary.bundle_id, bundle_id);
 
@@ -171,7 +175,10 @@ async fn approvals_downgrade_red_to_green() {
     .await
     .unwrap();
 
-    assert_eq!(summary.counts.red, 0, "approved delta should be green, not red");
+    assert_eq!(
+        summary.counts.red, 0,
+        "approved delta should be green, not red"
+    );
     assert!(summary.counts.green >= 1);
     assert_eq!(summary.matched_approved.len(), 1);
     assert!(summary.matched_approved[0].note.contains("decommissioning"));
@@ -204,8 +211,14 @@ fn approval_does_not_match_substring_collision() {
     // Only the exact 10.0.0.5 should be approved; 10.0.0.50 stays red.
     let approved_paths: Vec<_> = matches.iter().map(|m| m.delta_path.as_str()).collect();
     assert_eq!(approved_paths, vec!["/10.0.0.5/state"]);
-    assert_eq!(out.iter().filter(|x| x.severity == Severity::Red).count(), 1);
-    assert_eq!(out.iter().filter(|x| x.severity == Severity::Green).count(), 1);
+    assert_eq!(
+        out.iter().filter(|x| x.severity == Severity::Red).count(),
+        1
+    );
+    assert_eq!(
+        out.iter().filter(|x| x.severity == Severity::Green).count(),
+        1
+    );
 }
 
 #[test]

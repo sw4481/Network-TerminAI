@@ -36,8 +36,7 @@ impl AgentBridge {
 
     /// Tear the child down. Next `call` re-spawns lazily.
     pub fn restart(&self) -> Result<()> {
-        self.supervisor.shutdown();
-        Ok(())
+        self.supervisor.try_shutdown()
     }
 
     pub fn stop(&self) {
@@ -110,12 +109,7 @@ impl AgentBridge {
 
     /// Stream with full event surfacing (tokens + tool_calls + any custom events).
     /// The callback receives the raw JSON `Value` per event. "done"/"error" terminate.
-    pub async fn call_stream_ex<F>(
-        &self,
-        method: &str,
-        params: Value,
-        on_event: F,
-    ) -> Result<Value>
+    pub async fn call_stream_ex<F>(&self, method: &str, params: Value, on_event: F) -> Result<Value>
     where
         F: FnMut(&Value) -> Result<()> + Send + 'static,
     {

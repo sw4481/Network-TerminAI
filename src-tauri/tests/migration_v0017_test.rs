@@ -22,12 +22,27 @@ fn test_v0017_enhances_command_blocks_schema() {
 
     // Verify all expected columns exist
     assert!(columns.contains(&"id".to_string()), "Missing id column");
-    assert!(columns.contains(&"tab_id".to_string()), "Missing tab_id column");
+    assert!(
+        columns.contains(&"tab_id".to_string()),
+        "Missing tab_id column"
+    );
     assert!(columns.contains(&"cmd".to_string()), "Missing cmd column");
-    assert!(columns.contains(&"output".to_string()), "Missing output column");
-    assert!(columns.contains(&"exit_code".to_string()), "Missing exit_code column");
-    assert!(columns.contains(&"started_at".to_string()), "Missing started_at column");
-    assert!(columns.contains(&"ended_at".to_string()), "Missing ended_at column");
+    assert!(
+        columns.contains(&"output".to_string()),
+        "Missing output column"
+    );
+    assert!(
+        columns.contains(&"exit_code".to_string()),
+        "Missing exit_code column"
+    );
+    assert!(
+        columns.contains(&"started_at".to_string()),
+        "Missing started_at column"
+    );
+    assert!(
+        columns.contains(&"ended_at".to_string()),
+        "Missing ended_at column"
+    );
 
     // Verify new columns exist
     assert!(
@@ -52,7 +67,8 @@ fn test_v0017_enhances_command_blocks_schema() {
     );
 
     // Check that indexes were created
-    let index_query = "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='command_blocks'";
+    let index_query =
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='command_blocks'";
     let mut stmt = conn
         .prepare(index_query)
         .expect("Failed to prepare index query");

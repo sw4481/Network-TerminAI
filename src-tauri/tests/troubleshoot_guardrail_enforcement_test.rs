@@ -70,12 +70,7 @@ impl StepExecutor for RealRulesExecutor {
         self.commands_run.lock().push(command.to_string());
         Ok(self.parsed_default.clone())
     }
-    async fn classify(
-        &self,
-        command: &str,
-        vendor: &str,
-        platform: &str,
-    ) -> anyhow::Result<Tier> {
+    async fn classify(&self, command: &str, vendor: &str, platform: &str) -> anyhow::Result<Tier> {
         let tier = classify_real(&self.rules, vendor, platform, command).tier;
         self.classifications
             .lock()
@@ -104,9 +99,7 @@ fn ctx_with_vars(vars: HashMap<String, serde_json::Value>) -> RunContext {
     RunContext::new("run-test", "tab-test", vars)
 }
 
-fn record_into(
-    buf: Arc<Mutex<Vec<StepResult>>>,
-) -> impl FnMut(&StepResult) -> anyhow::Result<()> {
+fn record_into(buf: Arc<Mutex<Vec<StepResult>>>) -> impl FnMut(&StepResult) -> anyhow::Result<()> {
     move |r| {
         buf.lock().push(r.clone());
         Ok(())
@@ -357,11 +350,7 @@ steps:
     // The substituted command ends with `; reload` which the
     // builtin ruleset MUST catch as Tier-3.
     assert_eq!(ctx.status, RunStatus::Paused);
-    assert_eq!(
-        exec.run_count(),
-        0,
-        "injected ; reload MUST NEVER execute"
-    );
+    assert_eq!(exec.run_count(), 0, "injected ; reload MUST NEVER execute");
     let results = buf.lock();
     assert_eq!(results[0].status, StepStatus::AwaitingUser);
     // Verify the gate saw the substituted (dangerous) form.
@@ -482,7 +471,11 @@ steps:
         .await
         .unwrap();
     assert_eq!(ctx.status, RunStatus::Paused);
-    assert_eq!(exec1.run_count(), 0, "no command runs while prompt unanswered");
+    assert_eq!(
+        exec1.run_count(),
+        0,
+        "no command runs while prompt unanswered"
+    );
 
     // With answer => completes.
     let exec2 = Arc::new(RealRulesExecutor::new().with_answer("yes"));

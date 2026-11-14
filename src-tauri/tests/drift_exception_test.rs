@@ -1,5 +1,7 @@
+use ccie_terminal_lib::drift::diff::{
+    DriftBlock, DriftPatch, DriftSeverity, DriftStats, LineChange,
+};
 use ccie_terminal_lib::drift::exception::{apply_exceptions, DriftExceptionRepo};
-use ccie_terminal_lib::drift::diff::{DriftPatch, DriftBlock, DriftSeverity, LineChange, DriftStats};
 use ccie_terminal_lib::drift::intent::MatchMode;
 use std::collections::HashSet;
 
@@ -7,13 +9,21 @@ fn patch_with_two_deltas() -> DriftPatch {
     DriftPatch {
         status: "drift".into(),
         severity: DriftSeverity::Destructive,
-        stats: DriftStats { additions: 1, deletions: 1, blocks_changed: 1 },
+        stats: DriftStats {
+            additions: 1,
+            deletions: 1,
+            blocks_changed: 1,
+        },
         blocks: vec![DriftBlock {
             block_path: "router eigrp 10".into(),
             severity: DriftSeverity::Destructive,
             changes: vec![
-                LineChange::Insert { line: "passive-interface default".into() },
-                LineChange::Delete { line: "metric weights 0 1 2 3 4 5".into() },
+                LineChange::Insert {
+                    line: "passive-interface default".into(),
+                },
+                LineChange::Delete {
+                    line: "metric weights 0 1 2 3 4 5".into(),
+                },
             ],
         }],
     }
@@ -53,13 +63,21 @@ fn baseline_mode_keeps_delete_as_destructive() {
     let mut p = DriftPatch {
         status: "drift".into(),
         severity: DriftSeverity::Destructive,
-        stats: DriftStats { additions: 0, deletions: 2, blocks_changed: 1 },
+        stats: DriftStats {
+            additions: 0,
+            deletions: 2,
+            blocks_changed: 1,
+        },
         blocks: vec![DriftBlock {
             block_path: "router bgp 65000".into(),
             severity: DriftSeverity::Destructive,
             changes: vec![
-                LineChange::Delete { line: "neighbor 10.0.0.1 shutdown".into() },
-                LineChange::Delete { line: "neighbor 10.0.0.2 shutdown".into() },
+                LineChange::Delete {
+                    line: "neighbor 10.0.0.1 shutdown".into(),
+                },
+                LineChange::Delete {
+                    line: "neighbor 10.0.0.2 shutdown".into(),
+                },
             ],
         }],
     };
@@ -68,7 +86,11 @@ fn baseline_mode_keeps_delete_as_destructive() {
     apply_exceptions(&mut p, &ex, MatchMode::Baseline);
     // One Delete remains → still Destructive in baseline mode.
     assert_eq!(p.status, "drift");
-    assert_eq!(p.severity, DriftSeverity::Destructive, "baseline Delete must stay destructive");
+    assert_eq!(
+        p.severity,
+        DriftSeverity::Destructive,
+        "baseline Delete must stay destructive"
+    );
     assert_eq!(p.stats.deletions, 1);
     assert_eq!(p.stats.additions, 0);
 }
@@ -79,10 +101,19 @@ fn repo_roundtrip() {
     conn.execute_batch(
         "CREATE TABLE intent_drift_exceptions (id TEXT PRIMARY KEY, template_id TEXT NOT NULL,
          line TEXT NOT NULL, note TEXT, created_at INTEGER NOT NULL DEFAULT 0);",
-    ).unwrap();
-    let e = DriftExceptionRepo::add(&conn, "t1", "ntp clock-period 17179869", Some("known noise")).unwrap();
+    )
+    .unwrap();
+    let e = DriftExceptionRepo::add(
+        &conn,
+        "t1",
+        "ntp clock-period 17179869",
+        Some("known noise"),
+    )
+    .unwrap();
     let lines = DriftExceptionRepo::active_lines(&conn, "t1").unwrap();
     assert!(lines.contains("ntp clock-period 17179869"));
     DriftExceptionRepo::delete(&conn, &e.id).unwrap();
-    assert!(DriftExceptionRepo::active_lines(&conn, "t1").unwrap().is_empty());
+    assert!(DriftExceptionRepo::active_lines(&conn, "t1")
+        .unwrap()
+        .is_empty());
 }

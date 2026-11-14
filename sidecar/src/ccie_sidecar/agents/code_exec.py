@@ -26,6 +26,127 @@ from io import StringIO
 from contextlib import redirect_stdout
 from typing import Any, Callable, Dict, List, Optional
 
+from ccie_sidecar.agents.copilot_canvas import CanvasContext
+
+
+class _CanvasTurn:
+    """In-memory turn callback, rebound only by the existing stream/resume path."""
+
+    def __init__(self, request: dict, emit: Callable[[dict], None], sensitive_values: tuple[str, ...]):
+        self._emit: Callable[[dict], None] | None = emit
+        self.context = CanvasContext(request, self.emit, sensitive_values)
+
+    def bind(self, emit: Callable[[dict], None] | None) -> None:
+        self._emit = emit
+
+    def emit(self, event: dict) -> None:
+        if self._emit is None:
+            raise RuntimeError("Canvas turn is not streaming")
+        self._emit(event)
+
+
+def _capture_canvas_result(
+    canvas: CanvasContext | None, helper: str, value: Any, *,
+    origin: str = "observed",
+) -> None:
+    if canvas is None:
+        return
+    try:
+        # Parse only known helper return strings. Unattributed stdout stays text.
+        if origin == "observed" and isinstance(value, str):
+            from ccie_sidecar.agents.tool_output import DEFAULT_MAX_RETAINED_BYTES
+            if len(value.encode("utf-8")) <= DEFAULT_MAX_RETAINED_BYTES:
+                try:
+                    value = json.loads(value)
+                except (ValueError, RecursionError):
+                    pass
+        if origin == "observed" and isinstance(value, dict):
+            from ccie_sidecar.agents.catalog_grounding import _result_failure
+            status, _ = _result_failure(value)
+            if status is not None:
+                canvas.collection_failed(helper)
+        canvas.capture({"helper": helper}, value, call_id=str(uuid.uuid4()), origin=origin)
+    except Exception:
+        # A broken Canvas must never retry or fail a successful source operation.
+        pass
+
+
+def _install_canvas(globals_dict: Dict[str, Any], canvas: CanvasContext) -> None:
+    from functools import wraps
+    from types import SimpleNamespace
+
+    def sources() -> list[dict]:
+        return canvas.sources()
+
+    def present(spec: dict) -> dict:
+        return canvas.present(spec)
+
+    def publish(spec: dict) -> dict:
+        return canvas.publish(spec)
+
+    def derive(parent_refs: list[dict], value: Any, calculation: str) -> str | None:
+        return canvas.derive(parent_refs, value, calculation)
+
+    # No direct context-bound methods; full-trust Python closure reflection is
+    # still not an isolation boundary.
+    globals_dict["canvas"] = SimpleNamespace(publish=publish, present=present, derive=derive, sources=sources)
+
+    def wrap(name, helper):
+        @wraps(helper)
+        def captured(*args, **kwargs):
+            try:
+                result = helper(*args, **kwargs)
+            except Exception:
+                try:
+                    canvas.collection_failed(name)
+                except Exception:
+                    pass  # Preserve the original source exception if Canvas is unavailable.
+                raise
+            _capture_canvas_result(canvas, name, result)
+            return result
+        return captured
+
+    for name, helper in list(globals_dict.items()):
+        if name.endswith("_api_call") and callable(helper):
+            globals_dict[name] = wrap(name, helper)
+
+
+CANVAS_PRESENTATION_GUIDANCE = """Canvas is enabled for this Architect turn only.
+Before finishing, publish useful display-ready cards with the preloaded Python
+canvas.publish({'type':type,'title':title,'metadata':metadata}); NEVER import canvas.
+If native canvas_publish is available in your tool list, you may instead call it
+with type, title, metadata.
+Supply actual JSON values, not evidence IDs, pointers, or source-selection plumbing.
+Published cards are agent-authored summaries — not independently verified evidence.
+Use actual results and honest unknowns; configuration is not proof of a health alert.
+Choose the display that fits: tables for records, bar/line charts for numeric
+comparisons or trends, topology graphs for relationships, assessments for interpretation.
+Metadata shapes (examples use actual values):
+table: {'columns':[{'key':'name','label':'Name'}],'rows':[{'cells':{'name':'Switch A'}}]}.
+key_value: {'fields':[{'label':'Count','value':2}]}.
+chart: {'form':'bar','x_label':'Group','y_label':'Count','points':[{'label':'A','value':2}]}.
+Use form 'line' for a line chart; point values must be finite numbers.
+topology: {'nodes':[{'id':'A'},{'id':'B'}],'links':[{'from':'A','to':'B'}]}.
+Graph node IDs must be unique; every link endpoint must be a declared node.
+Label proposed relationships as proposed, not observed facts.
+text: {'body':'Readable summary or explicitly labeled raw source text'}.
+assessment: {'narrative':'Coverage is incomplete','unknowns':['Interface unassessed'],
+'remediation_considerations':[]}.
+findings: {'findings':[{'device':'Switch A','interface':'Port 1','symptom':'Review required',
+'severity':'warning','cause_assessment':'undetermined','unknowns':['Cause not established'],
+'remediation_considerations':[]}]}.
+Severity is critical/warning/info; cause_assessment is evidence_supported/likely/undetermined.
+Findings need real scalar device and interface values; use assessment/table for device-wide
+or unassessed interfaces. Do not invent missing fields or repeat whole responses as cells.
+No executable UI or arbitrary HTML. Advice is Recommendation — not executed.
+On presentation failure, correct the card only; never repeat source operations.
+Keep the final chat answer self-contained and at most 4000 characters so the existing
+reviewer can see it in full. Open with the assessed population, observation window,
+counts, conclusion, blockers/unknowns, and conditional next steps. Keep full tables and
+row-by-row details in cards, not duplicated in the final answer. Card failure must not
+erase an honestly scoped answer; do not claim the cards were independently verified.
+"""
+
 
 _SIDECAR_RECYCLE_EXIT_CODE = 75
 _DEFAULT_CANCEL_GRACE_SECONDS = 0.5
@@ -355,6 +476,8 @@ def _build_sandbox_globals(
     secrets: Dict[str, Any],
     emit: Optional[Callable[[dict], None]] = None,
     catalogs: Optional[List[Dict[str, Any]]] = None,
+    *,
+    canvas: CanvasContext | None = None,
 ) -> Dict[str, Any]:
     """
     Build a global namespace for code execution.
@@ -383,6 +506,9 @@ def _build_sandbox_globals(
         "collections": collections,
         "os": os,
     }
+
+    # Clients not exposed in globals (Workflows has an approval-only apply door).
+    application_clients = []
 
     # draw.io diagram helper — available to every code-capable agent. Holds the
     # loop's on_event so drawio.diagram(...) streams a diagram event straight to
@@ -581,7 +707,7 @@ def _build_sandbox_globals(
     # separate HITL-gated cisco_workflows_apply StructuredTool.
     if cli_package == "cisco_workflows":
         from ccie_sidecar.cisco_workflows import install_cisco_workflows
-        install_cisco_workflows(globals_dict, emit=emit)
+        application_clients.append(install_cisco_workflows(globals_dict, emit=emit))
 
     # Bind the Cisco XDR client when this is the cisco_xdr agent. Reads creds
     # from sessions.db (same as Settings → Cisco XDR) and injects the
@@ -740,6 +866,20 @@ def _build_sandbox_globals(
             install_iac_guard(globals_dict)
         except Exception:
             pass
+
+    # Capture actual source returns before memory wrappers; catalog grounding
+    # remains outermost and rejects ungrounded calls before capture or side effects.
+    if canvas is not None:
+        # Installed API clients share _config; use those actual inputs, not a
+        # second vendor-loader catalog or reflection into helper closures.
+        application_clients.extend(globals_dict.get(name.removesuffix("_api_call"))
+                                   for name, helper in globals_dict.items()
+                                   if name.endswith("_api_call") and callable(helper))
+        for client in application_clients:
+            config = getattr(client, "_config", None)
+            if isinstance(config, dict):
+                canvas.register_sensitive_config(config)
+        _install_canvas(globals_dict, canvas)
 
     # In-turn GET de-dup: wrap every bound `*_api_call` global so identical
     # discovery GETs within one turn hit the API once (kills the observed 3x
@@ -1415,45 +1555,6 @@ async def code_exec_loop(
                 },
             }
 
-        llm_tools = [execute_code_tool]
-        if catalog_index is not None:
-            search_description = (
-                "Mandatory first tool for a live vendor API operation. Search the "
-                "bounded in-memory catalog for the user's exact intent. Once a match "
-                "fits, stop searching and use its exact record in execute_python_code."
-            )
-            if provider == "anthropic":
-                search_catalog_tool = {
-                    "name": "search_api_catalog",
-                    "description": search_description,
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string"},
-                            "catalog_id": {"type": "string"},
-                            "limit": {"type": "integer", "default": 5},
-                        },
-                        "required": ["query", "catalog_id"],
-                    },
-                }
-            else:
-                search_catalog_tool = {
-                    "type": "function",
-                    "function": {
-                        "name": "search_api_catalog",
-                        "description": search_description,
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "query": {"type": "string"},
-                                "catalog_id": {"type": "string"},
-                                "limit": {"type": "integer", "default": 5},
-                            },
-                            "required": ["query", "catalog_id"],
-                        },
-                    },
-                }
-            llm_tools.insert(0, search_catalog_tool)
         else:
             # OpenAI/vLLM format (also used by Google Gemini in OpenAI mode)
             execute_code_tool = {
@@ -1474,6 +1575,52 @@ async def code_exec_loop(
                 },
             }
 
+        llm_tools = [execute_code_tool]
+        if catalog_index is not None:
+            search_description = (
+                "Mandatory first tool for a live vendor API operation. Search the "
+                "bounded in-memory catalog for the user's exact intent. If has_input_details "
+                "is true, request the exact path/method with schema_pointer='' and follow local "
+                "continuations until required inputs are known. Then stop searching and use "
+                "its exact record in execute_python_code."
+            )
+            if provider == "anthropic":
+                search_catalog_tool = {
+                    "name": "search_api_catalog",
+                    "description": search_description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string"},
+                            "catalog_id": {"type": "string"},
+                            "method": {"type": "string", "description": "Exact HTTP verb for retained input details"},
+                            "schema_pointer": {"type": "string", "description": "Local input-schema pointer; empty string starts details"},
+                            "limit": {"type": "integer", "default": 5},
+                        },
+                        "required": ["query", "catalog_id"],
+                    },
+                }
+            else:
+                search_catalog_tool = {
+                    "type": "function",
+                    "function": {
+                        "name": "search_api_catalog",
+                        "description": search_description,
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string"},
+                                "catalog_id": {"type": "string"},
+                                "method": {"type": "string", "description": "Exact HTTP verb for retained input details"},
+                                "schema_pointer": {"type": "string", "description": "Local input-schema pointer; empty string starts details"},
+                                "limit": {"type": "integer", "default": 5},
+                            },
+                            "required": ["query", "catalog_id"],
+                        },
+                    },
+                }
+            llm_tools.insert(0, search_catalog_tool)
+
         # Allow agent model_override
         if agent_def.get("model_override"):
             override = agent_def["model_override"]
@@ -1483,8 +1630,9 @@ async def code_exec_loop(
         # 4. Initialize conversation (prepend prior history for multi-turn context)
         messages: List[Dict[str, Any]] = build_history_messages(ctx, user_msg)
 
-        # 5. LLM loop with retry
-        for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
+        # Bounded input-schema lookups do not consume code-execution retries.
+        attempt, catalog_lookups = 0, 0
+        while attempt < MAX_RETRY_ATTEMPTS:
             # Call LLM with native bounded discovery plus code execution.
             response = await call_llm(
                 provider=provider,
@@ -1533,6 +1681,10 @@ async def code_exec_loop(
             tool_use_id = tool_call.get("id")
 
             if tool_name == "search_api_catalog" and catalog_index is not None:
+                catalog_lookups += 1
+                if catalog_lookups > 48:
+                    on_event({"type": "error", "message": "Catalog input-detail lookup limit exceeded; no further execution attempted."})
+                    return
                 query = str(tool_input.get("query", ""))
                 catalog_id = str(tool_input.get("catalog_id", ""))
                 limit = tool_input.get("limit", 5)
@@ -1543,11 +1695,11 @@ async def code_exec_loop(
                 on_event({"type": "code_start", "code": rendered})
                 on_event({"type": "code_executing"})
                 try:
-                    search_result = catalog_index.search(
-                        query,
-                        catalog_id=catalog_id,
-                        limit=limit,
-                    )
+                    if tool_input.get("method") is not None or tool_input.get("schema_pointer") is not None:
+                        search_result = catalog_index.describe(query, catalog_id,
+                            method=tool_input.get("method"), schema_pointer=tool_input.get("schema_pointer"))
+                    else:
+                        search_result = catalog_index.search(query, catalog_id=catalog_id, limit=limit)
                     search_output = json.dumps(
                         search_result,
                         ensure_ascii=False,
@@ -1605,6 +1757,7 @@ async def code_exec_loop(
                 })
                 return
 
+            attempt += 1
             code = tool_input.get("code", "")
 
             # Emit code_start

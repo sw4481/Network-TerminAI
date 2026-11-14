@@ -45,10 +45,22 @@ fn is_block_header(line: &str) -> bool {
     }
     let lc = line.to_ascii_lowercase();
     let ios_prefixes = [
-        "interface ", "router ", "ip access-list ", "ipv6 access-list ",
-        "vrf definition ", "class-map ", "policy-map ", "line vty",
-        "line con", "line aux", "route-map ", "crypto ", "aaa ",
-        "ip prefix-list ", "ip community-list ", "object-group ",
+        "interface ",
+        "router ",
+        "ip access-list ",
+        "ipv6 access-list ",
+        "vrf definition ",
+        "class-map ",
+        "policy-map ",
+        "line vty",
+        "line con",
+        "line aux",
+        "route-map ",
+        "crypto ",
+        "aaa ",
+        "ip prefix-list ",
+        "ip community-list ",
+        "object-group ",
     ];
     if ios_prefixes.iter().any(|p| lc.starts_with(p)) {
         return true;
@@ -123,14 +135,15 @@ pub fn match_intent_presence(intent: &str, running: &str) -> DriftPatch {
     let intent_pairs = parse_blocks(intent);
     // Group changes by block, preserving intent order.
     let mut blocks_map: Vec<(String, Vec<LineChange>, usize, usize)> = Vec::new();
-    let find_block = |blocks: &mut Vec<(String, Vec<LineChange>, usize, usize)>, name: &str| -> usize {
-        if let Some(i) = blocks.iter().position(|(b, _, _, _)| b == name) {
-            i
-        } else {
-            blocks.push((name.to_string(), Vec::new(), 0, 0));
-            blocks.len() - 1
-        }
-    };
+    let find_block =
+        |blocks: &mut Vec<(String, Vec<LineChange>, usize, usize)>, name: &str| -> usize {
+            if let Some(i) = blocks.iter().position(|(b, _, _, _)| b == name) {
+                i
+            } else {
+                blocks.push((name.to_string(), Vec::new(), 0, 0));
+                blocks.len() - 1
+            }
+        };
 
     let mut total_add = 0usize; // Missing
     let mut total_del = 0usize; // Changed
@@ -146,13 +159,17 @@ pub fn match_intent_presence(intent: &str, running: &str) -> DriftPatch {
         if has_value_tail && by_key.contains_key(&(block.clone(), key.clone())) {
             // Changed: intended value differs from device value.
             let idx = find_block(&mut blocks_map, block);
-            blocks_map[idx].1.push(LineChange::Delete { line: line.clone() });
+            blocks_map[idx]
+                .1
+                .push(LineChange::Delete { line: line.clone() });
             blocks_map[idx].3 += 1;
             total_del += 1;
         } else {
             // Missing: not present at all.
             let idx = find_block(&mut blocks_map, block);
-            blocks_map[idx].1.push(LineChange::Insert { line: line.clone() });
+            blocks_map[idx]
+                .1
+                .push(LineChange::Insert { line: line.clone() });
             blocks_map[idx].2 += 1;
             total_add += 1;
         }
@@ -168,7 +185,11 @@ pub fn match_intent_presence(intent: &str, running: &str) -> DriftPatch {
             } else {
                 DriftSeverity::None
             };
-            DriftBlock { block_path, changes, severity }
+            DriftBlock {
+                block_path,
+                changes,
+                severity,
+            }
         })
         .collect();
 
@@ -180,7 +201,11 @@ pub fn match_intent_presence(intent: &str, running: &str) -> DriftPatch {
     } else {
         DriftSeverity::Additive
     };
-    let status = if matches!(overall, DriftSeverity::None) { "in_sync" } else { "drift" };
+    let status = if matches!(overall, DriftSeverity::None) {
+        "in_sync"
+    } else {
+        "drift"
+    };
 
     DriftPatch {
         status: status.to_string(),

@@ -78,7 +78,10 @@ fn imports_bitwarden_csv_with_totp_metadata() {
     assert!(result.imported >= 2);
     let secrets = store.list_secrets(&conn, &env_id).unwrap();
     let nms = secrets.iter().find(|s| s.label == "nms-svc").unwrap();
-    assert_eq!(nms.metadata.get("totp"), Some(&serde_json::Value::Bool(true)));
+    assert_eq!(
+        nms.metadata.get("totp"),
+        Some(&serde_json::Value::Bool(true))
+    );
     let gateway = secrets.iter().find(|s| s.label == "gateway-admin").unwrap();
     assert_eq!(
         gateway.metadata.get("username"),

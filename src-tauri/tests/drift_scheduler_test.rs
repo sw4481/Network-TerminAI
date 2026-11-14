@@ -1,4 +1,6 @@
-use ccie_terminal_lib::drift::intent::{IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode};
+use ccie_terminal_lib::drift::intent::{
+    IntentKind, IntentRepo, IntentSelector, IntentTemplate, MatchMode,
+};
 use ccie_terminal_lib::drift::schedule::DriftScheduleRepo;
 use ccie_terminal_lib::drift::scheduler::{DriftScheduler, ScheduleSink};
 use ccie_terminal_lib::fanout::events::FanoutEvent;
@@ -119,7 +121,10 @@ async fn scheduler_fires_secondly_cron() {
     tokio::time::sleep(Duration::from_millis(2_500)).await;
 
     let count = fired.load(Ordering::SeqCst);
-    assert!(count >= 1, "expected scheduler to have fired at least once, got {count}");
+    assert!(
+        count >= 1,
+        "expected scheduler to have fired at least once, got {count}"
+    );
 
     scheduler.shutdown().await.unwrap();
 }

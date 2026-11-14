@@ -15,18 +15,24 @@ import {
   MiniMap,
   Controls,
   Background,
+  applyNodeChanges,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { TopologyMap } from "../../lib/topologyMap";
+import { TopologyInterchange } from "./TopologyInterchange";
 import "@xyflow/react/dist/style.css";
 
 import { useTopologyStore } from "../../state/topologyStore";
 import { NeighborNode, type NeighborNodeT } from "./NeighborNode";
 import { NeighborEdge } from "./NeighborEdge";
 import {
-  openNeighbor,
-  type OpenNeighborHandlers,
+  TopologyProjection,
+  type NodePosition,
+  type SavedDeviceLookup,
   type TopologyNode,
 } from "../../lib/topology";
 import {
@@ -51,6 +57,8 @@ const TIER_Y_STEP = 160;
 
 export interface TopologyTabProps {
   tabId: string;
+  onOpenSshTab?: (ref: string) => Promise<void> | void;
+  onOpenNetconfTab?: (ref: string) => Promise<void> | void;
 }
 
 /**
@@ -61,7 +69,7 @@ export interface TopologyTabProps {
 function layoutPositions(
   nodes: TopologyNode[],
 ): Record<string, { x: number; y: number }> {
-  const out: Record<string, { x: number; y: number }> = {};
+  const out: Record<string, { x: number; y: number }> = Object.create(null);
   if (nodes.length === 0) return out;
 
   if (nodes.length <= RADIAL_THRESHOLD) {
@@ -111,7 +119,15 @@ function layoutPositions(
   return out;
 }
 
-export function TopologyTab({ tabId }: TopologyTabProps) {
+export function TopologyTab({ tabId, onOpenSshTab, onOpenNetconfTab }: TopologyTabProps) {
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const actionId = useRef(0);
+  const openingRef = useRef(false);
+  const [opening, setOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [focusRef, setFocusRef] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(() => window.matchMedia?.("(min-width: 900px)").matches ?? true);
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
   const [mode, setMode] = useState<"neighbors" | "topolograph" | "stp">("neighbors");
   const modes = ["neighbors", "topolograph", "stp"] as const;
   type Mode = typeof modes[number];
@@ -128,12 +144,35 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
     setMode(nextMode);
     tabRefs.current[nextMode]?.focus();
   };
-  const nodes = useTopologyStore((s) => s.nodes);
+  const rawNodes = useTopologyStore((s) => s.nodes);
   const edges = useTopologyStore((s) => s.edges);
+  const storedPositions = useTopologyStore((s) => s.positions);
+  const layoutVersion = useTopologyStore((s) => s.layoutVersion);
+  const layoutError = useTopologyStore((s) => s.layoutError);
+  const error = useTopologyStore((s) => s.error);
+  const loading = useTopologyStore((s) => s.loading);
   const refresh = useTopologyStore((s) => s.refresh);
   const loadGraphs = useTopologyStore((s) => s.loadGraphs);
   const clearGraph = useTopologyStore((s) => s.clearGraph);
+  const saveLayout = useTopologyStore((s) => s.saveLayout);
+  const resetLayout = useTopologyStore((s) => s.resetLayout);
   const currentGraphId = useTopologyStore((s) => s.currentGraphId);
+  const snapshotGraph = useTopologyStore((s) => s.snapshotGraph);
+  const importProvenance = useTopologyStore((s) => s.importProvenance);
+  const captureEvidence = useTopologyStore((s) => s.captureEvidence);
+  const projection = useMemo(() => TopologyProjection.project(rawNodes, currentGraphId), [rawNodes, currentGraphId]);
+  const nodes = projection.nodes;
+  const scope = useRef({ graphId: currentGraphId, version: layoutVersion });
+  scope.current = { graphId: currentGraphId, version: layoutVersion };
+  const fallbackCache = useRef<{ graphId: string; version: number; positions: Record<string, { x: number; y: number }> }>({ graphId: currentGraphId, version: layoutVersion, positions: Object.create(null) });
+  const [dragPositions, setDragPositions] = useState({ graphId: currentGraphId, version: layoutVersion, positions: Object.create(null) as Record<string, { x: number; y: number }> });
+  const discoveryRun = useTopologyStore((s) => s.discoveryRun);
+  const discoveryStarting = useTopologyStore((s) => s.discoveryStarting);
+  const discoveryError = useTopologyStore((s) => s.discoveryError);
+  const refreshDiscovery = useTopologyStore((s) => s.refreshDiscovery);
+  const discoveryActive = discoveryRun?.state === "running" || discoveryRun?.state === "cancelling";
+  const captureIssues = discoveryRun?.devices.reduce((count, device) => count + device.captures.filter((capture) => capture.status !== "completed").length, 0) ?? 0;
+  const deviceIssues = discoveryRun?.devices.filter((device) => device.error || ["failed", "partial", "unsupported", "timed_out", "cancelled"].includes(device.status)).length ?? 0;
   const autoRefreshIntervalMs = useTopologyStore(
     (s) => s.autoRefreshIntervalMs,
   );
@@ -143,17 +182,33 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
     null,
   );
   const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
-  const [discoveryProgress, setDiscoveryProgress] = useState<{
-    current: number;
-    total: number;
-    deviceName: string;
-  } | null>(null);
+  useEffect(() => { void refreshDiscovery(); }, [refreshDiscovery]);
+  useEffect(() => {
+    if (!discoveryActive || !discoveryRun) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = async () => {
+      await refreshDiscovery(discoveryRun.run_id);
+      if (active) timer = setTimeout(() => { void poll(); }, 750);
+    };
+    timer = setTimeout(() => { void poll(); }, 750);
+    return () => { active = false; clearTimeout(timer); };
+  }, [discoveryActive, discoveryRun?.run_id, refreshDiscovery]);
   const [filterState, setFilterState] = useState<TopologyFilterState>(() => ({
     sites: new Set(),
     vendors: new Set(),
     platforms: new Set(),
     protocols: new Set(),
   }));
+
+  useEffect(() => {
+    actionId.current++;
+    setOpenError(null);
+    setSelectedNodeId(null);
+    setFocusRef(null);
+    setUnknownNeighbor(null);
+    return () => { actionId.current++; };
+  }, [currentGraphId, mode]);
 
   // Initial hydrate: list graphs, then snapshot the current (Global) graph.
   useEffect(() => {
@@ -191,7 +246,7 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
     return { vendors, platforms, protocols };
   }, [nodes, edges]);
 
-  const visibleNodes = useMemo(() => {
+  const filteredNodes = useMemo(() => {
     return nodes.filter((n) => {
       const vendor = (n.vendor ?? "unknown").toLowerCase();
       if (filterState.vendors.size > 0 && !filterState.vendors.has(vendor)) {
@@ -216,8 +271,8 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
     });
   }, [nodes, filterState]);
 
-  const visibleEdges = useMemo(() => {
-    const visibleRefs = new Set(visibleNodes.map((n) => n.device_ref));
+  const filteredEdges = useMemo(() => {
+    const visibleRefs = new Set(filteredNodes.map((n) => n.device_ref));
     return edges.filter((e) => {
       if (
         filterState.protocols.size > 0 &&
@@ -225,13 +280,53 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
       ) {
         return false;
       }
-      return visibleRefs.has(e.a_device_ref) && visibleRefs.has(e.b_device_ref);
+      return e.graph_id === currentGraphId && visibleRefs.has(e.a_device_ref) && visibleRefs.has(e.b_device_ref);
     });
-  }, [edges, filterState, visibleNodes]);
+  }, [edges, filterState, filteredNodes, currentGraphId]);
+  const neighborhood = useMemo(() => focusRef ? TopologyMap.oneHop(filteredEdges, focusRef) : null, [focusRef, filteredEdges]);
+  const visibleNodes = useMemo(() => filteredNodes.filter((node) => !neighborhood || neighborhood.has(node.device_ref)), [filteredNodes, neighborhood]);
+  const visibleEdges = useMemo(() => filteredEdges.filter((edge) => !focusRef || edge.a_device_ref === focusRef || edge.b_device_ref === focusRef), [filteredEdges, focusRef]);
 
-  const positions = useMemo(() => layoutPositions(visibleNodes), [visibleNodes]);
+  const positions = useMemo(() => {
+    if (fallbackCache.current.graphId !== currentGraphId || fallbackCache.current.version !== layoutVersion) {
+      fallbackCache.current = { graphId: currentGraphId, version: layoutVersion, positions: Object.create(null) };
+    }
+    const fallback = fallbackCache.current.positions;
+    const initial = layoutPositions(nodes);
+    const overrides: Record<string, { x: number; y: number }> = Object.create(null);
+    for (const position of storedPositions) overrides[position.device_ref] = { x: position.x, y: position.y };
+    if (dragPositions.graphId === currentGraphId && dragPositions.version === layoutVersion) Object.assign(overrides, dragPositions.positions);
+    const occupied = nodes.flatMap((node) => {
+      const position = overrides[node.device_ref] ?? fallback[node.device_ref];
+      return position ? [position] : [];
+    });
+    const hasRetainedPositions = occupied.length > 0;
+    // ponytail: linear free-slot scan; use a spatial index if graph size warrants it.
+    const isFree = (position: { x: number; y: number }) => occupied.every((other) =>
+      Math.abs(position.x - other.x) >= TIER_X_STEP || Math.abs(position.y - other.y) >= TIER_Y_STEP);
+    for (const node of nodes) {
+      if (fallback[node.device_ref]) continue;
+      if (overrides[node.device_ref]) {
+        fallback[node.device_ref] = overrides[node.device_ref];
+        continue;
+      }
+      let position = initial[node.device_ref];
+      let slot = 0;
+      while (hasRetainedPositions && !isFree(position)) {
+        position = { x: (slot % TIER_COLS) * TIER_X_STEP, y: Math.floor(slot / TIER_COLS) * TIER_Y_STEP };
+        slot++;
+      }
+      fallback[node.device_ref] = position;
+      occupied.push(position);
+    }
+    return Object.assign(Object.create(null), fallback, overrides) as Record<string, { x: number; y: number }>;
+  }, [nodes, storedPositions, dragPositions, currentGraphId, layoutVersion]);
 
-  const activateNode = (nodeId: string) => setSelectedNodeId(nodeId);
+  const activateNode = (nodeId: string) => {
+    actionId.current++;
+    setOpenError(null);
+    setSelectedNodeId(nodeId);
+  };
 
   const rfNodes: Node[] = useMemo(() => {
     return visibleNodes.map((n) => {
@@ -239,27 +334,66 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
         label: n.label,
         vendor: (n.vendor ?? "unknown").toLowerCase(),
         mgmtIp: n.mgmt_ip,
+        deviceKind: n.device_kind,
+        deviceRef: n.device_ref,
         isSource: false,
         onActivate: () => activateNode(n.device_ref),
       };
       return {
         id: n.device_ref,
         type: "neighbor",
+        selected: selectedNodeId === n.device_ref,
         position: positions[n.device_ref] ?? { x: 0, y: 0 },
         data: data as Record<string, unknown>,
       };
     });
-  }, [visibleNodes, positions]);
+  }, [visibleNodes, positions, selectedNodeId]);
 
-  const rfEdges: Edge[] = useMemo(() => {
-    return visibleEdges.map((e) => ({
-      id: `${e.a_device_ref}::${e.a_port}--${e.b_device_ref}::${e.b_port}::${e.protocol}`,
-      source: e.a_device_ref,
-      target: e.b_device_ref,
-      type: "default",
-      data: { protocol: e.protocol },
-    }));
-  }, [visibleEdges]);
+  const ownsLayout = () => scope.current.graphId === currentGraphId && scope.current.version === layoutVersion &&
+    useTopologyStore.getState().currentGraphId === currentGraphId && useTopologyStore.getState().layoutVersion === layoutVersion;
+
+  const handleNodesChange = (changes: NodeChange[]) => {
+    if (!ownsLayout()) return;
+    const moved = applyNodeChanges(changes, rfNodes).filter((node) => {
+      const previous = rfNodes.find((item) => item.id === node.id);
+      return previous && (previous.position.x !== node.position.x || previous.position.y !== node.position.y);
+    });
+    if (!moved.length) return;
+    setDragPositions((state) => ({ graphId: currentGraphId, version: layoutVersion, positions: {
+      ...(state.graphId === currentGraphId && state.version === layoutVersion ? state.positions : {}),
+      ...Object.fromEntries(moved.map((node) => [node.id, node.position])),
+    } }));
+  };
+
+  const persistPositions = async (saved: NodePosition[]) => {
+    if (!saved.length || !ownsLayout()) return;
+    const success = await saveLayout(currentGraphId, saved);
+    if (!success || !ownsLayout()) return;
+    setDragPositions((state) => {
+      if (state.graphId !== currentGraphId || state.version !== layoutVersion) return state;
+      const remaining = { ...state.positions };
+      for (const item of saved) {
+        if (remaining[item.device_ref]?.x === item.x && remaining[item.device_ref]?.y === item.y) delete remaining[item.device_ref];
+      }
+      return { ...state, positions: remaining };
+    });
+  };
+
+  const handleArrange = () => {
+    if (!ownsLayout()) return;
+    const arranged = layoutPositions(nodes);
+    setDragPositions({ graphId: currentGraphId, version: layoutVersion, positions: arranged });
+    void persistPositions(nodes.map((node) => ({ device_ref: node.device_ref, ...arranged[node.device_ref] })));
+  };
+
+  const handleArrangeConnected = () => {
+    if (!ownsLayout()) return;
+    const arranged = TopologyMap.connectedPositions(nodes, edges);
+    setDragPositions({ graphId: currentGraphId, version: layoutVersion, positions: arranged });
+    void persistPositions(nodes.map((node) => ({ device_ref: node.device_ref, ...arranged[node.device_ref] })));
+  };
+
+  const rfEdges: Edge[] = useMemo(() => TopologyMap.links(visibleEdges, selectedNodeId), [visibleEdges, selectedNodeId]);
 
   const selectedNode = useMemo(() => {
     return selectedNodeId
@@ -278,26 +412,42 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
   }, [selectedNodeId, visibleEdges]);
 
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
-    setSelectedNodeId(node.id);
+    activateNode(node.id);
   };
 
-  // Stub handlers — Phase 4 only logs. Real tab spawning lands in
-  // Phase 5+ once the topology tab has access to the global tab spawner.
-  const handleOpenSshTab = async (ref: string) => {
-    console.info("[topology] open SSH for", ref);
-  };
-  const handleOpenNetconfTab = async (ref: string) => {
-    console.info("[topology] open NETCONF for", ref);
+  const closeInspector = () => {
+    const ref = selectedNodeId;
+    activateNode("");
+    setSelectedNodeId(null);
+    const element = Array.from(workspaceRef.current?.querySelectorAll<HTMLElement>("[data-device-ref]") ?? []).find((item) => item.dataset.deviceRef === ref);
+    element?.focus();
   };
 
   const handleInspectorOpen = async () => {
-    if (!selectedNode) return;
-    const handlers: OpenNeighborHandlers = {
-      onOpenSshTab: handleOpenSshTab,
-      onOpenNetconfTab: handleOpenNetconfTab,
-      onUnknownNeighbor: (n) => setUnknownNeighbor(n),
-    };
-    await openNeighbor(selectedNode, handlers);
+    if (!selectedNode || selectedNode.device_ref.startsWith("routing:") || openingRef.current) return;
+    const request = ++actionId.current;
+    const isCurrent = () => request === actionId.current && useTopologyStore.getState().currentGraphId === currentGraphId;
+    openingRef.current = true;
+    setOpening(true);
+    setOpenError(null);
+    try {
+      const ref = selectedNode.device_kind === "discovered" ? selectedNode.mgmt_ip ?? selectedNode.device_ref : selectedNode.device_ref;
+      let saved: SavedDeviceLookup | null = { kind: selectedNode.device_kind === "netconf" ? "netconf" : "ssh", device_ref: ref };
+      if (selectedNode.device_kind === "discovered") {
+        // Use the existing inventory resolver, but do not mistake lookup failure for an unsaved device.
+        saved = await invoke<SavedDeviceLookup | null>("device_lookup_by_ref", { ref });
+        if (!isCurrent()) return;
+        if (!saved) { setUnknownNeighbor(selectedNode); return; }
+      }
+      const opener = saved.kind === "ssh" ? onOpenSshTab : onOpenNetconfTab;
+      if (!opener) throw new Error("Device opening is unavailable in this view.");
+      await opener(saved.device_ref);
+    } catch (error) {
+      if (isCurrent()) setOpenError(error instanceof Error ? error.message : "Device could not be opened. Check the saved profile and try again.");
+    } finally {
+      openingRef.current = false;
+      setOpening(false);
+    }
   };
 
   const handleClearGraph = async () => {
@@ -305,20 +455,13 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
       "Clear all nodes and edges in the current graph? This cannot be undone.",
     );
     if (!ok) return;
-    await clearGraph(currentGraphId);
-  };
-
-  const handleExportPng = () => {
-    // @xyflow/react v12 doesn't expose a built-in toPng helper. The
-    // design doc explicitly allows deferring this if the helper isn't
-    // available; revisit once html-to-image (or v12.x) ships a stable
-    // export path.
-    console.warn("[topology] PNG export not yet wired");
+    try { await clearGraph(currentGraphId); } catch { /* Store exposes the failure. */ }
   };
 
   return (
     <div
       className="topology-tab"
+      ref={workspaceRef}
       data-testid="topology-tab"
       data-tab-id={tabId}
     >
@@ -353,23 +496,62 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
       <header className="topology-tab__controls">
         <div className="topology-tab__title">
           <h2>Network neighbors</h2>
-          <p>Observed CDP and LLDP relationships across saved devices.</p>
+          <p>Recorded neighbor observations and routing adjacencies.</p>
         </div>
         <TopologyToolbar
           onRefresh={() => refresh()}
           onDiscoverDevices={() => setShowDiscoveryModal(true)}
-          onExportPng={handleExportPng}
           onClearGraph={handleClearGraph}
-        />
+          onArrange={handleArrange}
+          onArrangeConnected={handleArrangeConnected}
+          onResetLayout={() => { void resetLayout(currentGraphId); }}
+          discovering={discoveryStarting || discoveryActive}
+        >
+          <TopologyInterchange key={currentGraphId} snapshot={snapshotGraph?.id === currentGraphId && !loading ? {
+            graph: snapshotGraph, nodes: rawNodes, edges, capture_evidence: captureEvidence,
+            positions: nodes.map((node) => ({ device_ref: node.device_ref, ...positions[node.device_ref] })),
+            ...(importProvenance ? { import_provenance: importProvenance } : {}),
+          } : null} visibleNodes={filteredNodes} visibleEdges={filteredEdges} />
+        </TopologyToolbar>
       </header>
+      {importProvenance && <p>Imported graph ({importProvenance.format}) — file claims do not verify reachability; later native observations may coexist.</p>}
+      {error && <div role="alert">{error}</div>}
+      {layoutError && <div role="alert">{layoutError}</div>}
+      {projection.warnings.length > 0 && <details><summary>Identity conflicts ({projection.warnings.length})</summary>{projection.warnings.map((warning) => <p key={warning}>{warning}</p>)}</details>}
+      {discoveryError && <div role="alert">{discoveryError}</div>}
+      {discoveryError && <button onClick={() => { void refreshDiscovery(); }}>Retry discovery status</button>}
+      {discoveryRun && <section className="topology-discovery-report" aria-label="Discovery run">
+        <div className="topology-discovery-report__overview">
+          <p role="status"><strong>Discovery {discoveryRun.state} — {useTopologyStore.getState().graphs.find((graph) => graph.id === discoveryRun.graph_id)?.name ?? discoveryRun.graph_id}</strong><span>{discoveryRun.devices.length}/50 attempts</span></p>
+          {discoveryActive && <button className="topology-toolbar__button" onClick={() => { void useTopologyStore.getState().cancelDiscovery(); }} disabled={discoveryRun.state === "cancelling"}>{discoveryRun.state === "cancelling" ? "Stopping and cleaning up…" : "Stop discovery"}</button>}
+          {(deviceIssues > 0 || captureIssues > 0 || ["failed", "timed_out", "cancelled"].includes(discoveryRun.state)) && <span role="alert" className="topology-discovery-report__warning">{captureIssues > 0 || deviceIssues > 0 ? `${captureIssues} capture issue${captureIssues === 1 ? "" : "s"} · ${deviceIssues} device${deviceIssues === 1 ? " needs" : "s need"} attention. Review outcomes.` : "Run needs attention. Review outcomes."}</span>}
+        </div>
+        <details key={discoveryRun.run_id} className="topology-discovery-report__details"><summary>Device outcomes and neighbors not dialed</summary>
+          <div className="topology-discovery-report__content">
+            <p>Processed node rows: {discoveryRun.nodes_processed} | Processed link rows: {discoveryRun.edges_processed} (not newly discovered counts). Stop retains committed captures.</p>
+            <ul>{discoveryRun.devices.map((device) => <li key={device.connection_id}>{device.host} · depth {device.depth} · {device.status}{device.error ? ` — ${device.error}` : ""}
+              <ul>{device.captures.map((capture) => <li key={capture.protocol}>{capture.protocol}: {capture.status} ({capture.records} rows){capture.error ? ` — ${capture.error}` : ""}</li>)}</ul>
+            </li>)}</ul>
+            {discoveryRun.not_dialed.length > 0 && <details className="topology-discovery-report__skipped">
+              <summary>Neighbors not dialed ({discoveryRun.not_dialed.length})</summary>
+              <ul>{discoveryRun.not_dialed.map((neighbor, index) => <li key={index}>{neighbor.reference || "Unknown neighbor"}: not dialed — {neighbor.reason}</li>)}</ul>
+            </details>}
+            {discoveryRun.additional_not_dialed > 0 && <p>{discoveryRun.additional_not_dialed} additional not-dialed observations omitted from the bounded report.</p>}
+            <p className="topology-discovery-report__timing">Parser admission wait: {discoveryRun.parser_admission_ms} ms; submission/reply wait: {discoveryRun.parser_reply_ms} ms (includes shared-sidecar queueing, not isolated parser execution).</p>
+          </div>
+        </details>
+      </section>}
       <div
-        className={`topology-tab__body topology-tab__body--inspector-${selectedNode ? "open" : "closed"}`}
+        className={`topology-tab__body topology-tab__body--filters-${filtersOpen ? "open" : "closed"} topology-tab__body--inspector-${selectedNode ? "open" : "closed"}`}
         data-testid="topology-workspace-body"
       >
         <div
           className="topology-tab__rail"
           data-testid="topology-navigation-rail"
+          id={`topology-filters-${instanceId}`}
+          hidden={!filtersOpen}
         >
+          <div className="topology-tab__rail-heading"><strong>Filters</strong><button type="button" className="topology-toolbar__button" aria-label="Close filters" onClick={() => { setFiltersOpen(false); filterToggleRef.current?.focus(); }}>×</button></div>
           <TopologyFilterTree
             options={filterOptions}
             state={filterState}
@@ -378,19 +560,21 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
         </div>
         <section
           className="topology-tab__canvas-panel"
+          aria-busy={loading}
           role="region"
           aria-label="Topology canvas"
           data-state={visibleNodes.length === 0 ? "empty" : "populated"}
         >
           <header className="topology-tab__graph-heading">
             <div>
-              <h3>Live topology</h3>
-              <p>{visibleNodes.length} devices · {visibleEdges.length} links</p>
+              <h3>Recorded topology</h3>
+              <p>{visibleNodes.length} devices · {visibleEdges.length} links · Reachability unverified</p>
+              {focusRef && <p>One hop from {nodes.find((node) => node.device_ref === focusRef)?.label ?? focusRef} <button type="button" className="topology-toolbar__button" onClick={() => setFocusRef(null)}>Exit focus</button></p>}
             </div>
-            <span className="topology-tab__evidence-badge">CDP / LLDP</span>
+            <button type="button" className="topology-toolbar__button" ref={filterToggleRef} aria-expanded={filtersOpen} aria-controls={`topology-filters-${instanceId}`} onClick={() => setFiltersOpen((open) => !open)}>{filtersOpen ? "Hide filters" : "Show filters"}</button>
           </header>
           <div className="topology-tab__canvas">
-            {visibleNodes.length === 0 ? (
+            {visibleNodes.length === 0 && (
               <div
                 className="topology-tab__empty"
                 data-testid="topology-empty"
@@ -402,8 +586,9 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
                   the graph.
                 </span>
               </div>
-            ) : (
+            )}
               <ReactFlow
+                key={currentGraphId}
                 nodes={rfNodes}
                 edges={rfEdges}
                 nodeTypes={NODE_TYPES}
@@ -411,22 +596,44 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
                 nodesDraggable
                 nodesConnectable={false}
                 fitView
+                fitViewOptions={{ padding: 0.3 }}
+                onNodesChange={handleNodesChange}
+                onNodeDragStop={(_, node, moved) => {
+                  const dragged = moved.length ? moved : [node];
+                  void persistPositions(dragged.filter((item) => nodes.some((known) => known.device_ref === item.id)).map((item) => ({ device_ref: item.id, ...item.position })));
+                }}
                 onNodeClick={handleNodeClick}
                 proOptions={{ hideAttribution: true }}
-                aria-label="Global topology graph"
+                aria-label="Topology graph"
               >
                 <MiniMap pannable zoomable />
-                <Controls showInteractive={false} />
+                <Controls showInteractive={false} fitViewOptions={{ padding: 0.3 }} />
                 <Background />
               </ReactFlow>
-            )}
           </div>
+          <p className="topology-tab__legend">□ SSH profile · ◇ NETCONF profile · ○ Discovered neighbor. Select a node for ports and capture times. Protocol labels and dash patterns distinguish recorded links, not device roles or live status.</p>
+          <details className="topology-tab__link-table">
+            <summary>Link table ({visibleEdges.length})</summary>
+            <table aria-label="Recorded link evidence">
+              <thead><tr><th>Endpoint A / port</th><th>Endpoint B / port</th><th>Evidence</th><th>Captured</th></tr></thead>
+              <tbody>{visibleEdges.map((edge, index) => <tr key={JSON.stringify([edge.graph_id, edge.a_device_ref, edge.a_port, edge.b_device_ref, edge.b_port, edge.protocol, index])}>
+                <td>{edge.a_device_ref} / {TopologyMap.portLabel(edge.protocol, edge.a_port)}</td><td>{edge.b_device_ref} / {TopologyMap.portLabel(edge.protocol, edge.b_port)}</td>
+                <td>{edge.protocol.toUpperCase()} · {TopologyMap.evidenceLabel(edge.protocol)}</td><td>{TopologyMap.capturedLabel(edge.captured_at)}</td>
+              </tr>)}</tbody>
+            </table>
+          </details>
         </section>
         {selectedNode && (
           <TopologyInspector
+            key={JSON.stringify([currentGraphId, selectedNode.device_ref])}
             node={selectedNode}
             edges={selectedNodeEdges}
-            onClose={() => setSelectedNodeId(null)}
+            captureEvidence={captureEvidence}
+            onClose={closeInspector}
+            onFocus={() => setFocusRef(selectedNode.device_ref)}
+            onOpenUnknown={handleInspectorOpen}
+            opening={opening}
+            openError={openError}
             onOpenSsh={handleInspectorOpen}
             onOpenNetconf={handleInspectorOpen}
           />
@@ -440,69 +647,20 @@ export function TopologyTab({ tabId }: TopologyTabProps) {
       <DeviceDiscoveryModal
         isOpen={showDiscoveryModal}
         onClose={() => setShowDiscoveryModal(false)}
-        onDiscover={async (deviceIds, passwords) => {
-          console.log('[TopologyTab] Starting discovery for devices:', deviceIds);
+        onDiscover={(deviceIds, passwords, destination, discoveryScope) => {
+          if (discoveryStarting || discoveryActive) return;
           setShowDiscoveryModal(false);
-
-          try {
-            const discoverDevices = useTopologyStore.getState().discoverDevices;
-            const result = await discoverDevices(deviceIds, passwords, (current, total, deviceName) => {
-              setDiscoveryProgress({ current, total, deviceName });
-            });
-
-            setDiscoveryProgress(null);
-
-            // Show result notification
-            const statusDiv = document.createElement('div');
-            statusDiv.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              background: var(--surface-2);
-              border: 1px solid var(--topology-success);
-              border-radius: 8px;
-              padding: 12px 16px;
-              color: var(--topology-success-text);
-              font-size: 14px;
-              z-index: 10001;
-              box-shadow: 0 4px 12px rgb(var(--backdrop-rgb) / 0.5);
-            `;
-            statusDiv.innerHTML = `
-              ✅ Discovery complete!<br/>
-              <small>Succeeded: ${result.succeeded} | Failed: ${result.failed}</small>
-            `;
-            document.body.appendChild(statusDiv);
-            setTimeout(() => {
-              document.body.removeChild(statusDiv);
-            }, 5000);
-          } catch (err) {
-            setDiscoveryProgress(null);
-            console.error('[TopologyTab] Discovery failed:', err);
-            alert(`Discovery failed: ${String(err)}`);
-          }
+          void useTopologyStore.getState().startDiscovery({
+            graph_id: destination ?? currentGraphId,
+            seed_ids: deviceIds,
+            eligible_ids: discoveryScope?.eligibleIds ?? deviceIds,
+            passwords,
+            max_depth: discoveryScope?.maxDepth ?? 0,
+            include_routing: discoveryScope?.includeRouting ?? false,
+            ...(discoveryScope?.collectionMode ? { collection_mode: discoveryScope.collectionMode, snmp_secret_id: discoveryScope.snmpSecretId } : {}),
+          });
         }}
       />
-      {discoveryProgress && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            background: 'var(--surface-2)',
-            border: '1px solid var(--topology-success)',
-            borderRadius: 8,
-            padding: '12px 16px',
-            color: 'var(--topology-success-text)',
-            fontSize: 14,
-            zIndex: 10001,
-            boxShadow: '0 4px 12px rgb(var(--backdrop-rgb) / 0.5)',
-          }}
-        >
-          🔍 Discovering devices... ({discoveryProgress.current}/{discoveryProgress.total})
-          <br />
-          <small style={{ opacity: 0.7 }}>{discoveryProgress.deviceName}</small>
-        </div>
-      )}
       </div>
       ) : null}
       </section>

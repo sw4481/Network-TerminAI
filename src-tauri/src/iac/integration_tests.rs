@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_tests {
     use crate::iac::detector::detect_iac_command;
-    use crate::iac::parser::{parse_terraform_output, parse_ansible_output};
+    use crate::iac::parser::{parse_ansible_output, parse_terraform_output};
     use crate::iac::types::IaCTool;
 
     /// Integration test for terraform apply end-to-end flow.
@@ -240,9 +240,7 @@ resource "null_resource" "test" {
         // Test various ansible command formats
         assert!(detect_iac_command("ansible-playbook site.yml", &temp_dir).is_some());
         assert!(detect_iac_command("ansible-playbook -i inventory site.yml", &temp_dir).is_some());
-        assert!(
-            detect_iac_command("ansible all -m ping -i inventory", &temp_dir).is_some()
-        );
+        assert!(detect_iac_command("ansible all -m ping -i inventory", &temp_dir).is_some());
         assert!(detect_iac_command("ansible webservers -m command -a uptime", &temp_dir).is_some());
 
         // Should not detect
@@ -285,7 +283,9 @@ resource "local_file" "x" {
                 .unwrap()
         };
         assert!(run(&["init", "-input=false"]).status.success());
-        assert!(run(&["apply", "-auto-approve", "-input=false"]).status.success());
+        assert!(run(&["apply", "-auto-approve", "-input=false"])
+            .status
+            .success());
 
         // Drift it: change the managed file out-of-band.
         std::fs::write(temp_dir.join("out.txt"), "TAMPERED").unwrap();

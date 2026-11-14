@@ -41,7 +41,11 @@ fn derive_key_rejects_short_salt() {
 
 #[test]
 fn kdf_params_json_roundtrip() {
-    let p = KdfParams { m_cost: 65536, t_cost: 3, p_cost: 1 };
+    let p = KdfParams {
+        m_cost: 65536,
+        t_cost: 3,
+        p_cost: 1,
+    };
     let s = serde_json::to_string(&p).unwrap();
     let p2: KdfParams = serde_json::from_str(&s).unwrap();
     assert_eq!(p, p2);

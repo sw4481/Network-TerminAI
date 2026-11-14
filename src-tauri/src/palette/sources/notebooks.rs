@@ -42,12 +42,11 @@ pub fn search(
                 kind: PaletteKind::Notebook,
                 target_id: id.clone(),
                 title,
-                subtitle: description
-                    .or_else(|| match (&vendor, &platform) {
-                        (Some(v), Some(p)) => Some(format!("{}/{}", v, p)),
-                        (Some(v), None) => Some(v.clone()),
-                        _ => None,
-                    }),
+                subtitle: description.or_else(|| match (&vendor, &platform) {
+                    (Some(v), Some(p)) => Some(format!("{}/{}", v, p)),
+                    (Some(v), None) => Some(v.clone()),
+                    _ => None,
+                }),
                 score: 1.0,
                 recency_boost: 0.0,
                 frequency_boost: 0.0,

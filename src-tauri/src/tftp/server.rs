@@ -119,7 +119,13 @@ impl Handler for LoggingHandler {
         let read_only = self.read_only;
 
         if read_only {
-            insert_event(&db, "error", Some(&ip), req.to_str(), Some("server is read-only"));
+            insert_event(
+                &db,
+                "error",
+                Some(&ip),
+                req.to_str(),
+                Some("server is read-only"),
+            );
             return Err(packet::Error::PermissionDenied);
         }
         let full = resolve_in_root(&root, &req).map_err(|e| {
@@ -216,12 +222,26 @@ impl TftpService {
         // use) surfaces as an Err from start() instead of a phantom "running"
         // state set from inside a detached task.
         use async_tftp::server::TftpServerBuilder;
-        let handler = LoggingHandler { db: db.clone(), root: root_for_task, read_only };
-        let server = match TftpServerBuilder::with_handler(handler).bind(addr).build().await {
+        let handler = LoggingHandler {
+            db: db.clone(),
+            root: root_for_task,
+            read_only,
+        };
+        let server = match TftpServerBuilder::with_handler(handler)
+            .bind(addr)
+            .build()
+            .await
+        {
             Ok(s) => s,
             Err(e) => {
                 *self.last_error.lock() = Some(format!("build: {e}"));
-                insert_event(&db, "error", None, None, Some(&format!("build failed: {e}")));
+                insert_event(
+                    &db,
+                    "error",
+                    None,
+                    None,
+                    Some(&format!("build failed: {e}")),
+                );
                 anyhow::bail!("failed to bind TFTP server on {bind_address}: {e}");
             }
         };
@@ -231,7 +251,13 @@ impl TftpService {
         // the task is sound: TftpServer<H> is Send + 'static (serve() consumes
         // self, and tokio::spawn already required this bound previously).
         let (shutdown_tx, mut shutdown_rx) = broadcast::channel::<()>(1);
-        insert_event(&db, "info", None, None, Some(&format!("listening on {addr_for_log}")));
+        insert_event(
+            &db,
+            "info",
+            None,
+            None,
+            Some(&format!("listening on {addr_for_log}")),
+        );
         tokio::spawn(async move {
             tokio::select! {
                 res = server.serve() => {
@@ -297,7 +323,10 @@ mod tests {
         let cfg = TftpConfig {
             bind_host: "127.0.0.1".into(),
             bind_port: 16969, // high port → in-process, no elevation
-            root_dir: std::env::temp_dir().join("tftp-svc-test").to_string_lossy().into(),
+            root_dir: std::env::temp_dir()
+                .join("tftp-svc-test")
+                .to_string_lossy()
+                .into(),
             read_only: false,
             auto_start: false,
         };
@@ -320,7 +349,10 @@ mod tests {
         let cfg = |port: u16| TftpConfig {
             bind_host: "127.0.0.1".into(),
             bind_port: port,
-            root_dir: std::env::temp_dir().join("tftp-busy-test").to_string_lossy().into(),
+            root_dir: std::env::temp_dir()
+                .join("tftp-busy-test")
+                .to_string_lossy()
+                .into(),
             read_only: false,
             auto_start: false,
         };
@@ -331,9 +363,18 @@ mod tests {
 
         let svc2 = TftpService::new(mem_db_with_events());
         let res = svc2.start(cfg(16971)).await;
-        assert!(res.is_err(), "binding an already-bound port must return Err");
-        assert!(!svc2.is_running(), "a failed bind must not leave the service running");
-        assert!(svc2.status().last_error.is_some(), "the bind failure must be recorded");
+        assert!(
+            res.is_err(),
+            "binding an already-bound port must return Err"
+        );
+        assert!(
+            !svc2.is_running(),
+            "a failed bind must not leave the service running"
+        );
+        assert!(
+            svc2.status().last_error.is_some(),
+            "the bind failure must be recorded"
+        );
 
         svc1.stop().expect("stop");
         assert!(!svc1.is_running());
@@ -362,10 +403,20 @@ mod tests {
     #[test]
     fn insert_event_writes_row() {
         let db = mem_db();
-        insert_event(&db, "write", Some("10.0.0.1"), Some("r.cfg"), Some("42 bytes"));
+        insert_event(
+            &db,
+            "write",
+            Some("10.0.0.1"),
+            Some("r.cfg"),
+            Some("42 bytes"),
+        );
         let conn = db.lock();
         let n: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tftp_events WHERE kind='write'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM tftp_events WHERE kind='write'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(n, 1);
     }
@@ -386,7 +437,11 @@ mod tests {
 
         let conn = db.lock();
         let errors: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tftp_events WHERE kind='error'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM tftp_events WHERE kind='error'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(errors, 1, "a read-only rejection must log one error event");
     }
@@ -406,7 +461,10 @@ mod tests {
         };
         {
             use futures_lite::AsyncWriteExt;
-            let mut w = wh.write_req_open(&client, Path::new("r.cfg"), None).await.unwrap();
+            let mut w = wh
+                .write_req_open(&client, Path::new("r.cfg"), None)
+                .await
+                .unwrap();
             w.write_all(b"hostname R1\n").await.unwrap();
             w.flush().await.unwrap();
         }
@@ -427,10 +485,18 @@ mod tests {
         // Events: one write + one read
         let conn = db.lock();
         let writes: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tftp_events WHERE kind='write'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM tftp_events WHERE kind='write'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         let reads: i64 = conn
-            .query_row("SELECT COUNT(*) FROM tftp_events WHERE kind='read'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM tftp_events WHERE kind='read'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!((writes, reads), (1, 1));
     }

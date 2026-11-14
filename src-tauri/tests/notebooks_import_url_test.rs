@@ -44,8 +44,10 @@ async fn rejects_oversize_body_via_content_length() {
     let url = format!("{}/big", server.uri());
     let resp = reqwest::get(&url).await.unwrap();
     let bytes = resp.bytes().await.unwrap();
-    assert!(bytes.len() > 2 * 1024 * 1024,
-        "test sentinel: import_url command must reject bodies > 2 MiB");
+    assert!(
+        bytes.len() > 2 * 1024 * 1024,
+        "test sentinel: import_url command must reject bodies > 2 MiB"
+    );
 }
 
 #[tokio::test]

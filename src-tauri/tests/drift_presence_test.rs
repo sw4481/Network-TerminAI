@@ -1,5 +1,5 @@
-use ccie_terminal_lib::drift::presence::match_intent_presence;
 use ccie_terminal_lib::drift::diff::DriftSeverity;
+use ccie_terminal_lib::drift::presence::match_intent_presence;
 
 const RUNNING: &str = "\
 hostname R1
@@ -29,8 +29,14 @@ fn missing_intended_line_is_destructive() {
     let p = match_intent_presence(intent, RUNNING);
     assert_eq!(p.status, "drift");
     assert_eq!(p.severity, DriftSeverity::Destructive);
-    let joined: Vec<&str> = p.blocks.iter().flat_map(|b| b.changes.iter().map(|c| c.line())).collect();
-    assert!(joined.iter().any(|l| l.contains("passive-interface default")));
+    let joined: Vec<&str> = p
+        .blocks
+        .iter()
+        .flat_map(|b| b.changes.iter().map(|c| c.line()))
+        .collect();
+    assert!(joined
+        .iter()
+        .any(|l| l.contains("passive-interface default")));
 }
 
 #[test]
@@ -40,7 +46,11 @@ fn changed_value_is_reported() {
     let p = match_intent_presence(intent, RUNNING);
     assert_eq!(p.status, "drift");
     // A changed value counts as a deletion (intended value differs).
-    assert!(p.stats.deletions >= 1, "expected a Changed delta, got {:?}", p.blocks);
+    assert!(
+        p.stats.deletions >= 1,
+        "expected a Changed delta, got {:?}",
+        p.blocks
+    );
 }
 
 #[test]
@@ -49,7 +59,11 @@ fn device_extra_config_is_ignored() {
     // must NOT appear as drift.
     let intent = "router eigrp 10\n bfd all-interfaces\n";
     let p = match_intent_presence(intent, RUNNING);
-    assert_eq!(p.status, "in_sync", "extra device config leaked: {:?}", p.blocks);
+    assert_eq!(
+        p.status, "in_sync",
+        "extra device config leaked: {:?}",
+        p.blocks
+    );
 }
 
 #[test]

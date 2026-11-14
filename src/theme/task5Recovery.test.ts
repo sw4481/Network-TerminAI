@@ -101,8 +101,8 @@ describe("Task 5 theme recovery", () => {
     expect(source("src/components/IaCCommandBlock.css")).toContain(
       "color: var(--iac-modified)",
     );
-    expect(source("src/components/topology/TopologyTab.tsx")).toContain(
-      "border: 1px solid var(--topology-success)",
+    expect(source("src/components/topology/TopologyTab.css")).toMatch(
+      /\.topology-discovery-report\s*\{[^}]*border-bottom: 1px solid var\(--border-default\);[^}]*color: var\(--text-primary\);[^}]*background: var\(--surface-2\);/,
     );
     expect(source("src/features/troubleshoot/StepNode.css")).toContain(
       "color: var(--troubleshoot-running)",

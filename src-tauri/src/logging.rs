@@ -1,8 +1,57 @@
 use anyhow::{Context, Result};
-use std::path::PathBuf;
-use tracing::Level;
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
+use tracing::{
+    field::{Field, Visit},
+    Event, Level, Metadata, Subscriber,
+};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{
+    fmt,
+    layer::{Context as LayerContext, SubscriberExt},
+    util::SubscriberInitExt,
+    EnvFilter, Layer,
+};
+
+static SSH_PRIVACY_INSTALLED: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn ssh_privacy_installed() -> bool {
+    SSH_PRIVACY_INSTALLED.load(Ordering::Acquire)
+}
+
+// Peer-controlled payloads appear at every russh level, including future modules.
+struct SshWirePrivacy;
+fn russh_target(target: &str) -> bool {
+    target == "russh" || target.starts_with("russh::")
+}
+#[derive(Default)]
+struct LogTarget {
+    wire: bool,
+}
+impl Visit for LogTarget {
+    fn record_str(&mut self, field: &Field, value: &str) {
+        if field.name() == "log.target" {
+            self.wire = russh_target(value);
+        }
+    }
+    fn record_debug(&mut self, _: &Field, _: &dyn std::fmt::Debug) {}
+}
+impl<S: Subscriber> Layer<S> for SshWirePrivacy {
+    fn enabled(&self, metadata: &Metadata<'_>, _: LayerContext<'_, S>) -> bool {
+        !russh_target(metadata.target())
+    }
+    fn event_enabled(&self, event: &Event<'_>, _: LayerContext<'_, S>) -> bool {
+        if russh_target(event.metadata().target()) {
+            return false;
+        }
+        // tracing-log events use target `log`; inspect the real target without formatting payloads.
+        let mut target = LogTarget::default();
+        event.record(&mut target);
+        !target.wire
+    }
+}
 
 /// Log level configuration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -100,8 +149,7 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
     let log_dir = config.log_dir.unwrap_or_else(default_log_dir);
 
     // Create log directory if it doesn't exist
-    std::fs::create_dir_all(&log_dir)
-        .context("Failed to create log directory")?;
+    std::fs::create_dir_all(&log_dir).context("Failed to create log directory")?;
 
     // Create a file appender with daily rotation
     let file_appender = RollingFileAppender::builder()
@@ -113,13 +161,12 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
         .context("Failed to create log file appender")?;
 
     // Create env filter
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            EnvFilter::new(format!(
-                "ccie_terminal_lib={}",
-                config.level.to_tracing_level()
-            ))
-        });
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(format!(
+            "ccie_terminal_lib={}",
+            config.level.to_tracing_level()
+        ))
+    });
 
     // Build the subscriber based on mode
     let result = if config.production_mode {
@@ -131,8 +178,9 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .json()
                     .with_writer(file_appender)
                     .with_current_span(true)
-                    .with_span_list(true)
+                    .with_span_list(true),
             )
+            .with(SshWirePrivacy)
             .try_init()
     } else {
         // Pretty print for development
@@ -145,21 +193,15 @@ pub fn init_logging(config: LogConfig) -> Result<()> {
                     .with_file(true)
                     .with_line_number(true)
                     .with_thread_ids(true)
-                    .with_target(true)
+                    .with_target(true),
             )
+            .with(SshWirePrivacy)
             .try_init()
     };
 
-    // Handle the case where subscriber is already initialized (in tests)
-    if let Err(e) = result {
-        // Check if it's because a subscriber is already set
-        if e.to_string().contains("already been set") {
-            // Silently ignore in tests - subscriber is already initialized
-            return Ok(());
-        } else {
-            return Err(anyhow::anyhow!("Failed to initialize tracing subscriber: {}", e));
-        }
-    }
+    result.map_err(|e| anyhow::anyhow!("Failed to initialize tracing subscriber: {e}"))?;
+    // try_init also installs LogTracer; a partial/conflicting installation is unsafe.
+    SSH_PRIVACY_INSTALLED.store(true, Ordering::Release);
 
     tracing::info!(
         log_dir = ?log_dir,
@@ -222,4 +264,11 @@ mod tests {
         assert!(dir.to_string_lossy().contains("ccie-terminal"));
         assert!(dir.to_string_lossy().contains("logs"));
     }
+}
+
+// Reuse the integration cases without Cargo building the application's binary.
+#[cfg(test)]
+mod integration_tests {
+    use crate as ccie_terminal_lib;
+    include!("../tests/logging_test.rs");
 }

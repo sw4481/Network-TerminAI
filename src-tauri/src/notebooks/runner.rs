@@ -149,9 +149,7 @@ pub trait AssertionEvaluator: Send + Sync {
 
 // -------- default assertion evaluator --------
 
-pub type ParseFn = Arc<
-    dyn Fn(&str, &str, &str, &str) -> Result<serde_json::Value> + Send + Sync,
->;
+pub type ParseFn = Arc<dyn Fn(&str, &str, &str, &str) -> Result<serde_json::Value> + Send + Sync>;
 
 pub struct DefaultAssertionEvaluator {
     pub pty: Arc<dyn PtyExecutor>,
@@ -173,10 +171,7 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
         let expected = spec.expected.clone();
 
         let block_id = format!("assert-{}", uuid::Uuid::new_v4());
-        let result = self
-            .pty
-            .run_command(tab_id, &cmd, &block_id)
-            .await?;
+        let result = self.pty.run_command(tab_id, &cmd, &block_id).await?;
 
         // First try the configured parser. If parsing fails (no parser for
         // this vendor/command, or the sidecar is unreachable), fall back to a
@@ -229,11 +224,7 @@ fn contains(actual: &serde_json::Value, expected: &serde_json::Value) -> bool {
     }
 }
 
-fn num_cmp(
-    a: &serde_json::Value,
-    b: &serde_json::Value,
-    cmp: impl Fn(f64, f64) -> bool,
-) -> bool {
+fn num_cmp(a: &serde_json::Value, b: &serde_json::Value, cmp: impl Fn(f64, f64) -> bool) -> bool {
     match (a.as_f64(), b.as_f64()) {
         (Some(x), Some(y)) => cmp(x, y),
         _ => false,
@@ -339,10 +330,7 @@ impl NotebookRunner {
                 None,
                 None,
             )?;
-            let _ = self
-                .event_tx
-                .send(RunEvent::CellStarted { cell_idx })
-                .await;
+            let _ = self.event_tx.send(RunEvent::CellStarted { cell_idx }).await;
 
             // SECURITY GATE — Plan 09. For Command cells: when this
             // notebook's runner was given a `NotebookGuardrail` (i.e.
@@ -355,9 +343,7 @@ impl NotebookRunner {
             if let NotebookCell::Command { content, .. } = cell {
                 if let Some(g) = &ctx.guardrail {
                     let substituted = substitute(content, &self.params);
-                    if let Err(reason) =
-                        classify_command_for_notebook(g, &substituted)
-                    {
+                    if let Err(reason) = classify_command_for_notebook(g, &substituted) {
                         cell_run_upsert(
                             &ctx.db,
                             &self.cfg.run_id,
@@ -389,7 +375,9 @@ impl NotebookRunner {
                     let block_id = format!("nb-{}-{}", self.cfg.run_id, cell_idx);
                     match ctx.pty.run_command(&self.cfg.tab_id, &cmd, &block_id).await {
                         Ok(r) => match r.exit_code {
-                            None | Some(0) => CellOutcome::Passed { block_id: Some(block_id) },
+                            None | Some(0) => CellOutcome::Passed {
+                                block_id: Some(block_id),
+                            },
                             Some(code) => CellOutcome::Failed {
                                 block_id: Some(block_id),
                                 error: format!("command exited with code {code}"),
@@ -407,7 +395,9 @@ impl NotebookRunner {
                         .evaluate(&self.cfg.tab_id, spec, &self.params)
                         .await
                     {
-                        Ok(AssertionOutcome::Passed { .. }) => CellOutcome::Passed { block_id: None },
+                        Ok(AssertionOutcome::Passed { .. }) => {
+                            CellOutcome::Passed { block_id: None }
+                        }
                         Ok(AssertionOutcome::Failed { reason, .. }) => CellOutcome::Failed {
                             block_id: None,
                             error: reason,
@@ -549,8 +539,13 @@ impl NotebookRunner {
 
 enum CellOutcome {
     Skipped,
-    Passed { block_id: Option<String> },
-    Failed { block_id: Option<String>, error: String },
+    Passed {
+        block_id: Option<String>,
+    },
+    Failed {
+        block_id: Option<String>,
+        error: String,
+    },
     Cancelled,
 }
 
@@ -769,7 +764,9 @@ pub mod tests {
     async fn happy_path_runs_all_cells() {
         let db = schema_db();
         let nb = nb_with_cells(vec![
-            NotebookCell::Markdown { content: "hi".into() },
+            NotebookCell::Markdown {
+                content: "hi".into(),
+            },
             NotebookCell::Command {
                 content: "echo hello".into(),
                 metadata: CommandMeta::default(),
@@ -813,7 +810,10 @@ pub mod tests {
         while ev_rx.recv().await.is_some() {
             count += 1;
         }
-        assert!(count >= 4, "expected ≥4 events (2 cells × 2 + run finished), got {count}");
+        assert!(
+            count >= 4,
+            "expected ≥4 events (2 cells × 2 + run finished), got {count}"
+        );
 
         // Verify DB rows.
         let conn = db.lock();
@@ -826,7 +826,11 @@ pub mod tests {
             .collect();
         assert_eq!(cell_rows, vec![(0, "skipped".into()), (1, "passed".into())]);
         let run_status: String = conn
-            .query_row("SELECT status FROM notebook_runs WHERE id='run-1'", [], |r| r.get(0))
+            .query_row(
+                "SELECT status FROM notebook_runs WHERE id='run-1'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(run_status, "completed");
     }
@@ -1144,9 +1148,8 @@ pub mod tests {
         let db = schema_db();
         let pty = MockPtyExecutor::new(vec![ok_pty("17.09.04")]);
         // parse_fn returns a fixed JSON shape regardless of input.
-        let parse_fn: ParseFn = Arc::new(|_v, _p, _c, _r| {
-            Ok(serde_json::json!({"version": "17.09.04"}))
-        });
+        let parse_fn: ParseFn =
+            Arc::new(|_v, _p, _c, _r| Ok(serde_json::json!({"version": "17.09.04"})));
         let evaluator = DefaultAssertionEvaluator {
             pty: pty.clone(),
             parse_fn,

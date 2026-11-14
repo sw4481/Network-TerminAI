@@ -110,8 +110,8 @@ export const CommandBlock = memo(function CommandBlock({
     [block.command],
   );
   const showTopologyPanel = isCompleted && isTopologyBlock;
-  const topologyNodes = useTopologyStore((s) => (showTopologyPanel ? s.nodes : EMPTY_NODES));
-  const topologyEdges = useTopologyStore((s) => (showTopologyPanel ? s.edges : EMPTY_EDGES));
+  const topologyNodes = useTopologyStore((s) => (showTopologyPanel ? (s.currentGraphId === GLOBAL_GRAPH_ID ? s.nodes : s.globalNodes) : EMPTY_NODES));
+  const topologyEdges = useTopologyStore((s) => (showTopologyPanel ? (s.currentGraphId === GLOBAL_GRAPH_ID ? s.edges : s.globalEdges) : EMPTY_EDGES));
   const currentTab = useTabs((s) => s.tabs.find((t) => t.id === block.tabId));
   const sourceDeviceRef = useMemo(
     () => currentTab?.title || currentTab?.id || block.tabId,

@@ -39,7 +39,11 @@ pub fn notify_script_path() -> Result<PathBuf> {
 fn codex_config_path() -> Result<PathBuf> {
     let home = std::env::var("CODEX_HOME")
         .map(PathBuf::from)
-        .or_else(|_| dirs::home_dir().map(|h| h.join(".codex")).context("home_dir"))?;
+        .or_else(|_| {
+            dirs::home_dir()
+                .map(|h| h.join(".codex"))
+                .context("home_dir")
+        })?;
     Ok(home.join("config.toml"))
 }
 
@@ -91,7 +95,9 @@ pub fn merged_config(existing: Option<&str>, script_path: &str) -> Result<Option
         "notify".to_string(),
         toml::Value::Array(vec![toml::Value::String(script_path.to_string())]),
     );
-    Ok(Some(toml::to_string_pretty(&doc).context("serialize codex config.toml")?))
+    Ok(Some(
+        toml::to_string_pretty(&doc).context("serialize codex config.toml")?,
+    ))
 }
 
 /// Install the notify script and additively wire it into the user's real
@@ -150,14 +156,19 @@ trust_level = "trusted"
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
 "#;
-        let out = merged_config(Some(existing), "/x/codex-notify.sh").unwrap().unwrap();
+        let out = merged_config(Some(existing), "/x/codex-notify.sh")
+            .unwrap()
+            .unwrap();
         let doc: toml::Table = toml::from_str(&out).unwrap();
         // Our key added...
         assert!(doc.contains_key("notify"));
         // ...and everything preserved.
         assert_eq!(doc["model"].as_str().unwrap(), "gpt-5.5");
         assert!(doc["projects"].as_table().unwrap().contains_key("/tmp"));
-        assert!(doc["mcp_servers"].as_table().unwrap().contains_key("context7"));
+        assert!(doc["mcp_servers"]
+            .as_table()
+            .unwrap()
+            .contains_key("context7"));
     }
 
     #[test]
@@ -178,4 +189,3 @@ model = "gpt-5.5"
         assert!(NOTIFY_SCRIPT.contains("browser-control.json"));
     }
 }
-

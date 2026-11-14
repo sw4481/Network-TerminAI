@@ -194,7 +194,9 @@ async fn run_snapshot_rolls_back_on_mid_run_failure() {
         .unwrap();
     assert_eq!(snapshots, 0, "snapshot row leaked through rollback");
     let results: i64 = conn
-        .query_row("SELECT COUNT(*) FROM change_snapshot_results", [], |r| r.get(0))
+        .query_row("SELECT COUNT(*) FROM change_snapshot_results", [], |r| {
+            r.get(0)
+        })
         .unwrap();
     assert_eq!(results, 0, "result row leaked through rollback");
     let parsed: i64 = conn

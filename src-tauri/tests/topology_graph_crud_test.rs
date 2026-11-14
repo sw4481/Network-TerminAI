@@ -1,9 +1,7 @@
 //! Plan 13 Phase 1.3 — graph CRUD + edge canonicalisation coverage.
 
 use ccie_terminal_lib::db;
-use ccie_terminal_lib::topology::{
-    graph, TopologyEdge, TopologyNode, GLOBAL_GRAPH_ID,
-};
+use ccie_terminal_lib::topology::{graph, TopologyEdge, TopologyNode, GLOBAL_GRAPH_ID};
 use rusqlite::Connection;
 use tempfile::TempDir;
 

@@ -1,7 +1,5 @@
-use ccie_terminal_lib::fanout::executor::{
-    EventSink, ExecuteArgs, Executor, MemberRef, NoopParse,
-};
 use ccie_terminal_lib::fanout::events::FanoutEvent;
+use ccie_terminal_lib::fanout::executor::{EventSink, ExecuteArgs, Executor, MemberRef, NoopParse};
 use ccie_terminal_lib::fanout::model::DeviceKind;
 use ccie_terminal_lib::fanout::store::FanoutStore;
 use ccie_terminal_lib::fanout::worker::MockWorkerFactory;
@@ -29,12 +27,9 @@ async fn run_persists_block_and_tag_per_device() {
         let conn = db.lock();
         (0..3)
             .map(|i| {
-                let id = FanoutStore::seed_test_ssh(
-                    &conn,
-                    &format!("d{i}"),
-                    &format!("10.0.0.{i}"),
-                )
-                .unwrap();
+                let id =
+                    FanoutStore::seed_test_ssh(&conn, &format!("d{i}"), &format!("10.0.0.{i}"))
+                        .unwrap();
                 MemberRef {
                     device_id: id,
                     device_kind: DeviceKind::Ssh,
@@ -64,9 +59,7 @@ async fn run_persists_block_and_tag_per_device() {
     let conn = db.lock();
     // 3 result rows, all success, each with a non-null block_id
     let mut stmt = conn
-        .prepare(
-            "SELECT block_id, status FROM fanout_run_results WHERE run_id = ?1",
-        )
+        .prepare("SELECT block_id, status FROM fanout_run_results WHERE run_id = ?1")
         .unwrap();
     let rows: Vec<(Option<String>, String)> = stmt
         .query_map([&run_id], |r| Ok((r.get(0)?, r.get(1)?)))
@@ -112,12 +105,9 @@ async fn fanout_run_get_returns_devices_after_run() {
         let conn = db.lock();
         (0..2)
             .map(|i| {
-                let id = FanoutStore::seed_test_ssh(
-                    &conn,
-                    &format!("d{i}"),
-                    &format!("10.0.0.{i}"),
-                )
-                .unwrap();
+                let id =
+                    FanoutStore::seed_test_ssh(&conn, &format!("d{i}"), &format!("10.0.0.{i}"))
+                        .unwrap();
                 MemberRef {
                     device_id: id,
                     device_kind: DeviceKind::Ssh,

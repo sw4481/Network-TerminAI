@@ -26,12 +26,12 @@ enum EscapeState {
 }
 
 #[derive(Debug, Default)]
-struct AnsiStripper {
+pub(crate) struct AnsiStripper {
     state: EscapeState,
 }
 
 impl AnsiStripper {
-    fn feed(&mut self, input: &str, mut emit: impl FnMut(char)) {
+    pub(crate) fn feed(&mut self, input: &str, mut emit: impl FnMut(char)) {
         for ch in input.chars() {
             let state = std::mem::take(&mut self.state);
             self.state = match state {

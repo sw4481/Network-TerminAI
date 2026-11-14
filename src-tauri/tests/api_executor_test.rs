@@ -2,10 +2,10 @@
 //! header/query merging, timeout, response body cap, gzip decode, and
 //! redirect auth-stripping for the `api_runner` module.
 
+use ccie_terminal_lib::api_runner::types::{BodyKindDefault, HttpMethod};
 use ccie_terminal_lib::api_runner::{
     execute_request, executor, types::BodyKind, ApiAuth, ApiRequest,
 };
-use ccie_terminal_lib::api_runner::types::{BodyKindDefault, HttpMethod};
 use std::collections::BTreeMap;
 use std::time::Duration;
 use wiremock::matchers::{body_string, header, method, path, query_param};
@@ -47,7 +47,10 @@ async fn get_returns_body_and_headers() {
 
     assert_eq!(resp.status_code, 200);
     assert_eq!(resp.body, br#"{"ok":true}"#);
-    assert_eq!(resp.headers.get("x-trace").map(String::as_str), Some("abc123"));
+    assert_eq!(
+        resp.headers.get("x-trace").map(String::as_str),
+        Some("abc123")
+    );
     assert!(resp.error.is_none());
     assert!(resp.duration_ms < 5_000);
 }

@@ -23,7 +23,7 @@ export function monacoTestAliases() {
       ),
     },
     {
-      find: "monaco-editor",
+      find: /^monaco-editor$/,
       replacement: requireFromConfig.resolve(
         "monaco-editor/esm/vs/editor/editor.main.js",
       ),

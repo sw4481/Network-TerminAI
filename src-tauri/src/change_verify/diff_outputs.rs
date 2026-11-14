@@ -44,7 +44,8 @@ fn load_output(conn: &Connection, parsed_output_id: i64) -> Result<OutputData> {
         )
         .map_err(|e| anyhow!("parsed_output {parsed_output_id} not found: {e}"))?;
 
-    let data: Value = serde_json::from_str(&row.4).map_err(|e| anyhow!("invalid data_json: {e}"))?;
+    let data: Value =
+        serde_json::from_str(&row.4).map_err(|e| anyhow!("invalid data_json: {e}"))?;
     Ok(OutputData {
         parser: row.0,
         command: row.1,

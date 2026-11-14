@@ -147,12 +147,11 @@ async fn run_snapshot_inner(
 }
 
 pub fn get_snapshot(db: &Connection, id: &str) -> Result<ChangeSnapshot> {
-    let (tab_id, bundle_id, label_str, captured_at): (String, String, String, i64) = db
-        .query_row(
-            "SELECT tab_id,bundle_id,label,captured_at FROM change_snapshots WHERE id = ?1",
-            params![id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-        )?;
+    let (tab_id, bundle_id, label_str, captured_at): (String, String, String, i64) = db.query_row(
+        "SELECT tab_id,bundle_id,label,captured_at FROM change_snapshots WHERE id = ?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?;
     let label = match label_str.as_str() {
         "pre" => SnapshotLabel::Pre,
         "post" => SnapshotLabel::Post,
@@ -290,7 +289,8 @@ pub async fn run_post_and_report(
                 if msg.contains("UNIQUE constraint failed") && msg.contains("change_reports") {
                     bail!(
                         "report already exists for this pre/post snapshot pair (pre={}, post={})",
-                        pre.id, post.id
+                        pre.id,
+                        post.id
                     );
                 }
                 return Err(anyhow::Error::from(e).context("insert change_report"));
@@ -301,10 +301,7 @@ pub async fn run_post_and_report(
     Ok((report_id, summary, now))
 }
 
-pub fn get_report(
-    db: &Connection,
-    id: &str,
-) -> Result<(ReportSummary, Vec<ExpectedDelta>, i64)> {
+pub fn get_report(db: &Connection, id: &str) -> Result<(ReportSummary, Vec<ExpectedDelta>, i64)> {
     let (summary_json, approved_json, created_at): (String, Option<String>, i64) = db.query_row(
         "SELECT summary_json, approved_deltas_json, created_at FROM change_reports WHERE id = ?1",
         params![id],

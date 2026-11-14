@@ -95,7 +95,10 @@ impl AuthStateStore {
 
         match auth {
             // Stateless variants go straight through unchanged.
-            ApiAuth::None | ApiAuth::Header { .. } | ApiAuth::Basic { .. } | ApiAuth::Bearer { .. } => {
+            ApiAuth::None
+            | ApiAuth::Header { .. }
+            | ApiAuth::Basic { .. }
+            | ApiAuth::Bearer { .. } => {
                 request.auth = auth;
                 execute_request(request).await
             }
@@ -109,11 +112,10 @@ impl AuthStateStore {
                 } else {
                     refresh_on_status
                 };
-                self.send_token_login(key, request, login, apply, statuses).await
+                self.send_token_login(key, request, login, apply, statuses)
+                    .await
             }
-            ApiAuth::SessionCookie { login } => {
-                self.send_session_cookie(key, request, login).await
-            }
+            ApiAuth::SessionCookie { login } => self.send_session_cookie(key, request, login).await,
             ApiAuth::Hook { module, function } => {
                 self.send_hook(request, module, function, hooks).await
             }
@@ -168,10 +170,7 @@ impl AuthStateStore {
             match run_token_login(&request, &login).await {
                 Ok(new_token) => *guard = Some(new_token),
                 Err(err) => {
-                    return error_response(
-                        &request,
-                        format!("token refresh failed: {err}"),
-                    );
+                    return error_response(&request, format!("token refresh failed: {err}"));
                 }
             }
         }
@@ -205,10 +204,7 @@ impl AuthStateStore {
             match build_session_client(&request, &login).await {
                 Ok(c) => *guard = Some(c),
                 Err(err) => {
-                    return error_response(
-                        &request,
-                        format!("session login failed: {err}"),
-                    );
+                    return error_response(&request, format!("session login failed: {err}"));
                 }
             }
         }
@@ -332,8 +328,7 @@ async fn run_token_login(req: &ApiRequest, login: &TokenLoginEndpoint) -> Result
             resp.status_text
         ));
     }
-    let body_str = std::str::from_utf8(&resp.body)
-        .context("login response is not UTF-8")?;
+    let body_str = std::str::from_utf8(&resp.body).context("login response is not UTF-8")?;
     let json: serde_json::Value =
         serde_json::from_str(body_str).context("login response is not JSON")?;
     let token = extract_token(&json, &login.token_jsonpath)
@@ -361,11 +356,7 @@ pub fn extract_token(json: &serde_json::Value, path: &str) -> Option<String> {
         } else {
             (segment, None)
         };
-        cur = if name.is_empty() {
-            cur
-        } else {
-            cur.get(name)?
-        };
+        cur = if name.is_empty() { cur } else { cur.get(name)? };
         if let Some(i) = idx {
             cur = cur.get(i)?;
         }
@@ -403,11 +394,7 @@ fn resolve_login_url(request_url: &str, login_url: &str) -> Result<String> {
     }
 }
 
-async fn execute_with_token(
-    request: &ApiRequest,
-    apply: &TokenApply,
-    token: &str,
-) -> ApiResponse {
+async fn execute_with_token(request: &ApiRequest, apply: &TokenApply, token: &str) -> ApiResponse {
     let mut req = request.clone();
     // Apply the token as the auth strategy — then hand off to execute_request
     // which will convert it into the concrete header via auth::apply_auth.
@@ -428,9 +415,7 @@ async fn build_session_client(
     login: &SessionCookieLogin,
 ) -> Result<SessionClient> {
     use crate::api_runner::types::DEFAULT_TIMEOUT_SECS;
-    let timeout = std::time::Duration::from_secs(
-        req.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS),
-    );
+    let timeout = std::time::Duration::from_secs(req.timeout_secs.unwrap_or(DEFAULT_TIMEOUT_SECS));
     let client = super::executor::build_client_with(req, timeout, true)?;
 
     // Perform the login call. We use the shared client (which owns the
@@ -454,10 +439,7 @@ async fn build_session_client(
     }
     let resp = rb.send().await.context("session login send")?;
     if !resp.status().is_success() {
-        return Err(anyhow!(
-            "session login returned status {}",
-            resp.status()
-        ));
+        return Err(anyhow!("session login returned status {}", resp.status()));
     }
 
     // Extract the XSRF-TOKEN value from Set-Cookie on the login response.
@@ -467,10 +449,7 @@ async fn build_session_client(
     // cookie is present. Servers that don't set this cookie simply get
     // `xsrf_token: None` and follow-up requests go out unchanged.
     let xsrf_token = extract_xsrf_token(&resp);
-    Ok(SessionClient {
-        client,
-        xsrf_token,
-    })
+    Ok(SessionClient { client, xsrf_token })
 }
 
 /// Scan the login response's `Set-Cookie` headers for a CSRF token the
@@ -493,10 +472,7 @@ fn extract_xsrf_token(resp: &reqwest::Response) -> Option<String> {
             // Some servers URL-encode the value — reqwest stores it raw,
             // so we URL-decode here for symmetry with what the client
             // would send in the matching header.
-            return Some(
-                urlencoding_decode(value)
-                    .unwrap_or_else(|| value.to_string()),
-            );
+            return Some(urlencoding_decode(value).unwrap_or_else(|| value.to_string()));
         }
     }
     None
@@ -523,10 +499,7 @@ fn urlencoding_decode(s: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
-async fn send_with_client(
-    session: &SessionClient,
-    request: &ApiRequest,
-) -> ApiResponse {
+async fn send_with_client(session: &SessionClient, request: &ApiRequest) -> ApiResponse {
     use crate::api_runner::types::MAX_RESPONSE_BODY;
     use std::time::Instant;
     let started = Instant::now();
@@ -551,10 +524,7 @@ async fn send_with_client(
             .any(|k| k.eq_ignore_ascii_case("x-xsrf-token"));
         if !already_set {
             if let Ok(val) = HeaderValue::from_str(token) {
-                headers.insert(
-                    HeaderName::from_static("x-xsrf-token"),
-                    val,
-                );
+                headers.insert(HeaderName::from_static("x-xsrf-token"), val);
             }
         }
     }
@@ -588,18 +558,11 @@ async fn send_with_client(
 
     let final_url = resp.url().to_string();
     let status_code = resp.status().as_u16();
-    let status_text = resp
-        .status()
-        .canonical_reason()
-        .unwrap_or("")
-        .to_string();
+    let status_text = resp.status().canonical_reason().unwrap_or("").to_string();
 
     let mut headers_out = std::collections::BTreeMap::new();
     for (k, v) in resp.headers() {
-        headers_out.insert(
-            k.as_str().to_string(),
-            v.to_str().unwrap_or("").to_string(),
-        );
+        headers_out.insert(k.as_str().to_string(), v.to_str().unwrap_or("").to_string());
     }
     let body = match resp.bytes().await {
         Ok(b) => b,

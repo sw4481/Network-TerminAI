@@ -12,11 +12,15 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { TabBar } from "./TabBar";
 import { useTabs } from "../state/tabsStore";
 import { useEditorStore } from "../state/editorStore";
 import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import { MANAGED_SSH_SHELL_MARKER } from "../lib/sessionRestore";
+
+vi.mock('../features/telemetry/store', () => ({ telemetryWorkspaces: { close: vi.fn().mockResolvedValue(undefined) } }));
+import { telemetryWorkspaces } from '../features/telemetry/store';
 
 // Mock the Tauri IPC wrappers so we can assert on them.
 vi.mock("../lib/tauri", () => ({
@@ -55,6 +59,194 @@ describe("TabBar — regression + tab types", () => {
   beforeEach(() => {
     resetStore();
     vi.clearAllMocks();
+    vi.mocked(telemetryWorkspaces.close).mockReset().mockResolvedValue(undefined);
+  });
+
+  it('offers Telemetry in the chooser', () => {
+    const onNewTelemetry = vi.fn();
+    render(<TabBar onNew={vi.fn()} onNewTelemetry={onNewTelemetry} />);
+    fireEvent.click(screen.getByTitle('More tab types…'));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Telemetry/ }));
+    expect(onNewTelemetry).toHaveBeenCalledOnce();
+  });
+
+  it('awaits Telemetry Close before removing the tab, without PTY cleanup', async () => {
+    let resolve!: () => void;
+    vi.mocked(telemetryWorkspaces.close).mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    act(() => useTabs.getState().addTab({ id: 'telemetry', title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' }));
+    const removeTab = vi.spyOn(useTabs.getState(), 'removeTab');
+    render(<TabBar onNew={vi.fn()} onDetach={vi.fn()} />);
+    const tab = screen.getByTestId('tab-telemetry');
+    expect(tab.querySelector('.tab-type-badge')?.textContent).toBe('TELEMETRY');
+    expect(tab.querySelector('.tab-detach')).toBeNull();
+    await act(async () => fireEvent.click(tab.querySelector('.tab-close')!));
+    expect(removeTab).not.toHaveBeenCalled();
+    await act(async () => resolve());
+    expect(useTabs.getState().tabs).toHaveLength(0);
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    removeTab.mockRestore();
+  });
+
+  it('retains Telemetry after rejected Close without falling through to PTY cleanup', async () => {
+    vi.mocked(telemetryWorkspaces.close).mockRejectedValueOnce(new Error('cleanup pending'));
+    act(() => useTabs.getState().addTab({ id: 'telemetry', title: 'Telemetry', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' }));
+    const removeTab = vi.spyOn(useTabs.getState(), 'removeTab');
+    render(<TabBar onNew={vi.fn()} />);
+    await act(async () => fireEvent.click(screen.getByTestId('tab-telemetry').querySelector('.tab-close')!));
+    expect(removeTab).not.toHaveBeenCalled();
+    expect(useTabs.getState().tabs).toHaveLength(1);
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    removeTab.mockRestore();
+  });
+
+  it('selects named Telemetry workspaces with the keyboard', async () => {
+    act(() => {
+      for (const id of ['First', 'Second']) useTabs.getState().addTab({ id, title: id, shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const first = screen.getByRole('button', { name: 'Select Telemetry workspace First' });
+    act(() => first.focus());
+    await userEvent.setup().keyboard('{Enter}');
+    expect(first).toHaveAttribute('aria-pressed', 'true');
+    expect(useTabs.getState().activeTabId).toBe('First');
+  });
+
+  it.each(['telemetry', 'canvas', 'terminal', 'none'] as const)('restores useful focus after deferred Telemetry close with %s survivor', async survivor => {
+    let resolve!: () => void;
+    vi.mocked(telemetryWorkspaces.close).mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    act(() => {
+      if (survivor !== 'none') useTabs.getState().addTab({ id: 'survivor', title: 'Survivor', shell_cmd: survivor === 'terminal' ? '/bin/zsh' : '', cwd: '/', created_at: 0, tab_type: survivor });
+      useTabs.getState().addTab({ id: 'closing', title: 'Closing', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const close = screen.getByTestId('tab-closing').querySelector<HTMLButtonElement>('.tab-close')!;
+    act(() => close.focus());
+    await userEvent.setup().keyboard('{Enter}');
+    expect(close).toHaveFocus();
+    expect(screen.getByTestId('tab-closing')).toBeInTheDocument();
+    await act(async () => resolve());
+    expect(screen.queryByTestId('tab-closing')).toBeNull();
+    const next = survivor === 'telemetry' ? screen.getByRole('button', { name: 'Select Telemetry workspace Survivor' })
+      : survivor === 'canvas' ? screen.getByRole('button', { name: 'Select Canvas investigation Survivor' })
+      : screen.getByTitle('New terminal tab');
+    expect(next).toHaveFocus();
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    expect(close).toHaveAccessibleName('Close Telemetry workspace Closing');
+  });
+
+  it.each(['reject', 'moved-focus'] as const)('preserves focus on deferred Telemetry close: %s', async outcome => {
+    let resolve!: () => void, reject!: (reason: Error) => void;
+    vi.mocked(telemetryWorkspaces.close).mockReturnValueOnce(new Promise<void>((done, fail) => { resolve = done; reject = fail; }));
+    act(() => useTabs.getState().addTab({ id: 'closing', title: 'Closing', shell_cmd: '', cwd: '/', created_at: 0, tab_type: 'telemetry' }));
+    render(<><TabBar onNew={vi.fn()} /><button>Another task</button></>);
+    const close = screen.getByTestId('tab-closing').querySelector<HTMLButtonElement>('.tab-close')!;
+    act(() => close.focus());
+    await userEvent.setup().keyboard('{Enter}');
+    if (outcome === 'reject') {
+      await act(async () => reject(new Error('cleanup pending')));
+      expect(screen.getByTestId('tab-closing')).toBeInTheDocument();
+      expect(close).toHaveFocus();
+    } else {
+      const other = screen.getByRole('button', { name: 'Another task' });
+      act(() => other.focus());
+      await act(async () => resolve());
+      expect(screen.queryByTestId('tab-closing')).toBeNull();
+      expect(other).toHaveFocus();
+    }
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+  });
+
+  it("offers Canvas in the visible tab chooser without creating a terminal", () => {
+    const onNew = vi.fn(), onNewCanvas = vi.fn();
+    render(<TabBar onNew={onNew} onNewCanvas={onNewCanvas} />);
+    fireEvent.click(screen.getByTitle("More tab types…"));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Canvas investigation/ }));
+    expect(onNewCanvas).toHaveBeenCalledOnce();
+    expect(onNew).not.toHaveBeenCalled();
+  });
+
+  it("closes Canvas without disposing a terminal or exposing detach", async () => {
+    act(() => useTabs.getState().addTab({ id: "canvas-1", title: "Investigation", shell_cmd: "", cwd: "", created_at: 0, tab_type: "canvas" }));
+    render(<TabBar onNew={vi.fn()} onDetach={vi.fn()} />);
+    const tab = screen.getByTestId("tab-canvas-1");
+    expect(tab.querySelector(".tab-type-badge")?.textContent).toBe("CANVAS");
+    expect(tab.querySelector(".tab-detach")).toBeNull();
+    expect(tab.querySelector(".tab-close")).toHaveAccessibleName("Close Canvas investigation Investigation");
+    await act(async () => fireEvent.click(tab.querySelector(".tab-close")!));
+    expect(useTabs.getState().tabs).toHaveLength(0);
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+    expect(ptyKill).not.toHaveBeenCalled();
+    expect(tabCloseApi).not.toHaveBeenCalled();
+  });
+
+  it("lets the keyboard leave and reselect a named Canvas without using its close control", async () => {
+    act(() => {
+      for (const [id, title] of [["canvas-a", "First"], ["canvas-b", "Second"]]) useTabs.getState().addTab({ id, title, shell_cmd: "", cwd: "", created_at: 0, tab_type: "canvas" });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const first = screen.getByRole("button", { name: "Select Canvas investigation First" });
+    const second = screen.getByRole("button", { name: "Select Canvas investigation Second" });
+    const user = userEvent.setup();
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    act(() => first.focus());
+    await user.keyboard("{Enter}");
+    expect(first).toHaveAttribute("aria-pressed", "true");
+    expect(second).toHaveAttribute("aria-pressed", "false");
+    act(() => second.focus());
+    await user.keyboard(" ");
+    expect(useTabs.getState().activeTabId).toBe("canvas-b");
+    expect(second).toHaveAttribute("aria-pressed", "true");
+    expect(useTabs.getState().tabs).toHaveLength(2);
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+  });
+
+  it("restores keyboard focus to the surviving Canvas selection after closing the active Canvas", async () => {
+    act(() => {
+      for (const [id, title] of [["canvas-a", "First"], ["canvas-b", "Second"]]) useTabs.getState().addTab({ id, title, shell_cmd: "", cwd: "", created_at: 0, tab_type: "canvas" });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const close = screen.getByTestId("tab-canvas-b").querySelector<HTMLButtonElement>(".tab-close")!;
+    const user = userEvent.setup();
+    act(() => close.focus());
+    await user.keyboard("{Enter}");
+    const survivor = screen.getByRole("button", { name: "Select Canvas investigation First" });
+    expect(survivor).toHaveFocus();
+    expect(survivor).toHaveAttribute("aria-pressed", "true");
+    expect(useTabs.getState().activeTabId).toBe("canvas-a");
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("recovers focus to the new-tab control after final Canvas close, with terminal fallback=%s", async withTerminal => {
+    act(() => {
+      if (withTerminal) useTabs.getState().addTab({ id: "terminal", title: "Shell", shell_cmd: "/bin/zsh", cwd: "/", created_at: 0, tab_type: "terminal" });
+      useTabs.getState().addTab({ id: "canvas-final", title: "Final", shell_cmd: "", cwd: "", created_at: 0, tab_type: "canvas" });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const close = screen.getByTestId("tab-canvas-final").querySelector<HTMLButtonElement>(".tab-close")!;
+    const user = userEvent.setup();
+    act(() => close.focus());
+    await user.keyboard(" ");
+    expect(screen.getByTitle("New terminal tab")).toHaveFocus();
+    expect(useTabs.getState().activeTabId).toBe(withTerminal ? "terminal" : null);
+    expect(terminalRegistry.dispose).not.toHaveBeenCalled();
+  });
+
+  it("focuses the still-active Canvas after keyboard closing an inactive Canvas", async () => {
+    act(() => {
+      for (const [id, title] of [["canvas-a", "First"], ["canvas-b", "Second"]]) useTabs.getState().addTab({ id, title, shell_cmd: "", cwd: "", created_at: 0, tab_type: "canvas" });
+    });
+    render(<TabBar onNew={vi.fn()} />);
+    const close = screen.getByTestId("tab-canvas-a").querySelector<HTMLButtonElement>(".tab-close")!;
+    const user = userEvent.setup();
+    act(() => close.focus());
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("button", { name: "Select Canvas investigation Second" })).toHaveFocus();
+    expect(useTabs.getState().activeTabId).toBe("canvas-b");
+    expect(useTabs.getState().tabs).toHaveLength(1);
   });
 
   it("renders the '+' button and calls onNew (Terminal path, backward compat)", () => {

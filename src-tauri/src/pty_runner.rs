@@ -36,8 +36,7 @@ impl PtyExecutor for AppStatePtyExecutor {
         command: &str,
         _block_id: &str,
     ) -> anyhow::Result<PtyRunResult> {
-        self.terminal_agent
-            .revoke_for_pty(tab_id, "user takeover");
+        self.terminal_agent.revoke_for_pty(tab_id, "user takeover");
         let scrollback_start = {
             let db = self.state_db.lock();
             crate::session::read_scrollback(&db, tab_id)

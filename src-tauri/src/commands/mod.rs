@@ -1,6 +1,8 @@
+pub mod agent_catalog;
 pub mod ai;
 pub mod appearance;
 pub mod browser;
+pub mod copilot_canvas;
 pub mod dap;
 pub mod diagrams;
 pub mod drift;
@@ -27,6 +29,7 @@ pub mod ssh;
 pub mod ssh_import;
 pub mod stp;
 pub mod structured;
+pub mod telemetry;
 pub mod topolograph;
 pub mod topology;
 pub mod troubleshoot;
@@ -292,8 +295,79 @@ pub struct PtyEventEnvelope {
     pub event: PtyEvent,
 }
 
+struct PtyOutputDrain {
+    operation: tokio::sync::Mutex<()>,
+    closing: std::sync::atomic::AtomicBool,
+    request: tokio::sync::Notify,
+    drained: tokio::sync::watch::Sender<bool>,
+}
+
+impl PtyOutputDrain {
+    fn new() -> Self {
+        let (drained, _) = tokio::sync::watch::channel(false);
+        Self {
+            operation: tokio::sync::Mutex::new(()),
+            closing: std::sync::atomic::AtomicBool::new(false),
+            request: tokio::sync::Notify::new(),
+            drained,
+        }
+    }
+
+    fn request_close(&self) {
+        self.closing
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.request.notify_one();
+    }
+
+    async fn next_event(
+        &self,
+        rx: &mut mpsc::Receiver<PtyEvent>,
+        closed: &mut bool,
+    ) -> Option<PtyEvent> {
+        loop {
+            if !*closed && self.closing.load(std::sync::atomic::Ordering::Acquire) {
+                rx.close();
+                *closed = true;
+            }
+            tokio::select! {
+                biased;
+                _ = self.request.notified(), if !*closed => {
+                    rx.close();
+                    *closed = true;
+                }
+                event = rx.recv() => return event,
+            }
+        }
+    }
+}
+
+async fn stop_terminal_log_after_output(
+    logging: Arc<crate::terminal_logging::TerminalLogManager>,
+    tab_id: String,
+    generation: String,
+    drain: Option<Arc<PtyOutputDrain>>,
+) -> Result<(), String> {
+    if let Some(drain) = drain {
+        drain.request_close();
+        let mut drained = drain.drained.subscribe();
+        drained
+            .wait_for(|done| *done)
+            .await
+            .map_err(|error| format!("Terminal output close: {error}"))?;
+    }
+    tokio::task::spawn_blocking(move || logging.stop(&tab_id, Some(&generation)))
+        .await
+        .map_err(|error| format!("Terminal log close: {error}"))?;
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "terminal_logging_close_tests.rs"]
+mod terminal_logging_close_tests;
+
 pub struct AppState {
     pub ptys: Arc<Mutex<HashMap<String, PtyHandle>>>,
+    pty_output_drains: Mutex<HashMap<String, Arc<PtyOutputDrain>>>,
     /// Serializes check, spawn and registration so two restores cannot claim one tab id.
     pty_spawn_lock: Arc<tokio::sync::Mutex<()>>,
     /// Capability-scoped Network Architect access to explicitly attached PTYs.
@@ -337,6 +411,7 @@ pub struct AppState {
     pub parser_cache: crate::parsers::cache::ParseCache,
     /// Bridge to the Python sidecar's `parse.request` NDJSON method.
     pub parser_bridge: crate::parsers::bridge::ParserBridge,
+    pub topology_discovery: Arc<crate::topology::discovery::TopologyDiscoveryService>,
     /// Live notebook runs — control-channel senders keyed by run_id.
     pub notebook_runs: Arc<crate::commands::notebooks_runnable::RunRegistry>,
     /// Multi-device fan-out executor (Plan 07). Lazily initialized on first
@@ -362,6 +437,7 @@ pub struct AppState {
     pub vault: Arc<VaultState>,
     /// Plan 14 — Session recording supervisor.
     pub recording: Arc<crate::recording::supervisor::RecordingSupervisor>,
+    pub terminal_logging: Arc<crate::terminal_logging::TerminalLogManager>,
     /// Plan 15 Phase 2 — In-flight troubleshoot run registry.
     /// Holds per-run cancel flags + prompt-resume oneshot
     /// senders. Lifetime is request-scoped: registered on
@@ -389,6 +465,10 @@ pub struct AppState {
         Arc<parking_lot::Mutex<Option<crate::heartbeat::scheduler::HeartbeatScheduler>>>,
     /// Native STP persistence and full-interval scheduler boundary.
     pub stp: Arc<crate::commands::stp::StpService>,
+    pub telemetry: Result<
+        Arc<crate::telemetry::service::TelemetryService>,
+        crate::telemetry::model::Diagnostic,
+    >,
     pub dictation: Arc<crate::dictation::DictationService>,
 }
 
@@ -419,6 +499,13 @@ impl AppState {
         let agent = Arc::new(AgentBridge::new(python, args));
 
         let db_arc = Arc::new(Mutex::new(db));
+        let telemetry = telemetry::create_service(
+            db_arc.clone(),
+            db_path
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .to_path_buf(),
+        );
 
         // Wire sidecar heartbeats into the DB-backed status row so the
         // frontend status chip has something to read. The worker thread owns
@@ -496,6 +583,8 @@ impl AppState {
         let github_auth_manager = Arc::new(crate::git::GitHubAuthManager::production());
         Self {
             ptys: Arc::new(Mutex::new(HashMap::new())),
+            telemetry,
+            pty_output_drains: Mutex::new(HashMap::new()),
             pty_spawn_lock: Arc::new(tokio::sync::Mutex::new(())),
             terminal_agent: Arc::new(crate::terminal_agent::TerminalAgentManager::default()),
             db: db_arc.clone(),
@@ -516,6 +605,7 @@ impl AppState {
             lsp_manager: Arc::new(crate::lsp::LspManager::new()),
             dap_manager: Arc::new(crate::dap::DapManager::new()),
             parser_cache,
+            topology_discovery: Arc::new(crate::topology::discovery::TopologyDiscoveryService::new(db_arc.clone(), parser_bridge.clone()).with_snmp(vault.clone())),
             parser_bridge,
             notebook_runs: crate::commands::notebooks_runnable::RunRegistry::new(),
             fanout_executor: Arc::new(Mutex::new(None)),
@@ -531,6 +621,7 @@ impl AppState {
             rag_bridge,
             vault,
             recording,
+            terminal_logging: Arc::new(crate::terminal_logging::TerminalLogManager::default()),
             troubleshoot: Arc::new(crate::troubleshoot::state::TroubleshootState::new()),
             pane_manager,
             browser_manager,
@@ -852,10 +943,17 @@ pub async fn pty_spawn(
     let pane_ctx_app = app.clone();
     let event_ptys = state.ptys.clone();
     let spawn_gate = state.pty_spawn_lock.clone();
+    let terminal_logging = state.terminal_logging.clone();
+    let output_drain = Arc::new(PtyOutputDrain::new());
+    state
+        .pty_output_drains
+        .lock()
+        .insert(tab_id.clone(), output_drain.clone());
     tokio::spawn(async move {
         let mut current_block: Option<String> = None;
+        let mut closing = false;
         tracing::info!(tab_id = %emit_tab_id, "Event loop started for tab");
-        while let Some(ev) = rx.recv().await {
+        while let Some(ev) = output_drain.next_event(&mut rx, &mut closing).await {
             // Keep the generation check through persistence and delivery atomic
             // with replacement. Never hold the PTY-map lock across manager calls.
             let _event_guard = spawn_gate.lock().await;
@@ -877,6 +975,9 @@ pub async fn pty_spawn(
             }
             #[cfg(not(target_os = "windows"))]
             terminal_agent.on_pty_event(&emit_tab_id, &ev);
+            if let PtyEvent::Output { bytes } = &ev {
+                terminal_logging.output(&emit_tab_id, &generation, bytes);
+            }
             // Forward PTY events to PaneContextManager for Phase 2 tracking.
             // NOTE: Using tab_id as pane_id temporarily until pane mapping is added.
             // We only emit pane_activity_updated on lifecycle transitions
@@ -1004,7 +1105,17 @@ pub async fn pty_spawn(
                 tracing::trace!(tab_id = %emit_tab_id, "Event sent successfully to frontend");
             }
         }
+        // Natural EOF follows both producers. Explicit close first closes the
+        // receiver, then drains its finite backlog before reaching this point.
         tracing::warn!(tab_id = %emit_tab_id, "Event loop exited");
+        if let Err(error) = tokio::task::spawn_blocking(move || {
+            terminal_logging.stop(&emit_tab_id, Some(&generation));
+        })
+        .await
+        {
+            tracing::warn!(%error, "Terminal output drain could not join log writer");
+        }
+        output_drain.drained.send_replace(true);
     });
 
     Ok(tab_id)
@@ -1358,25 +1469,137 @@ async fn confirm_managed_ssh_termination(
 }
 
 #[tauri::command]
-pub async fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String> {
-    // Validate tab_id
-    let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
-    let _spawn_guard = state.pty_spawn_lock.lock().await;
+pub async fn terminal_log_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    tab_id: String,
+    path: String,
+    mode: crate::terminal_logging::TerminalLogMode,
+) -> Result<crate::terminal_logging::TerminalLogStatus, String> {
+    let tab_id = validation::validate_tab_id(&tab_id).map_err(|error| error.to_string())?;
+    let drain = {
+        let _spawn_guard = state.pty_spawn_lock.lock().await;
+        state
+            .pty_output_drains
+            .lock()
+            .get(&tab_id)
+            .cloned()
+            .ok_or("This terminal pane is no longer running")?
+    };
+    // Only this pane's close waits for its file open; other panes keep flowing.
+    let _operation = drain.operation.lock().await;
+    let spawn_guard = state.pty_spawn_lock.lock().await;
+    if drain.closing.load(std::sync::atomic::Ordering::Acquire)
+        || !state
+            .pty_output_drains
+            .lock()
+            .get(&tab_id)
+            .is_some_and(|current| Arc::ptr_eq(current, &drain))
+    {
+        return Err("This terminal pane is closing or has changed".into());
+    }
+    drop(spawn_guard);
+    let ptys = state.ptys.clone();
+    let logging = state.terminal_logging.clone();
+    tokio::task::spawn_blocking(move || {
+        // Validate before any file open (especially destructive overwrite).
+        let generation = ptys
+            .lock()
+            .get(&tab_id)
+            .filter(|handle| handle.is_alive())
+            .map(|handle| handle.generation().to_owned())
+            .ok_or("This terminal pane is no longer running")?;
+        logging.start(
+            &tab_id,
+            &generation,
+            std::path::Path::new(&path),
+            mode,
+            Arc::new(move |status| {
+                if let Err(error) = app.emit("terminal-log://status", status) {
+                    tracing::warn!(%error, "Could not deliver terminal log status");
+                }
+            }),
+        )
+    })
+    .await
+    .map_err(|error| format!("Terminal log worker: {error}"))?
+}
 
+#[tauri::command]
+pub async fn terminal_log_stop(
+    state: State<'_, AppState>,
+    tab_id: String,
+) -> Result<crate::terminal_logging::TerminalLogStatus, String> {
+    let tab_id = validation::validate_tab_id(&tab_id).map_err(|error| error.to_string())?;
+    let spawn_guard = state.pty_spawn_lock.lock().await;
+    let logging = state.terminal_logging.clone();
+    let instance = logging
+        .status(&tab_id)
+        .ok_or("This pane has no terminal log")?
+        .id;
+    drop(spawn_guard);
+    tokio::task::spawn_blocking(move || {
+        logging
+            .stop_instance(&tab_id, &instance)
+            .ok_or("This terminal log has already stopped or changed".into())
+    })
+    .await
+    .map_err(|error| format!("Terminal log worker: {error}"))?
+}
+
+#[tauri::command]
+pub fn terminal_log_status(
+    state: State<'_, AppState>,
+    tab_id: String,
+) -> Result<Option<crate::terminal_logging::TerminalLogStatus>, String> {
+    let tab_id = validation::validate_tab_id(&tab_id).map_err(|error| error.to_string())?;
+    Ok(state.terminal_logging.status(&tab_id))
+}
+
+#[tauri::command]
+pub async fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), String> {
+    let validated_tab_id = validation::validate_tab_id(&tab_id).map_err(|e| e.to_string())?;
+    let (generation, drain) = {
+        let _spawn_guard = state.pty_spawn_lock.lock().await;
+        let generation = state
+            .ptys
+            .lock()
+            .get(&validated_tab_id)
+            .map(|handle| handle.generation().to_owned());
+        let drain = state
+            .pty_output_drains
+            .lock()
+            .get(&validated_tab_id)
+            .cloned();
+        (generation, drain)
+    };
+    let _operation = match drain.as_ref() {
+        Some(drain) => Some(drain.operation.lock().await),
+        None => None,
+    };
+    let spawn_guard = state.pty_spawn_lock.lock().await;
+    let current = state
+        .ptys
+        .lock()
+        .get(&validated_tab_id)
+        .map(|handle| handle.generation().to_owned());
+    if current != generation {
+        return Ok(()); // Another close already removed/replaced this generation.
+    }
+    let Some(generation) = generation else {
+        let db = state.db.lock();
+        return session::close_tab(&db, &validated_tab_id).map_err(|error| error.to_string());
+    };
     state
         .terminal_agent
         .revoke_for_pty(&validated_tab_id, "PTY closed");
-    state
-        .terminal_agent
-        .clear_saved_ssh_binding(&validated_tab_id);
-    state.terminal_agent.clear_managed_ssh(&validated_tab_id);
     let h = state.ptys.lock().remove(&validated_tab_id);
     #[cfg(target_os = "windows")]
     let mut h = h;
     #[cfg(target_os = "windows")]
     if let Some(handle) = h.as_ref().filter(|handle| handle.is_managed_ssh()) {
-        // ponytail: this global gate blocks other tabs for at most five seconds;
-        // per-tab lifecycle reservations are the upgrade if close throughput matters.
+        // Existing bounded Windows termination confirmation stays before drain:
+        // failed close restores the still-live session without stopping its log.
         if let Err(error) =
             confirm_managed_ssh_termination(handle, std::time::Duration::from_secs(5)).await
         {
@@ -1386,19 +1609,33 @@ pub async fn pty_kill(state: State<'_, AppState>, tab_id: String) -> Result<(), 
             return Err(error);
         }
     }
-    let closed = {
-        let db = state.db.lock();
-        session::close_tab(&db, &validated_tab_id).map_err(|e| e.to_string())
-    };
-    drop(_spawn_guard);
-    if let Some(h) = h {
+    if let Some(handle) = h {
         #[cfg(target_os = "windows")]
-        if h.is_managed_ssh() {
-            return closed;
+        if !handle.is_managed_ssh() {
+            let _ = handle.kill();
         }
-        let _ = h.kill();
+        #[cfg(not(target_os = "windows"))]
+        let _ = handle.kill();
+        // Keep the identity valid while queued events cross the display boundary.
+        state.ptys.lock().insert(validated_tab_id.clone(), handle);
     }
-    closed
+    drop(spawn_guard);
+    stop_terminal_log_after_output(
+        state.terminal_logging.clone(),
+        validated_tab_id.clone(),
+        generation,
+        drain.clone(),
+    )
+    .await?;
+    let _spawn_guard = state.pty_spawn_lock.lock().await;
+    state.ptys.lock().remove(&validated_tab_id);
+    state.pty_output_drains.lock().remove(&validated_tab_id);
+    state
+        .terminal_agent
+        .clear_saved_ssh_binding(&validated_tab_id);
+    state.terminal_agent.clear_managed_ssh(&validated_tab_id);
+    let db = state.db.lock();
+    session::close_tab(&db, &validated_tab_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

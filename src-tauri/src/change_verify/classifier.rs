@@ -71,10 +71,20 @@ fn is_ignorable_counter(family: CommandFamily, field: &str) -> bool {
     match family {
         CommandFamily::BgpNeighbor => matches!(
             c.as_str(),
-            "msgrcvd" | "msgsent" | "msg_received" | "msg_sent"
-            | "tblver" | "tbl_ver" | "table_version"
-            | "uptime" | "up_down" | "up/down"
-            | "inq" | "outq" | "in_q" | "out_q"
+            "msgrcvd"
+                | "msgsent"
+                | "msg_received"
+                | "msg_sent"
+                | "tblver"
+                | "tbl_ver"
+                | "table_version"
+                | "uptime"
+                | "up_down"
+                | "up/down"
+                | "inq"
+                | "outq"
+                | "in_q"
+                | "out_q"
         ),
         CommandFamily::OspfNeighbor => matches!(
             c.as_str(),
@@ -165,10 +175,8 @@ fn severity_for(
                 || d.column.contains("state_pfxrcd")
             {
                 if let Value::String(after_s) = after {
-                    let ok_state = matches!(
-                        after_s.as_str(),
-                        "Established" | "established" | "Estab"
-                    );
+                    let ok_state =
+                        matches!(after_s.as_str(), "Established" | "established" | "Estab");
                     let is_numeric_pfx = after_s.parse::<u64>().is_ok();
                     if !ok_state && !is_numeric_pfx {
                         return (
@@ -178,17 +186,11 @@ fn severity_for(
                     }
                 }
             }
-            (
-                Severity::Yellow,
-                format!("BGP counter changed at {path}"),
-            )
+            (Severity::Yellow, format!("BGP counter changed at {path}"))
         }
         CommandFamily::OspfNeighbor => {
             if d.status == DiffStatus::Removed {
-                return (
-                    Severity::Red,
-                    format!("OSPF adjacency lost: {}", d.row_key),
-                );
+                return (Severity::Red, format!("OSPF adjacency lost: {}", d.row_key));
             }
             if d.column == "state" {
                 if let Value::String(after_s) = after {
@@ -235,10 +237,7 @@ fn severity_for(
         }
         CommandFamily::CdpNeighbor => {
             if d.status == DiffStatus::Removed {
-                return (
-                    Severity::Red,
-                    format!("CDP neighbor lost: {}", d.row_key),
-                );
+                return (Severity::Red, format!("CDP neighbor lost: {}", d.row_key));
             }
             if d.status == DiffStatus::Added {
                 return (
@@ -246,10 +245,7 @@ fn severity_for(
                     format!("New CDP neighbor appeared: {}", d.row_key),
                 );
             }
-            (
-                Severity::Yellow,
-                format!("CDP attribute changed at {path}"),
-            )
+            (Severity::Yellow, format!("CDP attribute changed at {path}"))
         }
         CommandFamily::Unknown => (Severity::Yellow, format!("Unclassified delta at {path}")),
     }

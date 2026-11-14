@@ -3,5 +3,7 @@ fn main() {
     // but release builds still supply it explicitly through CI. Ensure Cargo
     // rebuilds when a developer override or release variable changes.
     println!("cargo:rerun-if-env-changed=TERMINAI_GITHUB_CLIENT_ID");
+    // Refinery embeds this directory; newly added migrations must rebuild the crate.
+    println!("cargo:rerun-if-changed=migrations");
     tauri_build::build()
 }

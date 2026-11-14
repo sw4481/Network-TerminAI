@@ -1,0 +1,1366 @@
+schema_version: 1
+widgets:
+- widget: version
+  title: Identity, version and uptime
+  source:
+    kind: ssh
+    commands:
+      ios: show version
+      iosxe: show version
+    templates:
+      ios: ios.show_version
+      iosxe: iosxe.show_version
+  interval: 60
+  key: []
+  fields:
+    hostname:
+    - hostname
+    - HOSTNAME
+    version:
+    - version
+    - VERSION
+    uptime:
+    - uptime
+    - UPTIME
+    hardware:
+    - hardware
+    - HARDWARE
+    serial:
+    - serial
+    - SERIAL
+  view:
+    type: kv
+    columns:
+    - field: hostname
+      label: Hostname
+    - field: version
+      label: Version
+    - field: uptime
+      label: Uptime
+    - field: hardware
+      label: Hardware
+    - field: serial
+      label: Serial
+- widget: cpu
+  title: CPU and processes
+  source:
+    kind: ssh
+    commands:
+      ios: show processes cpu
+      iosxe: show processes cpu
+    templates:
+      ios: ios.show_processes_cpu
+      iosxe: iosxe.show_processes_cpu
+  interval: 30
+  key:
+  - pid
+  fields:
+    pid:
+    - process_pid
+    - PROCESS_PID
+    name:
+    - process_name
+    - PROCESS_NAME
+    cpu_5s_percent:
+    - cpu_usage_5_sec
+    - CPU_USAGE_5_SEC
+    cpu_1m_percent:
+    - cpu_usage_1_min
+    - CPU_USAGE_1_MIN
+    cpu_5m_percent:
+    - cpu_usage_5_min
+    - CPU_USAGE_5_MIN
+    process_5s_percent:
+    - process_cpu_usage_5_sec
+    - PROCESS_CPU_USAGE_5_SEC
+  view:
+    type: table
+    columns:
+    - field: pid
+      label: Pid
+    - field: name
+      label: Name
+    - field: cpu_5s_percent
+      label: Cpu 5S Percent
+      unit: '%'
+    - field: cpu_1m_percent
+      label: Cpu 1M Percent
+      unit: '%'
+    - field: cpu_5m_percent
+      label: Cpu 5M Percent
+      unit: '%'
+    - field: process_5s_percent
+      label: Process 5S Percent
+      unit: '%'
+- widget: memory
+  title: Processor memory
+  source:
+    kind: ssh
+    commands:
+      ios: show processes memory sorted
+      iosxe: show processes memory sorted
+    templates:
+      ios: ios.show_processes_memory_sorted
+      iosxe: iosxe.show_processes_memory_sorted
+  interval: 30
+  key: []
+  fields:
+    total_bytes:
+    - memory_total
+    - MEMORY_TOTAL
+    used_bytes:
+    - memory_used
+    - MEMORY_USED
+    free_bytes:
+    - memory_free
+    - MEMORY_FREE
+  view:
+    type: kv
+    columns:
+    - field: total_bytes
+      label: Total Bytes
+      unit: B
+    - field: used_bytes
+      label: Used Bytes
+      unit: B
+    - field: free_bytes
+      label: Free Bytes
+      unit: B
+  history:
+    fields:
+    - used_bytes
+- widget: interfaces
+  title: Interfaces, CLI average rates and errors
+  source:
+    kind: ssh
+    commands:
+      ios: show interfaces
+      iosxe: show interfaces
+    templates:
+      ios: ios.show_interfaces
+      iosxe: iosxe.show_interfaces
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    link_state:
+    - link_status
+    - LINK_STATUS
+    protocol_state:
+    - protocol_status
+    - PROTOCOL_STATUS
+    description:
+    - description
+    - DESCRIPTION
+    ip_address:
+    - ip_address
+    - IP_ADDRESS
+    prefix_length:
+    - prefix_length
+    - PREFIX_LENGTH
+    bandwidth:
+    - bandwidth
+    - BANDWIDTH
+    input_cli_bit_s:
+    - input_rate
+    - INPUT_RATE
+    output_cli_bit_s:
+    - output_rate
+    - OUTPUT_RATE
+    input_packets:
+    - input_packets
+    - INPUT_PACKETS
+    output_packets:
+    - output_packets
+    - OUTPUT_PACKETS
+    input_errors:
+    - input_errors
+    - INPUT_ERRORS
+    output_errors:
+    - output_errors
+    - OUTPUT_ERRORS
+    input_drops:
+    - queue_drops
+    - QUEUE_DROPS
+    output_drops:
+    - queue_output_drops
+    - QUEUE_OUTPUT_DROPS
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: link_state
+      label: Link State
+    - field: protocol_state
+      label: Protocol State
+    - field: description
+      label: Description
+    - field: ip_address
+      label: Ip Address
+    - field: prefix_length
+      label: Prefix Length
+    - field: bandwidth
+      label: Bandwidth
+    - field: input_cli_bit_s
+      label: Input Cli Bit S
+      unit: bit/s (CLI average)
+    - field: output_cli_bit_s
+      label: Output Cli Bit S
+      unit: bit/s (CLI average)
+    - field: input_packets
+      label: Input Packets
+      unit: packets
+    - field: output_packets
+      label: Output Packets
+      unit: packets
+    - field: input_errors
+      label: Input Errors
+      unit: errors
+    - field: output_errors
+      label: Output Errors
+      unit: errors
+    - field: input_drops
+      label: Input Drops
+      unit: packets
+    - field: output_drops
+      label: Output Drops
+      unit: packets
+- widget: interface_traffic
+  title: Interface byte deltas and capacity
+  source:
+    kind: ssh
+    commands:
+      ios: show interfaces
+      iosxe: show interfaces
+    templates:
+      ios: ios.interface_bytes
+      iosxe: iosxe.interface_bytes
+  interval: 30
+  selected_interval: 5
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    input_bytes:
+    - input_bytes
+    - INPUT_BYTES
+    output_bytes:
+    - output_bytes
+    - OUTPUT_BYTES
+    capacity_kbit_s:
+    - capacity_kbit_s
+    - CAPACITY_KBIT_S
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: input_bytes
+      label: Input Bytes
+      unit: B
+    - field: output_bytes
+      label: Output Bytes
+      unit: B
+    - field: capacity_kbit_s
+      label: Capacity Kbit S
+      unit: kbit/s
+    - field: input_bit_s
+      label: Input Bit S
+      unit: bit/s
+    - field: output_bit_s
+      label: Output Bit S
+      unit: bit/s
+    - field: input_util_percent
+      label: Input Util Percent
+      unit: '%'
+    - field: output_util_percent
+      label: Output Util Percent
+      unit: '%'
+  rates:
+    input_bit_s:
+      field: input_bytes
+      multiplier: 8
+      unit: bit/s
+    output_bit_s:
+      field: output_bytes
+      multiplier: 8
+      unit: bit/s
+  computes:
+    input_util_percent: input_bit_s / (capacity_kbit_s * 1000) * 100
+    output_util_percent: output_bit_s / (capacity_kbit_s * 1000) * 100
+  history:
+    fields:
+    - input_bit_s
+    - output_bit_s
+- widget: interface_descriptions
+  title: Interface descriptions
+  source:
+    kind: ssh
+    commands:
+      ios: show interfaces description
+      iosxe: show interfaces description
+    templates:
+      ios: ios.show_interfaces_description
+      iosxe: iosxe.show_interfaces_description
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - port
+    - PORT
+    status:
+    - status
+    - STATUS
+    protocol:
+    - protocol
+    - PROTOCOL
+    description:
+    - description
+    - DESCRIPTION
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: status
+      label: Status
+    - field: protocol
+      label: Protocol
+    - field: description
+      label: Description
+- widget: port_status
+  title: Port inventory and state
+  source:
+    kind: ssh
+    commands:
+      ios: show interfaces status
+      iosxe: show interfaces status
+    templates:
+      ios: ios.show_interfaces_status
+      iosxe: iosxe.show_interfaces_status
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - port
+    - PORT
+    description:
+    - name
+    - NAME
+    status:
+    - status
+    - STATUS
+    vlan:
+    - vlan_id
+    - VLAN_ID
+    duplex:
+    - duplex
+    - DUPLEX
+    speed:
+    - speed
+    - SPEED
+    media:
+    - type
+    - TYPE
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: description
+      label: Description
+    - field: status
+      label: Status
+    - field: vlan
+      label: Vlan
+    - field: duplex
+      label: Duplex
+    - field: speed
+      label: Speed
+    - field: media
+      label: Media
+- widget: ip_interfaces
+  title: IPv4 interfaces and observed VRF
+  source:
+    kind: ssh
+    commands:
+      ios: show ip interface
+      iosxe: show ip interface
+    templates:
+      ios: ios.show_ip_interface
+      iosxe: iosxe.show_ip_interface
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    link_state:
+    - link_status
+    - LINK_STATUS
+    protocol_state:
+    - protocol_status
+    - PROTOCOL_STATUS
+    address:
+    - ip_address
+    - IP_ADDRESS
+    prefix_length:
+    - prefix_length
+    - PREFIX_LENGTH
+    vrf:
+    - vrf
+    - VRF
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: link_state
+      label: Link State
+    - field: protocol_state
+      label: Protocol State
+    - field: address
+      label: Address
+    - field: prefix_length
+      label: Prefix Length
+    - field: vrf
+      label: Vrf
+- widget: ip_interface_brief
+  title: IPv4 interface summary
+  source:
+    kind: ssh
+    commands:
+      ios: show ip interface brief
+      iosxe: show ip interface brief
+    templates:
+      ios: ios.show_ip_interface_brief
+      iosxe: iosxe.show_ip_interface_brief
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    address:
+    - ip_address
+    - IP_ADDRESS
+    status:
+    - status
+    - STATUS
+    protocol:
+    - proto
+    - PROTO
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: address
+      label: Address
+    - field: status
+      label: Status
+    - field: protocol
+      label: Protocol
+- widget: bgp_peers
+  title: 'BGP summary: AF, peer, state and prefixes'
+  source:
+    kind: ssh
+    commands:
+      ios: show ip bgp summary
+      iosxe: show ip bgp summary
+    templates:
+      ios: ios.show_ip_bgp_summary
+      iosxe: iosxe.show_ip_bgp_summary
+  interval: 30
+  key:
+  - router_id
+  - local_as
+  - address_family
+  - neighbor
+  fields:
+    router_id:
+    - router_id
+    - ROUTER_ID
+    local_as:
+    - local_as
+    - LOCAL_AS
+    address_family:
+    - address_family
+    - ADDRESS_FAMILY
+    neighbor:
+    - bgp_neighbor
+    - BGP_NEIGHBOR
+    neighbor_as:
+    - neighbor_as
+    - NEIGHBOR_AS
+    uptime:
+    - up_down
+    - UP_DOWN
+    state:
+    - state_or_prefixes_received
+    - STATE_OR_PREFIXES_RECEIVED
+    prefixes_received:
+    - state_or_prefixes_received
+    - STATE_OR_PREFIXES_RECEIVED
+  view:
+    type: table
+    columns:
+    - field: router_id
+      label: Router Id
+    - field: local_as
+      label: Local As
+    - field: address_family
+      label: Address Family
+    - field: neighbor
+      label: Neighbor
+    - field: neighbor_as
+      label: Neighbor As
+    - field: uptime
+      label: Uptime
+    - field: state
+      label: State
+    - field: prefixes_received
+      label: Prefixes Received
+      unit: prefixes
+  alerts:
+  - field: state
+    op: eq
+    value: Idle
+    severity: warn
+    message: Observed BGP session is Idle; configured-peer expectation is not inferred
+- widget: bgp_vrf_peers
+  title: BGP VRF detail identity
+  source:
+    kind: ssh
+    commands:
+      ios: show ip bgp vpnv4 all neighbors
+      iosxe: show ip bgp vpnv4 all neighbors
+    templates:
+      ios: ios.show_ip_bgp_vpnv4_all_neighbors
+      iosxe: iosxe.show_ip_bgp_vpnv4_all_neighbors
+  interval: 30
+  key:
+  - vrf
+  - neighbor
+  fields:
+    vrf:
+    - vrf
+    - VRF
+    neighbor:
+    - neighbor
+    - NEIGHBOR
+    remote_as:
+    - remote_as
+    - REMOTE_AS
+    local_as:
+    - local_as
+    - LOCAL_AS
+    state:
+    - bgp_state
+    - BGP_STATE
+  view:
+    type: table
+    columns:
+    - field: vrf
+      label: Vrf
+    - field: neighbor
+      label: Neighbor
+    - field: remote_as
+      label: Remote As
+    - field: local_as
+      label: Local As
+    - field: state
+      label: State
+- widget: ospf_neighbors
+  title: OSPF neighbors and observed interfaces
+  source:
+    kind: ssh
+    commands:
+      ios: show ip ospf neighbor
+      iosxe: show ip ospf neighbor
+    templates:
+      ios: ios.show_ip_ospf_neighbor
+      iosxe: iosxe.show_ip_ospf_neighbor
+  interval: 30
+  key:
+  - neighbor
+  - address
+  - interface
+  fields:
+    neighbor:
+    - neighbor_id
+    - NEIGHBOR_ID
+    address:
+    - ip_address
+    - IP_ADDRESS
+    interface:
+    - interface
+    - INTERFACE
+    priority:
+    - priority
+    - PRIORITY
+    state:
+    - state
+    - STATE
+    dead_time:
+    - dead_time
+    - DEAD_TIME
+  view:
+    type: table
+    columns:
+    - field: neighbor
+      label: Neighbor
+    - field: address
+      label: Address
+    - field: interface
+      label: Interface
+    - field: priority
+      label: Priority
+    - field: state
+      label: State
+    - field: dead_time
+      label: Dead Time
+- widget: ospf_interfaces
+  title: OSPF interface process/area observations
+  source:
+    kind: ssh
+    commands:
+      ios: show ip ospf interface brief
+      iosxe: show ip ospf interface brief
+    templates:
+      ios: ios.show_ip_ospf_interface_brief
+      iosxe: iosxe.show_ip_ospf_interface_brief
+  interval: 30
+  key:
+  - process
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    process:
+    - process
+    - PROCESS
+    area:
+    - area
+    - AREA
+    address:
+    - ip_address
+    - IP_ADDRESS
+    state:
+    - state
+    - STATE
+    neighbors:
+    - neighbors_fc
+    - NEIGHBORS_FC
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: process
+      label: Process
+    - field: area
+      label: Area
+    - field: address
+      label: Address
+    - field: state
+      label: State
+    - field: neighbors
+      label: Neighbors
+- widget: eigrp_neighbors
+  title: EIGRP neighbors and observed AS
+  source:
+    kind: ssh
+    commands:
+      ios: show ip eigrp neighbors
+      iosxe: show ip eigrp neighbors
+    templates:
+      ios: ios.show_ip_eigrp_neighbors
+      iosxe: iosxe.show_ip_eigrp_neighbors
+  interval: 30
+  key:
+  - as_number
+  - neighbor
+  - interface
+  fields:
+    as_number:
+    - as
+    - AS
+    neighbor:
+    - ip_address
+    - IP_ADDRESS
+    interface:
+    - interface
+    - INTERFACE
+    hold:
+    - hold
+    - HOLD
+    uptime:
+    - uptime
+    - UPTIME
+    srtt:
+    - srtt
+    - SRTT
+    rto:
+    - rto
+    - RTO
+    queue_count:
+    - q_cnt
+    - Q_CNT
+    sequence:
+    - seq_num
+    - SEQ_NUM
+  view:
+    type: table
+    columns:
+    - field: as_number
+      label: As Number
+    - field: neighbor
+      label: Neighbor
+    - field: interface
+      label: Interface
+    - field: hold
+      label: Hold
+      unit: s
+    - field: uptime
+      label: Uptime
+    - field: srtt
+      label: Srtt
+      unit: ms
+    - field: rto
+      label: Rto
+      unit: ms
+    - field: queue_count
+      label: Queue Count
+      unit: packets
+    - field: sequence
+      label: Sequence
+- widget: vlans
+  title: VLANs
+  source:
+    kind: ssh
+    commands:
+      ios: show vlan brief
+      iosxe: show vlan brief
+    templates:
+      ios: ios.show_vlan
+      iosxe: iosxe.show_vlan
+  interval: 30
+  key:
+  - vlan
+  fields:
+    vlan:
+    - vlan_id
+    - VLAN_ID
+    name:
+    - vlan_name
+    - VLAN_NAME
+    status:
+    - status
+    - STATUS
+    interfaces:
+    - interfaces
+    - INTERFACES
+  view:
+    type: table
+    columns:
+    - field: vlan
+      label: Vlan
+    - field: name
+      label: Name
+    - field: status
+      label: Status
+    - field: interfaces
+      label: Interfaces
+- widget: trunks
+  title: Switchport trunk mode/native/enabled VLAN observations
+  source:
+    kind: ssh
+    commands:
+      ios: show interfaces switchport
+      iosxe: show interfaces switchport
+    templates:
+      ios: ios.show_interfaces_switchport
+      iosxe: iosxe.show_interfaces_switchport
+  interval: 30
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    - INTERFACE
+    mode:
+    - mode
+    - MODE
+    admin_mode:
+    - admin_mode
+    - ADMIN_MODE
+    native_vlan:
+    - native_vlan
+    - NATIVE_VLAN
+    enabled_vlans:
+    - trunking_vlans
+    - TRUNKING_VLANS
+    access_vlan:
+    - access_vlan
+    - ACCESS_VLAN
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: mode
+      label: Mode
+    - field: admin_mode
+      label: Admin Mode
+    - field: native_vlan
+      label: Native Vlan
+    - field: enabled_vlans
+      label: Enabled Vlans
+    - field: access_vlan
+      label: Access Vlan
+- widget: stp_ports
+  title: STP roles and port states
+  source:
+    kind: ssh
+    commands:
+      ios: show spanning-tree
+      iosxe: show spanning-tree
+    templates:
+      ios: ios.show_spanning-tree
+      iosxe: iosxe.show_spanning-tree
+  interval: 30
+  key:
+  - vlan
+  - interface
+  fields:
+    vlan:
+    - vlan_id
+    - VLAN_ID
+    interface:
+    - interface
+    - INTERFACE
+    role:
+    - role
+    - ROLE
+    state:
+    - status
+    - STATUS
+    cost:
+    - cost
+    - COST
+    port_priority:
+    - port_priority
+    - PORT_PRIORITY
+    port_id:
+    - port_id
+    - PORT_ID
+    port_type:
+    - type
+    - TYPE
+  view:
+    type: table
+    columns:
+    - field: vlan
+      label: Vlan
+    - field: interface
+      label: Interface
+    - field: role
+      label: Role
+    - field: state
+      label: State
+    - field: cost
+      label: Cost
+    - field: port_priority
+      label: Port Priority
+    - field: port_id
+      label: Port Id
+    - field: port_type
+      label: Port Type
+- widget: stp_roots
+  title: STP root observations
+  source:
+    kind: ssh
+    commands:
+      ios: show spanning-tree root
+      iosxe: show spanning-tree root
+    templates:
+      ios: ios.show_spanning-tree_root
+      iosxe: iosxe.show_spanning-tree_root
+  interval: 30
+  key:
+  - vlan
+  fields:
+    vlan:
+    - vlan_id
+    - VLAN_ID
+    priority:
+    - priority
+    - PRIORITY
+    root_id:
+    - root_id
+    - ROOT_ID
+    root_cost:
+    - root_cost
+    - ROOT_COST
+    root_port:
+    - root_port
+    - ROOT_PORT
+  view:
+    type: table
+    columns:
+    - field: vlan
+      label: Vlan
+    - field: priority
+      label: Priority
+    - field: root_id
+      label: Root Id
+    - field: root_cost
+      label: Root Cost
+    - field: root_port
+      label: Root Port
+- widget: etherchannel
+  title: EtherChannel bundle/member states
+  source:
+    kind: ssh
+    commands:
+      ios: show etherchannel summary
+      iosxe: show etherchannel summary
+    templates:
+      ios: ios.show_etherchannel_summary
+      iosxe: iosxe.show_etherchannel_summary
+  interval: 30
+  key:
+  - group
+  fields:
+    group:
+    - group
+    - GROUP
+    bundle:
+    - bundle_name
+    - BUNDLE_NAME
+    bundle_state:
+    - bundle_status
+    - BUNDLE_STATUS
+    protocol:
+    - bundle_protocol
+    - BUNDLE_PROTOCOL
+    members:
+    - member_interface
+    - MEMBER_INTERFACE
+    member_states:
+    - member_interface_status
+    - MEMBER_INTERFACE_STATUS
+  view:
+    type: table
+    columns:
+    - field: group
+      label: Group
+    - field: bundle
+      label: Bundle
+    - field: bundle_state
+      label: Bundle State
+    - field: protocol
+      label: Protocol
+    - field: members
+      label: Members
+    - field: member_states
+      label: Member States
+- widget: cdp_neighbors
+  title: CDP neighbors
+  source:
+    kind: ssh
+    commands:
+      ios: show cdp neighbors detail
+      iosxe: show cdp neighbors detail
+    templates:
+      ios: ios.show_cdp_neighbors_detail
+      iosxe: iosxe.show_cdp_neighbors_detail
+  interval: 30
+  key:
+  - local_interface
+  - neighbor
+  - neighbor_interface
+  fields:
+    neighbor:
+    - neighbor_name
+    - NEIGHBOR_NAME
+    local_interface:
+    - local_interface
+    - LOCAL_INTERFACE
+    neighbor_interface:
+    - neighbor_interface
+    - NEIGHBOR_INTERFACE
+    address:
+    - mgmt_address
+    - MGMT_ADDRESS
+    platform:
+    - platform
+    - PLATFORM
+  view:
+    type: table
+    columns:
+    - field: neighbor
+      label: Neighbor
+    - field: local_interface
+      label: Local Interface
+    - field: neighbor_interface
+      label: Neighbor Interface
+    - field: address
+      label: Address
+    - field: platform
+      label: Platform
+- widget: lldp_neighbors
+  title: LLDP neighbors
+  source:
+    kind: ssh
+    commands:
+      ios: show lldp neighbors detail
+      iosxe: show lldp neighbors detail
+    templates:
+      ios: ios.show_lldp_neighbors_detail
+      iosxe: iosxe.show_lldp_neighbors_detail
+  interval: 30
+  key:
+  - local_interface
+  - chassis_id
+  - neighbor_port
+  fields:
+    neighbor:
+    - neighbor_name
+    - NEIGHBOR_NAME
+    chassis_id:
+    - chassis_id
+    - CHASSIS_ID
+    local_interface:
+    - local_interface
+    - LOCAL_INTERFACE
+    neighbor_port:
+    - neighbor_port_id
+    - NEIGHBOR_PORT_ID
+    neighbor_interface:
+    - neighbor_interface
+    - NEIGHBOR_INTERFACE
+    address:
+    - mgmt_address
+    - MGMT_ADDRESS
+  view:
+    type: table
+    columns:
+    - field: neighbor
+      label: Neighbor
+    - field: chassis_id
+      label: Chassis Id
+    - field: local_interface
+      label: Local Interface
+    - field: neighbor_port
+      label: Neighbor Port
+    - field: neighbor_interface
+      label: Neighbor Interface
+    - field: address
+      label: Address
+- widget: mac_table
+  title: MAC address table
+  source:
+    kind: ssh
+    commands:
+      ios: show mac address-table
+      iosxe: show mac address-table
+    templates:
+      ios: ios.show_mac-address-table
+      iosxe: iosxe.show_mac-address-table
+  interval: 30
+  key:
+  - vlan
+  - mac
+  - interfaces
+  fields:
+    mac:
+    - destination_address
+    - DESTINATION_ADDRESS
+    vlan:
+    - vlan_id
+    - VLAN_ID
+    entry_type:
+    - type
+    - TYPE
+    interfaces:
+    - destination_port
+    - DESTINATION_PORT
+  view:
+    type: table
+    columns:
+    - field: mac
+      label: Mac
+    - field: vlan
+      label: Vlan
+    - field: entry_type
+      label: Entry Type
+    - field: interfaces
+      label: Interfaces
+- widget: inventory
+  title: Hardware inventory
+  source:
+    kind: ssh
+    commands:
+      ios: show inventory
+      iosxe: show inventory
+    templates:
+      ios: ios.show_inventory
+      iosxe: iosxe.show_inventory
+  interval: 60
+  key:
+  - name
+  - serial
+  fields:
+    name:
+    - name
+    - NAME
+    description:
+    - descr
+    - DESCR
+    product:
+    - pid
+    - PID
+    version:
+    - vid
+    - VID
+    serial:
+    - sn
+    - SN
+  view:
+    type: table
+    columns:
+    - field: name
+      label: Name
+    - field: description
+      label: Description
+    - field: product
+      label: Product
+    - field: version
+      label: Version
+    - field: serial
+      label: Serial
+- widget: local_cpu
+  title: Local Cpu
+  source:
+    kind: local
+    collector: local.cpu
+  interval: 2
+  key:
+  - core
+  fields:
+    core:
+    - core
+    label:
+    - label
+    usage:
+    - usage
+    logical_cores:
+    - logical_cores
+  view:
+    type: table
+    columns:
+    - field: core
+      label: Core
+    - field: label
+      label: Label
+    - field: usage
+      label: Usage
+      unit: '%'
+    - field: logical_cores
+      label: Logical Cores
+      unit: cores
+  history:
+    fields:
+    - usage
+- widget: local_memory
+  title: Local Memory
+  source:
+    kind: local
+    collector: local.memory
+  interval: 2
+  key: []
+  fields:
+    total_bytes:
+    - total_bytes
+    available_bytes:
+    - available_bytes
+    used_bytes:
+    - used_bytes
+    swap_total_bytes:
+    - swap_total_bytes
+    swap_used_bytes:
+    - swap_used_bytes
+  view:
+    type: table
+    columns:
+    - field: total_bytes
+      label: Total Bytes
+      unit: B
+    - field: available_bytes
+      label: Available Bytes
+      unit: B
+    - field: used_bytes
+      label: Used Bytes
+      unit: B
+    - field: swap_total_bytes
+      label: Swap Total Bytes
+      unit: B
+    - field: swap_used_bytes
+      label: Swap Used Bytes
+      unit: B
+  history:
+    fields:
+    - used_bytes
+    - swap_used_bytes
+- widget: local_filesystems
+  title: Local Filesystems
+  source:
+    kind: local
+    collector: local.filesystems
+  interval: 2
+  key:
+  - mount
+  fields:
+    mount:
+    - mount
+    filesystem:
+    - filesystem
+    total_bytes:
+    - total_bytes
+    available_bytes:
+    - available_bytes
+    used_bytes:
+    - used_bytes
+  view:
+    type: table
+    columns:
+    - field: mount
+      label: Mount
+    - field: filesystem
+      label: Filesystem
+    - field: total_bytes
+      label: Total Bytes
+      unit: B
+    - field: available_bytes
+      label: Available Bytes
+      unit: B
+    - field: used_bytes
+      label: Used Bytes
+      unit: B
+  history:
+    fields:
+    - used_bytes
+- widget: local_network
+  title: Local Network
+  source:
+    kind: local
+    collector: local.network
+  interval: 2
+  key:
+  - interface
+  fields:
+    interface:
+    - interface
+    received_bytes:
+    - received_bytes
+    transmitted_bytes:
+    - transmitted_bytes
+    received_packets:
+    - received_packets
+    transmitted_packets:
+    - transmitted_packets
+    received_errors:
+    - received_errors
+    transmitted_errors:
+    - transmitted_errors
+  view:
+    type: table
+    columns:
+    - field: interface
+      label: Interface
+    - field: received_bytes
+      label: Received Bytes
+      unit: B
+    - field: transmitted_bytes
+      label: Transmitted Bytes
+      unit: B
+    - field: received_packets
+      label: Received Packets
+      unit: packets
+    - field: transmitted_packets
+      label: Transmitted Packets
+      unit: packets
+    - field: received_errors
+      label: Received Errors
+      unit: errors
+    - field: transmitted_errors
+      label: Transmitted Errors
+      unit: errors
+    - field: received_bit_s
+      label: Received Bit S
+      unit: bit/s
+    - field: transmitted_bit_s
+      label: Transmitted Bit S
+      unit: bit/s
+  rates:
+    received_bit_s:
+      field: received_bytes
+      multiplier: 8
+      unit: bit/s
+    transmitted_bit_s:
+      field: transmitted_bytes
+      multiplier: 8
+      unit: bit/s
+  history:
+    fields:
+    - received_bit_s
+    - transmitted_bit_s
+- widget: local_processes
+  title: Local Processes
+  source:
+    kind: local
+    collector: local.processes
+  interval: 2
+  key:
+  - pid
+  - start_time
+  fields:
+    pid:
+    - pid
+    start_time:
+    - start_time
+    name:
+    - name
+    cpu_percent:
+    - cpu_percent
+    memory_bytes:
+    - memory_bytes
+  view:
+    type: table
+    columns:
+    - field: pid
+      label: Pid
+    - field: start_time
+      label: Start Time
+      unit: Unix s
+    - field: name
+      label: Name
+    - field: cpu_percent
+      label: Cpu Percent
+      unit: '% of whole machine'
+    - field: memory_bytes
+      label: Memory Bytes
+      unit: B

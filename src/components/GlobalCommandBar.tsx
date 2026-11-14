@@ -11,6 +11,7 @@ import { WorkflowParamForm } from "./WorkflowParamForm";
 import { WorkflowPicker } from "./WorkflowPicker";
 import { usePanesStore } from "../state/panesStore";
 import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
+import { TerminalLoggingControls } from "./TerminalLoggingControls";
 import "./GlobalCommandBar.css";
 
 export interface GlobalCommandBarProps {
@@ -172,6 +173,7 @@ export function GlobalCommandBar({ tabId, vendor, platform }: GlobalCommandBarPr
           >
             + Workflow
           </button>
+          <TerminalLoggingControls tabId={tabId} terminalId={focusedTerminalId} />
         </div>
         {error && <div className="global-command-bar__error" role="alert">{error}</div>}
       </div>

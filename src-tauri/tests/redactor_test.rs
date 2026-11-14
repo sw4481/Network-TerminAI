@@ -36,8 +36,7 @@ fn redteam_corpus_is_100_percent_redacted() {
 
     // Audit log must show non-zero hits across the major categories.
     let audit = r.drain_audit();
-    let names: std::collections::HashSet<_> =
-        audit.iter().map(|s| s.pattern_id.clone()).collect();
+    let names: std::collections::HashSet<_> = audit.iter().map(|s| s.pattern_id.clone()).collect();
     for req in [
         "cisco_enable_secret",
         "cisco_username_password",

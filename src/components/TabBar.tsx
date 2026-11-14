@@ -17,6 +17,7 @@ import * as terminalRegistry from "../lib/terminalRegistry";
 import { isManagedSshTab } from "../lib/sessionRestore";
 import { useTerminalConnectionStore } from "../state/terminalConnectionStore";
 import NotificationCenter from "./NotificationCenter";
+import { telemetryWorkspaces } from '../features/telemetry/store';
 
 export function TabBar({
   onNew,
@@ -24,9 +25,11 @@ export function TabBar({
   onNewNetconf,
   onNewEditor,
   onNewTopology,
+  onNewTelemetry,
   onNewVault,
   onNewRecordings,
   onNewTroubleshoot,
+  onNewCanvas,
   onSettings,
   onSaveSession,
   onDetach,
@@ -36,9 +39,11 @@ export function TabBar({
   onNewNetconf?: () => void;
   onNewEditor?: () => void;
   onNewTopology?: () => void;
+  onNewTelemetry?: () => void;
   onNewVault?: () => void;
   onNewRecordings?: () => void;
   onNewTroubleshoot?: () => void;
+  onNewCanvas?: () => void;
   onSettings?: () => void;
   onSaveSession?: () => void;
   onDetach?: (tab: Tab) => void | Promise<void>;
@@ -53,6 +58,14 @@ export function TabBar({
 
   const [chooserOpen, setChooserOpen] = useState(false);
   const chooserRef = useRef<HTMLDivElement | null>(null);
+  const workspaceSelections = useRef(new Map<string, HTMLButtonElement>());
+  const newTabButton = useRef<HTMLButtonElement>(null);
+  const recoverWorkspaceCloseFocus = useRef(false);
+  useEffect(() => {
+    if (!recoverWorkspaceCloseFocus.current) return;
+    recoverWorkspaceCloseFocus.current = false;
+    (workspaceSelections.current.get(activeTabId ?? "") ?? newTabButton.current)?.focus();
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     if (!chooserOpen) return;
@@ -82,9 +95,11 @@ export function TabBar({
     !!onNewNetconf ||
     !!onNewEditor ||
     !!onNewTopology ||
+    !!onNewTelemetry ||
     !!onNewVault ||
     !!onNewRecordings ||
-    !!onNewTroubleshoot;
+    !!onNewTroubleshoot ||
+    !!onNewCanvas;
 
   const handleSplitVertical = () => {
     if (focusedPaneId) {
@@ -107,6 +122,7 @@ export function TabBar({
         const isNetconf = t.tab_type === "netconf";
         const isEditor = t.tab_type === "editor";
         const isTopology = t.tab_type === "topology";
+        const isTelemetry = t.tab_type === 'telemetry';
         const isVault = t.tab_type === "vault";
         const isRecordings = t.tab_type === "recordings";
         const isRecordingPlayer = t.tab_type === "recording-player";
@@ -115,19 +131,23 @@ export function TabBar({
         // Heartbeat is a permanent tab — no close button.
         const isHeartbeat = t.tab_type === "heartbeat";
         const isKanban = t.tab_type === "kanban";
+        const isCanvas = t.tab_type === "canvas";
+        const workspaceLabel = isCanvas ? `Canvas investigation ${t.title}` : isTelemetry ? `Telemetry workspace ${t.title}` : null;
         const isRecording = !!activeRecordings[t.id];
         const isTerminalTab =
           !isApi &&
           !isNetconf &&
           !isEditor &&
           !isTopology &&
+          !isTelemetry &&
           !isVault &&
           !isRecordings &&
           !isRecordingPlayer &&
           !isTroubleshoot &&
           !isTroubleshootEditor &&
           !isHeartbeat &&
-          !isKanban;
+          !isKanban &&
+          !isCanvas;
         const isTabCloseable = !isHeartbeat && !isKanban;
         const layout = layoutsByTab.get(t.id);
         const canDetach =
@@ -187,6 +207,8 @@ export function TabBar({
             data-testid={`tab-${t.id}`}
             data-tab-type={t.tab_type ?? "terminal"}
           >
+            {isCanvas && <span className="tab-type-badge" title="Canvas investigation">CANVAS</span>}
+            {isTelemetry && <span className="tab-type-badge" title="Telemetry workspace">TELEMETRY</span>}
             {isApi && (
               <span className="tab-type-badge" title="API Runner tab">
                 API
@@ -256,7 +278,7 @@ export function TabBar({
                 data-testid={`tab-activity-dot-${t.id}`}
               />
             )}
-            <span>{t.title}</span>
+            {workspaceLabel ? <button ref={node => { if (node) workspaceSelections.current.set(t.id, node); else workspaceSelections.current.delete(t.id); }} className="canvas-tab-select" aria-label={`Select ${workspaceLabel}`} aria-pressed={t.id === activeTabId} onClick={event => { event.stopPropagation(); setActive(t.id); }}>{t.title}</button> : <span>{t.title}</span>}
             {canDetach && onDetach && (
               <button
                 className="tab-detach"
@@ -273,9 +295,15 @@ export function TabBar({
             {isTabCloseable && (
               <button
                 className="tab-close"
+                aria-label={workspaceLabel ? `Close ${workspaceLabel}` : undefined}
+                title={workspaceLabel ? `Close ${workspaceLabel}` : undefined}
                 onClick={async (e) => {
                   e.stopPropagation();
-                  if (isApi) {
+                  const closeButton = e.currentTarget;
+                  if (isTelemetry) {
+                    try { await telemetryWorkspaces.close(t.id); }
+                    catch { return; }
+                  } else if (isApi) {
                     await tabCloseApi(t.id).catch(() => {});
                   } else if (isNetconf) {
                     await tabCloseNetconf(t.id).catch(() => {});
@@ -295,7 +323,8 @@ export function TabBar({
                     isRecordings ||
                     isRecordingPlayer ||
                     isTroubleshoot ||
-                    isTroubleshootEditor
+                    isTroubleshootEditor ||
+                    isCanvas
                   ) {
                     // Pure-frontend tabs; no Rust-side close.
                   } else if (isManagedSshTab(t.shell_cmd, connections[t.id]?.managed)) {
@@ -315,6 +344,7 @@ export function TabBar({
                       await ptyKill(t.id).catch(() => {});
                     }
                   }
+                  if (workspaceLabel && document.activeElement === closeButton) recoverWorkspaceCloseFocus.current = true;
                   removeTab(t.id);
                 }}
               >
@@ -328,7 +358,7 @@ export function TabBar({
         className={`tab-new-group ${chooserOpen ? "tab-new-group-open" : ""}`}
         ref={chooserRef}
       >
-        <button className="tab-new" onClick={onNew} title="New terminal tab">
+        <button ref={newTabButton} className="tab-new" onClick={onNew} title="New terminal tab">
           +
         </button>
         {hasSecondaryChooser && (
@@ -391,7 +421,7 @@ export function TabBar({
                 </button>
               )}
             </div>
-            {(onNewTopology || onNewRecordings) && (
+            {(onNewTopology || onNewTelemetry || onNewRecordings) && (
               <div className="tab-chooser-section">
                 <div className="tab-chooser-label">View</div>
                 {onNewTopology && (
@@ -407,6 +437,7 @@ export function TabBar({
                     Topology
                   </button>
                 )}
+                {onNewTelemetry && <button className="tab-chooser-item" role="menuitem" onClick={() => pickAndClose(onNewTelemetry)}>Telemetry</button>}
                 {onNewRecordings && (
                   <button
                     className="tab-chooser-item"
@@ -420,6 +451,15 @@ export function TabBar({
                     Recordings
                   </button>
                 )}
+              </div>
+            )}
+            {onNewCanvas && (
+              <div className="tab-chooser-section">
+                <div className="tab-chooser-label">Investigate</div>
+                <button className="tab-chooser-item" onClick={() => pickAndClose(onNewCanvas)} role="menuitem">
+                  <span className="tab-chooser-badge">CANVAS</span>
+                  Canvas investigation
+                </button>
               </div>
             )}
             {onNewTroubleshoot && (

@@ -21,6 +21,8 @@ export type Message = {
   role: ChatRole;
   content: string;
   timestamp: number;
+  /** Canvas only: exact final event text, never streamed narration. Null runId marks saved-history finals; an empty response marks a live shell. */
+  canvasFinal?: { runId: string | null; response: string };
   /** Only set for role === "tool_proposed" or "tool_result" */
   toolCallId?: string;
   /** Only set for role === "tool_proposed" */

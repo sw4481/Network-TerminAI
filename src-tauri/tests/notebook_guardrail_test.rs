@@ -13,13 +13,10 @@
 
 use async_trait::async_trait;
 use ccie_terminal_lib::guardrails::rules::RuleSet;
-use ccie_terminal_lib::notebooks::model::{
-    CommandMeta, Frontmatter, Notebook, NotebookCell,
-};
+use ccie_terminal_lib::notebooks::model::{CommandMeta, Frontmatter, Notebook, NotebookCell};
 use ccie_terminal_lib::notebooks::runner::{
-    self, AssertionEvaluator, AssertionOutcome, ControlMsg, NotebookGuardrail,
-    NotebookRunner, PtyExecutor, PtyRunResult, RunEvent, RunStatus, RunnerConfig,
-    RunnerContext,
+    self, AssertionEvaluator, AssertionOutcome, ControlMsg, NotebookGuardrail, NotebookRunner,
+    PtyExecutor, PtyRunResult, RunEvent, RunStatus, RunnerConfig, RunnerContext,
 };
 use parking_lot::Mutex;
 use rusqlite::Connection;
@@ -159,7 +156,10 @@ async fn tier3_reload_is_blocked_before_pty_runs() {
             saw_awaiting = true;
         }
     }
-    assert!(saw_awaiting, "expected an AwaitingApproval CellFinished event");
+    assert!(
+        saw_awaiting,
+        "expected an AwaitingApproval CellFinished event"
+    );
 }
 
 #[tokio::test]

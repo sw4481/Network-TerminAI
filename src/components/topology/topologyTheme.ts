@@ -44,4 +44,6 @@ export const PROTOCOL_EDGE_STYLE: Record<string, CSSProperties> = {
   bgp: { stroke: "#c0392b", strokeWidth: 2.5 },
   ospf: { stroke: "#7f5fb0", strokeWidth: 1.5, strokeDasharray: "1 3" },
   isis: { stroke: "#d68a3c", strokeWidth: 1.5, strokeDasharray: "6 3" },
+  eigrp: { stroke: "var(--text-muted)", strokeWidth: 1.5, strokeDasharray: "8 3 2 3" },
+  unknown: { stroke: "var(--text-muted)", strokeWidth: 1.5, strokeDasharray: "2 4" },
 };
