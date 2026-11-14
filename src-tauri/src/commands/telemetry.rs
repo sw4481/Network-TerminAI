@@ -106,7 +106,17 @@ pub async fn telemetry_close(
     state: State<'_, AppState>,
     workspace_id: String,
 ) -> Result<(), Diagnostic> {
-    owner(&state)?.close(&workspace_id).await
+    close_workspace(owner(&state), &workspace_id).await
+}
+async fn close_workspace(
+    service: Result<Arc<TelemetryService>, Diagnostic>,
+    workspace_id: &str,
+) -> Result<(), Diagnostic> {
+    match service {
+        Ok(service) => service.close(workspace_id).await,
+        // Initialization failed before any workspace or collector could be created.
+        Err(_) => Ok(()),
+    }
 }
 #[tauri::command]
 pub async fn telemetry_snapshot(
@@ -241,6 +251,10 @@ pub async fn telemetry_reset(
 ) -> Result<TelemetryRead<ConfigDraft>, Diagnostic> {
     owner(&state)?.reset(&workspace_id, scope, asset).await
 }
+
+#[cfg(test)]
+#[path = "telemetry_failed_init_tests.rs"]
+mod failed_init_tests;
 
 #[cfg(test)]
 mod tests {

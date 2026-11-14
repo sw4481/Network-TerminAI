@@ -1,0 +1,2 @@
+# Catalog SHA-256 pins exact template bytes, also verified by the runtime parser.
+/src-tauri/telemetry/templates/*.textfsm text eol=lf

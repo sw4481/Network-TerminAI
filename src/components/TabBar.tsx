@@ -437,7 +437,20 @@ export function TabBar({
                     Topology
                   </button>
                 )}
-                {onNewTelemetry && <button className="tab-chooser-item" role="menuitem" onClick={() => pickAndClose(onNewTelemetry)}>Telemetry</button>}
+                {onNewTelemetry && (
+                  <button
+                    className="tab-chooser-item"
+                    role="menuitem"
+                    title="New Telemetry tab"
+                    data-testid="tab-new-telemetry"
+                    onClick={() => pickAndClose(onNewTelemetry)}
+                  >
+                    <span className="tab-chooser-badge tab-chooser-badge-top" aria-hidden="true">
+                      TEL
+                    </span>
+                    Telemetry
+                  </button>
+                )}
                 {onNewRecordings && (
                   <button
                     className="tab-chooser-item"
