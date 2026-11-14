@@ -10,8 +10,8 @@ use super::{GraphSnapshot, NodePosition, TopologyEdge, TopologyGraph, TopologyNo
 
 /// Complete persisted representation shared by reads and import results.
 pub fn snapshot(conn: &Connection, graph_id: &str) -> Result<GraphSnapshot> {
-    let graph = get_graph(conn, graph_id)?
-        .ok_or_else(|| anyhow::anyhow!("topology graph not found"))?;
+    let graph =
+        get_graph(conn, graph_id)?.ok_or_else(|| anyhow::anyhow!("topology graph not found"))?;
     let provenance: Option<String> = conn
         .query_row(
             "SELECT provenance_json FROM topology_import_provenance WHERE graph_id = ?1",
@@ -24,7 +24,9 @@ pub fn snapshot(conn: &Connection, graph_id: &str) -> Result<GraphSnapshot> {
         nodes: list_nodes(conn, graph_id)?,
         edges: list_edges(conn, graph_id)?,
         positions: list_positions(conn, graph_id)?,
-        import_provenance: provenance.map(|json| serde_json::from_str(&json)).transpose()?,
+        import_provenance: provenance
+            .map(|json| serde_json::from_str(&json))
+            .transpose()?,
         capture_evidence: super::evidence::CaptureEvidence::list(conn, graph_id)?,
     })
 }
@@ -218,7 +220,10 @@ pub fn list_edges(conn: &Connection, graph_id: &str) -> Result<Vec<TopologyEdge>
 pub fn clear_graph(conn: &Connection, graph_id: &str) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     reset_layout(&tx, graph_id)?;
-    tx.execute("DELETE FROM topology_capture_evidence WHERE graph_id = ?1", [graph_id])?;
+    tx.execute(
+        "DELETE FROM topology_capture_evidence WHERE graph_id = ?1",
+        [graph_id],
+    )?;
     tx.execute(
         "DELETE FROM topology_import_provenance WHERE graph_id = ?1",
         [graph_id],

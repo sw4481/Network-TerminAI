@@ -1,7 +1,9 @@
+mod support;
+
 use ccie_terminal_lib::bridge::SidecarHandle;
 use std::path::PathBuf;
 
-fn python_cmd() -> (String, Vec<String>) {
+fn python_cmd() -> support::SidecarTestCommand {
     let repo_root = match std::env::var("CCIE_REPO_ROOT") {
         Ok(p) => PathBuf::from(p),
         Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -14,15 +16,13 @@ fn python_cmd() -> (String, Vec<String>) {
     } else {
         repo_root.join("sidecar/.venv/bin/python")
     };
-    (
-        venv_python.to_string_lossy().into_owned(),
-        vec!["-m".into(), "ccie_sidecar".into()],
-    )
+    support::SidecarTestCommand::new(venv_python.to_string_lossy().into_owned())
 }
 
 #[test]
 fn spawn_sidecar_and_ping() {
-    let (cmd, args) = python_cmd();
+    let fixture = python_cmd();
+    let (cmd, args) = (fixture.program.clone(), fixture.args.clone());
     let mut handle = SidecarHandle::spawn(&cmd, &args).expect("spawn");
     let resp = handle.call("ping", serde_json::json!({})).expect("call");
     assert_eq!(resp["type"], "done");
@@ -46,7 +46,8 @@ for line in sys.stdin:
     result = {"disabled": sys.dont_write_bytecode, "env": os.environ.get("PYTHONDONTWRITEBYTECODE"), "value": integrity_fixture.VALUE}
     print(json.dumps({"id": request["id"], "type": "done", "result": result}), flush=True)
 "#;
-    let (python, _) = python_cmd();
+    let fixture = python_cmd();
+    let python = fixture.program.clone();
     let args = vec![
         "-c".to_string(),
         script.to_string(),

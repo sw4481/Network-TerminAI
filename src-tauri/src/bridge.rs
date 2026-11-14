@@ -792,6 +792,7 @@ impl SidecarSupervisor {
 // Last-owner failure retains actual Children, never PID-only signal authority.
 // Synchronous retries only; process-local retention is not an app-exit guarantee.
 static RETAINED_SIDECARS: Mutex<Vec<Arc<Inner>>> = Mutex::new(Vec::new());
+#[cfg(all(test, unix))]
 pub(crate) fn retry_retained_sidecars() -> Result<()> {
     let owners = RETAINED_SIDECARS.lock().clone();
     let mut failure = None;

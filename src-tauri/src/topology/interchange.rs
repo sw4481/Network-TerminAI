@@ -142,7 +142,10 @@ impl TopologyImporter {
         );
         let snapshot: GraphSnapshot = serde_json::from_value(value["snapshot"].clone())
             .context("invalid native topology snapshot")?;
-        ensure!(snapshot.capture_evidence.is_empty(), "native v1 does not import local collection receipts");
+        ensure!(
+            snapshot.capture_evidence.is_empty(),
+            "native v1 does not import local collection receipts"
+        );
         text(&snapshot.graph.id, 512, false)?;
         text(&snapshot.graph.name, 256, false)?;
         optional_text(snapshot.graph.description.as_deref(), 4096)?;

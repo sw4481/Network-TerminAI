@@ -80,7 +80,7 @@ pub fn close_detached_editor_windows_for_tab(
 }
 
 #[tauri::command]
-pub fn editor_detach_pane(
+pub async fn editor_detach_pane(
     app: AppHandle,
     state: State<'_, AppState>,
     tab_id: String,

@@ -494,6 +494,22 @@ statusDiv.style.cssText = \`
     );
   });
 
+  it("checks the end of a tracked source diff larger than one MiB", () => {
+    const { directory, allowlistFile } = repoFixture();
+    const file = join(directory, "src/components/Large.css");
+    const padding = "/* semantic-token migration padding */\n".repeat(30_000);
+    expect(Buffer.byteLength(padding)).toBeGreaterThan(1024 * 1024);
+    writeFileSync(file, `${padding}.x { color: var(--text-primary); }\n`);
+    git(directory, "add", "src/components/Large.css");
+    expect(runGuard(directory, allowlistFile, "--base", "HEAD")()).toContain("Structural color guard passed.");
+    writeFileSync(file, `${padding}.x { color: #123456; }\n`);
+    let failure: { status?: number; stderr?: string } | undefined;
+    try { runGuard(directory, allowlistFile, "--base", "HEAD")(); }
+    catch (error) { failure = error as typeof failure; }
+    expect(failure?.status).toBe(1);
+    expect(String(failure?.stderr)).toContain("Large.css:30001 #123456 property=color");
+  });
+
   it("treats a tag-push all-zero explicit base as unresolved and falls back safely", () => {
     const { directory, allowlistFile } = repoFixture();
     writeFileSync(join(directory, "src/components/New.css"), ".x { color: red; }\n");

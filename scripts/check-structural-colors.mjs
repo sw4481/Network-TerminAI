@@ -46,7 +46,7 @@ const NAMED_COLORS = new Set([
 ]);
 
 function git(args) {
-  return execFileSync("git", args, { encoding: "utf8" }).trim();
+  return execFileSync("git", args, { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }).trim();
 }
 
 function sourcePath(file) {

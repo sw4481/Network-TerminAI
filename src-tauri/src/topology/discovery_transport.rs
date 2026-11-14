@@ -273,7 +273,10 @@ mod unix {
         if count == 0 {
             return std::io::Error::last_os_error().raw_os_error() == Some(0);
         }
-        if count < 0 || count as usize >= size || count as usize % std::mem::size_of::<i32>() != 0 {
+        if count < 0
+            || count as usize >= size
+            || !(count as usize).is_multiple_of(std::mem::size_of::<i32>())
+        {
             return false;
         }
         pids[..count as usize / std::mem::size_of::<i32>()]

@@ -84,7 +84,7 @@ impl Credential {
                     && text(username, 1, 32)
                     && text(auth_key, 8, 1024)
                     && text(priv_key, 8, 1024)
-                    && context.as_ref().map_or(true, |s| text(s, 0, 32))
+                    && context.as_ref().is_none_or(|s| text(s, 0, 32))
                     && *port != Some(0)
             }
             Self::V2c {
@@ -207,7 +207,7 @@ pub(crate) fn decode(raw: &str) -> Result<Vec<Capture>, String> {
                     .and_then(|v| v.as_array())
                     .is_some_and(|records| {
                         records.iter().any(|r| {
-                            r.as_object().map_or(true, |r| {
+                            r.as_object().is_none_or(|r| {
                                 r.keys().any(|key| {
                                     !matches!(
                                         key.as_str(),

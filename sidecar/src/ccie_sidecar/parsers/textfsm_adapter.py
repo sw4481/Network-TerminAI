@@ -18,6 +18,6 @@ def parse(vendor: str, platform: str, command: str, raw: str) -> dict:
         data = parse_output(platform=platform_key, command=command, data=raw)
     except Exception as exc:
         raise TextFSMUnsupportedError(str(exc)) from exc
-    if not data:
-        raise TextFSMUnsupportedError(f"template matched 0 rows for {command}")
+    # A template exists but matched nothing (feature disabled, no neighbors):
+    # valid, empty result rather than an error.
     return {"parser": "textfsm", "command": command, "data": data}

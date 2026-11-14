@@ -19,21 +19,31 @@ use crate::topology::{
     cache, graph, ingest,
     interchange::{ImportPreview, TopologyImporter},
     lookup, CaptureOutcome, CaptureStatus, DiscoverySummary, GraphSnapshot, IngestSummary,
-    NeighborCacheRow, NodePosition, SavedDeviceLookup, TopologyGraph, TopologyNode, GLOBAL_GRAPH_ID,
+    NeighborCacheRow, NodePosition, SavedDeviceLookup, TopologyGraph, TopologyNode,
+    GLOBAL_GRAPH_ID,
 };
 
 #[tauri::command]
-pub async fn topology_discovery_start(state: State<'_, AppState>, request: crate::topology::discovery::DiscoveryRequest) -> Result<crate::topology::discovery::DiscoveryReport, String> {
+pub async fn topology_discovery_start(
+    state: State<'_, AppState>,
+    request: crate::topology::discovery::DiscoveryRequest,
+) -> Result<crate::topology::discovery::DiscoveryReport, String> {
     state.topology_discovery.start(request)
 }
 
 #[tauri::command]
-pub fn topology_discovery_status(state: State<'_, AppState>, run_id: Option<String>) -> Result<Option<crate::topology::discovery::DiscoveryReport>, String> {
+pub fn topology_discovery_status(
+    state: State<'_, AppState>,
+    run_id: Option<String>,
+) -> Result<Option<crate::topology::discovery::DiscoveryReport>, String> {
     state.topology_discovery.status(run_id.as_deref())
 }
 
 #[tauri::command]
-pub fn topology_discovery_cancel(state: State<'_, AppState>, run_id: String) -> Result<crate::topology::discovery::DiscoveryReport, String> {
+pub fn topology_discovery_cancel(
+    state: State<'_, AppState>,
+    run_id: String,
+) -> Result<crate::topology::discovery::DiscoveryReport, String> {
     state.topology_discovery.cancel(&run_id)
 }
 

@@ -227,7 +227,7 @@ impl CaptureEvidence {
             let key = NeighborObservation::identity(&observation.record)?;
             if retained
                 .get(&key)
-                .map_or(true, |previous: &NeighborObservation| {
+                .is_none_or(|previous: &NeighborObservation| {
                     previous.captured_at <= observation.captured_at
                 })
             {

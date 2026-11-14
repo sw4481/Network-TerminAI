@@ -28,6 +28,7 @@ def handle(value):
 
 
 def test_worker_parses_textfsm_without_server_startup(tmp_path):
+    server_before = sys.modules.get("ccie_sidecar.server")
     script = '''import sys,json,importlib.abc
 class Guard(importlib.abc.MetaPathFinder):
  def find_spec(self,fullname,path=None,target=None):
@@ -48,7 +49,7 @@ assert 'ccie_sidecar.server' not in sys.modules
     assert result.returncode == 0, result.stderr
     reply = json.loads(result.stdout)
     assert reply == {"id": "r1", "headers": ["name", "count"], "records": [["Gi1", "12"]]}
-    assert "ccie_sidecar.server" not in sys.modules
+    assert sys.modules.get("ccie_sidecar.server") is server_before
 
 
 def test_zero_records_are_not_automatically_unsupported():

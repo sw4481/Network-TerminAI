@@ -2,10 +2,12 @@
 // `sidecar/scripts/build_sidecar.sh`. Skipped automatically when the build
 // output isn't present (typical in CI before the sidecar build step runs).
 
+mod support;
+
 use ccie_terminal_lib::bridge::SidecarSupervisor;
 use std::path::PathBuf;
 
-fn bundled_python() -> Option<(String, Vec<String>)> {
+fn bundled_python() -> Option<support::SidecarTestCommand> {
     let repo_root = match std::env::var("CCIE_REPO_ROOT") {
         Ok(p) => PathBuf::from(p),
         Err(_) => PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -22,19 +24,18 @@ fn bundled_python() -> Option<(String, Vec<String>)> {
     if !py.is_file() {
         return None;
     }
-    Some((
+    Some(support::SidecarTestCommand::new(
         py.to_string_lossy().into_owned(),
-        vec!["-m".into(), "ccie_sidecar".into()],
     ))
 }
 
 #[test]
 fn bundled_python_answers_ping() {
-    let Some((cmd, args)) = bundled_python() else {
+    let Some(fixture) = bundled_python() else {
         eprintln!("SKIP: sidecar/dist/python not built (run sidecar/scripts/build_sidecar.sh)");
         return;
     };
-    let sup = SidecarSupervisor::new(cmd, args);
+    let sup = SidecarSupervisor::new(fixture.program.clone(), fixture.args.clone());
     let resp = sup
         .call("ping", serde_json::json!({}))
         .expect("bundled sidecar ping");
@@ -44,11 +45,11 @@ fn bundled_python_answers_ping() {
 
 #[test]
 fn bundled_python_parses_show_version_via_genie() {
-    let Some((cmd, args)) = bundled_python() else {
+    let Some(fixture) = bundled_python() else {
         eprintln!("SKIP: sidecar/dist/python not built");
         return;
     };
-    let sup = SidecarSupervisor::new(cmd, args);
+    let sup = SidecarSupervisor::new(fixture.program.clone(), fixture.args.clone());
     let params = serde_json::json!({
         "vendor": "cisco",
         "platform": "iosxe",

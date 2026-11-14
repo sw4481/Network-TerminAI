@@ -804,7 +804,8 @@ impl TopologyDiscoveryService {
                 || capture.records.len() > 2000
                 || capture.records.iter().any(|r| {
                     r.protocol != protocol
-                        || (matches!(protocol, "bgp" | "ospf" | "isis" | "eigrp") && r.routing.is_none())
+                        || (matches!(protocol, "bgp" | "ospf" | "isis" | "eigrp")
+                            && r.routing.is_none())
                 })
             {
                 let saved = self.record_outcome(

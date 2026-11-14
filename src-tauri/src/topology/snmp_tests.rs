@@ -246,8 +246,8 @@ fn snmp_source_authority_and_failed_history_are_independent_of_cli() {
     let after = CaptureEvidence::list(&conn, GLOBAL_GRAPH_ID).unwrap();
     assert_eq!(after.len(), 2);
     assert_eq!(
-        serde_json::to_value(&after.iter().find(|r| r.source_command == cli).unwrap()).unwrap(),
-        serde_json::to_value(&before.iter().find(|r| r.source_command == cli).unwrap()).unwrap()
+        serde_json::to_value(after.iter().find(|r| r.source_command == cli).unwrap()).unwrap(),
+        serde_json::to_value(before.iter().find(|r| r.source_command == cli).unwrap()).unwrap()
     );
     assert_eq!(
         serde_json::to_value(
