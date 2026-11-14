@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 const scenario = JSON.parse(process.argv[1]);
 const bad = '4cd4d5ac6633e2a4c37c6d50dd0acb5ebb365ed2';
 const repo = 'sw4481/Network-TerminAI';
-const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.19'};
+const context = {repo:{owner:'sw4481',repo:'Network-TerminAI'},ref:'refs/tags/v1.1.20'};
 let release = {id:445040852,tag_name:'v1.1.17',draft:true,published_at:null,assets:[{id:101}]};
 let run = {id:43561458598,head_sha:bad,head_branch:'v1.1.17',event:'push',
   path:'.github/workflows/release.yml',run_attempt:1,status:'queued',conclusion:null,
@@ -87,7 +87,7 @@ case 'early_wrong_steps': jobs[2].steps={}; break;
 case 'early_publisher_active': jobs.push({...jobs[0],name:'validate-and-publish',status:'in_progress',conclusion:null}); break;
 case 'early_publisher_success': jobs.push({...jobs[0],name:'validate-and-publish'}); break;
 case 'wrong_repo': context.repo.owner='other'; break;
-case 'wrong_current_tag': context.ref='refs/tags/v1.1.18'; break;
+case 'wrong_current_tag': context.ref='refs/tags/v1.1.19'; break;
 case 'wrong_ref': ref.ref='refs/tags/v1.1.16'; break;
 case 'wrong_tag_commit': tag.object.sha='wrong'; break;
 case 'nested_tag': tag.object.type='tag'; break;
@@ -117,7 +117,14 @@ case 'duplicate_job': jobs.push({...jobs[2]}); break;
 case 'missing_package': jobs.pop(); break;
 case 'unknown_job': jobs.push({...jobs[2],name:'unexpected'}); break;
 }
-const github={rest:{git:{
+const github={rest:{actions:{
+  getWorkflowRun:async args=>{
+    assert.deepEqual(args,{owner:'sw4481',repo:'Network-TerminAI',run_id:43561458598,request:{timeout:15000}});
+    return readActions(false);},
+  listJobsForWorkflowRun:async args=>{
+    assert.deepEqual(args,{owner:'sw4481',repo:'Network-TerminAI',run_id:43561458598,per_page:100,request:{timeout:15000}});
+    return readActions(true);}
+},git:{
   getRef:async args=>{calls.push('ref');assert.equal(args.ref,'tags/v1.1.17');return {data:ref};},
   getTag:async args=>{calls.push('tag');assert.equal(args.tag_sha,'annotated-tag');
     if(scenario.name==='wait_changed_ref' && waits) return {data:{object:{type:'commit',sha:'changed'}}};
@@ -159,15 +166,13 @@ const github={rest:{git:{
     if(scenario.name==='delete_error') throw error(403);
     return {status:scenario.name==='delete_bad_status'?202:204};}
 }}};
-const fetch=async (url,options)=>{
-  calls.push(url.endsWith('/jobs?per_page=100')?'jobs':'run');
-  assert.equal(options.redirect,'error');
-  assert(!Object.keys(options.headers).some(k=>k.toLowerCase()==='authorization'));
-  assert(options.signal);
-  assert(url===`https://api.github.com/repos/${repo}/actions/runs/43561458598` ||
-    url===`https://api.github.com/repos/${repo}/actions/runs/43561458598/jobs?per_page=100`);
-  if(scenario.name==='fetch_error') throw new Error('network');
-  if(scenario.name==='wait_fetch_error' && waits) throw new Error('network');
+const fetch=async()=>{calls.push('anonymous_fetch');throw new Error('Anonymous fetch is forbidden');};
+const readActions=async jobsRequest=>{
+  calls.push(jobsRequest?'jobs':'run');
+  if(scenario.name==='api_error') throw new Error('network');
+  if(scenario.name==='actions_403') throw error(403);
+  if(scenario.name==='jobs_403' && jobsRequest) throw error(403);
+  if(scenario.name==='wait_api_error' && waits) throw new Error('network');
   if(scenario.name==='active_public_terminal' && waits) {run.status='completed';run.conclusion='success';}
   if(scenario.name.startsWith('wait_') && waits && scenario.name!=='wait_timeout') {
     if(scenario.name==='wait_public_transition' && waits===1) {release.draft=false;release.published_at='today';}
@@ -175,9 +180,7 @@ const fetch=async (url,options)=>{
     if(scenario.name==='wait_withdraw') {release.draft=false;release.published_at='today';}
     if(scenario.name==='wait_changed_attempt') run.run_attempt=2;
   }
-  return {ok:scenario.name!=='public_403',status:scenario.name==='public_403'?403:200,
-    json:async()=>url.endsWith('/jobs?per_page=100')?
-      {total_count:scenario.name==='truncated_jobs'?101:jobs.length,jobs}:run};
+  return {data:jobsRequest?{total_count:scenario.name==='truncated_jobs'?101:jobs.length,jobs}:run};
 };
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const fs=require('node:fs');
@@ -190,6 +193,7 @@ const source=fs.readFileSync(0,'utf8');
   assert.equal(calls.includes('delete'),scenario.deletes,JSON.stringify({scenario,calls}));
   assert.equal(calls.includes('update'),scenario.updates,JSON.stringify({scenario,calls}));
   assert(!calls.includes('lookup'),'published-only tag lookup must never bypass the known draft ID');
+  assert(!calls.includes('anonymous_fetch'),'all workflow metadata reads must use the authenticated Actions client');
   if(scenario.deletes) {
     const reread=calls.indexOf('get',calls.indexOf('jobs')+1);
     assert(calls.indexOf('jobs')<reread && reread<calls.indexOf('delete'));
@@ -224,7 +228,7 @@ class UnsafeReleaseRetirementTests(unittest.TestCase):
             "no_queued_package", "publisher_active", "publisher_success",
             "wrong_job_run", "wrong_job_sha", "duplicate_job", "missing_package",
             "unknown_job", "lookup_error", "changed_id", "became_public",
-            "reread_error", "fetch_error", "public_403", "truncated_jobs",
+            "reread_error", "api_error", "actions_403", "jobs_403", "truncated_jobs",
             "delete_error", "delete_bad_status", "delete_not_effective", "verify_error",
             "early_missing_rust", "early_missing_upload", "early_duplicate_rust",
             "early_duplicate_upload", "early_wrong_rust_name", "early_wrong_upload_name",
@@ -236,7 +240,7 @@ class UnsafeReleaseRetirementTests(unittest.TestCase):
             "early_publisher_active", "early_publisher_success",
             "wrong_numeric_id", "terminal_patch_error", "terminal_patch_bad_status",
             "terminal_patch_not_draft", "terminal_verify_public", "terminal_verify_id",
-            "terminal_verify_error", "wait_timeout", "wait_fetch_error",
+            "terminal_verify_error", "wait_timeout", "wait_api_error",
             "wait_changed_attempt", "wait_changed_ref", "wait_changed_id",
             "terminal_unknown_conclusion", "terminal_null_conclusion",
             "invalid_draft_flag", "invalid_published_at",

@@ -266,7 +266,7 @@ Build artifacts are written under `src-tauri/target/release/bundle/`.
 
 ## Project status
 
-The current release is **TerminAI 1.1.19**. The repository is under active
+The current release is **TerminAI 1.1.20**. The repository is under active
 development; the in-app guide and linked feature documents describe the
 behavior shipped by the current checkout. Integrations may require their own
 service credentials, reachable endpoints, or platform-specific permissions.
