@@ -48,12 +48,14 @@ export function useDashboard(
   } | null>(null);
   const [loaded, setLoaded] = useState<{
     key: string;
+    scope: string;
     widgets: LoadedWidget[];
     errors: string[];
   } | null>(null);
   const [histories, setHistories] = useState<{
     key: string;
     tableKey: string;
+    scope: string;
     series: LoadedSeries[];
     errors: string[];
   } | null>(null);
@@ -130,7 +132,8 @@ export function useDashboard(
             : definitions.map((d) => d.widget);
   if (mode === "detail" && (selectedKey || section?.id === "overview"))
     ids.push(...interfaceIds);
-  const key = `${scope}:${current?.effective.revision ?? ""}:${observation}:${JSON.stringify([...new Set(ids)])}`;
+  const tableScope = `${scope}:${current?.effective.revision ?? ""}:${JSON.stringify([...new Set(ids)])}`;
+  const key = `${tableScope}:${observation}`;
   useEffect(() => {
     let active = true;
     if (!current) return;
@@ -168,7 +171,7 @@ export function useDashboard(
           }
         }),
       );
-      if (active) setLoaded({ key, widgets, errors });
+      if (active) setLoaded({ key, scope: tableScope, widgets, errors });
     })();
     return () => {
       active = false;
@@ -181,6 +184,7 @@ export function useDashboard(
     (s) => s.target_id === targetId && ids.includes(s.widget_id),
   );
   const historyKey = `${key}:${JSON.stringify(seriesSummaries)}:${selectedKey ?? ""}:${JSON.stringify(historyRows)}`;
+  const historyScope = `${tableScope}:${selectedKey ?? ""}:${JSON.stringify(historyRows)}`;
   useEffect(() => {
     let active = true;
     if (!current || !visible) return;
@@ -265,7 +269,13 @@ export function useDashboard(
             }),
         );
       if (active)
-        setHistories({ key: historyKey, tableKey: key, series, errors });
+        setHistories({
+          key: historyKey,
+          tableKey: key,
+          scope: historyScope,
+          series,
+          errors,
+        });
     })();
     return () => {
       active = false;
@@ -274,11 +284,59 @@ export function useDashboard(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reader, current, visible, historyKey]);
   const currentHistories = histories?.key === historyKey ? histories : null;
+  // Retain the same panels during refresh so their height, scroll and filters survive.
+  const displayedWidgets =
+    visible?.widgets ??
+    (loaded?.scope === tableScope
+      ? loaded.widgets
+          .filter((w) =>
+            summaries.some(
+              (s) =>
+                s.widget_id === w.page.metadata.widget_id &&
+                s.revision === w.page.metadata.revision &&
+                s.generation === w.page.metadata.generation,
+            ),
+          )
+          .map((w) => ({
+            ...w,
+            page: {
+              ...w.page,
+              metadata: {
+                ...w.page.metadata,
+                state:
+                  w.page.metadata.state === "fresh"
+                    ? ("stale" as const)
+                    : w.page.metadata.state,
+              },
+            },
+          }))
+      : []);
+  const displayedSeries =
+    currentHistories?.series ??
+    (histories?.scope === historyScope
+      ? histories.series.filter(
+          (s) =>
+            seriesSummaries.some(
+              (current) =>
+                current.widget_id === s.summary.widget_id &&
+                current.row_key === s.summary.row_key &&
+                current.field === s.summary.field &&
+                current.unit === s.summary.unit &&
+                current.point_count >= s.summary.point_count,
+            ) &&
+            displayedWidgets.some(
+              (w) =>
+                w.definition.widget === s.summary.widget_id &&
+                !w.previousSource &&
+                w.page.rows.some((r) => r.key === s.summary.row_key),
+            ),
+        )
+      : []);
   const catalogError = catalogFailure?.key === scope ? catalogFailure.error : null;
   return {
     catalog: current,
-    widgets: visible?.widgets ?? [],
-    series: currentHistories?.series ?? [],
+    widgets: displayedWidgets,
+    series: displayedSeries,
     errors: [
       ...(catalogError ? [catalogError] : []),
       ...(visible?.errors ?? (loaded?.key === scope ? loaded.errors : [])),

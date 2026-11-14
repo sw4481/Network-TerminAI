@@ -60,6 +60,22 @@ class SyntheticTelemetryBackend {
   applyFailure = false;
   readonly appliedDrafts: ConfigDraft[] = [];
   readonly starts: StartRequest[] = [];
+  private delayedLocalReads: { resolve(value: unknown): void; value: unknown }[] = [];
+  private delayLocalReads = false;
+  get localReadsPending() { return this.delayedLocalReads.length; }
+  advanceLocalObservation() {
+    this.state.sequence++;
+    for (const widget of this.state.widgets.filter((w) => w.target_id === "local")) {
+      widget.observed_at_ms += 5000;
+      widget.last_success_at_ms = widget.observed_at_ms;
+    }
+    this.delayLocalReads = true;
+  }
+  releaseLocalReads() {
+    this.delayLocalReads = false;
+    for (const pending of this.delayedLocalReads) pending.resolve(pending.value);
+    this.delayedLocalReads = [];
+  }
   private delayedPreview?: { resolve(value: unknown): void; value: unknown };
   delayPreview = false;
   releasePreview() { this.delayedPreview?.resolve(this.delayedPreview.value); this.delayedPreview = undefined; }
@@ -482,11 +498,14 @@ class SyntheticTelemetryBackend {
         const p = this.pages.get(`${a.query.target_id}:${a.query.widget_id}`);
         if (!p) throw new Error("Fixture widget missing");
         const end = a.query.offset + a.query.limit;
-        return this.read({
+        const reply = this.read({
           ...p,
           rows: p.rows.slice(a.query.offset, end),
           next_offset: end < p.rows.length ? end : null,
         });
+        if (this.delayLocalReads && a.query.target_id === "local")
+          return new Promise((resolve) => { this.delayedLocalReads.push({ resolve, value: reply }); });
+        return reply;
       }
       case "telemetry_series": {
         const value = this.pages
@@ -803,6 +822,31 @@ test("Telemetry dashboards use actual effective widgets, observed interfaces and
     .fill("Observed process 1500");
   await expect(processes.getByRole("row")).toHaveCount(2);
   await expect(processes.getByText("Observed process 1500")).toBeVisible();
+  const processNode = await processes.elementHandle();
+  const localScroll = async () => ({
+    scrollTop: await workspace.evaluate((el) => el.scrollTop),
+    processY: (await processes.getByText("Observed process 1500").boundingBox())!.y,
+  });
+  const scrollBefore = await localScroll();
+  expect(scrollBefore.scrollTop).toBeGreaterThan(500);
+  const scrollReceipts = [];
+  for (let refresh = 0; refresh < 3; refresh++) {
+    backend.advanceLocalObservation();
+    await expect.poll(() => backend.localReadsPending).toBeGreaterThan(0);
+    const pending = await localScroll();
+    expect(await processNode!.evaluate((el) => el.isConnected)).toBe(true);
+    expect(pending.scrollTop).toBeGreaterThan(500);
+    expect(Math.abs(pending.processY - scrollBefore.processY)).toBeLessThanOrEqual(2);
+    backend.releaseLocalReads();
+    await expect(workspace.getByText("Loading current observations…")).toHaveCount(0);
+    const settled = await localScroll();
+    expect(await processNode!.evaluate((el) => el.isConnected)).toBe(true);
+    await expect(workspace.getByRole("searchbox", { name: "Filter Local Processes", exact: true })).toHaveValue("Observed process 1500");
+    expect(settled.scrollTop).toBeGreaterThan(500);
+    expect(Math.abs(settled.processY - scrollBefore.processY)).toBeLessThanOrEqual(2);
+    scrollReceipts.push({ refresh, before: scrollBefore, pending, settled });
+  }
+  writeFileSync(info.outputPath("local-refresh-scroll.json"), JSON.stringify(scrollReceipts, null, 2));
   await workspace.getByRole("button", { name: "Widgets", exact: true }).click();
   const appliedStudio = workspace.getByRole("region", { name: "Widget studio", exact: true });
   await appliedStudio.locator(".telemetry-library-list").getByRole("button", { name: /^Local Memory/ }).click();
