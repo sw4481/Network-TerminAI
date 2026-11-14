@@ -15,7 +15,9 @@ Procedure:
    code it names.
 2. Write the new test files the plan lists, at the paths CLAUDE.md gives. Where
    the plan fixes a bug, run the test first and confirm it fails because of the
-   reported behavior.
+   reported behavior. To test a private Rust item, use the
+   `issue_<N>_tests.rs` file beside its module; never make an item `pub` just
+   so a test can reach it.
 3. Implement the plan's steps, touching only the files it lists. You may touch
    a file it does not list only when that is unavoidable for a listed step
    (for example a `mod` line or an import); report every such file.

@@ -260,6 +260,31 @@ jobs:
           uv sync --frozen --extra dev
           uv run --frozen --extra dev pytest -v
 
+  # pyATS has no Windows build, so Cisco parsing there runs genie.libs.parser
+  # on parsers/genie_compat. Only Windows exercises that path.
+  python-parsers-windows:
+    name: python-parsers-windows
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Sync and test the parsers from the frozen lock
+        working-directory: sidecar
+        run: |
+          uv sync --frozen --extra dev
+          uv run --frozen --extra dev pytest -v tests/parsers
+
   frontend-build:
     name: frontend-build
     runs-on: ubuntu-22.04

@@ -347,35 +347,67 @@ raise SystemExit(8)
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn("smoke", self.commands())
 
-    @unittest.skipUnless(shutil.which("bun"), "Bun is required for the Tauri hook")
-    def test_config_hook_executes_helper_from_frontend_root_and_nonmac_skips(self) -> None:
-        config = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text())
-        hook = config["build"].get("beforeBundleCommand")
-        self.assertIsNotNone(hook, "Tauri never invokes the source resource signer")
-        script = hook if isinstance(hook, str) else hook["script"]
-        checkout = self.root / "checkout"
-        (checkout / "ci").mkdir(parents=True)
-        marker = self.root / "hook called"
-        helper = checkout / "ci/sign-sidecar-macos.sh"
-        helper.write_text('touch "$TEST_MARKER"\nexit 9\n')
-        env = dict(self.env, TEST_MARKER=str(marker))
-        result = subprocess.run(script, shell=True, cwd=checkout, env=env)
-        if sys.platform == "darwin":
-            self.assertTrue(marker.exists())
-            self.assertEqual(result.returncode, 9)
-        else:
-            self.assertFalse(marker.exists())
-            self.assertEqual(result.returncode, 0)
-        self.assertEqual(config["bundle"]["macOS"].get("signingIdentity"), "-")
-        javascript = shlex.split(script)[2]
-        marker.unlink(missing_ok=True)
-        for platform in ("win32", "linux"):
-            result = subprocess.run(
-                ["bun", "-e", f"Object.defineProperty(process, 'platform', {{value: '{platform}'}});" + javascript],
-                cwd=checkout, env=env, capture_output=True, text=True,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertFalse(marker.exists())
+@unittest.skipUnless(shutil.which("bun"), "Bun is required for the Tauri hook")
+class MacBundleHookTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix="bundle hook ")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        (self.root / "ci").mkdir()
+        (self.root / "scripts").mkdir()
+        self.marker = self.root / "hook called"
+        self.helper = self.root / "ci/sign-sidecar-macos.sh"
+        self.helper.write_text('printf called > "$TEST_MARKER"\nexit 9\n')
+        hook_file = ROOT / "scripts/sign-sidecar-macos.mjs"
+        if hook_file.exists():
+            shutil.copyfile(hook_file, self.root / "scripts" / hook_file.name)
+        self.preload = self.root / "platform.cjs"
+        self.preload.write_text(
+            'Object.defineProperty(process, "platform", {value: process.env.TEST_PLATFORM});\n'
+        )
+        self.config = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text())
+        self.hook = self.config["build"]["beforeBundleCommand"]
+        self.env = dict(os.environ, TEST_MARKER=str(self.marker))
+        self.bun = shutil.which("bun")
+
+    def test_config_hook_has_no_inline_javascript_or_shell_quotes(self) -> None:
+        self.assertEqual(shlex.split(self.hook, posix=False),
+                         ["bun", "scripts/sign-sidecar-macos.mjs"])
+
+    def test_config_hook_executes_helper_from_frontend_root(self) -> None:
+        result = subprocess.run(self.hook, shell=True, cwd=self.root, env=self.env,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 9 if sys.platform == "darwin" else 0, result.stderr)
+        self.assertEqual(self.marker.exists(), sys.platform == "darwin")
+        self.assertEqual(self.config["bundle"]["macOS"].get("signingIdentity"), "-")
+
+    def test_quote_preserving_arguments_skip_nonmac_and_propagate_signer_result(self) -> None:
+        # Preserve quotes as observed in the failing Windows Tauri invocation.
+        arguments = shlex.split(self.hook, posix=False)
+        cases = [("win32", 9), ("linux", 9)]
+        if os.name != "nt" and shutil.which("bash"):
+            cases.extend([("darwin", 0), ("darwin", 9)])
+        for platform, exit_code in cases:
+            with self.subTest(platform=platform, exit_code=exit_code):
+                self.marker.unlink(missing_ok=True)
+                self.helper.write_text(f'printf called > "$TEST_MARKER"\nexit {exit_code}\n')
+                result = subprocess.run(
+                    [self.bun, "--preload", str(self.preload), *arguments[1:]],
+                    cwd=self.root, env=dict(self.env, TEST_PLATFORM=platform),
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, exit_code if platform == "darwin" else 0,
+                                 result.stderr)
+                self.assertEqual(self.marker.exists(), platform == "darwin")
+
+    def test_missing_mac_signer_process_fails_closed(self) -> None:
+        result = subprocess.run(
+            [self.bun, "--preload", str(self.preload), *shlex.split(self.hook, posix=False)[1:]],
+            cwd=self.root, env=dict(self.env, TEST_PLATFORM="darwin", PATH=str(self.root)),
+            capture_output=True, text=True,
+        )
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.marker.exists())
 
 
 class BundledPythonChildEnvironmentTests(unittest.TestCase):

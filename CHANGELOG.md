@@ -5,6 +5,101 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.16] - 2026-10-20
+
+### Fixed
+
+- Restored Windows terminal tabs that had a full screen of history, such as a running Claude Code session, now get a prompt. ConPTY ignored the startup cursor report when it fell outside the size the shell was started with (#15).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
+## [1.1.15] - 2026-10-19
+
+### Fixed
+
+- Restored terminal tabs on Windows now get a prompt and echo typed text. PowerShell's startup cursor query could arrive before the tab was listening for the reply, leaving the shell waiting forever (#15).
+- Popping out a terminal tab or editor pane on Windows no longer leaves a white, frozen window and stops the main window from opening tabs (#17).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
+## [1.1.14] - 2026-10-18
+
+### Added
+
+- Use Cisco's Genie parsers on Windows. pyATS has no Windows build, so the sidecar now runs the pure-Python Genie parser library on a built-in stand-in for the Genie core, falling back to TextFSM when a parser cannot run.
+
+### Fixed
+
+- Change verification no longer fails when a command returns no data, such as `show ip bgp summary` on a switch without BGP or `show ip ospf neighbor` with no neighbors; the empty result is recorded and the remaining commands run (#14).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
+## [1.1.13] - 2026-10-17
+
+### Added
+
+- Add Cisco Workflows authoring and approved execution: a bundled Workflows agent and catalog that can author, import, run (after approval) and inspect Meraki workflow instances from the standalone agent and Network Architect, sharing the saved Meraki configuration.
+
+### Fixed
+
+- Run "run against switch" change verification on Windows over the app's built-in SSH client instead of the unavailable `sshpass` (#4).
+- Parse IOS-XE show commands such as `show ip interface brief` on Windows, where Genie is unavailable, by using the Cisco IOS TextFSM templates (#9).
+
+### Known limitations
+
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- On Windows, very old devices that offer only legacy SSH key-exchange or cipher algorithms may fail to connect, and connection and authentication errors may be worded differently than on macOS and Linux.
+- macOS builds remain ad-hoc signed and unnotarized.
+
+## [1.1.12] - 2026-10-15
+
+Includes the changes from the unpublished 1.1.11 release candidate.
+
+### Added
+
+- Add MAC Address Lookup under Operate > Tools with flexible address input, detailed IEEE assignments, address classifications, and copyable normalized formats.
+- Bundle the complete offline IEEE registry and add a validated, atomic registry-update button without sending entered MAC addresses over the network.
+
+### Fixed
+
+- Fix Windows installer packaging by replacing the shell-quoted inline macOS signing hook with a standalone script that skips signing on Windows and Linux.
+- Repair macOS resource sealing by signing bundled Python native resources before sealing the app and preventing managed Python children from writing bundled bytecode.
+- Verify DMG and updater-archive signatures before and after the bundled sidecar startup checks.
+- Disable IOS paging before live change-verification show commands.
+
+### Known limitations
+
+- macOS builds remain ad-hoc signed and unnotarized; the signature-integrity repair does not remove Gatekeeper trust warnings.
+
+## [1.1.11] - 2026-10-15
+
+### Added
+
+- Add MAC Address Lookup under Operate > Tools with flexible address input, detailed IEEE assignments, address classifications, and copyable normalized formats.
+- Bundle the complete offline IEEE registry and add a validated, atomic registry-update button without sending entered MAC addresses over the network.
+
+### Fixed
+
+- Repair macOS resource sealing by signing bundled Python native resources before sealing the app and preventing managed Python children from writing bundled bytecode.
+- Verify DMG and updater-archive signatures before and after the bundled sidecar startup checks.
+- Disable IOS paging before live change-verification show commands.
+
+### Known limitations
+
+- macOS builds remain ad-hoc signed and unnotarized; the signature-integrity repair does not remove Gatekeeper trust warnings.
+
 ## [1.1.10] - 2026-10-07
 
 ### Added
