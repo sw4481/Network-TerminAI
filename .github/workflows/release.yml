@@ -141,7 +141,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Contain the unsafe v1.1.17 release
-        if: github.ref == 'refs/tags/v1.1.20'
+        if: github.ref == 'refs/tags/v1.1.21'
         uses: actions/github-script@v7
         with:
           script: |
@@ -150,8 +150,8 @@ jobs:
             const oldRun = 43561458598;
             const oldRelease = 445040852;
             if (repo.owner !== 'sw4481' || repo.repo !== 'Network-TerminAI' ||
-                context.ref !== 'refs/tags/v1.1.20') {
-              throw new Error('Unsafe-release retirement is restricted to the exact repository and v1.1.20.');
+                context.ref !== 'refs/tags/v1.1.21') {
+              throw new Error('Unsafe-release retirement is restricted to the exact repository and v1.1.21.');
             }
             const verifyTag = async () => {
               const { data: ref } = await github.rest.git.getRef({ ...repo, ref: 'tags/v1.1.17' });
@@ -485,26 +485,32 @@ jobs:
           cargo test --locked --no-run
           cargo clippy --all-targets --locked -- -D warnings
 
-      - name: Diagnose Linux native bundle build
+      - name: Reclaim completed Linux Rust check outputs before packaging
         if: runner.os == 'Linux'
         shell: bash
-        env:
-          APPIMAGE_EXTRACT_AND_RUN: "1"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          TERMINAI_GITHUB_CLIENT_ID: ${{ vars.TERMINAI_GITHUB_CLIENT_ID }}
         run: |
-          set +e
-          bun tauri build --bundles deb -- --locked > "$RUNNER_TEMP/linux-tauri-build.log" 2>&1
-          status=$?
-          if [[ $status -ne 0 ]]; then
-            tail -n 80 "$RUNNER_TEMP/linux-tauri-build.log"
-            message="$(tail -n 20 "$RUNNER_TEMP/linux-tauri-build.log" | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
-            echo "::error title=Linux native bundle build failed::exit=$status $message"
-            exit "$status"
-          fi
-          echo "Linux native bundle build diagnostic passed."
+          {
+            echo "Disk usage before completed dev-output cleanup"
+            df -B1 .
+            for path in src-tauri/target/debug src-tauri/target/release sidecar/dist sidecar/.venv node_modules "$RUNNER_TEMP/terminai-downloads" "$RUNNER_TEMP/terminai-huggingface"; do
+              if [[ -d "$path" ]]; then du -sk "$path"; fi
+            done
+            cargo clean --manifest-path src-tauri/Cargo.toml --profile dev --locked
+            echo "Disk usage before native packaging"
+            df -B1 .
+            for path in src-tauri/target/debug src-tauri/target/release sidecar/dist sidecar/.venv node_modules "$RUNNER_TEMP/terminai-downloads" "$RUNNER_TEMP/terminai-huggingface"; do
+              if [[ -d "$path" ]]; then du -sk "$path"; fi
+            done
+          } | tee "$RUNNER_TEMP/linux-space-before-native.txt"
+
+      - name: Preserve Linux disk checkpoint before native packaging
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-space-before-native
+          path: ${{ runner.temp }}/linux-space-before-native.txt
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Build and upload native bundles
         id: tauri
@@ -524,6 +530,15 @@ jobs:
           updaterJsonPreferNsis: true
           retryAttempts: 2
           args: ${{ matrix.tauri_args }}
+
+      - name: Report Linux disk usage after native build and upload
+        if: always() && runner.os == 'Linux'
+        shell: bash
+        run: |
+          df -B1 .
+          for path in src-tauri/target/debug src-tauri/target/release sidecar/dist sidecar/.venv node_modules "$RUNNER_TEMP/terminai-downloads" "$RUNNER_TEMP/terminai-huggingface"; do
+            if [[ -d "$path" ]]; then du -sk "$path"; fi
+          done
 
       - name: Sign and upload the Debian updater package
         if: runner.os == 'Linux'

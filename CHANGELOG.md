@@ -5,6 +5,31 @@ All notable changes to TerminAI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.21] - 2026-11-14
+
+### Added
+
+- Add a dedicated Telemetry workspace with Fleet, Device and Local PC dashboards, rolling metric history, explicit monitoring targets and a YAML widget studio with validation and preview.
+- Add native topology discovery and evidence views for routing, switching and SNMP observations, with editable map layouts and import/export support.
+- Add Network Copilot Canvas findings, charts and evidence presentation, plus terminal logging and product-specific Cisco API catalog updates.
+
+### Fixed
+
+- Remove a duplicate Linux installer build and reclaim completed debug outputs before packaging to reduce runner disk pressure.
+- Authenticate workflow-state checks when containing an older unsafe release.
+- Identify the older unsafe draft by its verified release ID before retiring it during publication.
+- Prevent isolated Telemetry and topology SNMP workers from writing Python bytecode into signed application resources.
+- Preserve Local PC page position, table filters and charts while monitoring refreshes.
+- Bound Telemetry parser expansion and retain ownership through cancellation and worker cleanup.
+- Preserve the Windows SSH, Genie parsing, detached-window, early terminal-input and startup-cursor fixes from versions 1.1.13 through 1.1.16.
+
+### Known limitations
+
+- Telemetry device widgets require compatible IOS/IOS-XE command output and an SSH server that accepts isolated exec channels; unavailable observations remain explicit.
+- Packet capture over SCP still requires `sshpass` and does not work on Windows.
+- Very old Windows SSH targets offering only legacy algorithms may fail to connect.
+- macOS builds remain ad-hoc signed and unnotarized.
+
 ## [1.1.20] - 2026-11-14
 
 ### Added
