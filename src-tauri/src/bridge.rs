@@ -1061,19 +1061,33 @@ pub(crate) mod stop_tests {
         let (supervisor, inner) = fixture("0.65", libc::EPERM);
         let held = inner.child.lock();
         let pid = held.id();
-        let start = Instant::now();
-        let result = supervisor.try_shutdown();
-        let elapsed = start.elapsed();
-        drop(held);
+        let (tx, rx) = mpsc::channel();
+        let (completion, worker) = thread::scope(|scope| {
+            let worker = scope.spawn(|| {
+                let start = Instant::now();
+                let result = supervisor.try_shutdown();
+                tx.send((result, start.elapsed())).unwrap();
+            });
+            // Keep the lock held through completion; this fails an unbounded lock wait.
+            let completion = rx.recv_timeout(Duration::from_secs(2));
+            drop(held);
+            (completion, worker.join())
+        });
         cleanup(&inner);
         // A failed signal seam must not run once the retained Child caches exit.
         inner.child.lock().kill_error = Some(libc::EPERM);
         let reaped_stop = supervisor.try_shutdown();
+        assert!(worker.is_ok());
+        let (result, elapsed) =
+            completion.expect("shutdown must finish while the child lock is held");
         println!(
             "bridge-stop-busy pid={pid} elapsed_ms={}; exact child reaped",
             elapsed.as_millis()
         );
-        assert!(result.is_err() && elapsed < Duration::from_millis(250));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Sidecar stop busy"));
         assert!(reaped_stop.is_ok() && supervisor.inner.lock().is_none());
     }
 }
