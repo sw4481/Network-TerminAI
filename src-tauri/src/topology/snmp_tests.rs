@@ -405,4 +405,6 @@ async fn snmp_trusted_python_bootstrap_uses_isolated_import_and_stdin_not_cwd() 
         .unwrap();
     assert_eq!(result.len(), 2);
     processes.shutdown().unwrap();
+    assert!(!package.join("__pycache__").exists());
+    assert!(!package.join("topology/__pycache__").exists());
 }

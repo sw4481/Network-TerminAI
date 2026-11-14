@@ -534,6 +534,7 @@ impl WorkerSpec {
             .env("LC_ALL", "C")
             .current_dir(std::env::temp_dir())
             .arg("-I")
+            .arg("-B")
             .arg("-u")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -812,6 +813,23 @@ impl TelemetryParser {
 mod tests {
     use super::*;
     use crate::telemetry::model::Platform;
+
+    #[tokio::test]
+    async fn isolated_worker_import_preserves_module_tree_without_bytecode() {
+        let dir = tempfile::tempdir().unwrap();
+        let module = dir.path().join("sealed_fixture.py");
+        std::fs::write(&module, "VALUE = 42\n").unwrap();
+        let path = serde_json::to_string(dir.path().to_str().unwrap()).unwrap();
+        let spec = WorkerSpec {
+            script: Some(format!("import sys; sys.path.insert(0, {path}); import sealed_fixture; assert sealed_fixture.VALUE == 42; print(sys.dont_write_bytecode)")),
+            ..WorkerSpec::default()
+        };
+        let output = spec.command().unwrap().output().await.unwrap();
+        assert!(output.status.success());
+        assert_eq!(String::from_utf8(output.stdout).unwrap().trim(), "True");
+        assert_eq!(std::fs::read_to_string(module).unwrap(), "VALUE = 42\n");
+        assert!(!dir.path().join("__pycache__").exists());
+    }
 
     fn sample(raw: &str) -> (Capture, TemplateAsset) {
         let text = "Value NAME (\\S+)\n\nStart\n  ^${NAME}$$ -> Record\n".to_string();

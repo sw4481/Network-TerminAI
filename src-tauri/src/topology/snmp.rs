@@ -454,7 +454,8 @@ impl Worker {
             .env("PATH", "/usr/bin:/bin")
             .env("LC_ALL", "C")
             .current_dir("/")
-            .arg("-I");
+            .arg("-I")
+            .arg("-B");
         if let Some(source) = &self.source {
             command.args(["-c", "import sys,runpy;sys.path.insert(0,sys.argv[1]);sys.argv=['ccie_sidecar.topology.snmp_worker'];runpy.run_module('ccie_sidecar.topology.snmp_worker',run_name='__main__')"]).arg(source);
         } else {
